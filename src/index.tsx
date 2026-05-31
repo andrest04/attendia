@@ -14,6 +14,7 @@ import theme from './theme';
 import './types';
 import { ChatProvider } from './components/ChatProvider';
 import { AttentionProvider } from './components/AttentionProvider';
+import DesignGallery from './components/design/DesignGallery';
 import SecurityPage from './components/SecurityPage/SecurityPage';
 import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
@@ -53,6 +54,10 @@ export const ReactApp = () => (
             </PrivateRoute>
             <Route path="/login">
               <LoginPage />
+            </Route>
+            {/* Dev-only design gallery — mock wireframe screens, not wired to Twilio. */}
+            <Route path="/design">
+              <DesignGallery />
             </Route>
             <Route path="/security">
               <SecurityPage />
