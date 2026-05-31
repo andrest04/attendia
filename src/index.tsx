@@ -14,6 +14,7 @@ import theme from './theme';
 import './types';
 import { ChatProvider } from './components/ChatProvider';
 import { AttentionProvider } from './components/AttentionProvider';
+import SecurityPage from './components/SecurityPage/SecurityPage';
 import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
 import useConnectionOptions from './utils/useConnectionOptions/useConnectionOptions';
@@ -52,6 +53,9 @@ export const ReactApp = () => (
             </PrivateRoute>
             <Route path="/login">
               <LoginPage />
+            </Route>
+            <Route path="/security">
+              <SecurityPage />
             </Route>
             <Redirect to="/" />
           </Switch>

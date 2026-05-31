@@ -9,6 +9,7 @@ jest.mock('react-router-dom', () => {
   return {
     useLocation: jest.fn(),
     useHistory: jest.fn(),
+    Link: ({ children }: { children: React.ReactNode }) => children,
   };
 });
 jest.mock('../../state');
