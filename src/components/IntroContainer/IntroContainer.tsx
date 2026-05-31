@@ -89,6 +89,9 @@ const useStyles = makeStyles((theme: Theme) => ({
 
 interface IntroContainerProps {
   children: React.ReactNode;
+  // Width of the content card. Defaults to the narrow form width (S1); the
+  // device-check step (S2) passes a wider value for its two-column layout.
+  maxWidth?: number;
 }
 
 const IntroContainer = (props: IntroContainerProps) => {
@@ -117,7 +120,9 @@ const IntroContainer = (props: IntroContainerProps) => {
 
       {/* Main content */}
       <div className={classes.main}>
-        <div className={classes.contentCard}>{props.children}</div>
+        <div className={classes.contentCard} style={props.maxWidth ? { maxWidth: props.maxWidth } : undefined}>
+          {props.children}
+        </div>
       </div>
 
       {/* Footer */}
