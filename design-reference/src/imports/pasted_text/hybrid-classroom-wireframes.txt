@@ -1,0 +1,196 @@
+Design a mid-fidelity wireframe prototype (grayscale only, no color) 
+for a WebRTC-based Hybrid Classroom Videoconferencing Platform with 
+Attention Detection ("PDVSPAHCDDA"), built on Twilio Video infrastructure.
+
+The design must cover all 38 User Stories across 8 Epics listed below. 
+Use clean wireframe style: gray fills, white backgrounds, placeholder 
+boxes for video tiles, standard UI components (buttons, inputs, icons 
+as simple shapes), and Figma auto-layout.
+
+---
+
+## SCREENS TO DESIGN
+
+### SCREEN 1 — Landing / Access Page
+Cover US01, US02, US03, US33, US36
+- Two entry paths clearly separated: "Crear sala" (Professor) and 
+  "Unirme a sala" (Student)
+- "Crear sala" form: room name field, config options (toggle recording, 
+  proctoring sensitivity slider — US30), Create button
+- "Unirme a sala" form: code/link field, alias/name field (no account 
+  required — US03), Join button
+- Session token notice ("Acceso seguro por token — US36") as a small 
+  badge or inline label
+- "Usar desde navegador, sin instalación" label (US33)
+
+---
+
+### SCREEN 2 — Waiting Room / Pre-session Check
+Cover US07, US11, US22, US33, US37
+- Camera preview tile (large, centered)
+- Mic and camera toggle buttons (on/off state variants)
+- Connection quality indicator icon (weak / medium / strong — US11)
+- Lighting warning banner: "Condiciones de iluminación insuficientes 
+  para análisis de atención" (US22)
+- Privacy consent notice: link to "Política de privacidad de datos 
+  faciales" (US37)
+- "Entrar a la sala" CTA button
+
+---
+
+### SCREEN 3 — Main Session View (Student perspective)
+Cover US02, US04, US06, US07, US10, US11, US13, US14, US16, US17, 
+US18, US19, US20, US21, US22, US23
+Layout: 3-column grid
+
+LEFT SIDEBAR — Participants panel
+- List of active participants with avatar placeholder + name (US04)
+- "Hand raised" indicator icon next to each name (US14)
+- Toast/notification area for session events: "X joined", "X left", 
+  "X raised hand" (US16)
+
+CENTER — Main video area
+- Large primary video tile (active speaker or screen share)
+- Twilio Video badge/label on the tile footer
+- Connection quality icon overlay on each tile (US11)
+- Degradation notice banner: "Resolución reducida por baja 
+  conectividad" (US10)
+
+RIGHT SIDEBAR — Attention + Chat panel (tabbed)
+Tab 1: CHAT
+- Message thread (US13)
+- Input field + Send button
+
+Tab 2: MI ATENCIÓN (Student's own attention feedback)
+- Personal attention index gauge (0–100 circular meter) (US21)
+- Camera capture status indicator (US17)
+- Head orientation status (gaze direction arrow or label — US19)
+- Posture analysis status (US20)
+- Warning: "Análisis procesado localmente — no se almacenan datos" 
+  (US23)
+- Lighting alert badge (US22)
+
+BOTTOM TOOLBAR
+- Mic toggle, Camera toggle, Share screen (disabled for student), 
+  Raise hand button (active/inactive state — US14), Chat toggle, 
+  Leave button
+
+---
+
+### SCREEN 4 — Main Session View (Professor perspective)
+Cover US01, US04, US05, US08, US09, US12, US13, US15, US24, US25, 
+US26, US27, US28, US29, US31
+Layout: 3-column grid
+
+LEFT SIDEBAR — Participants + Hands
+- Participant list with attention index badge next to each name (US25)
+- "Hand raised" queue with "Dar turno" button per student (US15)
+- Multiple faces detected alert per student tile (US29, US31)
+
+CENTER — Gallery + Main video
+- Grid of student video tiles (up to 30, as per project scope — US08)
+- Each tile shows: video feed placeholder, student name, attention 
+  index badge (low/medium/high as grayscale fill intensity — US25)
+- Proctoring alert icon overlay on tile if multiple faces detected 
+  (US29)
+- Screen share tile when active (US09)
+- "REC" recording indicator badge (US12)
+
+RIGHT SIDEBAR — Attention Analytics panel (tabbed)
+Tab 1: GRUPO
+- Group attention index: large circular gauge (US24)
+- Alert banner: "Atención grupal por debajo del umbral" when triggered 
+  (US28)
+- Attention timeline chart: line graph showing group attention over 
+  session time (US26)
+- "Exportar reporte" button (US27)
+
+Tab 2: INDIVIDUAL
+- Student list with individual attention score bar per student (US25)
+- Sortable by attention level
+
+BOTTOM TOOLBAR
+- Mic toggle, Camera toggle, Share screen button (US09), 
+  Record button (start/stop states — US12), Proctoring config icon 
+  (US30), End session button (US05)
+
+---
+
+### SCREEN 5 — Proctoring Alert Modal
+Cover US29, US30, US31
+- Triggered overlay/modal on professor's screen
+- Title: "Detección múltiple de rostros"
+- Student name + video thumbnail
+- Alert message: "Se detectaron N rostros en la cámara de [student]"
+- Sensitivity slider to adjust proctoring threshold (US30)
+- Actions: "Marcar como legítimo" / "Enviar advertencia al estudiante"
+
+---
+
+### SCREEN 6 — Attention Report (Post-session export preview)
+Cover US26, US27
+- Header: session name, date, duration
+- Group attention timeline line chart
+- Table: student name | avg attention index | min | max | 
+  proctoring alerts
+- "Descargar PDF / CSV" button
+
+---
+
+### SCREEN 7 — Onboarding / First-use Tutorial
+Cover US32, US34
+- Stepped overlay (step 1 of 4 format) shown on first login
+- Each step highlights a specific UI zone with a tooltip callout:
+  Step 1: "Controles de cámara y micrófono"
+  Step 2: "Panel de atención en tiempo real"
+  Step 3: "Chat y levantamiento de mano"
+  Step 4: "Panel del docente — analítica de atención"
+- "Saltar tutorial" link and "Siguiente" button
+- "Acceder al manual completo" link (US34)
+
+---
+
+### SCREEN 8 — Security & Privacy Page (Inline)
+Cover US35, US36, US37, US38
+- Simple info panel accessible from any screen via footer or settings
+- Sections:
+  "Cifrado de transmisión": SRTP/DTLS badge + explanation (US35)
+  "Tokens de acceso": expiry-based token note (US36)
+  "Datos faciales": "Procesados localmente, no persistidos" (US37)
+  "Disponibilidad": uptime commitment note (US38)
+
+---
+
+## DESIGN CONSTRAINTS
+
+- Style: Mid-fidelity wireframe. Grayscale only (white, #F5F5F5, 
+  #E0E0E0, #9E9E9E, #424242, #000000). No color fills.
+- Typography: Use a single sans-serif font (Inter or similar). 
+  Hierarchy via size and weight only.
+- Video tiles: Represented as gray rectangles with a camera icon and 
+  participant name label. No actual images.
+- Charts: Skeleton line/bar chart shapes. Labeled axes, no real data.
+- Icons: Simple outline icons or basic geometric shapes. No icon 
+  libraries required.
+- Spacing: 8px grid. Consistent padding of 16px inside panels.
+- Annotations: Add a small label on each UI element indicating which 
+  US it satisfies (e.g., "[US24]" as a small tag below the component). 
+  This is for design review, not production UI.
+- Responsive target: Desktop (1440px wide layout). No mobile required.
+- Infrastructure note: All video tile areas and transmission-related 
+  UI elements should carry a small "Twilio Video" label in the corner 
+  to reflect the underlying WebRTC SFU infrastructure.
+
+---
+
+## FIGMA ORGANIZATION
+
+- Create one page per screen (8 pages total)
+- Name each page: "S1 – Acceso", "S2 – Sala de espera", 
+  "S3 – Sesión Estudiante", "S4 – Sesión Docente", 
+  "S5 – Alerta Proctoring", "S6 – Reporte Atención", 
+  "S7 – Onboarding", "S8 – Seguridad y Privacidad"
+- Group components by epic (EP01–EP08) using Figma frames with 
+  labeled headers
+- Create a component for: video tile, attention badge, 
+  connection indicator, toolbar button (reused across screens)
