@@ -13,29 +13,29 @@ mockUseAppState.mockImplementation(() => ({ roomType: undefined }));
 describe('the AboutDialog component', () => {
   it('should display Video.isSupported', () => {
     const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-    expect(getByText('Browser supported: true')).toBeTruthy();
+    expect(getByText('Navegador compatible: true')).toBeTruthy();
   });
 
   it('should display the SDK version', () => {
     const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-    expect(getByText('SDK Version: 1.2')).toBeTruthy();
+    expect(getByText('Versión del SDK: 1.2')).toBeTruthy();
   });
 
   it('should display the package.json version', () => {
     process.env.REACT_APP_VERSION = '1.3';
     const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-    expect(getByText('App Version: 1.3')).toBeTruthy();
+    expect(getByText('Versión de la app: 1.3')).toBeTruthy();
   });
 
   it('should not display the room type when it is unknown', () => {
     const { queryByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-    expect(queryByText('Room Type:')).not.toBeTruthy();
+    expect(queryByText('Tipo de sala:')).not.toBeTruthy();
   });
 
   it('should display the room type', () => {
     mockUseAppState.mockImplementationOnce(() => ({ roomType: 'group-small' }));
     const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-    expect(getByText('Room Type: group-small')).toBeTruthy();
+    expect(getByText('Tipo de sala: group-small')).toBeTruthy();
   });
 
   describe('when running locally', () => {
@@ -46,12 +46,12 @@ describe('the AboutDialog component', () => {
 
     it('should display N/A as the git tag', () => {
       const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-      expect(getByText('Deployed Tag: N/A')).toBeTruthy();
+      expect(getByText('Tag desplegado: N/A')).toBeTruthy();
     });
 
     it('should disaply N/A as the commit hash', () => {
       const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-      expect(getByText('Deployed Commit Hash: N/A')).toBeTruthy();
+      expect(getByText('Hash del commit desplegado: N/A')).toBeTruthy();
     });
   });
 
@@ -66,12 +66,12 @@ describe('the AboutDialog component', () => {
 
     it('should display the git tag', () => {
       const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-      expect(getByText('Deployed Tag: v0.1')).toBeTruthy();
+      expect(getByText('Tag desplegado: v0.1')).toBeTruthy();
     });
 
     it('should display the commit hash', () => {
       const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-      expect(getByText('Deployed Commit Hash: 01b2c3')).toBeTruthy();
+      expect(getByText('Hash del commit desplegado: 01b2c3')).toBeTruthy();
     });
   });
 });

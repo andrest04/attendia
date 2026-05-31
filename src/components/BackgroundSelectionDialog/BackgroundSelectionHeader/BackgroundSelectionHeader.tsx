@@ -34,7 +34,7 @@ export default function BackgroundSelectionHeader({ onClose }: BackgroundSelecti
   const classes = useStyles();
   return (
     <div className={classes.container}>
-      <div className={classes.text}>Backgrounds</div>
+      <div className={classes.text}>Fondos</div>
       <button className={classes.closeBackgroundSelection} onClick={onClose}>
         <CloseIcon />
       </button>

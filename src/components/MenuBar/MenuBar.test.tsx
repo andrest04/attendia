@@ -67,7 +67,7 @@ describe('the MenuBar component', () => {
         .at(0)
         .find(Typography)
         .text()
-    ).toBe('You are sharing your screen');
+    ).toBe('Estás compartiendo tu pantalla');
   });
 
   it('should display the ToggleScreenShareButton when isSharingScreen is false and isMobile is false', () => {

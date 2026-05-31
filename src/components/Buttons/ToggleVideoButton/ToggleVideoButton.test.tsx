@@ -22,14 +22,14 @@ describe('the ToggleVideoButton component', () => {
     mockUseLocalVideoToggle.mockImplementation(() => [true, () => {}]);
     const wrapper = shallow(<ToggleVideoButton />);
     expect(wrapper.prop('startIcon')).toEqual(<VideoOnIcon />);
-    expect(wrapper.text()).toBe('Stop Video');
+    expect(wrapper.text()).toBe('Detener video');
   });
 
   it('should render correctly when video is disabled', () => {
     mockUseLocalVideoToggle.mockImplementation(() => [false, () => {}]);
     const wrapper = shallow(<ToggleVideoButton />);
     expect(wrapper.prop('startIcon')).toEqual(<VideoOffIcon />);
-    expect(wrapper.text()).toBe('Start Video');
+    expect(wrapper.text()).toBe('Iniciar video');
   });
 
   it('should render correctly when no video devices exist', () => {
@@ -38,7 +38,7 @@ describe('the ToggleVideoButton component', () => {
     const wrapper = shallow(<ToggleVideoButton />);
     expect(wrapper.prop('startIcon')).toEqual(<VideoOnIcon />);
     expect(wrapper.prop('disabled')).toEqual(true);
-    expect(wrapper.text()).toBe('No Video');
+    expect(wrapper.text()).toBe('Sin video');
   });
 
   it('should call the correct toggle function when clicked', () => {

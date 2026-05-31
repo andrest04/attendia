@@ -67,16 +67,16 @@ describe('the Menu component', () => {
 
       it('should display "Stop Recording"', () => {
         const { getByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
+        fireEvent.click(getByText('Más'));
 
-        expect(getByText('Stop Recording')).toBeTruthy();
+        expect(getByText('Detener grabación')).toBeTruthy();
       });
 
       it('should correctly update recording rules and display the snackbar when the user clicks on the Stop Recording button', () => {
         const { getByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
+        fireEvent.click(getByText('Más'));
 
-        fireEvent.click(getByText('Stop Recording'));
+        fireEvent.click(getByText('Detener grabación'));
 
         expect(mockUpdateRecordingRules).toHaveBeenCalledWith('mockRoomSid', [{ all: true, type: 'exclude' }]);
         waitForElement(() => getByText('You can view the recording in the Twilio Console'));
@@ -96,8 +96,8 @@ describe('the Menu component', () => {
           setIsGalleryViewActive: mockSetIsGalleryViewActive,
         }));
         const { getByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
-        expect(getByText('Start Recording')).toBeTruthy();
+        fireEvent.click(getByText('Más'));
+        expect(getByText('Iniciar grabación')).toBeTruthy();
       });
 
       it('should render the recording button in group-small rooms', () => {
@@ -108,8 +108,8 @@ describe('the Menu component', () => {
           setIsGalleryViewActive: mockSetIsGalleryViewActive,
         }));
         const { getByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
-        expect(getByText('Start Recording')).toBeTruthy();
+        fireEvent.click(getByText('Más'));
+        expect(getByText('Iniciar grabación')).toBeTruthy();
       });
 
       it('should not render the recording button in go rooms', () => {
@@ -120,8 +120,8 @@ describe('the Menu component', () => {
           setIsGalleryViewActive: mockSetIsGalleryViewActive,
         }));
         const { getByText, queryByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
-        expect(queryByText('Start Recording')).toBeNull();
+        fireEvent.click(getByText('Más'));
+        expect(queryByText('Iniciar grabación')).toBeNull();
       });
 
       it('should not render the recording button in peer-to-peer rooms', () => {
@@ -132,8 +132,8 @@ describe('the Menu component', () => {
           setIsGalleryViewActive: mockSetIsGalleryViewActive,
         }));
         const { getByText, queryByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
-        expect(queryByText('Start Recording')).toBeNull();
+        fireEvent.click(getByText('Más'));
+        expect(queryByText('Iniciar grabación')).toBeNull();
       });
 
       it('should render the recording button when roomType is undefined', () => {
@@ -144,22 +144,22 @@ describe('the Menu component', () => {
           setIsGalleryViewActive: mockSetIsGalleryViewActive,
         }));
         const { getByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
-        expect(getByText('Start Recording')).toBeTruthy();
+        fireEvent.click(getByText('Más'));
+        expect(getByText('Iniciar grabación')).toBeTruthy();
       });
 
       it('should display "Start Recording"', () => {
         const { getByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
+        fireEvent.click(getByText('Más'));
 
-        expect(getByText('Start Recording')).toBeTruthy();
+        expect(getByText('Iniciar grabación')).toBeTruthy();
       });
 
       it('should correctly update recording rules and display the snackbar when the user clicks on the Start Recording button', () => {
         const { getByText } = render(<Menu />);
-        fireEvent.click(getByText('More'));
+        fireEvent.click(getByText('Más'));
 
-        fireEvent.click(getByText('Start Recording'));
+        fireEvent.click(getByText('Iniciar grabación'));
         expect(mockUpdateRecordingRules).toHaveBeenCalledWith('mockRoomSid', [{ all: true, type: 'include' }]);
       });
 
@@ -220,8 +220,8 @@ describe('the Menu component', () => {
       }));
 
       const { getByText } = render(<Menu />);
-      fireEvent.click(getByText('More'));
-      fireEvent.click(getByText('Gallery View'));
+      fireEvent.click(getByText('Más'));
+      fireEvent.click(getByText('Vista de galería'));
 
       expect(mockSetIsGalleryViewActive.mock.calls[0][0](false)).toBe(true);
     });
@@ -233,8 +233,8 @@ describe('the Menu component', () => {
       }));
 
       const { getByText } = render(<Menu />);
-      fireEvent.click(getByText('More'));
-      fireEvent.click(getByText('Speaker View'));
+      fireEvent.click(getByText('Más'));
+      fireEvent.click(getByText('Vista de orador'));
 
       expect(mockSetIsGalleryViewActive.mock.calls[0][0](true)).toBe(false);
     });
