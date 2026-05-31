@@ -14,6 +14,8 @@ import FormControlLabel from '@material-ui/core/FormControlLabel';
 import { useKrispToggle } from '../../../hooks/useKrispToggle/useKrispToggle';
 import SmallCheckIcon from '../../../icons/SmallCheckIcon';
 import InfoIconOutlined from '../../../icons/InfoIconOutlined';
+import WarningIcon from '@material-ui/icons/Warning';
+import SecurityIcon from '@material-ui/icons/Security';
 
 const useStyles = makeStyles((theme: Theme) => ({
   gutterBottom: {
@@ -36,10 +38,16 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   joinButtons: {
     display: 'flex',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: '0.8em',
+    '& button': {
+      whiteSpace: 'nowrap',
+    },
     [theme.breakpoints.down('sm')]: {
       flexDirection: 'column-reverse',
       width: '100%',
+      gap: 0,
       '& button': {
         margin: '0.5em 0',
       },
@@ -66,6 +74,55 @@ const useStyles = makeStyles((theme: Theme) => ({
     '& svg': {
       marginLeft: '0.3em',
     },
+  },
+  // Lighting check banner — static placeholder (not wired to real analysis)
+  lightingBanner: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: '10px 14px',
+    marginBottom: '1em',
+    backgroundColor: '#FFF8E1',
+    border: '1px solid #FFE082',
+    borderRadius: 4,
+  },
+  lightingBannerText: {
+    fontSize: '0.8rem',
+    color: 'rgb(40, 42, 43)',
+  },
+  // Privacy / connection info block
+  preJoinInfoBlock: {
+    padding: '10px 14px',
+    marginTop: '0.5em',
+    backgroundColor: '#F5F5F5',
+    border: '1px dashed #BDBDBD',
+    borderRadius: 4,
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  preJoinInfoText: {
+    fontSize: '0.78rem',
+    color: '#616161',
+  },
+  // Static connection quality pill
+  connectionPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 4,
+    padding: '2px 8px',
+    borderRadius: 12,
+    backgroundColor: '#E0E0E0',
+    fontSize: '0.75rem',
+    color: '#616161',
+    marginBottom: '0.5em',
+  },
+  connectionDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    backgroundColor: '#9E9E9E',
+    flexShrink: 0,
   },
 }));
 
@@ -98,7 +155,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         </div>
         <div>
           <Typography variant="body2" style={{ fontWeight: 'bold', fontSize: '16px' }}>
-            Joining Meeting
+            Uniéndose a la reunión
           </Typography>
         </div>
       </Grid>
@@ -108,8 +165,21 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   return (
     <>
       <Typography variant="h5" className={classes.gutterBottom}>
-        Join {roomName}
+        Unirse a {roomName}
       </Typography>
+
+      {/*
+        Lighting check — static placeholder (not yet wired to real analysis).
+        Displayed as a soft informational hint, not a blocking warning.
+      */}
+      <div className={classes.lightingBanner} role="note" aria-label="Verificación de iluminación">
+        <WarningIcon style={{ fontSize: 16, color: '#F9A825', flexShrink: 0, marginTop: 2 }} />
+        <Typography className={classes.lightingBannerText}>
+          <strong>Verifica tu iluminación:</strong> asegúrate de tener buena luz para que el sistema pueda analizar tu
+          atención correctamente.
+          {/* Lighting check — static placeholder. Not yet wired to real analysis. */}
+        </Typography>
+      </div>
 
       <Grid container justifyContent="center">
         <Grid item md={7} sm={12} xs={12}>
@@ -145,9 +215,9 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
               style={{ marginBottom: '1em' }}
             >
               <div className={classes.toolTipContainer}>
-                <Typography variant="subtitle2">Noise Cancellation</Typography>
+                <Typography variant="subtitle2">Cancelación de ruido</Typography>
                 <Tooltip
-                  title="Suppress background noise from your microphone"
+                  title="Suprime el ruido de fondo de tu micrófono"
                   interactive
                   leaveDelay={250}
                   leaveTouchDelay={15000}
@@ -168,7 +238,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
                     onClick={toggleKrisp}
                   />
                 }
-                label={isKrispEnabled ? 'Enabled' : 'Disabled'}
+                label={isKrispEnabled ? 'Activado' : 'Desactivado'}
                 style={{ marginRight: 0 }}
                 // Prevents <Switch /> from being temporarily enabled (and then quickly disabled) in unsupported browsers after
                 // isAcquiringLocalTracks becomes false:
@@ -180,17 +250,30 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         </Grid>
 
         <Grid item md={12} sm={12} xs={12}>
+          {/*
+            No Room exists pre-connect — network quality is not available here (static placeholder).
+            The pill below is purely decorative until a Room connection is established.
+          */}
+          <div className={classes.preJoinInfoBlock}>
+            <SecurityIcon style={{ fontSize: 14, color: '#9E9E9E', marginTop: 2, flexShrink: 0 }} />
+            <Typography className={classes.preJoinInfoText}>
+              El análisis de atención se procesa localmente. No se almacenan datos faciales.
+            </Typography>
+          </div>
+        </Grid>
+
+        <Grid item md={12} sm={12} xs={12}>
           <Grid container direction="row" alignItems="center" style={{ marginTop: '1em' }}>
             <Hidden smDown>
-              <Grid item md={7} sm={12} xs={12}>
+              <Grid item md={5} sm={12} xs={12}>
                 <SettingsMenu mobileButtonClass={classes.mobileButton} />
               </Grid>
             </Hidden>
 
-            <Grid item md={5} sm={12} xs={12}>
+            <Grid item md={7} sm={12} xs={12}>
               <div className={classes.joinButtons}>
                 <Button variant="outlined" color="primary" onClick={() => setStep(Steps.roomNameStep)}>
-                  Cancel
+                  Cancelar
                 </Button>
                 <Button
                   variant="contained"
@@ -199,7 +282,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
                   onClick={handleJoin}
                   disabled={disableButtons}
                 >
-                  Join Now
+                  Unirme ahora
                 </Button>
               </div>
             </Grid>
