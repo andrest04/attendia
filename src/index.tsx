@@ -13,6 +13,7 @@ import PrivateRoute from './components/PrivateRoute/PrivateRoute';
 import theme from './theme';
 import './types';
 import { ChatProvider } from './components/ChatProvider';
+import { AttentionProvider } from './components/AttentionProvider';
 import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
 import useConnectionOptions from './utils/useConnectionOptions/useConnectionOptions';
@@ -27,7 +28,9 @@ const VideoApp = () => {
       <ErrorDialog dismissError={() => setError(null)} error={error} />
       <ParticipantProvider>
         <ChatProvider>
-          <App />
+          <AttentionProvider>
+            <App />
+          </AttentionProvider>
         </ChatProvider>
       </ParticipantProvider>
     </VideoProvider>

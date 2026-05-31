@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import AttentionPanel from '../AttentionPanel/AttentionPanel';
 import BackgroundSelectionDialog from '../BackgroundSelectionDialog/BackgroundSelectionDialog';
 import ChatWindow from '../ChatWindow/ChatWindow';
 import clsx from 'clsx';
@@ -73,7 +74,7 @@ export function useSetSpeakerViewOnScreenShare(
 
 export default function Room() {
   const classes = useStyles();
-  const { isChatWindowOpen } = useChatContext();
+  const { isChatWindowOpen, isAttentionPanelOpen } = useChatContext();
   const { isBackgroundSelectionOpen, room } = useVideoContext();
   const { isGalleryViewActive, setIsGalleryViewActive } = useAppState();
   const theme = useTheme();
@@ -87,7 +88,7 @@ export default function Room() {
   return (
     <div
       className={clsx(classes.container, {
-        [classes.rightDrawerOpen]: isChatWindowOpen || isBackgroundSelectionOpen,
+        [classes.rightDrawerOpen]: isChatWindowOpen || isBackgroundSelectionOpen || isAttentionPanelOpen,
       })}
     >
       {/* 
@@ -111,6 +112,7 @@ export default function Room() {
       )}
 
       <ChatWindow />
+      <AttentionPanel />
       <BackgroundSelectionDialog />
       <TranscriptionsOverlay />
     </div>
