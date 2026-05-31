@@ -120,9 +120,9 @@ export default createTheme({
         padding: 2,
         color: '#FFFFFF',
         '&$checked': {
-          transform: 'translateX(18px)',
-          top: '50%',
-          marginTop: -24 / 2,
+          // Thumb travel = root width (42) − thumb (14) − 2×padding (2) = 24px.
+          // No vertical offset: the 2px padding already centers the 14px thumb in the 18px root.
+          transform: 'translateX(24px)',
           '&$disabled': {
             '& + $track': {
               opacity: '0.5',
@@ -133,7 +133,7 @@ export default createTheme({
       colorSecondary: {
         '&$checked': {
           // Controls checked color for the thumb
-          color: 'FFFFF',
+          color: '#FFFFFF',
         },
       },
       thumb: {
