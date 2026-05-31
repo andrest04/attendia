@@ -20,15 +20,15 @@ function AboutDialog({ open, onClose }: PropsWithChildren<AboutDialogProps>) {
   const { roomType } = useAppState();
   return (
     <Dialog open={open} onClose={onClose} fullWidth={true} maxWidth="xs">
-      <DialogTitle>About</DialogTitle>
+      <DialogTitle>Acerca de</DialogTitle>
       <Divider />
       <DialogContent>
-        <DialogContentText>Browser supported: {String(Video.isSupported)}</DialogContentText>
-        <DialogContentText>SDK Version: {Video.version}</DialogContentText>
-        <DialogContentText>App Version: {packageJSON.version}</DialogContentText>
-        <DialogContentText>Deployed Tag: {process.env.REACT_APP_GIT_TAG || 'N/A'}</DialogContentText>
-        <DialogContentText>Deployed Commit Hash: {process.env.REACT_APP_GIT_COMMIT || 'N/A'}</DialogContentText>
-        {roomType && <DialogContentText>Room Type: {roomType}</DialogContentText>}
+        <DialogContentText>Navegador compatible: {String(Video.isSupported)}</DialogContentText>
+        <DialogContentText>Versión del SDK: {Video.version}</DialogContentText>
+        <DialogContentText>Versión de la app: {packageJSON.version}</DialogContentText>
+        <DialogContentText>Tag desplegado: {process.env.REACT_APP_GIT_TAG || 'N/A'}</DialogContentText>
+        <DialogContentText>Hash del commit desplegado: {process.env.REACT_APP_GIT_COMMIT || 'N/A'}</DialogContentText>
+        {roomType && <DialogContentText>Tipo de sala: {roomType}</DialogContentText>}
       </DialogContent>
       <Divider />
       <DialogActions>

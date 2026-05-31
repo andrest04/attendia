@@ -56,7 +56,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <MoreIcon />
         ) : (
           <>
-            More
+            Más
             <ExpandMoreIcon />
           </>
         )}
@@ -78,7 +78,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <IconContainer>
             <SettingsIcon />
           </IconContainer>
-          <Typography variant="body1">Audio and Video Settings</Typography>
+          <Typography variant="body1">Configuración de audio y video</Typography>
         </MenuItem>
 
         {isSupported && (
@@ -92,7 +92,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             <IconContainer>
               <BackgroundIcon />
             </IconContainer>
-            <Typography variant="body1">Backgrounds</Typography>
+            <Typography variant="body1">Fondos</Typography>
           </MenuItem>
         )}
 
@@ -101,7 +101,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             <IconContainer>
               <FlipCameraIcon />
             </IconContainer>
-            <Typography variant="body1">Flip Camera</Typography>
+            <Typography variant="body1">Girar cámara</Typography>
           </MenuItem>
         )}
 
@@ -119,7 +119,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             data-cy-recording-button
           >
             <IconContainer>{isRecording ? <StopRecordingIcon /> : <StartRecordingIcon />}</IconContainer>
-            <Typography variant="body1">{isRecording ? 'Stop' : 'Start'} Recording</Typography>
+            <Typography variant="body1">{isRecording ? 'Detener grabación' : 'Iniciar grabación'}</Typography>
           </MenuItem>
         )}
 
@@ -132,7 +132,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <IconContainer>
             <SearchIcon style={{ fill: '#707578', width: '0.9em' }} />
           </IconContainer>
-          <Typography variant="body1">Room Monitor</Typography>
+          <Typography variant="body1">Monitor de sala</Typography>
         </MenuItem>
 
         <MenuItem
@@ -148,14 +148,14 @@ export default function Menu(props: { buttonClassName?: string }) {
               <GridViewIcon style={{ fill: '#707578', width: '0.9em' }} />
             )}
           </IconContainer>
-          <Typography variant="body1">{isGalleryViewActive ? 'Speaker View' : 'Gallery View'}</Typography>
+          <Typography variant="body1">{isGalleryViewActive ? 'Vista de orador' : 'Vista de galería'}</Typography>
         </MenuItem>
 
         <MenuItem onClick={() => setAboutOpen(true)}>
           <IconContainer>
             <InfoIconOutlined />
           </IconContainer>
-          <Typography variant="body1">About</Typography>
+          <Typography variant="body1">Acerca de</Typography>
         </MenuItem>
       </MenuContainer>
       <AboutDialog

@@ -61,24 +61,24 @@ describe('the SettingsMenu component', () => {
 
     it('should render the correct button', () => {
       const wrapper = shallow(<Menu />);
-      expect(wrapper.find(Button).text()).toBe('Settings');
+      expect(wrapper.find(Button).text()).toBe('Configuración');
     });
 
     it('should render the "Connection Settings" button when the roomType is "group"', () => {
       const wrapper = shallow(<Menu />);
-      expect(wrapper.find({ children: 'Connection Settings' }).exists()).toBe(true);
+      expect(wrapper.find({ children: 'Configuración de conexión' }).exists()).toBe(true);
     });
 
     it('should not render the "Connection Settings" button when the roomType is "go"', () => {
       mockUseAppState.mockImplementationOnce(() => ({ roomType: 'go' }));
       const wrapper = shallow(<Menu />);
-      expect(wrapper.find({ children: 'Connection Settings' }).exists()).toBe(false);
+      expect(wrapper.find({ children: 'Configuración de conexión' }).exists()).toBe(false);
     });
 
     it('should not render the "Connection Settings" button when the roomType is "peer-to-peer"', () => {
       mockUseAppState.mockImplementationOnce(() => ({ roomType: 'peer-to-peer' }));
       const wrapper = shallow(<Menu />);
-      expect(wrapper.find({ children: 'Connection Settings' }).exists()).toBe(false);
+      expect(wrapper.find({ children: 'Configuración de conexión' }).exists()).toBe(false);
     });
   });
 
@@ -89,7 +89,7 @@ describe('the SettingsMenu component', () => {
 
     it('should render the correct icon', () => {
       const wrapper = shallow(<Menu />);
-      expect(wrapper.find(Button).text()).toBe('More');
+      expect(wrapper.find(Button).text()).toBe('Más');
     });
   });
 });
