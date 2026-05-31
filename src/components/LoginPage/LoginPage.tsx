@@ -13,7 +13,7 @@ import MenuBookIcon from '@material-ui/icons/MenuBook';
 import PersonIcon from '@material-ui/icons/Person';
 
 import { makeStyles } from '@material-ui/core/styles';
-import { useLocation, useHistory } from 'react-router-dom';
+import { useLocation, useHistory, Link } from 'react-router-dom';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // ── Role cards ──────────────────────────────────────────────────────────────
@@ -114,6 +114,17 @@ const useStyles = makeStyles((theme: Theme) => ({
   submitButton: {
     [theme.breakpoints.down('sm')]: {
       width: '100%',
+    },
+  },
+  securityLink: {
+    display: 'block',
+    marginTop: '2em',
+    textAlign: 'right',
+    fontSize: '0.75rem',
+    color: theme.palette.text.secondary,
+    textDecoration: 'none',
+    '&:hover': {
+      textDecoration: 'underline',
     },
   },
 }));
@@ -252,6 +263,10 @@ export default function LoginPage() {
           </form>
         </>
       )}
+
+      <Link to="/security" className={classes.securityLink}>
+        Seguridad y privacidad
+      </Link>
     </IntroContainer>
   );
 }
