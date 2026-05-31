@@ -26,7 +26,10 @@ const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 
 const mockToggleChatWindow = jest.fn();
 const mockOpenBackgroundSelection = jest.fn();
-mockUseChatContext.mockImplementation(() => ({ setIsChatWindowOpen: mockToggleChatWindow }));
+mockUseChatContext.mockImplementation(() => ({
+  setIsChatWindowOpen: mockToggleChatWindow,
+  isAttentionPanelOpen: false,
+}));
 mockUseVideoContext.mockImplementation(() => ({ setIsBackgroundSelectionOpen: mockOpenBackgroundSelection }));
 mockUseAppState.mockImplementation(() => ({ isGalleryViewActive: false }));
 
@@ -44,6 +47,12 @@ describe('the Room component', () => {
 
   it('should render correctly with the background selection window open', () => {
     mockUseVideoContext.mockImplementationOnce(() => ({ isBackgroundSelectionOpen: true }));
+    const wrapper = shallow(<Room />);
+    expect(wrapper.prop('className')).toContain('rightDrawerOpen');
+  });
+
+  it('should render correctly with the attention panel open', () => {
+    mockUseChatContext.mockImplementationOnce(() => ({ isAttentionPanelOpen: true }));
     const wrapper = shallow(<Room />);
     expect(wrapper.prop('className')).toContain('rightDrawerOpen');
   });

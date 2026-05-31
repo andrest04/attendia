@@ -7,6 +7,7 @@ import ToggleCaptionsButton from '../Buttons/ToggleCaptionsButton/ToggleCaptions
 import ToggleChatButton from '../Buttons/ToggleChatButton/ToggleChatButton';
 import ToggleScreenShareButton from '../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import ToggleVideoButton from '../Buttons/ToggleVideoButton/ToggleVideoButton';
+import ToggleAttentionButton from '../Buttons/ToggleAttentionButton/ToggleAttentionButton';
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useRoomState from '../../hooks/useRoomState/useRoomState';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
@@ -143,5 +144,10 @@ describe('the MenuBar component', () => {
   it('should render the ToggleCaptionsButton', () => {
     const wrapper = shallow(<MenuBar />);
     expect(wrapper.find(ToggleCaptionsButton).exists()).toBe(true);
+  });
+
+  it('should render the ToggleAttentionButton', () => {
+    const wrapper = shallow(<MenuBar />);
+    expect(wrapper.find(ToggleAttentionButton).exists()).toBe(true);
   });
 });
