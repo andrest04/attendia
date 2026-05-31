@@ -1,91 +1,89 @@
 import React from 'react';
 import { makeStyles, Theme, Typography } from '@material-ui/core';
-import Swoosh from './swoosh';
-import VideoLogo from './VideoLogo';
-import TwilioLogo from './TwilioLogo';
 import { useAppState } from '../../state';
 import UserMenu from './UserMenu/UserMenu';
 import { useLocation } from 'react-router-dom';
 
 const useStyles = makeStyles((theme: Theme) => ({
-  background: {
+  // ── Full-page layout (S1 design) ────────────────────────────────────────────
+  root: {
+    minHeight: '100%',
+    backgroundColor: '#F5F5F5',
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgb(40, 42, 43)',
-    height: '100%',
+    flexDirection: 'column',
   },
-  container: {
-    position: 'relative',
-    flex: '1',
-  },
-  innerContainer: {
+
+  // ── Header ──────────────────────────────────────────────────────────────────
+  header: {
+    backgroundColor: '#FFFFFF',
+    borderBottom: '1px solid #E0E0E0',
+    padding: '20px 40px',
     display: 'flex',
-    width: '888px',
-    height: '379px',
-    borderRadius: '8px',
-    boxShadow: '0px 2px 4px 0px rgba(40, 42, 43, 0.3)',
-    overflow: 'hidden',
-    position: 'relative',
-    margin: 'auto',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 12,
     [theme.breakpoints.down('sm')]: {
-      display: 'block',
-      height: 'auto',
-      width: 'calc(100% - 40px)',
-      margin: 'auto',
-      maxWidth: '400px',
+      padding: '16px 20px',
     },
   },
-  swooshContainer: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundImage: Swoosh,
-    backgroundSize: 'cover',
-    width: '296px',
-    [theme.breakpoints.down('sm')]: {
-      width: '100%',
-      height: '100px',
-      backgroundPositionY: '140px',
-    },
+  headerTitle: {
+    color: '#000000',
+    fontSize: 20,
+    fontWeight: 700,
+    lineHeight: 1.2,
   },
-  logoContainer: {
-    position: 'absolute',
-    width: '210px',
-    textAlign: 'center',
-    [theme.breakpoints.down('sm')]: {
-      display: 'flex',
-      alignItems: 'center',
-      width: '90%',
-      textAlign: 'initial',
-      '& svg': {
-        height: '64px',
-      },
-    },
+  headerSubtitle: {
+    fontSize: 12,
+    color: '#9E9E9E',
+    marginTop: 4,
   },
-  twilioLogo: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    margin: '20px',
+  userMenuWrapper: {
+    marginLeft: 'auto',
   },
-  content: {
-    background: 'white',
-    width: '100%',
-    padding: '3em 4em',
+
+  // ── Main content area ────────────────────────────────────────────────────────
+  main: {
     flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
     [theme.breakpoints.down('sm')]: {
-      padding: '2em',
+      padding: '24px 16px',
+      alignItems: 'flex-start',
     },
   },
-  title: {
-    color: 'white',
-    margin: '1em 0 0',
+  contentCard: {
+    backgroundColor: '#FFFFFF',
+    border: '1px solid #E0E0E0',
+    borderRadius: 8,
+    padding: '28px 32px',
+    width: '100%',
+    maxWidth: 520,
+    boxShadow: '0px 1px 4px rgba(40,42,43,0.08)',
     [theme.breakpoints.down('sm')]: {
-      margin: 0,
-      fontSize: '1.1rem',
+      padding: '20px 16px',
     },
+  },
+
+  // ── Footer ──────────────────────────────────────────────────────────────────
+  footer: {
+    borderTop: '1px solid #E0E0E0',
+    backgroundColor: '#FFFFFF',
+    padding: '12px 40px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    [theme.breakpoints.down('sm')]: {
+      padding: '12px 20px',
+    },
+  },
+  footerText: {
+    fontSize: 11,
+    color: '#9E9E9E',
   },
 }));
 
@@ -99,21 +97,34 @@ const IntroContainer = (props: IntroContainerProps) => {
   const location = useLocation();
 
   return (
-    <div className={classes.background}>
-      <TwilioLogo className={classes.twilioLogo} />
-      {user && location.pathname !== '/login' && <UserMenu />}
-      <div className={classes.container}>
-        <div className={classes.innerContainer}>
-          <div className={classes.swooshContainer}>
-            <div className={classes.logoContainer}>
-              <VideoLogo />
-              <Typography variant="h6" className={classes.title}>
-                Twilio Programmable Video
-              </Typography>
-            </div>
-          </div>
-          <div className={classes.content}>{props.children}</div>
+    <div className={classes.root}>
+      {/* Header */}
+      <div className={classes.header}>
+        <div>
+          <Typography component="h1" className={classes.headerTitle}>
+            Plataforma de Prueba
+          </Typography>
+          <Typography className={classes.headerSubtitle}>
+            Plataforma de Videoconferencia Síncrona para Aulas Híbridas
+          </Typography>
         </div>
+        {user && location.pathname !== '/login' && (
+          <div className={classes.userMenuWrapper}>
+            <UserMenu />
+          </div>
+        )}
+      </div>
+
+      {/* Main content */}
+      <div className={classes.main}>
+        <div className={classes.contentCard}>{props.children}</div>
+      </div>
+
+      {/* Footer */}
+      <div className={classes.footer}>
+        <Typography className={classes.footerText}>
+          Infraestructura: <strong>Twilio Video WebRTC SFU</strong>
+        </Typography>
       </div>
     </div>
   );

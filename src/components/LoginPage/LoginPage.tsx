@@ -9,17 +9,82 @@ import { InputLabel, Theme } from '@material-ui/core';
 import IntroContainer from '../IntroContainer/IntroContainer';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
+import MenuBookIcon from '@material-ui/icons/MenuBook';
+import PersonIcon from '@material-ui/icons/Person';
 
 import { makeStyles } from '@material-ui/core/styles';
 import { useLocation, useHistory } from 'react-router-dom';
 
 const useStyles = makeStyles((theme: Theme) => ({
+  // ── Role cards ──────────────────────────────────────────────────────────────
+  roleCards: {
+    display: 'flex',
+    gap: 24,
+    marginBottom: 28,
+    [theme.breakpoints.down('xs')]: {
+      flexDirection: 'column',
+    },
+  },
+  roleCard: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '14px 16px',
+    borderRadius: 8,
+    border: '2px solid #E0E0E0',
+    backgroundColor: '#FFFFFF',
+    cursor: 'pointer',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+    '&:hover': {
+      borderColor: '#027AC5',
+    },
+  },
+  roleCardSelected: {
+    borderColor: '#027AC5',
+    boxShadow: '0 0 0 2px rgba(2,122,197,0.15)',
+  },
+  roleAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  roleAvatarProfesor: {
+    backgroundColor: '#424242',
+  },
+  roleAvatarEstudiante: {
+    backgroundColor: '#9E9E9E',
+  },
+  roleLabel: {
+    fontSize: 14,
+    fontWeight: 600,
+    color: '#212121',
+    lineHeight: 1.2,
+  },
+  roleCaption: {
+    fontSize: 11,
+    color: '#9E9E9E',
+    marginTop: 2,
+  },
+
+  // ── Auth form elements ───────────────────────────────────────────────────────
+  heading: {
+    marginBottom: '0.5em',
+  },
+  subheading: {
+    marginBottom: '1.2em',
+    color: '#616161',
+  },
   googleButton: {
     background: 'white',
     color: 'rgb(0, 94, 166)',
     borderRadius: '4px',
     border: '2px solid rgb(2, 122, 197)',
-    margin: '1.8em 0 0.7em',
+    margin: '1.2em 0 0.7em',
     textTransform: 'none',
     boxShadow: 'none',
     padding: '0.3em 1em',
@@ -53,6 +118,10 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+// SEAM: real role model deferred — today both roles use the same getToken flow
+// (create_room=true). S3/S4 will consume the selected role later.
+type Role = 'profesor' | 'estudiante';
+
 export default function LoginPage() {
   const classes = useStyles();
   const { signIn, user, isAuthReady } = useAppState();
@@ -60,6 +129,7 @@ export default function LoginPage() {
   const location = useLocation<{ from: Location }>();
   const [passcode, setPasscode] = useState('');
   const [authError, setAuthError] = useState<Error | null>(null);
+  const [selectedRole, setSelectedRole] = useState<Role>('profesor');
 
   const isAuthEnabled = Boolean(process.env.REACT_APP_SET_AUTH);
 
@@ -87,28 +157,69 @@ export default function LoginPage() {
 
   return (
     <IntroContainer>
+      {/* Role selection cards — cosmetic seam only; both roles use the same auth flow today */}
+      <div className={classes.roleCards}>
+        <div
+          data-testid="role-card-profesor"
+          className={`${classes.roleCard} ${selectedRole === 'profesor' ? classes.roleCardSelected : ''}`}
+          onClick={() => setSelectedRole('profesor')}
+          role="radio"
+          aria-checked={selectedRole === 'profesor'}
+          tabIndex={0}
+          onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSelectedRole('profesor')}
+        >
+          <div className={`${classes.roleAvatar} ${classes.roleAvatarProfesor}`}>
+            <MenuBookIcon style={{ fontSize: 18, color: '#FFFFFF' }} />
+          </div>
+          <div>
+            <div className={classes.roleLabel}>Profesor</div>
+            <div className={classes.roleCaption}>Crear nueva sala de clase</div>
+          </div>
+        </div>
+
+        <div
+          data-testid="role-card-estudiante"
+          className={`${classes.roleCard} ${selectedRole === 'estudiante' ? classes.roleCardSelected : ''}`}
+          onClick={() => setSelectedRole('estudiante')}
+          role="radio"
+          aria-checked={selectedRole === 'estudiante'}
+          tabIndex={0}
+          onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSelectedRole('estudiante')}
+        >
+          <div className={`${classes.roleAvatar} ${classes.roleAvatarEstudiante}`}>
+            <PersonIcon style={{ fontSize: 18, color: '#FFFFFF' }} />
+          </div>
+          <div>
+            <div className={classes.roleLabel}>Estudiante</div>
+            <div className={classes.roleCaption}>Unirme a sala existente</div>
+          </div>
+        </div>
+      </div>
+
       {process.env.REACT_APP_SET_AUTH === 'firebase' && (
         <>
-          <Typography variant="h5" className={classes.gutterBottom}>
-            Sign in to join a room
+          <Typography variant="h5" className={classes.heading}>
+            Iniciar sesión para unirte
           </Typography>
-          <Typography variant="body1">Sign in using your Twilio Google Account</Typography>
+          <Typography variant="body1" className={classes.subheading}>
+            Inicia sesión con tu cuenta Google de Twilio
+          </Typography>
           <Button variant="contained" className={classes.googleButton} onClick={login} startIcon={<GoogleLogo />}>
-            Sign in with Google
+            Iniciar sesión con Google
           </Button>
         </>
       )}
 
       {process.env.REACT_APP_SET_AUTH === 'passcode' && (
         <>
-          <Typography variant="h5" className={classes.gutterBottom}>
-            Enter passcode to join a room
+          <Typography variant="h5" className={classes.heading}>
+            Ingresa el código de acceso
           </Typography>
           <form onSubmit={handleSubmit}>
             <Grid container justifyContent="space-between">
               <div className={classes.passcodeContainer}>
                 <InputLabel shrink htmlFor="input-passcode">
-                  Passcode
+                  Código de acceso
                 </InputLabel>
                 <TextField
                   id="input-passcode"
@@ -135,7 +246,7 @@ export default function LoginPage() {
                 disabled={!passcode.length}
                 className={classes.submitButton}
               >
-                Submit
+                Ingresar
               </Button>
             </Grid>
           </form>

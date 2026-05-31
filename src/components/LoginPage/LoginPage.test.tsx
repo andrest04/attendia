@@ -38,14 +38,14 @@ describe('the LoginPage component', () => {
       mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
       const { getByText } = render(<LoginPage />);
       expect(mockReplace).not.toHaveBeenCalled();
-      expect(getByText('Sign in with Google')).toBeTruthy();
+      expect(getByText('Iniciar sesión con Google')).toBeTruthy();
     });
 
     it('should redirect the user to "/" after signIn when there is no previous location', done => {
       process.env.REACT_APP_SET_AUTH = 'firebase';
       mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
       const { getByText } = render(<LoginPage />);
-      getByText('Sign in with Google').click();
+      getByText('Iniciar sesión con Google').click();
       setImmediate(() => {
         expect(mockReplace).toHaveBeenCalledWith({ pathname: '/' });
         done();
@@ -57,7 +57,7 @@ describe('the LoginPage component', () => {
       mockUseLocation.mockImplementation(() => ({ state: { from: { pathname: '/room/test' } } }));
       mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
       const { getByText } = render(<LoginPage />);
-      getByText('Sign in with Google').click();
+      getByText('Iniciar sesión con Google').click();
       setImmediate(() => {
         expect(mockReplace).toHaveBeenCalledWith({ pathname: '/room/test' });
         done();
@@ -81,10 +81,10 @@ describe('the LoginPage component', () => {
       const { getByLabelText, getByText } = render(<LoginPage />);
 
       act(() => {
-        fireEvent.change(getByLabelText('Passcode'), { target: { value: '1234' } });
+        fireEvent.change(getByLabelText('Código de acceso'), { target: { value: '1234' } });
       });
       act(() => {
-        fireEvent.submit(getByText('Submit'));
+        fireEvent.submit(getByText('Ingresar'));
       });
 
       setImmediate(() => {
@@ -100,11 +100,11 @@ describe('the LoginPage component', () => {
       const { getByLabelText, getByText } = render(<LoginPage />);
 
       act(() => {
-        fireEvent.change(getByLabelText('Passcode'), { target: { value: '1234' } });
+        fireEvent.change(getByLabelText('Código de acceso'), { target: { value: '1234' } });
       });
 
       act(() => {
-        fireEvent.submit(getByText('Submit'));
+        fireEvent.submit(getByText('Ingresar'));
       });
 
       const element = await waitForElement(() => getByText('Test Error'));
@@ -117,5 +117,40 @@ describe('the LoginPage component', () => {
     mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
     render(<LoginPage />);
     expect(mockReplace).toHaveBeenCalledWith('/');
+  });
+
+  describe('role cards', () => {
+    it('should render both role cards', () => {
+      process.env.REACT_APP_SET_AUTH = 'firebase';
+      mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
+      const { getByTestId, getByText } = render(<LoginPage />);
+      expect(getByTestId('role-card-profesor')).toBeTruthy();
+      expect(getByTestId('role-card-estudiante')).toBeTruthy();
+      expect(getByText('Profesor')).toBeTruthy();
+      expect(getByText('Estudiante')).toBeTruthy();
+    });
+
+    it('should default to the "profesor" role selected', () => {
+      process.env.REACT_APP_SET_AUTH = 'firebase';
+      mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
+      const { getByTestId } = render(<LoginPage />);
+      expect(getByTestId('role-card-profesor').getAttribute('aria-checked')).toBe('true');
+      expect(getByTestId('role-card-estudiante').getAttribute('aria-checked')).toBe('false');
+    });
+
+    it('should update the selected role when a card is clicked (no auth behavior change)', () => {
+      process.env.REACT_APP_SET_AUTH = 'firebase';
+      mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
+      const { getByTestId } = render(<LoginPage />);
+
+      act(() => {
+        fireEvent.click(getByTestId('role-card-estudiante'));
+      });
+
+      expect(getByTestId('role-card-estudiante').getAttribute('aria-checked')).toBe('true');
+      expect(getByTestId('role-card-profesor').getAttribute('aria-checked')).toBe('false');
+      // Auth behavior is unaffected by role selection — mockReplace not called
+      expect(mockReplace).not.toHaveBeenCalled();
+    });
   });
 });

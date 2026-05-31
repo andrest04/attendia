@@ -68,7 +68,7 @@ describe('the DeviceSelectionScreen component', () => {
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
 
     it('should disable the Join Now, toggle video, and toggle audio buttons', () => {
-      expect(wrapper.find({ children: 'Join Now' }).prop('disabled')).toBe(true);
+      expect(wrapper.find({ children: 'Unirme ahora' }).prop('disabled')).toBe(true);
     });
 
     it('should disable the desktop and mobile toggle video buttons', () => {
@@ -105,19 +105,19 @@ describe('the DeviceSelectionScreen component', () => {
 
   it('should not disable the Join Now button by default', () => {
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
-    expect(wrapper.find({ children: 'Join Now' }).prop('disabled')).toBe(false);
+    expect(wrapper.find({ children: 'Unirme ahora' }).prop('disabled')).toBe(false);
   });
 
   it('should go back to the RoomNameScreen when the Cancel button is clicked', () => {
     const mockSetStep = jest.fn();
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={mockSetStep} />);
-    wrapper.find({ children: 'Cancel' }).simulate('click');
+    wrapper.find({ children: 'Cancelar' }).simulate('click');
     expect(mockSetStep).toHaveBeenCalledWith(Steps.roomNameStep);
   });
 
   it('should fetch a token and connect to the Video SDK and Conversations SDK when the Join Now button is clicked', done => {
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
-    wrapper.find({ children: 'Join Now' }).simulate('click');
+    wrapper.find({ children: 'Unirme ahora' }).simulate('click');
 
     expect(mockGetToken).toHaveBeenCalledWith('test name', 'test room name');
     setImmediate(() => {
@@ -130,7 +130,7 @@ describe('the DeviceSelectionScreen component', () => {
   it('should fetch a token and connect to the Video SDK only when the Join Now button is clicked when the REACT_APP_DISABLE_TWILIO_CONVERSATIONS variable is true', done => {
     process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS = 'true';
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
-    wrapper.find({ children: 'Join Now' }).simulate('click');
+    wrapper.find({ children: 'Unirme ahora' }).simulate('click');
 
     expect(mockGetToken).toHaveBeenCalledWith('test name', 'test room name');
     setImmediate(() => {
