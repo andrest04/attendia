@@ -53,7 +53,7 @@ export default function PreJoinScreens() {
   };
 
   return (
-    <IntroContainer>
+    <IntroContainer maxWidth={step === Steps.deviceSelectionStep ? 940 : undefined}>
       <MediaErrorSnackbar error={mediaError} />
       {step === Steps.roomNameStep && (
         <RoomNameScreen

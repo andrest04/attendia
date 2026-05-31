@@ -17,6 +17,16 @@ declare global {
     setSinkId?(sinkId: string): Promise<undefined>;
   }
 
+  // Network Information API — used pre-connect to estimate connection quality.
+  // Not yet in the TS DOM lib; only `effectiveType` + the `change` event are relied upon.
+  interface NetworkInformation extends EventTarget {
+    readonly effectiveType?: 'slow-2g' | '2g' | '3g' | '4g';
+  }
+
+  interface Navigator {
+    readonly connection?: NetworkInformation;
+  }
+
   // Helps create a union type with TwilioError
   interface Error {
     code: undefined;

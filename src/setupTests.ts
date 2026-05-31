@@ -25,5 +25,14 @@ class LocalStorage {
 
 Object.defineProperty(window, 'localStorage', { value: new LocalStorage() });
 
+// jsdom does not implement canvas drawing APIs. Mock the tiny subset used by
+// the pre-join lighting check so tests stay quiet and deterministic.
+Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
+  value: jest.fn(() => ({
+    drawImage: jest.fn(),
+    getImageData: jest.fn(() => ({ data: new Uint8ClampedArray(32 * 32 * 4) })),
+  })),
+});
+
 // This is to suppress the "Platform browser has already been set." warnings from the video-processors library
 jest.mock('@twilio/video-processors', () => ({}));
