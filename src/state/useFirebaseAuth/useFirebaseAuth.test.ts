@@ -23,7 +23,7 @@ jest.mock('firebase/auth', () => {
 });
 
 // @ts-ignore
-window.fetch = jest.fn(() => Promise.resolve({ json: () => ({ token: 'mockVideoToken' }) }));
+window.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => ({ token: 'mockVideoToken' }) }));
 
 describe('the useFirebaseAuth hook', () => {
   afterEach(jest.clearAllMocks);

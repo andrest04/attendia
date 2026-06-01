@@ -99,7 +99,7 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
       getToken: async (user_identity, room_name) => {
         const endpoint = process.env.REACT_APP_TOKEN_ENDPOINT || '/token';
 
-        return fetch(endpoint, {
+        const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
@@ -109,7 +109,16 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
             room_name,
             create_conversation: process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true',
           }),
-        }).then(res => res.json());
+        });
+
+        if (!response.ok) {
+          // Surface the server's reason (e.g. the room-access guard rejecting a student
+          // for a room the teacher hasn't opened) through the app-level ErrorDialog.
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error?.explanation || body.error?.message || response.statusText);
+        }
+
+        return response.json();
       },
       updateRecordingRules: async (room_sid, rules) => {
         const endpoint = process.env.REACT_APP_TOKEN_ENDPOINT || '/recordingrules';
