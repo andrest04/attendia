@@ -20,7 +20,10 @@ import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetwork
 import TranscriptionsOverlay from '../TranscriptionsOverlay/TranscriptionsOverlay';
 import StudentRoomShell from './StudentRoomShell';
 import { StudentRoomToolbar } from './StudentRoomShell';
+import ProfessorRoomShell, { ProfessorToolbar } from './ProfessorRoomShell';
+import { ProfessorRightTab } from './ProfessorRoomShell/ProfessorRoomShell';
 import useShellNotifications from './StudentRoomShell/useShellNotifications';
+import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 
 const useStyles = makeStyles((theme: Theme) => {
   const totalMobileSidebarHeight = `${theme.sidebarMobileHeight +
@@ -39,6 +42,9 @@ const useStyles = makeStyles((theme: Theme) => {
       },
     },
     rightDrawerOpen: { gridTemplateColumns: `1fr ${theme.sidebarWidth}px ${theme.rightDrawerWidth}px` },
+    // The desktop room shells (Professor/Student) are self-contained full-bleed layouts that own their
+    // left/center/right rails, so the legacy sidebar column must collapse to avoid an empty black gutter.
+    desktopShell: { gridTemplateColumns: '100%' },
   };
 });
 
@@ -87,7 +93,11 @@ export default function Room() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const screenShareParticipant = useScreenShareParticipant();
   const [rightTab, setRightTab] = useState<'chat' | 'attention'>('chat');
+  const [professorTab, setProfessorTab] = useState<ProfessorRightTab>('grupo');
   const [handRaised, setHandRaised] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [proctoringEnabled, setProctoringEnabled] = useState(true);
+  const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
   const mainParticipant = useMainParticipant();
   const participants = useParticipants();
   const localParticipantNetworkQuality = useParticipantNetworkQualityLevel(room?.localParticipant ?? null);
@@ -109,6 +119,7 @@ export default function Room() {
     <div
       className={clsx(classes.container, {
         [classes.rightDrawerOpen]: hasLegacyRightDrawer,
+        [classes.desktopShell]: isDesktopShell && !hasLegacyRightDrawer,
       })}
     >
       {/* 
@@ -118,31 +129,37 @@ export default function Room() {
       */}
       <ParticipantAudioTracks />
 
-      {isGalleryViewActive ? (
-        isMobile ? (
+      {isMobile ? (
+        isGalleryViewActive ? (
           <MobileGalleryView />
         ) : (
-          <StudentRoomShell
-            stage={<GalleryView />}
-            toolbarSlot={<StudentRoomToolbar handRaised={handRaised} onHandRaisedChange={setHandRaised} />}
-            rightTab={rightTab}
-            onRightTabChange={setRightTab}
-            activeSpeakerLabel={activeSpeakerLabel}
-            sessionLabel={sessionLabel}
-            participantCount={participantCount}
-            notifications={notifications}
-            isConnectivityDegraded={isConnectivityDegraded}
-            rightPanel={rightTab === 'chat' ? <ChatWindow embedded isVisible /> : <AttentionPanel embedded isVisible />}
-          />
+          <>
+            <MainParticipant />
+            <ParticipantList />
+          </>
         )
-      ) : isMobile ? (
-        <>
-          <MainParticipant />
-          <ParticipantList />
-        </>
+      ) : isTeacher ? (
+        <ProfessorRoomShell
+          stage={isGalleryViewActive ? <GalleryView /> : <MainParticipant />}
+          toolbarSlot={
+            <ProfessorToolbar
+              recording={recording}
+              onRecordingChange={setRecording}
+              proctoringEnabled={proctoringEnabled}
+              onProctoringChange={setProctoringEnabled}
+            />
+          }
+          rightTab={professorTab}
+          onRightTabChange={setProfessorTab}
+          sessionLabel={sessionLabel}
+          sessionName={room?.name || sessionLabel}
+          participantCount={participantCount}
+          recording={recording}
+          proctoringEnabled={proctoringEnabled}
+        />
       ) : (
         <StudentRoomShell
-          stage={<MainParticipant />}
+          stage={isGalleryViewActive ? <GalleryView /> : <MainParticipant />}
           toolbarSlot={<StudentRoomToolbar handRaised={handRaised} onHandRaisedChange={setHandRaised} />}
           rightTab={rightTab}
           onRightTabChange={setRightTab}
