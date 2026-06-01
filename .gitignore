@@ -38,3 +38,6 @@ public/virtualbackground/
 
 # SDD agent infrastructure
 .atl/
+
+# Claude Code local runtime state
+.claude/
