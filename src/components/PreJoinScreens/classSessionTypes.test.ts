@@ -1,0 +1,76 @@
+import {
+  createClassSessionAccess,
+  toClassSessionDisplayName,
+  createDefaultClassSessionDraft,
+  isClassSessionDraftReady,
+  normalizeStudentJoinInputToRoomName,
+  toClassSessionRoomName,
+} from './classSessionTypes';
+
+describe('classSessionTypes helpers', () => {
+  it('defaults draft with teacher role, medium sensitivity and recording disabled', () => {
+    const draft = createDefaultClassSessionDraft('Teacher Name');
+
+    expect(draft.role).toBe('teacher');
+    expect(draft.displayName).toBe('Teacher Name');
+    expect(draft.sessionName).toBe('');
+    expect(draft.recordingEnabled).toBe(false);
+    expect(draft.monitoringSensitivity).toBe('medium');
+    expect(isClassSessionDraftReady(draft)).toBe(false);
+  });
+
+  it('normalizes roomName from sessionName and uses it as joinCode in v1', () => {
+    const roomName = toClassSessionRoomName('  Física 101 - Mañana  ');
+
+    expect(roomName).toBe('fisica-101-manana');
+
+    const access = createClassSessionAccess(
+      {
+        role: 'teacher',
+        displayName: 'Teacher Name',
+        sessionName: 'Física 101 - Mañana',
+        recordingEnabled: true,
+        monitoringSensitivity: 'high',
+      },
+      'https://example.org',
+      '?lang=es'
+    );
+
+    expect(access.roomName).toBe('fisica-101-manana');
+    expect(access.joinCode).toBe(access.roomName);
+    expect(access.joinLink).toBe('https://example.org/room/fisica-101-manana?lang=es');
+  });
+
+  it('encodes join link when roomName contains reserved characters', () => {
+    const access = createClassSessionAccess(
+      {
+        role: 'teacher',
+        displayName: 'Teacher Name',
+        sessionName: 'Session: A/B?',
+        recordingEnabled: false,
+        monitoringSensitivity: 'low',
+      },
+      'https://example.org',
+      ''
+    );
+
+    expect(access.joinLink).toContain('/room/session-a-b');
+  });
+
+  it('adds teacher suffix for visible identity before token handoff', () => {
+    expect(toClassSessionDisplayName('Andres Torres', 'teacher')).toBe('Andres Torres [Profesor]');
+    expect(toClassSessionDisplayName('Andres Torres [Profesor]', 'teacher')).toBe('Andres Torres [Profesor]');
+    expect(toClassSessionDisplayName('Ana Lopez', 'student')).toBe('Ana Lopez');
+  });
+
+  it('normalizes student join input from room code and full links', () => {
+    expect(normalizeStudentJoinInputToRoomName('fisica-101')).toBe('fisica-101');
+    expect(normalizeStudentJoinInputToRoomName('https://example.org/room/fisica-101')).toBe('fisica-101');
+    expect(normalizeStudentJoinInputToRoomName('https://example.org/room/fisica-101?lang=es&utm=campaign')).toBe(
+      'fisica-101'
+    );
+    expect(normalizeStudentJoinInputToRoomName('https://example.org/room/fisica-101%20avanzada?lang=es')).toBe(
+      'fisica-101 avanzada'
+    );
+  });
+});
