@@ -271,6 +271,9 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         <Typography className={classes.subtitle}>
           Verifica tus dispositivos antes de entrar · Sala: <strong>{roomName}</strong>
         </Typography>
+        <Typography className={classes.subtitle}>
+          Paso compartido para profesor y estudiante antes de entrar.
+        </Typography>
       </div>
 
       {/* Lighting warning — only shown when the live luminance check finds the scene too dark. */}

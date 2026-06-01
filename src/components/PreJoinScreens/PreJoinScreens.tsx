@@ -1,11 +1,19 @@
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect } from 'react';
 import DeviceSelectionScreen from './DeviceSelectionScreen/DeviceSelectionScreen';
 import IntroContainer from '../IntroContainer/IntroContainer';
 import MediaErrorSnackbar from './MediaErrorSnackbar/MediaErrorSnackbar';
 import RoomNameScreen from './RoomNameScreen/RoomNameScreen';
 import { useAppState } from '../../state';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import {
+  ClassSessionAccess,
+  ClassSessionDraft,
+  createClassSessionAccess,
+  createDefaultClassSessionDraft,
+  normalizeStudentJoinInputToRoomName,
+  toClassSessionDisplayName,
+} from './classSessionTypes';
 
 export enum Steps {
   roomNameStep,
@@ -16,21 +24,41 @@ export default function PreJoinScreens() {
   const { user } = useAppState();
   const { getAudioAndVideoTracks } = useVideoContext();
   const { URLRoomName } = useParams<{ URLRoomName?: string }>();
+  const location = useLocation<{ preJoinRole?: 'teacher' | 'student' }>();
+  const preJoinRole = location.state?.preJoinRole;
+  const initialRole: 'teacher' | 'student' = URLRoomName
+    ? 'student'
+    : preJoinRole === 'student'
+    ? 'student'
+    : 'teacher';
   const [step, setStep] = useState(Steps.roomNameStep);
 
   const [name, setName] = useState<string>(user?.displayName || '');
+  const [teacherDisplayName, setTeacherDisplayName] = useState<string>(
+    toClassSessionDisplayName(user?.displayName || '', 'teacher')
+  );
   const [roomName, setRoomName] = useState<string>('');
+  const [studentJoinCode, setStudentJoinCode] = useState<string>('');
+  const [classSessionDraft, setClassSessionDraft] = useState<ClassSessionDraft>(() => ({
+    ...createDefaultClassSessionDraft(user?.displayName || ''),
+    role: initialRole,
+  }));
+  const [classSessionAccess, setClassSessionAccess] = useState<ClassSessionAccess | null>(null);
 
   const [mediaError, setMediaError] = useState<Error>();
 
   useEffect(() => {
     if (URLRoomName) {
       setRoomName(URLRoomName);
-      if (user?.displayName) {
-        setStep(Steps.deviceSelectionStep);
-      }
+      setStudentJoinCode(URLRoomName);
+      setClassSessionDraft(prev => ({ ...prev, role: 'student' }));
     }
-  }, [user, URLRoomName]);
+  }, [URLRoomName]);
+
+  useEffect(() => {
+    setClassSessionDraft(prev => ({ ...prev, displayName: name }));
+    setTeacherDisplayName(toClassSessionDisplayName(name, 'teacher'));
+  }, [name]);
 
   useEffect(() => {
     if (step === Steps.deviceSelectionStep && !mediaError) {
@@ -42,14 +70,31 @@ export default function PreJoinScreens() {
     }
   }, [getAudioAndVideoTracks, step, mediaError]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const goToDeviceSelection = () => {
+    const normalizedStudentRoomName = normalizeStudentJoinInputToRoomName(studentJoinCode);
+
+    if (classSessionDraft.role === 'student') {
+      setRoomName(normalizedStudentRoomName);
+    }
+
     // If this app is deployed as a twilio function, don't change the URL because routing isn't supported.
     // @ts-ignore
     if (!window.location.origin.includes('twil.io') && !window.STORYBOOK_ENV) {
-      window.history.replaceState(null, '', window.encodeURI(`/room/${roomName}${window.location.search || ''}`));
+      const selectedRoomName = classSessionDraft.role === 'student' ? normalizedStudentRoomName : roomName;
+      window.history.replaceState(
+        null,
+        '',
+        window.encodeURI(`/room/${selectedRoomName}${window.location.search || ''}`)
+      );
     }
     setStep(Steps.deviceSelectionStep);
+  };
+
+  const handleCreateClassSession = () => {
+    const access = createClassSessionAccess(classSessionDraft, window.location.origin, window.location.search || '');
+    setClassSessionAccess(access);
+    setRoomName(access.roomName);
+    setName(toClassSessionDisplayName(classSessionDraft.displayName, 'teacher'));
   };
 
   return (
@@ -59,9 +104,16 @@ export default function PreJoinScreens() {
         <RoomNameScreen
           name={name}
           roomName={roomName}
+          teacherDisplayName={teacherDisplayName}
+          classSessionDraft={classSessionDraft}
+          classSessionAccess={classSessionAccess}
+          studentJoinCode={studentJoinCode}
           setName={setName}
-          setRoomName={setRoomName}
-          handleSubmit={handleSubmit}
+          setStudentJoinCode={setStudentJoinCode}
+          setClassSessionDraft={setClassSessionDraft}
+          onSelectRole={role => setClassSessionDraft(prev => ({ ...prev, role }))}
+          onCreateClassSession={handleCreateClassSession}
+          onContinueToDeviceSelection={goToDeviceSelection}
         />
       )}
 

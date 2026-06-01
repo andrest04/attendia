@@ -24,7 +24,10 @@ mockUseHistory.mockImplementation(() => ({ replace: mockReplace }));
 mockUseLocation.mockImplementation(() => ({ pathname: '/login' }));
 
 describe('the LoginPage component', () => {
-  beforeEach(jest.clearAllMocks);
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseLocation.mockImplementation(() => ({ pathname: '/login' }));
+  });
 
   describe('with auth enabled', () => {
     it('should redirect to "/" when there is a user ', () => {
@@ -48,7 +51,7 @@ describe('the LoginPage component', () => {
       const { getByText } = render(<LoginPage />);
       getByText('Iniciar sesión con Google').click();
       setImmediate(() => {
-        expect(mockReplace).toHaveBeenCalledWith({ pathname: '/' });
+        expect(mockReplace).toHaveBeenCalledWith({ pathname: '/', state: { preJoinRole: 'teacher' } });
         done();
       });
     });
@@ -60,7 +63,7 @@ describe('the LoginPage component', () => {
       const { getByText } = render(<LoginPage />);
       getByText('Iniciar sesión con Google').click();
       setImmediate(() => {
-        expect(mockReplace).toHaveBeenCalledWith({ pathname: '/room/test' });
+        expect(mockReplace).toHaveBeenCalledWith({ pathname: '/room/test', state: { preJoinRole: 'teacher' } });
         done();
       });
     });
@@ -131,27 +134,30 @@ describe('the LoginPage component', () => {
       expect(getByText('Estudiante')).toBeTruthy();
     });
 
-    it('should default to the "profesor" role selected', () => {
+    it('should allow selecting student role card', () => {
       process.env.REACT_APP_SET_AUTH = 'firebase';
       mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
-      const { getByTestId } = render(<LoginPage />);
-      expect(getByTestId('role-card-profesor').getAttribute('aria-checked')).toBe('true');
-      expect(getByTestId('role-card-estudiante').getAttribute('aria-checked')).toBe('false');
+      const { getByTestId, getByText } = render(<LoginPage />);
+
+      expect(getByText('Elige tu rol para iniciar el flujo correspondiente.')).toBeTruthy();
+      expect(getByTestId('role-card-profesor').getAttribute('aria-pressed')).toBe('true');
+      fireEvent.click(getByTestId('role-card-estudiante'));
+      expect(getByTestId('role-card-profesor').getAttribute('aria-pressed')).toBe('false');
+      expect(getByTestId('role-card-estudiante').getAttribute('aria-pressed')).toBe('true');
     });
 
-    it('should update the selected role when a card is clicked (no auth behavior change)', () => {
+    it('should pass selected student role on sign in', done => {
       process.env.REACT_APP_SET_AUTH = 'firebase';
       mockUseAppState.mockImplementation(() => ({ user: null, signIn: () => Promise.resolve(), isAuthReady: true }));
-      const { getByTestId } = render(<LoginPage />);
+      const { getByTestId, getByText } = render(<LoginPage />);
 
-      act(() => {
-        fireEvent.click(getByTestId('role-card-estudiante'));
+      fireEvent.click(getByTestId('role-card-estudiante'));
+      getByText('Iniciar sesión con Google').click();
+
+      setImmediate(() => {
+        expect(mockReplace).toHaveBeenCalledWith({ pathname: '/', state: { preJoinRole: 'student' } });
+        done();
       });
-
-      expect(getByTestId('role-card-estudiante').getAttribute('aria-checked')).toBe('true');
-      expect(getByTestId('role-card-profesor').getAttribute('aria-checked')).toBe('false');
-      // Auth behavior is unaffected by role selection — mockReplace not called
-      expect(mockReplace).not.toHaveBeenCalled();
     });
   });
 });
