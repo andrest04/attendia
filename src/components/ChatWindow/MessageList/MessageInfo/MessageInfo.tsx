@@ -11,6 +11,10 @@ const useStyles = makeStyles(() =>
       fontSize: '12px',
       color: '#606B85',
     },
+    author: {
+      fontWeight: 700,
+      color: '#121C2D',
+    },
   })
 );
 
@@ -25,7 +29,7 @@ export default function MessageInfo({ author, dateCreated, isLocalParticipant }:
 
   return (
     <div className={classes.messageInfoContainer}>
-      <div>{isLocalParticipant ? `${author} (You)` : author}</div>
+      <div className={classes.author}>{isLocalParticipant ? `${author} (You)` : author}</div>
       <div>{dateCreated}</div>
     </div>
   );

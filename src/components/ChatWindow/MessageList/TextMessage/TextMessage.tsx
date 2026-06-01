@@ -6,18 +6,20 @@ import { makeStyles } from '@material-ui/core/styles';
 
 const useStyles = makeStyles({
   messageContainer: {
-    borderRadius: '16px',
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '0.5em 0.8em 0.6em',
+    borderRadius: '8px',
+    display: 'block',
+    padding: '0.55em 0.8em',
     margin: '0.3em 0 0',
     wordBreak: 'break-word',
-    backgroundColor: '#E1E3EA',
+    backgroundColor: '#F4F5F7',
+    border: '1px solid #E4E7E9',
+    fontSize: '13px',
     hyphens: 'auto',
     whiteSpace: 'pre-wrap',
   },
   isLocalParticipant: {
-    backgroundColor: '#CCE4FF',
+    backgroundColor: '#E9F2FF',
+    borderColor: '#CCE4FF',
   },
 });
 

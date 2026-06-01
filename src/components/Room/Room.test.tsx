@@ -189,6 +189,26 @@ describe('the Room component', () => {
     expect(shell.exists()).toBe(true);
     expect(shell.prop('isConnectivityDegraded')).toBe(false);
   });
+
+  it('routes the local participant to the student shell when identity has no teacher suffix', () => {
+    const wrapper = shallow(<Room />);
+
+    expect(wrapper.find('StudentRoomShell').exists()).toBe(true);
+    expect(wrapper.find('ProfessorRoomShell').exists()).toBe(false);
+  });
+
+  it('routes the local participant to the professor shell when identity carries the teacher suffix', () => {
+    mockUseVideoContext.mockImplementationOnce(() => ({
+      setIsBackgroundSelectionOpen: jest.fn(),
+      isBackgroundSelectionOpen: false,
+      room: { localParticipant: { identity: 'Andres Torres [Profesor]' } },
+    }));
+
+    const wrapper = shallow(<Room />);
+
+    expect(wrapper.find('ProfessorRoomShell').exists()).toBe(true);
+    expect(wrapper.find('StudentRoomShell').exists()).toBe(false);
+  });
 });
 
 describe('the useSetSpeakerViewOnScreenShare hook', () => {
