@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext, useMemo } from 'react';
 import ArrowBack from '@material-ui/icons/ArrowBack';
 import ArrowForward from '@material-ui/icons/ArrowForward';
 import clsx from 'clsx';
@@ -6,12 +6,15 @@ import { GALLERY_VIEW_ASPECT_RATIO, GALLERY_VIEW_MARGIN } from '../../constants'
 import { IconButton, makeStyles, createStyles, Theme } from '@material-ui/core';
 import { Pagination } from '@material-ui/lab';
 import Participant from '../Participant/Participant';
+import { ParticipantTileAttention } from '../ParticipantInfo/ParticipantInfo';
 import useGalleryViewLayout from '../../hooks/useGalleryViewLayout/useGalleryViewLayout';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useParticipantsContext from '../../hooks/useParticipantsContext/useParticipantsContext';
 import { usePagination } from './usePagination/usePagination';
 import useDominantSpeaker from '../../hooks/useDominantSpeaker/useDominantSpeaker';
 import { useAppState } from '../../state';
+import { AttentionContext } from '../AttentionProvider';
+import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 
 const CONTAINER_GUTTER = '50px';
 
@@ -75,6 +78,17 @@ const useStyles = makeStyles((theme: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
+    studentCount: {
+      position: 'absolute',
+      top: 16,
+      left: 0,
+      right: 0,
+      textAlign: 'center',
+      color: 'white',
+      fontSize: 12,
+      zIndex: 6,
+      pointerEvents: 'none',
+    },
   })
 );
 
@@ -85,10 +99,26 @@ export function GalleryView() {
   const { galleryViewParticipants } = useParticipantsContext();
   const dominantSpeaker = useDominantSpeaker(true);
 
+  // Attention overlays are read defensively (the context is null outside the
+  // provider, e.g. in unit tests) and surfaced on the professor's gallery only.
+  const attention = useContext(AttentionContext);
+  const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
+  const attentionByIdentity = useMemo(() => {
+    const byIdentity = new Map<string, ParticipantTileAttention>();
+    if (isTeacher && attention) {
+      attention.participants.forEach(p => byIdentity.set(p.identity, { level: p.level, multiface: p.multiface }));
+    }
+    return byIdentity;
+  }, [isTeacher, attention]);
+
   const { paginatedParticipants, setCurrentPage, currentPage, totalPages } = usePagination([
     room!.localParticipant,
     ...galleryViewParticipants,
   ]);
+
+  const visibleStudentCount = paginatedParticipants.filter(participant => participant !== room!.localParticipant)
+    .length;
+  const totalStudentCount = galleryViewParticipants.length;
 
   const galleryViewLayoutParticipantCount =
     currentPage === 1 ? paginatedParticipants.length : maxGalleryViewParticipants;
@@ -99,6 +129,11 @@ export function GalleryView() {
 
   return (
     <div className={classes.container}>
+      {isTeacher && totalStudentCount > 0 && (
+        <div className={classes.studentCount} data-testid="gallery-student-count">
+          Mostrando {visibleStudentCount} / {totalStudentCount} estudiantes
+        </div>
+      )}
       <div className={clsx(classes.buttonContainer, classes.buttonContainerLeft)}>
         {!(currentPage === 1) && (
           <IconButton className={classes.paginationButton} onClick={() => setCurrentPage(page => page - 1)}>
@@ -138,6 +173,9 @@ export function GalleryView() {
               participant={participant}
               isLocalParticipant={participant === room!.localParticipant}
               isDominantSpeaker={participant === dominantSpeaker}
+              attention={
+                participant === room!.localParticipant ? undefined : attentionByIdentity.get(participant.identity)
+              }
             />
           </div>
         ))}
