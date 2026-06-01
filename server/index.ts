@@ -1,5 +1,7 @@
 import './bootstrap-globals';
-import { createExpressHandler } from './createExpressHandler';
+import { createExpressHandler, twilioClient } from './createExpressHandler';
+import { createRoomAccessGuard } from './roomAccessGuard';
+import { createRoomExists } from './roomExists';
 import express, { RequestHandler } from 'express';
 import path from 'path';
 import { ServerlessFunction } from './types';
@@ -22,7 +24,12 @@ const noopMiddleware: RequestHandler = (_, __, next) => next();
 const authMiddleware =
   process.env.REACT_APP_SET_AUTH === 'firebase' ? require('./firebaseAuthMiddleware') : noopMiddleware;
 
-app.all('/token', authMiddleware, tokenEndpoint);
+// Students may only join a room a teacher has already opened (see roomAccessGuard for
+// the threat-model caveats). A room counts as open when an in-progress Twilio room with
+// that unique name exists.
+const roomExists = createRoomExists(twilioClient);
+
+app.all('/token', authMiddleware, createRoomAccessGuard(roomExists), tokenEndpoint);
 app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 
 app.use((req, res, next) => {
