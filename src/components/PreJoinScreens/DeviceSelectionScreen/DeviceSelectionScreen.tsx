@@ -9,6 +9,7 @@ import RemoveCircleOutlineIcon from '@material-ui/icons/RemoveCircleOutline';
 import WifiIcon from '@material-ui/icons/Wifi';
 
 import { LocalVideoTrack } from 'twilio-video';
+import { saveRejoinSession } from '../rejoinSession';
 import LocalVideoPreview from './LocalVideoPreview/LocalVideoPreview';
 import SettingsMenu from './SettingsMenu/SettingsMenu';
 import { Steps } from '../PreJoinScreens';
@@ -243,10 +244,19 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   const revealedChecks = useStaggeredReveal(deviceChecks.length);
 
   const handleJoin = () => {
-    getToken(name, roomName).then(({ token }) => {
-      videoConnect(token);
-      process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true' && chatConnect(token);
-    });
+    getToken(name, roomName)
+      .then(({ token }) => {
+        // Persist enough to auto-rejoin after a refresh. The identity carries the role
+        // (teacher/student), so reconnecting with it restores the correct room shell.
+        saveRejoinSession({ roomName, identity: name });
+        videoConnect(token);
+        process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true' && chatConnect(token);
+      })
+      // getToken now rejects when the server refuses (e.g. the room-access guard blocking
+      // a student for a room the teacher hasn't opened). The error is already surfaced via
+      // the app-level ErrorDialog (setError in the getToken wrapper); just swallow the
+      // rejection here so it doesn't become an unhandled promise rejection.
+      .catch(() => {});
   };
 
   if (isFetching || isConnecting) {
