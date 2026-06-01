@@ -6,6 +6,10 @@ import Room, { useSetSpeakerViewOnScreenShare } from './Room';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { useAppState } from '../../state';
+import { useMediaQuery } from '@material-ui/core';
+import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipant';
+import useParticipants from '../../hooks/useParticipants/useParticipants';
+import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
 
 jest.mock('swiper/react', () => ({
   Swiper: jest.fn(),
@@ -19,19 +23,40 @@ jest.mock('swiper', () => ({
 jest.mock('../../hooks/useChatContext/useChatContext');
 jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../state');
+jest.mock('../../hooks/useMainParticipant/useMainParticipant');
+jest.mock('../../hooks/useParticipants/useParticipants');
+jest.mock('../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel');
+jest.mock('@material-ui/core', () => {
+  const actual = jest.requireActual('@material-ui/core');
+  return { ...actual, useMediaQuery: jest.fn() };
+});
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseChatContext = useChatContext as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
+const mockUseMediaQuery = useMediaQuery as jest.Mock<any>;
+const mockUseMainParticipant = useMainParticipant as jest.Mock<any>;
+const mockUseParticipants = useParticipants as jest.Mock<any>;
+const mockUseParticipantNetworkQualityLevel = useParticipantNetworkQualityLevel as jest.Mock<any>;
 
 const mockToggleChatWindow = jest.fn();
 const mockOpenBackgroundSelection = jest.fn();
 mockUseChatContext.mockImplementation(() => ({
+  isChatWindowOpen: false,
   setIsChatWindowOpen: mockToggleChatWindow,
   isAttentionPanelOpen: false,
+  setIsAttentionPanelOpen: jest.fn(),
 }));
-mockUseVideoContext.mockImplementation(() => ({ setIsBackgroundSelectionOpen: mockOpenBackgroundSelection }));
-mockUseAppState.mockImplementation(() => ({ isGalleryViewActive: false }));
+mockUseVideoContext.mockImplementation(() => ({
+  setIsBackgroundSelectionOpen: mockOpenBackgroundSelection,
+  isBackgroundSelectionOpen: false,
+  room: { localParticipant: {} },
+}));
+mockUseAppState.mockImplementation(() => ({ isGalleryViewActive: false, setIsGalleryViewActive: jest.fn() }));
+mockUseMediaQuery.mockImplementation(() => false);
+mockUseMainParticipant.mockImplementation(() => ({ identity: 'profesor-demo' }));
+mockUseParticipants.mockImplementation(() => [{ identity: 'student-a' }, { identity: 'student-b' }]);
+mockUseParticipantNetworkQualityLevel.mockImplementation(() => null);
 
 describe('the Room component', () => {
   it('should render correctly when the chat window and background selection windows are closed', () => {
@@ -40,38 +65,129 @@ describe('the Room component', () => {
   });
 
   it('should render correctly with chat window open', () => {
-    mockUseChatContext.mockImplementationOnce(() => ({ isChatWindowOpen: true }));
+    mockUseChatContext.mockImplementationOnce(() => ({
+      isChatWindowOpen: true,
+      isAttentionPanelOpen: false,
+      setIsAttentionPanelOpen: jest.fn(),
+      setIsChatWindowOpen: jest.fn(),
+    }));
     const wrapper = shallow(<Room />);
-    expect(wrapper.prop('className')).toContain('rightDrawerOpen');
+    expect(wrapper.prop('className')).not.toContain('rightDrawerOpen');
   });
 
   it('should render correctly with the background selection window open', () => {
-    mockUseVideoContext.mockImplementationOnce(() => ({ isBackgroundSelectionOpen: true }));
+    mockUseVideoContext.mockImplementationOnce(() => ({
+      isBackgroundSelectionOpen: true,
+      setIsBackgroundSelectionOpen: jest.fn(),
+      room: { localParticipant: {} },
+    }));
     const wrapper = shallow(<Room />);
     expect(wrapper.prop('className')).toContain('rightDrawerOpen');
   });
 
   it('should render correctly with the attention panel open', () => {
-    mockUseChatContext.mockImplementationOnce(() => ({ isAttentionPanelOpen: true }));
+    mockUseChatContext.mockImplementationOnce(() => ({
+      isChatWindowOpen: false,
+      isAttentionPanelOpen: true,
+      setIsAttentionPanelOpen: jest.fn(),
+      setIsChatWindowOpen: jest.fn(),
+    }));
     const wrapper = shallow(<Room />);
-    expect(wrapper.prop('className')).toContain('rightDrawerOpen');
+    expect(wrapper.prop('className')).not.toContain('rightDrawerOpen');
   });
 
   it('should render correctly when gallery view is inactive', () => {
-    mockUseVideoContext.mockImplementationOnce(() => ({ isBackgroundSelectionOpen: true }));
+    mockUseVideoContext.mockImplementationOnce(() => ({
+      isBackgroundSelectionOpen: true,
+      setIsBackgroundSelectionOpen: jest.fn(),
+      room: { localParticipant: {} },
+    }));
     const wrapper = shallow(<Room />);
-    expect(wrapper.find('MainParticipant').exists()).toBe(true);
-    expect(wrapper.find('ParticipantList').exists()).toBe(true);
+    const shell = wrapper.find('StudentRoomShell');
+    expect(shell.exists()).toBe(true);
+    expect(((shell.prop('stage') as React.ReactElement).type as Function).name).toBe('MainParticipant');
+    expect(wrapper.find('ParticipantList').exists()).toBe(false);
     expect(wrapper.find('GalleryView').exists()).toBe(false);
   });
 
   it('should render correctly when gallery view is active', () => {
-    mockUseVideoContext.mockImplementationOnce(() => ({ isBackgroundSelectionOpen: true }));
-    mockUseAppState.mockImplementationOnce(() => ({ isGalleryViewActive: true }));
+    mockUseVideoContext.mockImplementationOnce(() => ({
+      isBackgroundSelectionOpen: true,
+      setIsBackgroundSelectionOpen: jest.fn(),
+      room: { localParticipant: {} },
+    }));
+    mockUseAppState.mockImplementationOnce(() => ({ isGalleryViewActive: true, setIsGalleryViewActive: jest.fn() }));
     const wrapper = shallow(<Room />);
+    const shell = wrapper.find('StudentRoomShell');
+    expect(shell.exists()).toBe(true);
+    expect(((shell.prop('stage') as React.ReactElement).type as Function).name).toBe('GalleryView');
     expect(wrapper.find('MainParticipant').exists()).toBe(false);
     expect(wrapper.find('ParticipantList').exists()).toBe(false);
-    expect(wrapper.find('GalleryView').exists()).toBe(true);
+    expect(wrapper.find('GalleryView').exists()).toBe(false);
+  });
+
+  it('should preserve mobile speaker-view layout without shell rails', () => {
+    mockUseMediaQuery.mockImplementationOnce(() => true);
+    const wrapper = shallow(<Room />);
+    expect(wrapper.find('MainParticipant').exists()).toBe(true);
+    expect(wrapper.find('ParticipantList').exists()).toBe(true);
+    expect(wrapper.find('StudentRoomShell').exists()).toBe(false);
+  });
+
+  it('should switch right rail content from chat to attention without legacy drawer overlap', () => {
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('StudentRoomShell');
+
+    expect(shell.prop('rightTab')).toBe('chat');
+    expect(wrapper.find('ChatWindow').exists()).toBe(false);
+    expect(wrapper.find('AttentionPanel').exists()).toBe(false);
+
+    (shell.prop('onRightTabChange') as Function)('attention');
+    wrapper.update();
+
+    const updatedShell = wrapper.find('StudentRoomShell');
+    expect(updatedShell.prop('rightTab')).toBe('attention');
+    expect(wrapper.prop('className')).not.toContain('rightDrawerOpen');
+  });
+
+  it('passes room context to shell with participant count including local participant', () => {
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('StudentRoomShell');
+
+    expect(shell.prop('activeSpeakerLabel')).toBe('profesor-demo');
+    expect(shell.prop('sessionLabel')).toBe('Sesión Twilio en vivo');
+    expect(shell.prop('participantCount')).toBe(3);
+    expect(shell.prop('notifications')).toEqual([]);
+  });
+
+  it('shows degraded connectivity banner when local participant quality is 2 or lower', () => {
+    mockUseParticipantNetworkQualityLevel.mockImplementationOnce(() => 2);
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('StudentRoomShell');
+
+    expect(shell.prop('isConnectivityDegraded')).toBe(true);
+  });
+
+  it('hides degraded connectivity banner when local participant quality is null', () => {
+    mockUseParticipantNetworkQualityLevel.mockImplementationOnce(() => null);
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('StudentRoomShell');
+
+    expect(shell.prop('isConnectivityDegraded')).toBe(false);
+  });
+
+  it('renders without crashing when room is not available yet', () => {
+    mockUseVideoContext.mockImplementationOnce(() => ({
+      isBackgroundSelectionOpen: false,
+      setIsBackgroundSelectionOpen: jest.fn(),
+      room: null,
+    }));
+
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('StudentRoomShell');
+
+    expect(shell.exists()).toBe(true);
+    expect(shell.prop('isConnectivityDegraded')).toBe(false);
   });
 });
 
