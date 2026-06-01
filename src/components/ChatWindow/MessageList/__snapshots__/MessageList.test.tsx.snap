@@ -15,7 +15,9 @@ exports[`the messageList component should render correctly 1`] = `
         <div
           class="makeStyles-messageInfoContainer-6"
         >
-          <div>
+          <div
+            class="makeStyles-author-7"
+          >
             olivia (You)
           </div>
           <div>
@@ -24,7 +26,7 @@ exports[`the messageList component should render correctly 1`] = `
         </div>
         <div>
           <div
-            class="makeStyles-messageContainer-7 makeStyles-isLocalParticipant-8"
+            class="makeStyles-messageContainer-8 makeStyles-isLocalParticipant-9"
           >
             <div>
               This is a message
@@ -34,7 +36,9 @@ exports[`the messageList component should render correctly 1`] = `
         <div
           class="makeStyles-messageInfoContainer-6"
         >
-          <div>
+          <div
+            class="makeStyles-author-7"
+          >
             tim
           </div>
           <div>
@@ -43,7 +47,7 @@ exports[`the messageList component should render correctly 1`] = `
         </div>
         <div>
           <div
-            class="makeStyles-messageContainer-7"
+            class="makeStyles-messageContainer-8"
           >
             <div>
               Hi Olivia!
@@ -52,7 +56,7 @@ exports[`the messageList component should render correctly 1`] = `
         </div>
         <div>
           <div
-            class="makeStyles-messageContainer-7"
+            class="makeStyles-messageContainer-8"
           >
             <div>
               That is pretty rad double line message! How did you do that?
@@ -62,7 +66,9 @@ exports[`the messageList component should render correctly 1`] = `
         <div
           class="makeStyles-messageInfoContainer-6"
         >
-          <div>
+          <div
+            class="makeStyles-author-7"
+          >
             tim
           </div>
           <div>
@@ -71,7 +77,7 @@ exports[`the messageList component should render correctly 1`] = `
         </div>
         <div>
           <div
-            class="makeStyles-messageContainer-7"
+            class="makeStyles-messageContainer-8"
           >
             <div>
               😉
@@ -81,7 +87,9 @@ exports[`the messageList component should render correctly 1`] = `
         <div
           class="makeStyles-messageInfoContainer-6"
         >
-          <div>
+          <div
+            class="makeStyles-author-7"
+          >
             olivia (You)
           </div>
           <div>
@@ -90,7 +98,7 @@ exports[`the messageList component should render correctly 1`] = `
         </div>
         <div>
           <div
-            class="makeStyles-messageContainer-7 makeStyles-isLocalParticipant-8"
+            class="makeStyles-messageContainer-8 makeStyles-isLocalParticipant-9"
           >
             <div>
               Magic
@@ -100,7 +108,9 @@ exports[`the messageList component should render correctly 1`] = `
         <div
           class="makeStyles-messageInfoContainer-6"
         >
-          <div>
+          <div
+            class="makeStyles-author-7"
+          >
             olivia (You)
           </div>
           <div>
@@ -109,7 +119,7 @@ exports[`the messageList component should render correctly 1`] = `
         </div>
         <div>
           <div
-            class="makeStyles-messageContainer-7 makeStyles-isLocalParticipant-8"
+            class="makeStyles-messageContainer-8 makeStyles-isLocalParticipant-9"
           >
             <div>
               lots of magic
@@ -119,7 +129,9 @@ exports[`the messageList component should render correctly 1`] = `
         <div
           class="makeStyles-messageInfoContainer-6"
         >
-          <div>
+          <div
+            class="makeStyles-author-7"
+          >
             tim
           </div>
           <div>
@@ -128,7 +140,7 @@ exports[`the messageList component should render correctly 1`] = `
         </div>
         <div>
           <div
-            class="makeStyles-messageContainer-7"
+            class="makeStyles-messageContainer-8"
           >
             <div>
               look at this app: 
@@ -147,7 +159,9 @@ exports[`the messageList component should render correctly 1`] = `
         <div
           class="makeStyles-messageInfoContainer-6"
         >
-          <div>
+          <div
+            class="makeStyles-author-7"
+          >
             tim
           </div>
           <div>
@@ -155,10 +169,10 @@ exports[`the messageList component should render correctly 1`] = `
           </div>
         </div>
         <div
-          class="makeStyles-messageContainer-9"
+          class="makeStyles-messageContainer-10"
         >
           <div
-            class="makeStyles-iconContainer-10"
+            class="makeStyles-iconContainer-11"
           >
             <svg
               fill="none"
@@ -212,15 +226,15 @@ exports[`the messageList component should render correctly 1`] = `
             </svg>
           </div>
           <div
-            class="makeStyles-mediaInfo-11"
+            class="makeStyles-mediaInfo-12"
           >
             <p
-              class="makeStyles-filename-12"
+              class="makeStyles-filename-13"
             >
               test1.txt
             </p>
             <p
-              class="makeStyles-size-13"
+              class="makeStyles-size-14"
             >
               120.56 KB
                - Click to open
