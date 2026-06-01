@@ -188,4 +188,47 @@ describe('the ParticipantInfo component', () => {
     );
     expect(wrapper.text()).not.toContain('mockIdentity (You)');
   });
+
+  it('should not render the attention overlay when no attention prop is provided', () => {
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo onClick={() => {}} isSelected={false} participant={{ identity: 'mockIdentity' } as any}>
+        mock children
+      </ParticipantInfo>
+    );
+    expect(wrapper.find('[data-testid="participant-attention-overlay"]').exists()).toBe(false);
+  });
+
+  it('should render the attention badge with the level label when attention is provided', () => {
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo
+        onClick={() => {}}
+        isSelected={false}
+        participant={{ identity: 'mockIdentity' } as any}
+        attention={{ level: 'low', multiface: false }}
+      >
+        mock children
+      </ParticipantInfo>
+    );
+    const overlay = wrapper.find('[data-testid="participant-attention-overlay"]');
+    expect(overlay.exists()).toBe(true);
+    expect(overlay.text()).toContain('Bajo');
+    expect(wrapper.find('[data-testid="participant-multiface-flag"]').exists()).toBe(false);
+  });
+
+  it('should render the multiface flag when attention reports multiple faces', () => {
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo
+        onClick={() => {}}
+        isSelected={false}
+        participant={{ identity: 'mockIdentity' } as any}
+        attention={{ level: 'high', multiface: true }}
+      >
+        mock children
+      </ParticipantInfo>
+    );
+    expect(wrapper.find('[data-testid="participant-multiface-flag"]').exists()).toBe(true);
+  });
 });

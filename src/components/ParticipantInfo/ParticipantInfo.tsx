@@ -15,8 +15,27 @@ import usePublications from '../../hooks/usePublications/usePublications';
 import useTrack from '../../hooks/useTrack/useTrack';
 import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
 import { useAppState } from '../../state';
+import { AttentionLevel } from '../AttentionProvider/types';
 
 const borderWidth = 2;
+
+/** Per-tile attention snapshot, surfaced on the professor's gallery only. */
+export interface ParticipantTileAttention {
+  level: AttentionLevel;
+  multiface: boolean;
+}
+
+const attentionColor: Record<AttentionLevel, string> = {
+  high: '#14B053',
+  medium: '#E6A817',
+  low: '#E22525',
+};
+
+const attentionShortLabel: Record<AttentionLevel, string> = {
+  high: 'Alto',
+  medium: 'Med.',
+  low: 'Bajo',
+};
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -145,6 +164,34 @@ const useStyles = makeStyles((theme: Theme) =>
     dominantSpeaker: {
       border: `solid ${borderWidth}px #7BEAA5`,
     },
+    attentionOverlay: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      zIndex: 3,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 4,
+    },
+    attentionBadge: {
+      fontSize: 9,
+      fontWeight: 700,
+      lineHeight: 1.4,
+      padding: '1px 5px',
+      borderRadius: 3,
+      color: '#FFFFFF',
+    },
+    multifaceFlag: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: 16,
+      height: 16,
+      borderRadius: 3,
+      fontSize: 10,
+      backgroundColor: 'rgba(226, 37, 37, 0.9)',
+      color: '#FFFFFF',
+    },
   })
 );
 
@@ -156,6 +203,8 @@ interface ParticipantInfoProps {
   isLocalParticipant?: boolean;
   hideParticipant?: boolean;
   isDominantSpeaker?: boolean;
+  /** Attention badge + multiface flag for the professor's gallery (US08/US25). */
+  attention?: ParticipantTileAttention;
 }
 
 export default function ParticipantInfo({
@@ -166,6 +215,7 @@ export default function ParticipantInfo({
   isLocalParticipant,
   hideParticipant,
   isDominantSpeaker,
+  attention,
 }: ParticipantInfoProps) {
   const publications = usePublications(participant);
 
@@ -197,6 +247,22 @@ export default function ParticipantInfo({
       data-cy-participant={participant.identity}
     >
       <div className={classes.infoContainer}>
+        {attention && (
+          <div className={classes.attentionOverlay} data-testid="participant-attention-overlay">
+            {attention.multiface && (
+              <span
+                className={classes.multifaceFlag}
+                title="Múltiples rostros detectados"
+                data-testid="participant-multiface-flag"
+              >
+                ⚠
+              </span>
+            )}
+            <span className={classes.attentionBadge} style={{ backgroundColor: attentionColor[attention.level] }}>
+              {attentionShortLabel[attention.level]}
+            </span>
+          </div>
+        )}
         <NetworkQualityLevel participant={participant} />
         <div className={classes.infoRowBottom}>
           {isScreenShareEnabled && (

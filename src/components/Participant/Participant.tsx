@@ -1,5 +1,5 @@
 import React from 'react';
-import ParticipantInfo from '../ParticipantInfo/ParticipantInfo';
+import ParticipantInfo, { ParticipantTileAttention } from '../ParticipantInfo/ParticipantInfo';
 import ParticipantTracks from '../ParticipantTracks/ParticipantTracks';
 import { Participant as IParticipant } from 'twilio-video';
 
@@ -12,6 +12,7 @@ interface ParticipantProps {
   isLocalParticipant?: boolean;
   hideParticipant?: boolean;
   isDominantSpeaker?: boolean;
+  attention?: ParticipantTileAttention;
 }
 
 export function Participant({
@@ -23,6 +24,7 @@ export function Participant({
   isLocalParticipant,
   hideParticipant,
   isDominantSpeaker,
+  attention,
 }: ParticipantProps) {
   return (
     <ParticipantInfo
@@ -32,6 +34,7 @@ export function Participant({
       isLocalParticipant={isLocalParticipant}
       hideParticipant={hideParticipant}
       isDominantSpeaker={isDominantSpeaker}
+      attention={attention}
     >
       <ParticipantTracks
         participant={participant}
