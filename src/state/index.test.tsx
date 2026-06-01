@@ -14,6 +14,7 @@ const mockUsePasscodeAuth = usePasscodeAuth as jest.Mock<any>;
 // @ts-ignore
 window.fetch = jest.fn(() =>
   Promise.resolve({
+    ok: true,
     text: () => 'mockVideoToken',
     json: () => ({
       token: 'mockVideoToken',
@@ -55,6 +56,34 @@ describe('the useAppState hook', () => {
       body: '{"user_identity":"testname","room_name":"testroom","create_conversation":true}',
       method: 'POST',
     });
+  });
+
+  it('should reject and surface the server explanation when the token response is not ok', async () => {
+    (window.fetch as jest.Mock).mockImplementationOnce(() =>
+      Promise.resolve({
+        ok: false,
+        statusText: 'Forbidden',
+        json: () =>
+          Promise.resolve({
+            error: {
+              message: 'room not found',
+              explanation: 'La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.',
+            },
+          }),
+      })
+    );
+
+    const { result } = renderHook(useAppState, { wrapper });
+
+    await act(async () => {
+      await expect(result.current.getToken('María', 'missing-room')).rejects.toThrow(
+        'La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.'
+      );
+    });
+
+    expect(result.current.error!.message).toBe(
+      'La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.'
+    );
   });
 
   describe('with auth disabled', () => {

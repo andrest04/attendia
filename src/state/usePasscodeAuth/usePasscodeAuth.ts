@@ -71,7 +71,9 @@ export default function usePasscodeAuth() {
             return res;
           }
           const json = await res.json();
-          const errorMessage = getErrorMessage(json.error?.message || res.statusText);
+          // Prefer the server's localized explanation (e.g. the room-access guard) over
+          // the short error code so the Spanish UI shows a meaningful message.
+          const errorMessage = getErrorMessage(json.error?.explanation || json.error?.message || res.statusText);
           throw Error(errorMessage);
         })
         .then(res => res.json());

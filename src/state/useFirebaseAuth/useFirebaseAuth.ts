@@ -24,7 +24,7 @@ export default function useFirebaseAuth() {
 
       const endpoint = process.env.REACT_APP_TOKEN_ENDPOINT || '/token';
 
-      return fetch(endpoint, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -32,7 +32,16 @@ export default function useFirebaseAuth() {
           room_name,
           create_conversation: process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true',
         }),
-      }).then(res => res.json());
+      });
+
+      if (!response.ok) {
+        // Surface the server's reason (e.g. the room-access guard rejecting a student
+        // for a room the teacher hasn't opened) instead of resolving with no token.
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error?.explanation || body.error?.message || response.statusText);
+      }
+
+      return response.json();
     },
     [user]
   );
