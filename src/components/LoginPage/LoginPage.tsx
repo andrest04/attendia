@@ -15,6 +15,8 @@ import PersonIcon from '@material-ui/icons/Person';
 import { makeStyles } from '@material-ui/core/styles';
 import { useLocation, useHistory, Link } from 'react-router-dom';
 
+type PreJoinRole = 'teacher' | 'student';
+
 const useStyles = makeStyles((theme: Theme) => ({
   // ── Role cards ──────────────────────────────────────────────────────────────
   roleCards: {
@@ -129,10 +131,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
-// SEAM: real role model deferred — today both roles use the same getToken flow
-// (create_room=true). S3/S4 will consume the selected role later.
-type Role = 'profesor' | 'estudiante';
-
 export default function LoginPage() {
   const classes = useStyles();
   const { signIn, user, isAuthReady } = useAppState();
@@ -140,7 +138,7 @@ export default function LoginPage() {
   const location = useLocation<{ from: Location }>();
   const [passcode, setPasscode] = useState('');
   const [authError, setAuthError] = useState<Error | null>(null);
-  const [selectedRole, setSelectedRole] = useState<Role>('profesor');
+  const [selectedRole, setSelectedRole] = useState<PreJoinRole>('teacher');
 
   const isAuthEnabled = Boolean(process.env.REACT_APP_SET_AUTH);
 
@@ -148,7 +146,22 @@ export default function LoginPage() {
     setAuthError(null);
     signIn?.(passcode)
       .then(() => {
-        history.replace(location?.state?.from || { pathname: '/' });
+        const from = location?.state?.from as
+          | { pathname?: string; search?: string; hash?: string; state?: any }
+          | undefined;
+
+        if (from) {
+          history.replace({
+            ...from,
+            state: {
+              ...(from.state || {}),
+              preJoinRole: selectedRole,
+            },
+          });
+          return;
+        }
+
+        history.replace({ pathname: '/', state: { preJoinRole: selectedRole } });
       })
       .catch(err => setAuthError(err));
   };
@@ -168,16 +181,20 @@ export default function LoginPage() {
 
   return (
     <IntroContainer>
-      {/* Role selection cards — cosmetic seam only; both roles use the same auth flow today */}
       <div className={classes.roleCards}>
         <div
           data-testid="role-card-profesor"
-          className={`${classes.roleCard} ${selectedRole === 'profesor' ? classes.roleCardSelected : ''}`}
-          onClick={() => setSelectedRole('profesor')}
-          role="radio"
-          aria-checked={selectedRole === 'profesor'}
+          className={`${classes.roleCard} ${selectedRole === 'teacher' ? classes.roleCardSelected : ''}`}
+          onClick={() => setSelectedRole('teacher')}
+          role="button"
           tabIndex={0}
-          onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSelectedRole('profesor')}
+          aria-pressed={selectedRole === 'teacher'}
+          onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              setSelectedRole('teacher');
+            }
+          }}
         >
           <div className={`${classes.roleAvatar} ${classes.roleAvatarProfesor}`}>
             <MenuBookIcon style={{ fontSize: 18, color: '#FFFFFF' }} />
@@ -190,12 +207,17 @@ export default function LoginPage() {
 
         <div
           data-testid="role-card-estudiante"
-          className={`${classes.roleCard} ${selectedRole === 'estudiante' ? classes.roleCardSelected : ''}`}
-          onClick={() => setSelectedRole('estudiante')}
-          role="radio"
-          aria-checked={selectedRole === 'estudiante'}
+          className={`${classes.roleCard} ${selectedRole === 'student' ? classes.roleCardSelected : ''}`}
+          onClick={() => setSelectedRole('student')}
+          role="button"
           tabIndex={0}
-          onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && setSelectedRole('estudiante')}
+          aria-pressed={selectedRole === 'student'}
+          onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              setSelectedRole('student');
+            }
+          }}
         >
           <div className={`${classes.roleAvatar} ${classes.roleAvatarEstudiante}`}>
             <PersonIcon style={{ fontSize: 18, color: '#FFFFFF' }} />
@@ -206,6 +228,9 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      <Typography variant="caption" className={classes.subheading}>
+        Elige tu rol para iniciar el flujo correspondiente.
+      </Typography>
 
       {process.env.REACT_APP_SET_AUTH === 'firebase' && (
         <>

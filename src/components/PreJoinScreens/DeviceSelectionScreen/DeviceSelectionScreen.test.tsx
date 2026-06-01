@@ -108,6 +108,11 @@ describe('the DeviceSelectionScreen component', () => {
     expect(wrapper.find({ children: 'Entrar a la sala' }).prop('disabled')).toBe(false);
   });
 
+  it('should show shared teacher/student handoff copy in S2', () => {
+    const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
+    expect(wrapper.text()).toContain('Paso compartido para profesor y estudiante antes de entrar.');
+  });
+
   it('should go back to the RoomNameScreen when the Cancel button is clicked', () => {
     const mockSetStep = jest.fn();
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={mockSetStep} />);
@@ -123,6 +128,17 @@ describe('the DeviceSelectionScreen component', () => {
     setImmediate(() => {
       expect(mockConnect).toHaveBeenCalledWith('mockToken');
       expect(mockChatConnect).toHaveBeenCalledWith('mockToken');
+      done();
+    });
+  });
+
+  it('keeps shared S2 boundary by calling getToken(name, roomName) for student inputs', done => {
+    const wrapper = shallow(<DeviceSelectionScreen name="Ana Student" roomName="manual-room-42" setStep={() => {}} />);
+    wrapper.find({ children: 'Entrar a la sala' }).simulate('click');
+
+    expect(mockGetToken).toHaveBeenCalledWith('Ana Student', 'manual-room-42');
+    setImmediate(() => {
+      expect(mockConnect).toHaveBeenCalledWith('mockToken');
       done();
     });
   });
