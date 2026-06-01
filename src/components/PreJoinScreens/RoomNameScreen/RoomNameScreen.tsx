@@ -13,6 +13,7 @@ import {
 } from '@material-ui/core';
 import PersonIcon from '@material-ui/icons/Person';
 import SecurityIcon from '@material-ui/icons/Security';
+import { Link as RouterLink } from 'react-router-dom';
 import { useAppState } from '../../../state';
 import {
   ClassSessionAccess,
@@ -231,6 +232,16 @@ const useStyles = makeStyles((theme: Theme) => ({
   studentPrivacyText: {
     color: theme.palette.text.secondary,
   },
+  studentPrivacyLink: {
+    display: 'inline-block',
+    marginTop: theme.spacing(0.75),
+    color: theme.palette.primary.main,
+    fontWeight: 500,
+    textDecoration: 'none',
+    '&:hover': {
+      textDecoration: 'underline',
+    },
+  },
 }));
 
 const sensitivityToValue: Record<MonitoringSensitivity, number> = {
@@ -364,6 +375,9 @@ export default function RoomNameScreen({
                 Al unirte aceptas el procesamiento local de imagen para análisis de atención. No se almacenan datos
                 faciales.
               </Typography>
+              <RouterLink to="/security" className={classes.studentPrivacyLink}>
+                Política de privacidad →
+              </RouterLink>
             </div>
           </div>
         </Box>

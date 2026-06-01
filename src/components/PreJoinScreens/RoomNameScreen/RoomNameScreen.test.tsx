@@ -2,6 +2,7 @@ import React from 'react';
 import RoomNameScreen from './RoomNameScreen';
 import { shallow } from 'enzyme';
 import { Button, TextField } from '@material-ui/core';
+import { Link as RouterLink } from 'react-router-dom';
 import { useAppState } from '../../../state';
 import { createDefaultClassSessionDraft } from '../classSessionTypes';
 
@@ -218,6 +219,8 @@ describe('the RoomNameScreen component', () => {
     expect(wrapper.text()).toContain('Tu nombre o alias');
     expect(wrapper.text()).toContain('Aviso de privacidad');
     expect(wrapper.text()).toContain('No se almacenan datos faciales.');
+    expect(wrapper.text()).toContain('Política de privacidad →');
+    expect(wrapper.find(RouterLink).prop('to')).toBe('/security');
 
     const joinField = wrapper.findWhere(node => node.type() === TextField && node.prop('id') === 'input-join-code');
     const nameField = wrapper.findWhere(node => node.type() === TextField && node.prop('id') === 'input-student-name');
