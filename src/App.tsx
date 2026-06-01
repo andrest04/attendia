@@ -1,5 +1,6 @@
 import React from 'react';
 import { styled, Theme } from '@material-ui/core/styles';
+import { useMediaQuery, useTheme } from '@material-ui/core';
 
 import MenuBar from './components/MenuBar/MenuBar';
 import MobileTopMenuBar from './components/MobileTopMenuBar/MobileTopMenuBar';
@@ -27,6 +28,8 @@ const Main = styled('main')(({ theme }: { theme: Theme }) => ({
 
 export default function App() {
   const roomState = useRoomState();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Here we would like the height of the main container to be the height of the viewport.
   // On some mobile browsers, 'height: 100vh' sets the height equal to that of the screen,
@@ -45,7 +48,7 @@ export default function App() {
           <RecordingNotifications />
           <MobileTopMenuBar />
           <Room />
-          <MenuBar />
+          {isMobile && <MenuBar />}
         </Main>
       )}
     </Container>

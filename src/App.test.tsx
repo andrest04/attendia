@@ -6,6 +6,7 @@ import Room from './components/Room/Room';
 import { shallow } from 'enzyme';
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
+import { useMediaQuery } from '@material-ui/core';
 
 jest.mock('swiper/react', () => ({
   Swiper: jest.fn(),
@@ -18,11 +19,17 @@ jest.mock('swiper', () => ({
 
 jest.mock('./hooks/useRoomState/useRoomState');
 jest.mock('./hooks/useHeight/useHeight');
+jest.mock('@material-ui/core', () => {
+  const actual = jest.requireActual('@material-ui/core');
+  return { ...actual, useMediaQuery: jest.fn() };
+});
 
 const mockUseRoomState = useRoomState as jest.Mock<any>;
 const mockUseHeight = useHeight as jest.Mock<any>;
+const mockUseMediaQuery = useMediaQuery as jest.Mock<any>;
 
 mockUseHeight.mockImplementation(() => '500px');
+mockUseMediaQuery.mockImplementation(() => false);
 
 describe('the App component', () => {
   it('should render correctly when disconnected from a room', () => {
@@ -34,12 +41,19 @@ describe('the App component', () => {
     expect(wrapper.find(MenuBar).exists()).toBe(false);
   });
 
-  it('should render correctly when connected (or reconnecting) to a room', () => {
+  it('should hide fixed desktop MenuBar when connected on desktop', () => {
     mockUseRoomState.mockImplementation(() => 'connected');
     const wrapper = shallow(<App />);
 
     expect(wrapper.find(PreJoinScreens).exists()).toBe(false);
     expect(wrapper.find(Room).exists()).toBe(true);
+    expect(wrapper.find(MenuBar).exists()).toBe(false);
+  });
+
+  it('should keep fixed MenuBar when connected on mobile', () => {
+    mockUseRoomState.mockImplementation(() => 'connected');
+    mockUseMediaQuery.mockImplementationOnce(() => true);
+    const wrapper = shallow(<App />);
     expect(wrapper.find(MenuBar).exists()).toBe(true);
   });
 

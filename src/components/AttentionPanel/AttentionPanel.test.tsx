@@ -197,28 +197,44 @@ describe('AttentionPanel', () => {
   });
 
   describe('panel visibility', () => {
-    it('applies the hide class when isAttentionPanelOpen is false', () => {
+    it('marks the panel hidden when isAttentionPanelOpen is false', () => {
       mockUseChatContext.mockImplementationOnce(() => ({
         isAttentionPanelOpen: false,
         setIsAttentionPanelOpen: mockSetIsAttentionPanelOpen,
         setIsChatWindowOpen: jest.fn(),
       }));
-      // Mount so MUI makeStyles generates real class names
       const wrapper = mount(<AttentionPanel />);
       const aside = wrapper.find('aside').first();
-      // The aside must have at least two classes: container + hide
-      const classNames: string = aside.prop('className') || '';
-      // classNames will be e.g. "makeStyles-container-1 makeStyles-hide-2"
-      // We verify that TWO classes are present (container + hide)
-      expect(classNames.trim().split(/\s+/).length).toBeGreaterThanOrEqual(2);
+      expect(aside.prop('aria-hidden')).toBe(true);
     });
 
-    it('only has the container class when isAttentionPanelOpen is true', () => {
+    it('marks the panel visible when isAttentionPanelOpen is true', () => {
       const wrapper = mount(<AttentionPanel />);
       const aside = wrapper.find('aside').first();
-      const classNames: string = aside.prop('className') || '';
-      // Only the container class should be present (hide class is not applied)
-      expect(classNames.trim().split(/\s+/).length).toBe(1);
+      expect(aside.prop('aria-hidden')).toBe(false);
+    });
+  });
+
+  describe('embedded mode', () => {
+    it('does not render close button in embedded mode', () => {
+      const wrapper = mount(<AttentionPanel embedded isVisible />);
+      expect(wrapper.find('[aria-label="Cerrar panel"]').exists()).toBe(false);
+    });
+
+    it('uses isVisible prop in embedded mode', () => {
+      const wrapper = mount(<AttentionPanel embedded isVisible={false} />);
+      const aside = wrapper.find('[data-testid="attention-panel"]').first();
+      expect(aside.prop('aria-hidden')).toBe(true);
+    });
+
+    it('renders content in embedded mode even when legacy drawer flag is false', () => {
+      mockUseChatContext.mockImplementationOnce(() => ({
+        isAttentionPanelOpen: false,
+        setIsAttentionPanelOpen: mockSetIsAttentionPanelOpen,
+        setIsChatWindowOpen: jest.fn(),
+      }));
+      const wrapper = mount(<AttentionPanel embedded isVisible />);
+      expect(wrapper.find('[data-testid="attention-index"]').exists()).toBe(true);
     });
   });
 });

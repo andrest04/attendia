@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import AttentionPanel from '../AttentionPanel/AttentionPanel';
 import BackgroundSelectionDialog from '../BackgroundSelectionDialog/BackgroundSelectionDialog';
 import ChatWindow from '../ChatWindow/ChatWindow';
@@ -14,7 +14,13 @@ import { useAppState } from '../../state';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
 import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipant';
+import useParticipants from '../../hooks/useParticipants/useParticipants';
+import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
 import TranscriptionsOverlay from '../TranscriptionsOverlay/TranscriptionsOverlay';
+import StudentRoomShell from './StudentRoomShell';
+import { StudentRoomToolbar } from './StudentRoomShell';
+import useShellNotifications from './StudentRoomShell/useShellNotifications';
 
 const useStyles = makeStyles((theme: Theme) => {
   const totalMobileSidebarHeight = `${theme.sidebarMobileHeight +
@@ -80,6 +86,20 @@ export default function Room() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const screenShareParticipant = useScreenShareParticipant();
+  const [rightTab, setRightTab] = useState<'chat' | 'attention'>('chat');
+  const [handRaised, setHandRaised] = useState(false);
+  const mainParticipant = useMainParticipant();
+  const participants = useParticipants();
+  const localParticipantNetworkQuality = useParticipantNetworkQualityLevel(room?.localParticipant ?? null);
+  const isConnectivityDegraded =
+    typeof localParticipantNetworkQuality === 'number' ? localParticipantNetworkQuality <= 2 : false;
+  const notifications = useShellNotifications(participants, handRaised);
+  const participantCount = participants.length + 1;
+  const activeSpeakerLabel = mainParticipant?.identity || 'Sin participante activo';
+  const sessionLabel = 'Sesión Twilio en vivo';
+  const isDesktopShell = !isMobile;
+  const hasLegacyRightDrawer =
+    isBackgroundSelectionOpen || (!isDesktopShell && (isChatWindowOpen || isAttentionPanelOpen));
 
   // Here we switch to speaker view when a participant starts sharing their screen, but
   // the user is still free to switch back to gallery view.
@@ -88,7 +108,7 @@ export default function Room() {
   return (
     <div
       className={clsx(classes.container, {
-        [classes.rightDrawerOpen]: isChatWindowOpen || isBackgroundSelectionOpen || isAttentionPanelOpen,
+        [classes.rightDrawerOpen]: hasLegacyRightDrawer,
       })}
     >
       {/* 
@@ -102,17 +122,41 @@ export default function Room() {
         isMobile ? (
           <MobileGalleryView />
         ) : (
-          <GalleryView />
+          <StudentRoomShell
+            stage={<GalleryView />}
+            toolbarSlot={<StudentRoomToolbar handRaised={handRaised} onHandRaisedChange={setHandRaised} />}
+            rightTab={rightTab}
+            onRightTabChange={setRightTab}
+            activeSpeakerLabel={activeSpeakerLabel}
+            sessionLabel={sessionLabel}
+            participantCount={participantCount}
+            notifications={notifications}
+            isConnectivityDegraded={isConnectivityDegraded}
+            rightPanel={rightTab === 'chat' ? <ChatWindow embedded isVisible /> : <AttentionPanel embedded isVisible />}
+          />
         )
-      ) : (
+      ) : isMobile ? (
         <>
           <MainParticipant />
           <ParticipantList />
         </>
+      ) : (
+        <StudentRoomShell
+          stage={<MainParticipant />}
+          toolbarSlot={<StudentRoomToolbar handRaised={handRaised} onHandRaisedChange={setHandRaised} />}
+          rightTab={rightTab}
+          onRightTabChange={setRightTab}
+          activeSpeakerLabel={activeSpeakerLabel}
+          sessionLabel={sessionLabel}
+          participantCount={participantCount}
+          notifications={notifications}
+          isConnectivityDegraded={isConnectivityDegraded}
+          rightPanel={rightTab === 'chat' ? <ChatWindow embedded isVisible /> : <AttentionPanel embedded isVisible />}
+        />
       )}
 
-      <ChatWindow />
-      <AttentionPanel />
+      {!isDesktopShell && <ChatWindow />}
+      {!isDesktopShell && <AttentionPanel />}
       <BackgroundSelectionDialog />
       <TranscriptionsOverlay />
     </div>

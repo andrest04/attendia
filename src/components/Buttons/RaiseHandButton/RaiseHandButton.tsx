@@ -9,11 +9,25 @@ import PanToolIcon from '@material-ui/icons/PanTool';
  * RaiseHandButton — toggles a LOCAL boolean state only.
  * No network calls are made; this is a visual stub pending signaling integration.
  */
-export default function RaiseHandButton() {
-  const [handRaised, setHandRaised] = useState(false);
+interface RaiseHandButtonProps {
+  handRaised?: boolean;
+  onHandRaisedChange?: (next: boolean) => void;
+}
+
+export default function RaiseHandButton({
+  handRaised: controlledHandRaised,
+  onHandRaisedChange,
+}: RaiseHandButtonProps = {}) {
+  const [uncontrolledHandRaised, setUncontrolledHandRaised] = useState(false);
+  const handRaised = controlledHandRaised ?? uncontrolledHandRaised;
 
   const toggle = () => {
-    setHandRaised(prev => !prev);
+    const next = !handRaised;
+    onHandRaisedChange?.(next);
+
+    if (controlledHandRaised === undefined) {
+      setUncontrolledHandRaised(next);
+    }
   };
 
   return (

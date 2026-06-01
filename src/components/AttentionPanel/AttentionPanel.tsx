@@ -206,26 +206,38 @@ function MetricBar({ value, color }: { value: number; color: string }) {
  * Visibility is toggled by the `isAttentionPanelOpen` flag in ChatContext
  * (same pattern as ChatWindow / isChatWindowOpen).
  */
-export default function AttentionPanel() {
+interface AttentionPanelProps {
+  embedded?: boolean;
+  isVisible?: boolean;
+}
+
+export default function AttentionPanel({ embedded = false, isVisible = true }: AttentionPanelProps = {}) {
   const classes = useStyles();
   const { isAttentionPanelOpen, setIsAttentionPanelOpen } = useChatContext();
   const { self, enabled, setEnabled, attentionLevel } = useAttention();
+  const effectiveVisible = embedded ? isVisible : isAttentionPanelOpen;
 
   const level = attentionLevel(self.index);
   const chipColor = levelColor[level];
 
   return (
-    <aside className={clsx(classes.container, { [classes.hide]: !isAttentionPanelOpen })} data-testid="attention-panel">
+    <aside
+      className={clsx(classes.container, { [classes.hide]: !effectiveVisible })}
+      data-testid="attention-panel"
+      aria-hidden={!effectiveVisible}
+    >
       {/* Header */}
       <div className={classes.header}>
         <span className={classes.headerText}>Mi Atención</span>
-        <button
-          className={classes.closeButton}
-          onClick={() => setIsAttentionPanelOpen(false)}
-          aria-label="Cerrar panel"
-        >
-          <CloseIcon />
-        </button>
+        {!embedded && (
+          <button
+            className={classes.closeButton}
+            onClick={() => setIsAttentionPanelOpen(false)}
+            aria-label="Cerrar panel"
+          >
+            <CloseIcon />
+          </button>
+        )}
       </div>
 
       {/* Body */}
