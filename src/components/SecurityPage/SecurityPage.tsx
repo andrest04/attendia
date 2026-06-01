@@ -3,10 +3,7 @@ import { makeStyles, Theme } from '@material-ui/core/styles';
 import Container from '@material-ui/core/Container';
 import Typography from '@material-ui/core/Typography';
 import Paper from '@material-ui/core/Paper';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
+import Button from '@material-ui/core/Button';
 import LockIcon from '@material-ui/icons/Lock';
 import VpnKeyIcon from '@material-ui/icons/VpnKey';
 import VisibilityIcon from '@material-ui/icons/Visibility';
@@ -14,7 +11,7 @@ import StorageIcon from '@material-ui/icons/Storage';
 import SecurityIcon from '@material-ui/icons/Security';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import ScheduleIcon from '@material-ui/icons/Schedule';
-import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
+import ArrowBackIcon from '@material-ui/icons/ArrowBack';
 
 type SecurityStatus = 'activo' | 'en-desarrollo';
 
@@ -100,43 +97,93 @@ const useStyles = makeStyles((theme: Theme) => ({
   root: {
     backgroundColor: theme.palette.background.default,
     minHeight: '100vh',
-    paddingTop: theme.spacing(4),
+    paddingTop: theme.spacing(3.5),
     paddingBottom: theme.spacing(6),
+  },
+  page: {
+    maxWidth: 900,
   },
   header: {
     display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(3),
+    [theme.breakpoints.down('xs')]: {
+      flexDirection: 'column',
+    },
+  },
+  headerInfo: {
+    display: 'flex',
     flexDirection: 'column',
+    gap: theme.spacing(1),
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    padding: 0,
+    marginBottom: theme.spacing(0.5),
+    minWidth: 'auto',
+    color: theme.palette.text.secondary,
+    textTransform: 'none',
+    fontSize: '0.8rem',
+    fontWeight: 500,
+    letterSpacing: 0,
+    '&:hover': {
+      backgroundColor: 'transparent',
+      color: theme.palette.text.primary,
+    },
+    '& .MuiButton-startIcon': {
+      marginRight: theme.spacing(0.75),
+    },
+  },
+  titleRow: {
+    display: 'flex',
     alignItems: 'center',
-    marginBottom: theme.spacing(4),
-    textAlign: 'center',
+    gap: theme.spacing(1),
   },
   headerIcon: {
-    fontSize: 48,
-    color: theme.palette.primary.main,
-    marginBottom: theme.spacing(1),
+    fontSize: 26,
+    color: theme.palette.text.primary,
   },
   headerTitle: {
-    fontWeight: 700,
-    marginBottom: theme.spacing(1),
+    fontWeight: 600,
+    letterSpacing: '-0.02em',
   },
   headerSubtitle: {
     color: theme.palette.text.secondary,
-    maxWidth: 600,
+    maxWidth: 620,
+    fontSize: '0.875rem',
+  },
+  sections: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(2),
   },
   card: {
-    marginBottom: theme.spacing(3),
-    padding: theme.spacing(3),
+    padding: theme.spacing(3, 3.5),
     borderRadius: 8,
+    border: `1px solid ${theme.palette.divider}`,
+    borderLeft: `4px solid ${theme.palette.text.primary}`,
+    boxShadow: 'none',
+    [theme.breakpoints.down('xs')]: {
+      padding: theme.spacing(2.5),
+    },
   },
   cardHeader: {
     display: 'flex',
     alignItems: 'flex-start',
-    marginBottom: theme.spacing(1.5),
     gap: theme.spacing(2),
   },
   cardIconWrapper: {
-    color: theme.palette.primary.main,
-    marginTop: 2,
+    width: 44,
+    height: 44,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 8,
+    backgroundColor: theme.palette.action.hover,
+    color: theme.palette.text.primary,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
   },
   cardMeta: {
@@ -145,17 +192,18 @@ const useStyles = makeStyles((theme: Theme) => ({
   badgeAndStatus: {
     display: 'flex',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: theme.spacing(1),
-    marginBottom: theme.spacing(0.5),
+    marginBottom: theme.spacing(1),
   },
   badge: {
     fontSize: '0.7rem',
     fontWeight: 700,
     letterSpacing: '0.05em',
-    backgroundColor: theme.palette.grey[200],
-    color: theme.palette.text.secondary,
-    borderRadius: 4,
-    padding: '2px 8px',
+    backgroundColor: theme.palette.text.primary,
+    color: theme.palette.background.paper,
+    borderRadius: 3,
+    padding: '3px 10px',
   },
   pillActivo: {
     display: 'inline-flex',
@@ -188,7 +236,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#f57f17',
   },
   cardTitle: {
-    fontWeight: 700,
+    fontWeight: 600,
   },
   cardSubtitle: {
     fontStyle: 'italic',
@@ -197,36 +245,35 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   description: {
     color: theme.palette.text.secondary,
-    marginTop: theme.spacing(1.5),
+    marginTop: theme.spacing(1),
     fontSize: '0.875rem',
     lineHeight: 1.6,
   },
   bulletList: {
     marginTop: theme.spacing(1),
-    paddingLeft: 0,
+    marginBottom: 0,
+    paddingLeft: theme.spacing(2),
   },
   bulletItem: {
-    paddingTop: 2,
-    paddingBottom: 2,
-    paddingLeft: 0,
-  },
-  bulletIcon: {
-    minWidth: 28,
-    color: theme.palette.primary.main,
-    '& svg': {
-      fontSize: '0.5rem',
-    },
-  },
-  bulletText: {
+    color: theme.palette.text.secondary,
     fontSize: '0.85rem',
-    margin: 0,
+    lineHeight: 1.55,
+    marginBottom: theme.spacing(0.5),
+  },
+  cardFooter: {
+    display: 'flex',
+    alignItems: 'center',
+    marginTop: theme.spacing(1.5),
   },
   footer: {
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(1),
-    justifyContent: 'center',
-    marginTop: theme.spacing(4),
+    marginTop: theme.spacing(3),
+    padding: theme.spacing(2),
+    border: `1px dashed ${theme.palette.text.secondary}`,
+    borderRadius: 6,
+    backgroundColor: theme.palette.background.paper,
     color: theme.palette.text.secondary,
   },
   footerIcon: {
@@ -235,7 +282,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   footerText: {
     fontSize: '0.8rem',
-    textAlign: 'center',
   },
 }));
 
@@ -262,55 +308,71 @@ function StatusPill({ status }: { status: SecurityStatus }) {
 export default function SecurityPage() {
   const classes = useStyles();
 
+  const handleGoBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    window.location.assign('/login');
+  };
+
   return (
     <div className={classes.root}>
-      <Container maxWidth="md">
+      <Container className={classes.page} maxWidth={false}>
         <div className={classes.header}>
-          <SecurityIcon className={classes.headerIcon} />
-          <Typography variant="h4" className={classes.headerTitle}>
-            Seguridad y Privacidad
-          </Typography>
-          <Typography variant="body1" className={classes.headerSubtitle}>
-            Información sobre los mecanismos de seguridad y privacidad de la plataforma.
-          </Typography>
+          <div className={classes.headerInfo}>
+            <Button
+              variant="text"
+              color="default"
+              className={classes.backButton}
+              onClick={handleGoBack}
+              startIcon={<ArrowBackIcon fontSize="small" />}
+            >
+              Regresar
+            </Button>
+            <div className={classes.titleRow}>
+              <SecurityIcon className={classes.headerIcon} />
+              <Typography variant="h5" className={classes.headerTitle}>
+                Seguridad y Privacidad
+              </Typography>
+            </div>
+            <Typography variant="body1" className={classes.headerSubtitle}>
+              Información clara sobre los controles que protegen la sesión, los medios y los datos de estudiantes.
+            </Typography>
+          </div>
         </div>
 
-        {sections.map(section => (
-          <Paper key={section.id} className={classes.card} elevation={1}>
-            <div className={classes.cardHeader}>
-              <span className={classes.cardIconWrapper}>{section.icon}</span>
-              <div className={classes.cardMeta}>
-                <div className={classes.badgeAndStatus}>
-                  <span className={classes.badge}>{section.badge}</span>
-                  <StatusPill status={section.status} />
+        <div className={classes.sections}>
+          {sections.map(section => (
+            <Paper key={section.id} className={classes.card} elevation={0}>
+              <div className={classes.cardHeader}>
+                <span className={classes.cardIconWrapper}>{section.icon}</span>
+                <div className={classes.cardMeta}>
+                  <div className={classes.badgeAndStatus}>
+                    <span className={classes.badge}>{section.badge}</span>
+                    <Typography variant="h6" className={classes.cardTitle}>
+                      {section.title}
+                    </Typography>
+                  </div>
+                  <Typography className={classes.cardSubtitle}>{section.subtitle}</Typography>
+                  <Typography className={classes.description}>{section.description}</Typography>
+
+                  <ul className={classes.bulletList}>
+                    {section.bullets.map(bullet => (
+                      <li key={bullet} className={classes.bulletItem}>
+                        {bullet}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className={classes.cardFooter}>
+                    <StatusPill status={section.status} />
+                  </div>
                 </div>
-                <Typography variant="h6" className={classes.cardTitle}>
-                  {section.title}
-                </Typography>
-                <Typography className={classes.cardSubtitle}>{section.subtitle}</Typography>
               </div>
-            </div>
-
-            <Typography className={classes.description}>{section.description}</Typography>
-
-            <List className={classes.bulletList} dense disablePadding>
-              {section.bullets.map((bullet, index) => (
-                <ListItem key={index} className={classes.bulletItem}>
-                  <ListItemIcon className={classes.bulletIcon}>
-                    <FiberManualRecordIcon />
-                  </ListItemIcon>
-                  <ListItemText primary={bullet} primaryTypographyProps={{ className: classes.bulletText }} />
-                </ListItem>
-              ))}
-            </List>
-          </Paper>
-        ))}
-
-        <div className={classes.footer}>
-          <SecurityIcon className={classes.footerIcon} />
-          <Typography className={classes.footerText}>
-            Para consultas sobre privacidad o el tratamiento de tus datos, contacta al responsable de la asignatura.
-          </Typography>
+            </Paper>
+          ))}
         </div>
       </Container>
     </div>
