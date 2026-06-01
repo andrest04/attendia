@@ -13,6 +13,8 @@ const useStyles = makeStyles((theme: Theme) =>
       zIndex: 9,
       display: 'flex',
       flexDirection: 'column',
+      height: '100%',
+      minHeight: 0,
       borderLeft: '1px solid #E4E7E9',
       [theme.breakpoints.down('sm')]: {
         position: 'fixed',
@@ -22,6 +24,11 @@ const useStyles = makeStyles((theme: Theme) =>
         right: 0,
         zIndex: 100,
       },
+    },
+    // When embedded inside a room shell's right rail, the rail already provides the divider,
+    // so the chat fills its cell without an extra inner border.
+    embedded: {
+      borderLeft: 'none',
     },
     hide: {
       display: 'none',
@@ -55,7 +62,10 @@ export function BaseChatWindow({ embedded = false, isVisible = true }: ChatWindo
 
   return (
     <aside
-      className={clsx(classes.chatWindowContainer, { [classes.hide]: !effectiveVisible })}
+      className={clsx(classes.chatWindowContainer, {
+        [classes.embedded]: embedded,
+        [classes.hide]: !effectiveVisible,
+      })}
       data-testid="chat-window"
     >
       {!embedded && <ChatWindowHeader />}

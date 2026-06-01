@@ -5,7 +5,6 @@ import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 import ChatInput from '../ChatInput/ChatInput';
 import { CircularProgress } from '@material-ui/core';
 import FileAttachmentIcon from '../../../icons/FileAttachmentIcon';
-import SendMessageIcon from '../../../icons/SendMessageIcon';
 import Snackbar from '../../Snackbar/Snackbar';
 import * as utils from '../../../utils';
 import { setImmediate } from 'timers';
@@ -26,19 +25,9 @@ describe('the ChatInput component', () => {
     const wrapper = shallow(
       <ChatInput conversation={{ sendMessage: mockHandleSendMessage } as any} isChatWindowOpen={true} />
     );
-    expect(
-      wrapper
-        .find(SendMessageIcon)
-        .parent()
-        .prop('disabled')
-    ).toBe(true);
+    expect(wrapper.find('[data-cy-send-message-button]').prop('disabled')).toBe(true);
     wrapper.find(TextareaAutosize).simulate('change', { target: { value: 'I am a message!!!' } });
-    expect(
-      wrapper
-        .find(SendMessageIcon)
-        .parent()
-        .prop('disabled')
-    ).toBe(false);
+    expect(wrapper.find('[data-cy-send-message-button]').prop('disabled')).toBe(false);
   });
 
   it('should disable the send message button when message only contains whitespace', () => {
@@ -46,12 +35,7 @@ describe('the ChatInput component', () => {
       <ChatInput conversation={{ sendMessage: mockHandleSendMessage } as any} isChatWindowOpen={true} />
     );
     wrapper.find(TextareaAutosize).simulate('change', { target: { value: '         ' } });
-    expect(
-      wrapper
-        .find(SendMessageIcon)
-        .parent()
-        .prop('disabled')
-    ).toBe(true);
+    expect(wrapper.find('[data-cy-send-message-button]').prop('disabled')).toBe(true);
   });
 
   it('should call the correct function when send message button is clicked', () => {
@@ -59,10 +43,7 @@ describe('the ChatInput component', () => {
       <ChatInput conversation={{ sendMessage: mockHandleSendMessage } as any} isChatWindowOpen={true} />
     );
     wrapper.find(TextareaAutosize).simulate('change', { target: { value: ' I am a message!!! \n ' } });
-    wrapper
-      .find(SendMessageIcon)
-      .parent()
-      .simulate('click');
+    wrapper.find('[data-cy-send-message-button]').simulate('click');
     expect(mockHandleSendMessage).toHaveBeenCalledWith('I am a message!!!');
   });
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import { ShellNotification } from './useShellNotifications';
 
@@ -48,9 +49,21 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderBottom: `1px solid ${theme.palette.divider}`,
   },
   tab: {
+    flex: 1,
     padding: theme.spacing(1.25, 2),
     fontSize: 12,
     fontWeight: 600,
+    textAlign: 'center',
+    background: 'transparent',
+    border: 'none',
+    borderBottom: '2px solid transparent',
+    marginBottom: -1,
+    color: theme.palette.text.secondary,
+    cursor: 'pointer',
+  },
+  tabActive: {
+    color: theme.palette.text.primary,
+    borderBottomColor: theme.palette.text.primary,
   },
   rightContent: {
     minHeight: 0,
@@ -150,7 +163,7 @@ export default function StudentRoomShell({
         <div className={classes.rightTabs} data-testid="student-room-shell-right-tabs">
           <button
             type="button"
-            className={classes.tab}
+            className={clsx(classes.tab, { [classes.tabActive]: rightTab === 'chat' })}
             data-testid="student-room-shell-tab-chat"
             aria-pressed={rightTab === 'chat'}
             onClick={() => onRightTabChange?.('chat')}
@@ -159,7 +172,7 @@ export default function StudentRoomShell({
           </button>
           <button
             type="button"
-            className={classes.tab}
+            className={clsx(classes.tab, { [classes.tabActive]: rightTab === 'attention' })}
             data-testid="student-room-shell-tab-attention"
             aria-pressed={rightTab === 'attention'}
             onClick={() => onRightTabChange?.('attention')}

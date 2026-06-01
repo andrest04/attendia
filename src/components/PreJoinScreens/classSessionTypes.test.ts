@@ -3,6 +3,7 @@ import {
   toClassSessionDisplayName,
   createDefaultClassSessionDraft,
   isClassSessionDraftReady,
+  isTeacherIdentity,
   normalizeStudentJoinInputToRoomName,
   toClassSessionRoomName,
 } from './classSessionTypes';
@@ -61,6 +62,17 @@ describe('classSessionTypes helpers', () => {
     expect(toClassSessionDisplayName('Andres Torres', 'teacher')).toBe('Andres Torres [Profesor]');
     expect(toClassSessionDisplayName('Andres Torres [Profesor]', 'teacher')).toBe('Andres Torres [Profesor]');
     expect(toClassSessionDisplayName('Ana Lopez', 'student')).toBe('Ana Lopez');
+  });
+
+  it('detects the teacher role from the participant identity suffix', () => {
+    expect(isTeacherIdentity('Andres Torres [Profesor]')).toBe(true);
+    expect(isTeacherIdentity('Andres Torres [profesor]')).toBe(true);
+    expect(isTeacherIdentity('  Andres Torres [Profesor]  ')).toBe(true);
+    expect(isTeacherIdentity(toClassSessionDisplayName('Ana Lopez', 'teacher'))).toBe(true);
+    expect(isTeacherIdentity('Ana Lopez')).toBe(false);
+    expect(isTeacherIdentity('')).toBe(false);
+    expect(isTeacherIdentity(undefined)).toBe(false);
+    expect(isTeacherIdentity(null)).toBe(false);
   });
 
   it('normalizes student join input from room code and full links', () => {
