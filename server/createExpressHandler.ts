@@ -11,7 +11,7 @@ const {
   REACT_APP_TWILIO_ENVIRONMENT,
 } = process.env;
 
-const twilioClient = Twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, {
+export const twilioClient = Twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, {
   accountSid: TWILIO_ACCOUNT_SID,
   region: REACT_APP_TWILIO_ENVIRONMENT === 'prod' ? undefined : REACT_APP_TWILIO_ENVIRONMENT,
 });
