@@ -19,7 +19,8 @@ const Container = styled('div')({
 
 const Main = styled('main')(({ theme }: { theme: Theme }) => ({
   overflow: 'hidden',
-  paddingBottom: `${theme.footerHeight}px`, // Leave some space for the footer
+  // On desktop the room shells render their own in-layout toolbar, so no footer space is reserved.
+  // The legacy fixed MenuBar only renders on mobile, so we keep the footer padding there.
   background: 'black',
   [theme.breakpoints.down('sm')]: {
     paddingBottom: `${theme.mobileFooterHeight + theme.mobileTopBarHeight}px`, // Leave some space for the mobile header and footer
