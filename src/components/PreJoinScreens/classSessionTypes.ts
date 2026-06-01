@@ -58,6 +58,14 @@ export function createClassSessionAccess(
   };
 }
 
+export function isTeacherIdentity(identity: string | null | undefined): boolean {
+  if (!identity) return false;
+  return identity
+    .trim()
+    .toLowerCase()
+    .endsWith(TEACHER_DISPLAY_SUFFIX.toLowerCase());
+}
+
 export function toClassSessionDisplayName(name: string, role: ClassSessionRole): string {
   const trimmedName = name.trim();
 
