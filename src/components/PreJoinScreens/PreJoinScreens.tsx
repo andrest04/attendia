@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CircularProgress, Typography } from '@material-ui/core';
 import DeviceSelectionScreen from './DeviceSelectionScreen/DeviceSelectionScreen';
 import IntroContainer from '../IntroContainer/IntroContainer';
 import MediaErrorSnackbar from './MediaErrorSnackbar/MediaErrorSnackbar';
@@ -6,6 +7,7 @@ import RoomNameScreen from './RoomNameScreen/RoomNameScreen';
 import { useAppState } from '../../state';
 import { useLocation, useParams } from 'react-router-dom';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import useAutoRejoin from './useAutoRejoin';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
@@ -24,6 +26,7 @@ export default function PreJoinScreens() {
   const { user } = useAppState();
   const { getAudioAndVideoTracks } = useVideoContext();
   const { URLRoomName } = useParams<{ URLRoomName?: string }>();
+  const isRejoining = useAutoRejoin(URLRoomName);
   const location = useLocation<{ preJoinRole?: 'teacher' | 'student' }>();
   const preJoinRole = location.state?.preJoinRole;
   const initialRole: 'teacher' | 'student' = URLRoomName
@@ -96,6 +99,27 @@ export default function PreJoinScreens() {
     setRoomName(access.roomName);
     setName(toClassSessionDisplayName(classSessionDraft.displayName, 'teacher'));
   };
+
+  if (isRejoining) {
+    return (
+      <IntroContainer>
+        <div
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '2em 0' }}
+          aria-live="polite"
+        >
+          <CircularProgress variant="indeterminate" />
+          <Typography variant="body1" style={{ fontWeight: 'bold' }}>
+            Reconectando a la sala…
+          </Typography>
+          {URLRoomName && (
+            <Typography variant="body2" color="textSecondary">
+              Sala: <strong>{URLRoomName}</strong>
+            </Typography>
+          )}
+        </div>
+      </IntroContainer>
+    );
+  }
 
   return (
     <IntroContainer maxWidth={step === Steps.deviceSelectionStep ? 940 : undefined}>

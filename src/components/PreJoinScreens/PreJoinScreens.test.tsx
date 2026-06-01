@@ -26,6 +26,7 @@ Object.defineProperty(window.history, 'replaceState', { value: mockReplaceState 
 jest.mock('../../state');
 jest.mock('react-router-dom', () => ({ useParams: jest.fn(), useLocation: jest.fn() }));
 jest.mock('../../hooks/useVideoContext/useVideoContext');
+jest.mock('../../hooks/useChatContext/useChatContext', () => () => ({ connect: jest.fn() }));
 jest.mock('./MediaErrorSnackbar/MediaErrorSnackbar', () => () => null);
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseParams = useParams as jest.Mock<any>;
