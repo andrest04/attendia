@@ -8,6 +8,7 @@ import { useAppState } from '../../state';
 import { useLocation, useParams } from 'react-router-dom';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAutoRejoin from './useAutoRejoin';
+import { checkRoomOpen } from './checkRoomOpen';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
@@ -48,6 +49,12 @@ export default function PreJoinScreens() {
   }));
   const [classSessionAccess, setClassSessionAccess] = useState<ClassSessionAccess | null>(null);
 
+  // Early room-access feedback for students: whether the open-room probe is running, and
+  // whether it came back "closed" (so we keep them on the room-name step with a message
+  // instead of sending them through the device-selection waiting room for nothing).
+  const [isCheckingRoom, setIsCheckingRoom] = useState(false);
+  const [roomClosed, setRoomClosed] = useState(false);
+
   const [mediaError, setMediaError] = useState<Error>();
 
   useEffect(() => {
@@ -63,6 +70,17 @@ export default function PreJoinScreens() {
     setTeacherDisplayName(toClassSessionDisplayName(name, 'teacher'));
   }, [name]);
 
+  // Editing the join code invalidates a previous "room closed" verdict.
+  useEffect(() => {
+    setRoomClosed(false);
+  }, [studentJoinCode]);
+
+  // A created session's share code/link are derived from the session name; editing it
+  // makes them stale, so drop the access and bring back the "Crear sesión" button.
+  useEffect(() => {
+    setClassSessionAccess(null);
+  }, [classSessionDraft.sessionName]);
+
   useEffect(() => {
     if (step === Steps.deviceSelectionStep && !mediaError) {
       getAudioAndVideoTracks().catch(error => {
@@ -73,11 +91,24 @@ export default function PreJoinScreens() {
     }
   }, [getAudioAndVideoTracks, step, mediaError]);
 
-  const goToDeviceSelection = () => {
+  const goToDeviceSelection = async () => {
     const normalizedStudentRoomName = normalizeStudentJoinInputToRoomName(studentJoinCode);
 
     if (classSessionDraft.role === 'student') {
       setRoomName(normalizedStudentRoomName);
+
+      // Tell the student a class isn't open BEFORE the device-selection waiting room,
+      // instead of only when they hit "Entrar a la sala". This is a UX affordance — the
+      // POST /token room-access guard is the real gate. checkRoomOpen returns null on an
+      // inconclusive check, so a flaky probe never blocks a legitimately open room.
+      setRoomClosed(false);
+      setIsCheckingRoom(true);
+      const open = await checkRoomOpen(normalizedStudentRoomName);
+      setIsCheckingRoom(false);
+      if (open === false) {
+        setRoomClosed(true);
+        return;
+      }
     }
 
     // If this app is deployed as a twilio function, don't change the URL because routing isn't supported.
@@ -132,6 +163,8 @@ export default function PreJoinScreens() {
           classSessionDraft={classSessionDraft}
           classSessionAccess={classSessionAccess}
           studentJoinCode={studentJoinCode}
+          isCheckingRoom={isCheckingRoom}
+          roomClosedError={roomClosed}
           setName={setName}
           setStudentJoinCode={setStudentJoinCode}
           setClassSessionDraft={setClassSessionDraft}

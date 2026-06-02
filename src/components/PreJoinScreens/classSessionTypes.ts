@@ -90,15 +90,18 @@ export function normalizeStudentJoinInputToRoomName(input: string): string {
   };
 
   const roomFromPath = readRoomSegment(trimmedInput);
-  if (roomFromPath) return roomFromPath;
+  if (roomFromPath) return toClassSessionRoomName(roomFromPath);
 
   try {
     const parsed = new URL(trimmedInput);
     const roomFromUrlPath = readRoomSegment(parsed.pathname);
-    if (roomFromUrlPath) return roomFromUrlPath;
+    if (roomFromUrlPath) return toClassSessionRoomName(roomFromUrlPath);
   } catch (error) {
     void error;
   }
 
-  return decodeURIComponent(trimmedInput.split(/[?#]/)[0]).trim();
+  // Slugify the raw code the same way a teacher's session name is slugified, so a
+  // student typing the friendly name ("Física 101", "TEST") resolves to the same
+  // room the teacher created instead of being wrongly blocked on a casing mismatch.
+  return toClassSessionRoomName(decodeURIComponent(trimmedInput.split(/[?#]/)[0]).trim());
 }
