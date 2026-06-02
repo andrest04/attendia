@@ -1,4 +1,5 @@
 import React from 'react';
+import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import WarningIcon from '@material-ui/icons/Warning';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
@@ -89,9 +90,17 @@ const useStyles = makeStyles((theme: Theme) => ({
     padding: theme.spacing(1.25, 2),
     fontSize: 12,
     fontWeight: 600,
+    textAlign: 'center',
     background: 'transparent',
     border: 'none',
+    borderBottom: '2px solid transparent',
+    marginBottom: -1,
+    color: theme.palette.text.secondary,
     cursor: 'pointer',
+  },
+  tabActive: {
+    color: theme.palette.text.primary,
+    borderBottomColor: theme.palette.text.primary,
   },
   rightContent: {
     minHeight: 0,
@@ -355,7 +364,7 @@ export default function ProfessorRoomShell({
           <div className={classes.rightTabs} data-testid="professor-room-shell-right-tabs">
             <button
               type="button"
-              className={classes.tab}
+              className={clsx(classes.tab, { [classes.tabActive]: rightTab === 'grupo' })}
               data-testid="professor-room-shell-tab-grupo"
               aria-pressed={rightTab === 'grupo'}
               onClick={() => onRightTabChange?.('grupo')}
@@ -364,7 +373,7 @@ export default function ProfessorRoomShell({
             </button>
             <button
               type="button"
-              className={classes.tab}
+              className={clsx(classes.tab, { [classes.tabActive]: rightTab === 'individual' })}
               data-testid="professor-room-shell-tab-individual"
               aria-pressed={rightTab === 'individual'}
               onClick={() => onRightTabChange?.('individual')}
