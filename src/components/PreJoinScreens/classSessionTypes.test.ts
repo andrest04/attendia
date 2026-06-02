@@ -81,8 +81,22 @@ describe('classSessionTypes helpers', () => {
     expect(normalizeStudentJoinInputToRoomName('https://example.org/room/fisica-101?lang=es&utm=campaign')).toBe(
       'fisica-101'
     );
+    // Spaces/casing in the extracted segment are slugified to match the teacher's room.
     expect(normalizeStudentJoinInputToRoomName('https://example.org/room/fisica-101%20avanzada?lang=es')).toBe(
-      'fisica-101 avanzada'
+      'fisica-101-avanzada'
     );
+  });
+
+  it('slugifies a manually typed room name the same way the teacher session name is slugified', () => {
+    expect(normalizeStudentJoinInputToRoomName('Test')).toBe('test');
+    expect(normalizeStudentJoinInputToRoomName('TEST')).toBe('test');
+    expect(normalizeStudentJoinInputToRoomName('  Física 101  ')).toBe('fisica-101');
+    // A friendly name and the slug a teacher shares both resolve to the same room.
+    expect(normalizeStudentJoinInputToRoomName('Física 101')).toBe(toClassSessionRoomName('Física 101'));
+  });
+
+  it('returns an empty room name for blank student input', () => {
+    expect(normalizeStudentJoinInputToRoomName('')).toBe('');
+    expect(normalizeStudentJoinInputToRoomName('   ')).toBe('');
   });
 });

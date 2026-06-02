@@ -8,6 +8,7 @@ import RoomNameScreen from './RoomNameScreen/RoomNameScreen';
 import { useLocation, useParams } from 'react-router-dom';
 import { useAppState } from '../../state';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import { checkRoomOpen } from './checkRoomOpen';
 import { setImmediate } from 'timers';
 
 // @ts-ignore
@@ -28,6 +29,8 @@ jest.mock('react-router-dom', () => ({ useParams: jest.fn(), useLocation: jest.f
 jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../hooks/useChatContext/useChatContext', () => () => ({ connect: jest.fn() }));
 jest.mock('./MediaErrorSnackbar/MediaErrorSnackbar', () => () => null);
+jest.mock('./checkRoomOpen');
+const mockCheckRoomOpen = checkRoomOpen as jest.Mock;
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseParams = useParams as jest.Mock<any>;
 const mockUseLocation = useLocation as jest.Mock<any>;
@@ -44,6 +47,8 @@ describe('the PreJoinScreens component', () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: 'testRoom' }));
     mockUseLocation.mockImplementation(() => ({ state: undefined }));
     mockUseVideoContext.mockImplementation(() => ({ getAudioAndVideoTracks: () => Promise.resolve() }));
+    // Default: the open-room probe says the room is open so the student flow proceeds.
+    mockCheckRoomOpen.mockResolvedValue(true);
     // @ts-ignore
     window.location = { ...window.location, origin: '', search: '' };
   });
@@ -129,24 +134,24 @@ describe('the PreJoinScreens component', () => {
     expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(false);
   });
 
-  it('continues student flow from link only after explicit continue with name', () => {
+  it('continues student flow from link only after explicit continue with name', async () => {
     const wrapper = mount(<PreJoinScreens />);
 
     expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('student');
     act(() => {
       wrapper.find(RoomNameScreen).prop('setName')('Student Name');
     });
-    act(() => {
-      wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
     });
     wrapper.update();
 
     expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(true);
     expect(wrapper.find(DeviceSelectionScreen).prop('name')).toBe('Student Name');
-    expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('testRoom');
+    expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('testroom');
   });
 
-  it('continues student flow from manual code entry using joinCode alias of roomName', () => {
+  it('continues student flow from manual code entry using joinCode alias of roomName', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
     const wrapper = mount(<PreJoinScreens />);
 
@@ -160,17 +165,18 @@ describe('the PreJoinScreens component', () => {
       wrapper.find(RoomNameScreen).prop('setStudentJoinCode')('manual-room-42');
     });
     wrapper.update();
-    act(() => {
-      wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
     });
     wrapper.update();
 
+    expect(mockCheckRoomOpen).toHaveBeenCalledWith('manual-room-42');
     expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '/room/manual-room-42');
     expect(wrapper.find(DeviceSelectionScreen).prop('name')).toBe('Ana Student');
     expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('manual-room-42');
   });
 
-  it('continues student flow from a full room link by extracting room segment', () => {
+  it('continues student flow from a full room link by extracting room segment', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
     const wrapper = mount(<PreJoinScreens />);
 
@@ -183,8 +189,8 @@ describe('the PreJoinScreens component', () => {
     });
     wrapper.update();
 
-    act(() => {
-      wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
     });
     wrapper.update();
 
@@ -192,7 +198,7 @@ describe('the PreJoinScreens component', () => {
     expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('fisica-101');
   });
 
-  it('continues student flow from encoded room links and strips querystring', () => {
+  it('continues student flow from encoded room links and strips querystring', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
     const wrapper = mount(<PreJoinScreens />);
 
@@ -205,13 +211,95 @@ describe('the PreJoinScreens component', () => {
     });
     wrapper.update();
 
-    act(() => {
-      wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
     });
     wrapper.update();
 
-    expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '/room/fisica-101%20avanzada');
-    expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('fisica-101 avanzada');
+    expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '/room/fisica-101-avanzada');
+    expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('fisica-101-avanzada');
+  });
+
+  it('keeps the student on the room-name step and flags a closed room without navigating', async () => {
+    mockCheckRoomOpen.mockResolvedValue(false);
+    const wrapper = mount(<PreJoinScreens />);
+
+    act(() => {
+      wrapper.find(RoomNameScreen).prop('setName')('Student Name');
+    });
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
+    });
+    wrapper.update();
+
+    expect(mockCheckRoomOpen).toHaveBeenCalledWith('testroom');
+    expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(false);
+    expect(wrapper.find(RoomNameScreen).exists()).toBe(true);
+    expect(wrapper.find(RoomNameScreen).prop('roomClosedError')).toBe(true);
+    expect(window.history.replaceState).not.toHaveBeenCalled();
+  });
+
+  it('lets the student proceed when the open-room check is inconclusive (null)', async () => {
+    mockCheckRoomOpen.mockResolvedValue(null);
+    const wrapper = mount(<PreJoinScreens />);
+
+    act(() => {
+      wrapper.find(RoomNameScreen).prop('setName')('Student Name');
+    });
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
+    });
+    wrapper.update();
+
+    expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(true);
+    expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('testroom');
+  });
+
+  it('does not probe room existence for the teacher flow', async () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    const wrapper = shallow(<PreJoinScreens />);
+
+    wrapper.find(RoomNameScreen).prop('setClassSessionDraft')((draft: any) => ({
+      ...draft,
+      sessionName: 'Session 1',
+      recordingEnabled: true,
+      monitoringSensitivity: 'medium',
+    }));
+    wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
+    });
+
+    expect(mockCheckRoomOpen).not.toHaveBeenCalled();
+    expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(true);
+  });
+
+  it('invalidates a created session when the teacher edits the session name', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    const wrapper = mount(<PreJoinScreens />);
+
+    act(() => {
+      wrapper.find(RoomNameScreen).prop('setClassSessionDraft')((draft: any) => ({
+        ...draft,
+        displayName: 'Andres',
+        sessionName: 'Clase 1',
+        monitoringSensitivity: 'medium',
+      }));
+    });
+    wrapper.update();
+    act(() => {
+      wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    });
+    wrapper.update();
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionAccess')).not.toBeNull();
+
+    act(() => {
+      wrapper.find(RoomNameScreen).prop('setClassSessionDraft')((draft: any) => ({ ...draft, sessionName: 'Clase 2' }));
+    });
+    wrapper.update();
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionAccess')).toBeNull();
   });
 
   it('initializes teacher draft and handoff displayName from user displayName', () => {
@@ -267,14 +355,12 @@ describe('the PreJoinScreens component', () => {
     mockUseVideoContext.mockImplementation(() => ({ getAudioAndVideoTracks: mockGetAudioAndVideoTracks }));
 
     const wrapper = mount(<PreJoinScreens />);
-    act(() => {
-      wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
-    });
 
     await act(async () => {
+      wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
       await new Promise(setImmediate);
-      wrapper.update();
     });
+    wrapper.update();
 
     const error = wrapper.find(MediaErrorSnackbar).prop('error');
     expect(error).toBe('testError');

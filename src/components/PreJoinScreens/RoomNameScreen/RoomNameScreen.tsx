@@ -1,4 +1,4 @@
-import React, { ChangeEvent } from 'react';
+import React, { ChangeEvent, useState } from 'react';
 import {
   Typography,
   makeStyles,
@@ -10,9 +10,12 @@ import {
   FormControl,
   FormLabel,
   Box,
+  CircularProgress,
 } from '@material-ui/core';
 import PersonIcon from '@material-ui/icons/Person';
 import SecurityIcon from '@material-ui/icons/Security';
+import CheckCircleIcon from '@material-ui/icons/CheckCircle';
+import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
 import { Link as RouterLink } from 'react-router-dom';
 import { useAppState } from '../../../state';
 import {
@@ -211,6 +214,52 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column',
     gap: theme.spacing(1),
   },
+  studentRoomClosed: {
+    marginBottom: theme.spacing(2),
+    padding: theme.spacing(1.5),
+    borderRadius: theme.spacing(1),
+    backgroundColor: '#FDECEA',
+    border: '1px solid #F5C6CB',
+    color: '#B71C1C',
+  },
+  createdCard: {
+    border: '1px solid #C8E6C9',
+    backgroundColor: '#F1F8E9',
+    borderRadius: theme.spacing(1),
+    padding: theme.spacing(2),
+  },
+  createdHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    marginBottom: theme.spacing(0.5),
+  },
+  createdHeaderIcon: {
+    color: '#2E7D32',
+  },
+  createdTitle: {
+    fontWeight: 600,
+    color: '#2E7D32',
+  },
+  createdHint: {
+    color: theme.palette.text.secondary,
+    marginBottom: theme.spacing(2),
+  },
+  createdRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    marginTop: theme.spacing(1.5),
+  },
+  createdValueBlock: {
+    minWidth: 0,
+    flex: 1,
+  },
+  createdLabel: {
+    color: theme.palette.text.secondary,
+    display: 'block',
+  },
   studentPrimaryButton: {
     width: '100%',
   },
@@ -263,6 +312,8 @@ interface RoomNameScreenProps {
   classSessionDraft: ClassSessionDraft;
   classSessionAccess: ClassSessionAccess | null;
   studentJoinCode: string;
+  isCheckingRoom?: boolean;
+  roomClosedError?: boolean;
   setName: (name: string) => void;
   setStudentJoinCode: (joinCode: string) => void;
   setClassSessionDraft: (updater: (draft: ClassSessionDraft) => ClassSessionDraft) => void;
@@ -278,6 +329,8 @@ export default function RoomNameScreen({
   classSessionDraft,
   classSessionAccess,
   studentJoinCode,
+  isCheckingRoom = false,
+  roomClosedError = false,
   setName,
   setStudentJoinCode,
   setClassSessionDraft,
@@ -287,6 +340,14 @@ export default function RoomNameScreen({
 }: RoomNameScreenProps) {
   const classes = useStyles();
   const { user } = useAppState();
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = (value: string) => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value);
+    }
+    setCopied(true);
+  };
 
   const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
     setName(event.target.value);
@@ -330,20 +391,20 @@ export default function RoomNameScreen({
         <span className={classes.studentTag}>EP01 · Flujo de acceso estudiante</span>
 
         <Typography variant="body1" className={classes.studentIntro}>
-          Accede con el código o enlace compartido por tu docente.
+          Accede con el nombre de la sala que te compartió tu docente.
         </Typography>
 
         <div className={classes.studentFields}>
           <div className={classes.textFieldContainer}>
             <InputLabel shrink htmlFor="input-join-code">
-              Código o enlace
+              Nombre de la sala
             </InputLabel>
             <TextField
               id="input-join-code"
               variant="outlined"
               fullWidth
               size="small"
-              placeholder="Ej: sala-fisica-101 o URL"
+              placeholder="Ej: fisica-101"
               value={studentJoinCode}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setStudentJoinCode(event.target.value)}
             />
@@ -382,16 +443,25 @@ export default function RoomNameScreen({
           </div>
         </Box>
 
+        {roomClosedError && (
+          <Box className={classes.studentRoomClosed} role="alert">
+            <Typography variant="body2">
+              La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.
+            </Typography>
+          </Box>
+        )}
+
         <div className={classes.studentActions}>
           <Button
             variant="contained"
             color="primary"
             className={classes.studentPrimaryButton}
             fullWidth
-            disabled={!canContinueStudent}
+            disabled={!canContinueStudent || isCheckingRoom}
             onClick={onContinueToDeviceSelection}
+            startIcon={isCheckingRoom ? <CircularProgress size={16} color="inherit" /> : undefined}
           >
-            Unirme a la sala
+            {isCheckingRoom ? 'Verificando sala…' : 'Unirme a la sala'}
           </Button>
           <Button variant="text" className={classes.studentBackButton} onClick={() => onSelectRole('teacher')}>
             Volver a crear sesión
@@ -529,8 +599,13 @@ export default function RoomNameScreen({
         </FormControl>
       </Box>
       <Grid container justifyContent="flex-end">
-        <Button variant="contained" color="primary" onClick={onCreateClassSession} disabled={!canCreateTeacherSession}>
-          Crear sesión
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={onCreateClassSession}
+          disabled={!canCreateTeacherSession || Boolean(classSessionAccess)}
+        >
+          {classSessionAccess ? 'Sesión creada' : 'Crear sesión'}
         </Button>
       </Grid>
       {!classSessionAccess && (
@@ -542,15 +617,42 @@ export default function RoomNameScreen({
       )}
 
       {classSessionAccess && (
-        <Box mt={3} mb={2}>
-          <Typography variant="subtitle1">Identidad visible en sala</Typography>
-          <Typography variant="body2">{teacherDisplayName}</Typography>
-          <Typography variant="subtitle1">Código de acceso</Typography>
-          <Typography variant="body2">{classSessionAccess.joinCode}</Typography>
-          <Typography variant="subtitle1" style={{ marginTop: 12 }}>
-            Link para compartir
+        <Box className={classes.createdCard} mt={3} mb={2}>
+          <div className={classes.createdHeader}>
+            <CheckCircleIcon className={classes.createdHeaderIcon} fontSize="small" />
+            <Typography variant="subtitle1" className={classes.createdTitle}>
+              Sesión creada
+            </Typography>
+          </div>
+          <Typography variant="body2" className={classes.createdHint}>
+            Compartí el código o el link con tus estudiantes. La sala queda abierta cuando entres a verificación.
           </Typography>
-          <Typography variant="body2">{classSessionAccess.joinLink}</Typography>
+
+          <div className={classes.createdRow}>
+            <div className={classes.createdValueBlock}>
+              <Typography variant="caption" className={classes.createdLabel}>
+                Identidad visible en sala
+              </Typography>
+              <Typography variant="body2">{teacherDisplayName}</Typography>
+            </div>
+          </div>
+
+          <div className={classes.createdRow}>
+            <div className={classes.createdValueBlock}>
+              <Typography variant="caption" className={classes.createdLabel}>
+                Nombre de la sala
+              </Typography>
+              <Typography variant="body2">{classSessionAccess.joinCode}</Typography>
+            </div>
+            <Button
+              size="small"
+              startIcon={<FileCopyOutlinedIcon fontSize="small" />}
+              onClick={() => handleCopy(classSessionAccess.joinCode)}
+            >
+              {copied ? 'Copiado' : 'Copiar'}
+            </Button>
+          </div>
+
           <Grid container justifyContent="flex-end" style={{ marginTop: 16 }}>
             <Button
               variant="contained"

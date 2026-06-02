@@ -92,13 +92,59 @@ describe('the RoomNameScreen component', () => {
 
     expect(wrapper.text()).toContain('Identidad visible en sala');
     expect(wrapper.text()).toContain('Andres Torres [Profesor]');
-    expect(wrapper.text()).toContain('Código de acceso');
-    expect(wrapper.text()).toContain('Link para compartir');
-    expect(wrapper.text()).not.toContain('Nombre de la sala');
+    expect(wrapper.text()).toContain('Nombre de la sala');
+    expect(wrapper.text()).toContain('session-1');
+    expect(wrapper.text()).not.toContain('Link para compartir');
+    expect(wrapper.text()).not.toContain('Código de acceso');
     const continueButton = wrapper.findWhere(
       node => node.type() === Button && node.text() === 'Continuar a verificación'
     );
     expect(continueButton.exists()).toBe(true);
+  });
+
+  it('shows the create button as created and disabled once the session exists', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
+    const wrapper = shallow(
+      <RoomNameScreen
+        {...baseProps}
+        classSessionAccess={{
+          roomName: 'session-1',
+          joinCode: 'session-1',
+          joinLink: 'https://example.org/room/session-1',
+        }}
+      />
+    );
+
+    const createdButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Sesión creada');
+    expect(createdButton.exists()).toBe(true);
+    expect(createdButton.prop('disabled')).toBe(true);
+    expect(wrapper.findWhere(node => node.type() === Button && node.text() === 'Crear sesión').exists()).toBe(false);
+  });
+
+  it('copies the room name from the created session card and does not show a link', () => {
+    // mockImplementation (not Once): clicking copy re-renders, so useAppState is called again.
+    mockUseAppState.mockImplementation(() => ({ user: { displayName: 'Teacher Name' } }));
+    const writeText = jest.fn();
+    Object.assign(navigator, { clipboard: { writeText } });
+    const wrapper = shallow(
+      <RoomNameScreen
+        {...baseProps}
+        teacherDisplayName="Andres Torres [Profesor]"
+        classSessionAccess={{
+          roomName: 'session-1',
+          joinCode: 'session-1',
+          joinLink: 'https://example.org/room/session-1',
+        }}
+      />
+    );
+
+    expect(wrapper.text()).not.toContain('https://example.org/room/session-1');
+
+    const copyButtons = wrapper.findWhere(node => node.type() === Button && node.text() === 'Copiar');
+    expect(copyButtons.length).toBe(1);
+
+    copyButtons.at(0).simulate('click');
+    expect(writeText).toHaveBeenCalledWith('session-1');
   });
 
   it('renders recording switch and keeps teacher creation disabled without session name', () => {
@@ -159,6 +205,52 @@ describe('the RoomNameScreen component', () => {
     expect(continueButton.prop('disabled')).toBe(false);
   });
 
+  it('does not show the room-closed alert by default in the student flow', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: undefined }));
+    const wrapper = shallow(
+      <RoomNameScreen
+        {...baseProps}
+        name="Ana"
+        studentJoinCode="room-123"
+        classSessionDraft={{ ...baseTeacherDraft, role: 'student' }}
+      />
+    );
+
+    expect(wrapper.text()).not.toContain('La sala todavía no está abierta');
+  });
+
+  it('shows the room-closed alert when roomClosedError is set', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: undefined }));
+    const wrapper = shallow(
+      <RoomNameScreen
+        {...baseProps}
+        name="Ana"
+        studentJoinCode="room-123"
+        classSessionDraft={{ ...baseTeacherDraft, role: 'student' }}
+        roomClosedError
+      />
+    );
+
+    expect(wrapper.text()).toContain('La sala todavía no está abierta');
+  });
+
+  it('shows a checking state and disables the join button while verifying the room', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: undefined }));
+    const wrapper = shallow(
+      <RoomNameScreen
+        {...baseProps}
+        name="Ana"
+        studentJoinCode="room-123"
+        classSessionDraft={{ ...baseTeacherDraft, role: 'student' }}
+        isCheckingRoom
+      />
+    );
+
+    const joinButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Verificando sala…');
+    expect(joinButton.exists()).toBe(true);
+    expect(joinButton.prop('disabled')).toBe(true);
+  });
+
   it('updates teacher draft fields through session switch and slider handlers', () => {
     mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
     const setClassSessionDraft = jest.fn();
@@ -215,7 +307,7 @@ describe('the RoomNameScreen component', () => {
     expect(wrapper.text()).toContain('Estudiante');
     expect(wrapper.text()).toContain('Unirme a sala existente');
     expect(wrapper.text()).toContain('EP01 · Flujo de acceso estudiante');
-    expect(wrapper.text()).toContain('Código o enlace');
+    expect(wrapper.text()).toContain('Nombre de la sala');
     expect(wrapper.text()).toContain('Tu nombre o alias');
     expect(wrapper.text()).toContain('Aviso de privacidad');
     expect(wrapper.text()).toContain('No se almacenan datos faciales.');
@@ -224,7 +316,7 @@ describe('the RoomNameScreen component', () => {
 
     const joinField = wrapper.findWhere(node => node.type() === TextField && node.prop('id') === 'input-join-code');
     const nameField = wrapper.findWhere(node => node.type() === TextField && node.prop('id') === 'input-student-name');
-    expect(joinField.prop('placeholder')).toBe('Ej: sala-fisica-101 o URL');
+    expect(joinField.prop('placeholder')).toBe('Ej: fisica-101');
     expect(nameField.prop('placeholder')).toBe('Ej: María González');
 
     const continueButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Unirme a la sala');

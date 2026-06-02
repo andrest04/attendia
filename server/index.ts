@@ -2,6 +2,7 @@ import './bootstrap-globals';
 import { createExpressHandler, twilioClient } from './createExpressHandler';
 import { createRoomAccessGuard } from './roomAccessGuard';
 import { createRoomExists } from './roomExists';
+import { createRoomOpenHandler } from './roomOpen';
 import express, { RequestHandler } from 'express';
 import path from 'path';
 import { ServerlessFunction } from './types';
@@ -31,6 +32,11 @@ const roomExists = createRoomExists(twilioClient);
 
 app.all('/token', authMiddleware, createRoomAccessGuard(roomExists), tokenEndpoint);
 app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
+
+// Read-only probe so the student prejoin can warn "the class isn't open yet" BEFORE the
+// device-selection waiting room, instead of only when POST /token blocks them. This never
+// creates a room and is deliberately unauthenticated — see roomOpen.ts for the rationale.
+app.get('/rooms/:roomName/open', createRoomOpenHandler(roomExists));
 
 app.use((req, res, next) => {
   // Here we add Cache-Control headers in accordance with the create-react-app best practices.
