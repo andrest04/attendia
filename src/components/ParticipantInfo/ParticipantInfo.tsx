@@ -33,7 +33,7 @@ const attentionColor: Record<AttentionLevel, string> = {
 
 const attentionShortLabel: Record<AttentionLevel, string> = {
   high: 'Alto',
-  medium: 'Med.',
+  medium: 'Medio',
   low: 'Bajo',
 };
 
@@ -164,32 +164,36 @@ const useStyles = makeStyles((theme: Theme) =>
     dominantSpeaker: {
       border: `solid ${borderWidth}px #7BEAA5`,
     },
-    attentionOverlay: {
+    multifacePill: {
       position: 'absolute',
       top: 4,
       right: 4,
       zIndex: 3,
-      display: 'flex',
+      display: 'inline-flex',
       alignItems: 'center',
       gap: 4,
+      padding: '2px 6px',
+      borderRadius: 4,
+      fontSize: 10,
+      fontWeight: 600,
+      lineHeight: 1.4,
+      backgroundColor: 'rgba(18, 18, 18, 0.82)',
+      color: '#FFFFFF',
+      whiteSpace: 'nowrap',
     },
-    attentionBadge: {
+    multifacePillIcon: {
+      color: '#F5B53F',
+    },
+    attentionLevelBadge: {
+      position: 'absolute',
+      bottom: 4,
+      right: 4,
+      zIndex: 3,
       fontSize: 9,
       fontWeight: 700,
       lineHeight: 1.4,
-      padding: '1px 5px',
+      padding: '1px 6px',
       borderRadius: 3,
-      color: '#FFFFFF',
-    },
-    multifaceFlag: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: 16,
-      height: 16,
-      borderRadius: 3,
-      fontSize: 10,
-      backgroundColor: 'rgba(226, 37, 37, 0.9)',
       color: '#FFFFFF',
     },
   })
@@ -248,20 +252,27 @@ export default function ParticipantInfo({
     >
       <div className={classes.infoContainer}>
         {attention && (
-          <div className={classes.attentionOverlay} data-testid="participant-attention-overlay">
+          <>
             {attention.multiface && (
               <span
-                className={classes.multifaceFlag}
+                className={classes.multifacePill}
                 title="Múltiples rostros detectados"
                 data-testid="participant-multiface-flag"
               >
-                ⚠
+                <span className={classes.multifacePillIcon} aria-hidden="true">
+                  ⚠
+                </span>
+                Multi-rostro
               </span>
             )}
-            <span className={classes.attentionBadge} style={{ backgroundColor: attentionColor[attention.level] }}>
+            <span
+              className={classes.attentionLevelBadge}
+              data-testid="participant-attention-overlay"
+              style={{ backgroundColor: attentionColor[attention.level] }}
+            >
               {attentionShortLabel[attention.level]}
             </span>
-          </div>
+          </>
         )}
         <NetworkQualityLevel participant={participant} />
         <div className={classes.infoRowBottom}>

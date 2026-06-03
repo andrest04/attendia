@@ -22,8 +22,14 @@ const useStyles = makeStyles((theme: Theme) =>
   createStyles({
     container: {
       background: theme.galleryViewBackgroundColor,
-      position: 'relative',
-      gridArea: '1 / 1 / 2 / 3',
+      // Fill the shell's stage area. The legacy `gridArea` sizing no longer applies
+      // now that GalleryView renders inside the Professor/Student room shells, so
+      // without an explicit fill the container collapses and the tiles shrink.
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
     },
     participantContainer: {
       position: 'absolute',
