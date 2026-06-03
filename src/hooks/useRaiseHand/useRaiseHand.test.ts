@@ -154,4 +154,59 @@ describe('useRaiseHand', () => {
     expect(mockRoom.listenerCount('participantConnected')).toBe(0);
     expect(mockRoom.listenerCount('participantDisconnected')).toBe(0);
   });
+
+  it('re-announces a raised hand when a new participant connects (late-join recovery)', () => {
+    const { result } = renderHook(() => useRaiseHand());
+    act(() => result.current.setHandRaised(true));
+    mockSend.mockClear();
+
+    act(() => void mockRoom.emit('participantConnected', createParticipant('Ana [Profesor]')));
+
+    expect(mockSend).toHaveBeenCalledWith(raiseHand(true));
+  });
+
+  it('does not re-announce when the local hand is down', () => {
+    renderHook(() => useRaiseHand());
+    mockSend.mockClear();
+
+    act(() => void mockRoom.emit('participantConnected', createParticipant('Ana [Profesor]')));
+
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('ignores a malformed raise-hand message and keeps the existing hand', () => {
+    const bob = createParticipant('student-bob');
+    const bobData = createDataTrack();
+    const { result } = renderHook(() => useRaiseHand());
+    act(() => {
+      mockRoom.emit('participantConnected', bob);
+      bob.emit('trackSubscribed', bobData);
+      bobData.emit('message', raiseHand(true));
+    });
+    expect(result.current.raisedHands).toEqual(['student-bob']);
+
+    act(() => void bobData.emit('message', JSON.stringify({ type: 'raise-hand' })));
+
+    expect(result.current.raisedHands).toEqual(['student-bob']);
+  });
+
+  it('does not attach a second message listener to the same data track', () => {
+    const bob = createParticipant('student-bob');
+    const bobData = createDataTrack();
+    bob.tracks.set('t1', { track: bobData });
+    mockRoom.participants.set(0, bob);
+    renderHook(() => useRaiseHand());
+
+    act(() => void bob.emit('trackSubscribed', bobData));
+
+    expect(bobData.listenerCount('message')).toBe(1);
+  });
+
+  it('unpublishes the data track on unmount (after publish settles)', async () => {
+    const { unmount } = renderHook(() => useRaiseHand());
+    unmount();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mockRoom.localParticipant.unpublishTrack).toHaveBeenCalled();
+  });
 });

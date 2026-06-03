@@ -1,31 +1,14 @@
 import React from 'react';
 import clsx from 'clsx';
-import { makeStyles, Theme } from '@material-ui/core';
+import { ClickAwayListener, makeStyles, Snackbar, Theme } from '@material-ui/core';
 import WarningIcon from '@material-ui/icons/Warning';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useAttention } from '../../AttentionProvider';
-import { AttentionLevel, ProctoringAlert } from '../../AttentionProvider/types';
+import { AttentionLevel } from '../../AttentionProvider/types';
+import { levelColor, levelLabel, proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
 import SessionStatusBar from './SessionStatusBar';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import { exportAttentionReport, ExportFormat } from './exportAttentionReport';
-
-const proctoringKindLabel: Record<ProctoringAlert['kind'], string> = {
-  multiface: 'Múltiples rostros',
-  absent: 'Sin presencia',
-  away: 'Ausente',
-};
-
-const levelLabel: Record<AttentionLevel, string> = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Baja',
-};
-
-const levelColor: Record<AttentionLevel, string> = {
-  high: '#14B053',
-  medium: '#E6A817',
-  low: '#E22525',
-};
 
 const levelPercent: Record<AttentionLevel, number> = {
   high: 85,
@@ -343,6 +326,7 @@ export default function ProfessorRoomShell({
   const sortedParticipants = [...participants].sort((a, b) => b.index - a.index);
 
   const [isExportMenuOpen, setIsExportMenuOpen] = React.useState(false);
+  const [hasExportError, setHasExportError] = React.useState(false);
 
   // Defaults to a client-side download (PDF or Excel) of the current attention
   // snapshot; `onExportReport` lets a parent intercept (e.g. a real backend later).
@@ -359,7 +343,7 @@ export default function ProfessorRoomShell({
       timeline,
       participants,
       proctoringAlerts,
-    });
+    }).catch(() => setHasExportError(true));
   };
 
   return (
@@ -500,37 +484,45 @@ export default function ProfessorRoomShell({
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <div className={classes.exportContainer}>
-                  <button
-                    type="button"
-                    className={classes.exportButton}
-                    onClick={() => setIsExportMenuOpen(open => !open)}
-                    aria-haspopup="menu"
-                    aria-expanded={isExportMenuOpen}
+                <ClickAwayListener onClickAway={() => setIsExportMenuOpen(false)}>
+                  <div
+                    className={classes.exportContainer}
+                    data-testid="professor-room-shell-export"
+                    onKeyDown={event => {
+                      if (event.key === 'Escape') setIsExportMenuOpen(false);
+                    }}
                   >
-                    Exportar reporte
-                  </button>
-                  {isExportMenuOpen && (
-                    <div className={classes.exportMenu} role="menu">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className={classes.exportMenuItem}
-                        onClick={() => runExport('pdf')}
-                      >
-                        PDF
-                      </button>
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className={classes.exportMenuItem}
-                        onClick={() => runExport('xlsx')}
-                      >
-                        Excel (.xlsx)
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      className={classes.exportButton}
+                      onClick={() => setIsExportMenuOpen(open => !open)}
+                      aria-haspopup="menu"
+                      aria-expanded={isExportMenuOpen}
+                    >
+                      Exportar reporte
+                    </button>
+                    {isExportMenuOpen && (
+                      <div className={classes.exportMenu} role="menu">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className={classes.exportMenuItem}
+                          onClick={() => runExport('pdf')}
+                        >
+                          PDF
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className={classes.exportMenuItem}
+                          onClick={() => runExport('xlsx')}
+                        >
+                          Excel (.xlsx)
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </ClickAwayListener>
               </>
             ) : (
               <div data-testid="professor-room-shell-individual-list">
@@ -556,6 +548,13 @@ export default function ProfessorRoomShell({
           </div>
         </aside>
       </div>
+      <Snackbar
+        open={hasExportError}
+        autoHideDuration={6000}
+        onClose={() => setHasExportError(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        message="No se pudo generar el reporte"
+      />
     </section>
   );
 }

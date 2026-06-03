@@ -1,9 +1,13 @@
 import React from 'react';
 import { mount } from 'enzyme';
+import { act } from 'react-dom/test-utils';
 import ProfessorRoomShell from './ProfessorRoomShell';
 import { useAttention } from '../../AttentionProvider';
 
 jest.mock('../../AttentionProvider');
+jest.mock('./exportAttentionReport', () => ({
+  exportAttentionReport: jest.fn(() => Promise.reject(new Error('export failed'))),
+}));
 // recharts' ResponsiveContainer needs a measurable parent; stub it out for jsdom.
 jest.mock('recharts', () => {
   const Stub = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
@@ -195,5 +199,40 @@ describe('ProfessorRoomShell', () => {
     wrapper.update();
     wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').simulate('click');
     expect(onExportReport).toHaveBeenCalledWith('pdf');
+  });
+
+  it('closes the export menu on Escape', () => {
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} onExportReport={jest.fn()} />);
+    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Exportar reporte').simulate('click');
+    wrapper.update();
+    expect(wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').exists()).toBe(true);
+
+    wrapper
+      .find('[data-testid="professor-room-shell-export"]')
+      .first()
+      .simulate('keydown', { key: 'Escape' });
+    wrapper.update();
+
+    expect(wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').exists()).toBe(false);
+  });
+
+  it('surfaces an error when the default export fails', async () => {
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
+    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Exportar reporte').simulate('click');
+    wrapper.update();
+    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').simulate('click');
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    wrapper.update();
+
+    expect(
+      wrapper
+        .find('[message="No se pudo generar el reporte"]')
+        .first()
+        .prop('open')
+    ).toBe(true);
   });
 });

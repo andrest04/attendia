@@ -16,6 +16,10 @@ import useVideoContext from '../useVideoContext/useVideoContext';
  *   The sender's identity is taken from the Twilio participant, not the payload.
  * - { type: 'grant-turn', identity } — the professor gave `identity` the turn.
  *   The targeted student lowers their hand and surfaces a "tu turno" signal.
+ *
+ * DataTracks do NOT replay messages sent before a peer subscribed, so a raised
+ * hand is re-announced whenever a new participant connects — this is what lets a
+ * professor who refreshes (auto-rejoin) or joins late rebuild the queue.
  */
 
 interface RaiseHandMessage {
@@ -49,6 +53,11 @@ export default function useRaiseHand(): RaiseHandApi {
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [turnGrantedCount, setTurnGrantedCount] = useState(0);
   const dataTrackRef = useRef<LocalDataTrack | null>(null);
+  const isHandRaisedRef = useRef(false);
+
+  useEffect(() => {
+    isHandRaisedRef.current = isHandRaised;
+  }, [isHandRaised]);
 
   const send = useCallback((message: ClassMessage) => {
     try {
@@ -58,18 +67,23 @@ export default function useRaiseHand(): RaiseHandApi {
     }
   }, []);
 
-  // Publish one LocalDataTrack per room connection.
+  // Publish one LocalDataTrack per room connection. Unpublish is chained onto the
+  // publish promise so a fast unmount/remount never unpublishes a track Twilio is
+  // still in the middle of publishing (which would leave a dangling publication).
   useEffect(() => {
     if (!room || !room.localParticipant) return;
+    const localParticipant = room.localParticipant;
     const dataTrack = new LocalDataTrack();
     dataTrackRef.current = dataTrack;
-    room.localParticipant.publishTrack(dataTrack);
+    const published = Promise.resolve(localParticipant.publishTrack(dataTrack)).catch(() => undefined);
     return () => {
-      try {
-        room.localParticipant.unpublishTrack(dataTrack);
-      } catch {
-        // Already unpublished on disconnect.
-      }
+      published.then(() => {
+        try {
+          localParticipant.unpublishTrack(dataTrack);
+        } catch {
+          // Already unpublished on disconnect.
+        }
+      });
       dataTrackRef.current = null;
     };
   }, [room]);
@@ -79,6 +93,7 @@ export default function useRaiseHand(): RaiseHandApi {
     if (!room || !room.localParticipant) return;
     const localIdentity = room.localParticipant.identity;
     const cleanups: Array<() => void> = [];
+    const attachedTracks = new Set<unknown>();
 
     const listen = (emitter: any, event: string, handler: (...args: any[]) => void) => {
       emitter.on(event, handler);
@@ -94,21 +109,28 @@ export default function useRaiseHand(): RaiseHandApi {
         return;
       }
 
-      if (message.type === 'raise-hand') {
+      if (message.type === 'raise-hand' && typeof message.raised === 'boolean') {
         const { raised } = message;
         setRaisedHands(prev => {
           const without = prev.filter(id => id !== identity);
           return raised ? [...without, identity] : without;
         });
-      } else if (message.type === 'grant-turn' && message.identity === localIdentity) {
+      } else if (
+        message.type === 'grant-turn' &&
+        typeof message.identity === 'string' &&
+        message.identity === localIdentity
+      ) {
         setIsHandRaised(false);
         setTurnGrantedCount(count => count + 1);
         send({ type: 'raise-hand', raised: false });
       }
     };
 
+    // Guard against double-subscribing the same track (the initial tracks loop and a
+    // later trackSubscribed can reference the same object; re-subscribes give new ones).
     const attachDataTrack = (track: any, identity: string) => {
-      if (track && track.kind === 'data') {
+      if (track && track.kind === 'data' && !attachedTracks.has(track)) {
+        attachedTracks.add(track);
         listen(track, 'message', (data: unknown) => handleMessage(data, identity));
       }
     };
@@ -118,11 +140,19 @@ export default function useRaiseHand(): RaiseHandApi {
       participant.tracks?.forEach((publication: any) => attachDataTrack(publication.track, participant.identity));
     };
 
+    const handleParticipantConnected = (participant: any) => {
+      attachParticipant(participant);
+      // Re-announce our raised hand to the late joiner — see the file header note.
+      if (isHandRaisedRef.current) {
+        send({ type: 'raise-hand', raised: true });
+      }
+    };
+
     const handleDisconnect = (participant: any) =>
       setRaisedHands(prev => prev.filter(id => id !== participant.identity));
 
     room.participants.forEach(attachParticipant);
-    listen(room, 'participantConnected', attachParticipant);
+    listen(room, 'participantConnected', handleParticipantConnected);
     listen(room, 'participantDisconnected', handleDisconnect);
 
     return () => cleanups.forEach(off => off());

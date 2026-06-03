@@ -1,4 +1,5 @@
-import { AttentionData, AttentionLevel, ProctoringAlert } from '../../AttentionProvider/types';
+import { AttentionData } from '../../AttentionProvider/types';
+import { levelLabel, proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
 
 export type ExportFormat = 'pdf' | 'xlsx';
 
@@ -23,18 +24,6 @@ export interface AttentionReportModel {
   summary: Array<[string, string | number]>;
   tables: ReportTable[];
 }
-
-const levelLabel: Record<AttentionLevel, string> = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Baja',
-};
-
-const proctoringKindLabel: Record<ProctoringAlert['kind'], string> = {
-  multiface: 'Múltiples rostros',
-  absent: 'Sin presencia',
-  away: 'Ausente',
-};
 
 const REPORT_TITLE = 'Reporte de atención';
 const PDF_FILENAME = 'reporte-atencion.pdf';
