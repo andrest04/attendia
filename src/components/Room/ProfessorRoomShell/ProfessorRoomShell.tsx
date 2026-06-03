@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { ClickAwayListener, makeStyles, Snackbar, Theme } from '@material-ui/core';
+import { makeStyles, Theme } from '@material-ui/core';
 import WarningIcon from '@material-ui/icons/Warning';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts';
 import { useAttention } from '../../AttentionProvider';
@@ -8,7 +8,7 @@ import { AttentionLevel } from '../../AttentionProvider/types';
 import { levelColor, levelLabel, proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
 import SessionStatusBar from './SessionStatusBar';
 import GroupAttentionGauge from './GroupAttentionGauge';
-import { exportAttentionReport, ExportFormat } from './exportAttentionReport';
+import AttentionReportOverlay from '../AttentionReportOverlay/AttentionReportOverlay';
 
 const levelPercent: Record<AttentionLevel, number> = {
   high: 85,
@@ -237,9 +237,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     height: '100%',
     borderRadius: 3,
   },
-  exportContainer: {
-    position: 'relative',
-  },
   exportButton: {
     width: '100%',
     padding: theme.spacing(1.25),
@@ -248,31 +245,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.palette.background.default,
     fontSize: 12,
     cursor: 'pointer',
-  },
-  exportMenu: {
-    position: 'absolute',
-    bottom: 'calc(100% + 4px)',
-    left: 0,
-    right: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    backgroundColor: theme.palette.background.paper,
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: 6,
-    overflow: 'hidden',
-    boxShadow: theme.shadows[3],
-    zIndex: 10,
-  },
-  exportMenuItem: {
-    padding: theme.spacing(1, 1.5),
-    fontSize: 12,
-    textAlign: 'left',
-    background: 'transparent',
-    border: 'none',
-    cursor: 'pointer',
-    '&:hover': {
-      backgroundColor: theme.palette.action.hover,
-    },
   },
 }));
 
@@ -295,7 +267,6 @@ interface Props {
   onGrantTurn?: (identity: string) => void;
   /** When true, surface the proctoring alerts feed (US30). Driven by the toolbar toggle. */
   proctoringEnabled?: boolean;
-  onExportReport?: (format: ExportFormat) => void;
 }
 
 export default function ProfessorRoomShell({
@@ -310,7 +281,6 @@ export default function ProfessorRoomShell({
   handsRaised = [],
   onGrantTurn,
   proctoringEnabled = false,
-  onExportReport,
 }: Props) {
   const classes = useStyles();
   const {
@@ -324,27 +294,13 @@ export default function ProfessorRoomShell({
   } = useAttention();
   const isGroupBelowThreshold = groupAttention < attentionThreshold;
   const sortedParticipants = [...participants].sort((a, b) => b.index - a.index);
+  const studentCount = Math.max(0, participantCount - 1);
 
-  const [isExportMenuOpen, setIsExportMenuOpen] = React.useState(false);
-  const [hasExportError, setHasExportError] = React.useState(false);
-
-  // Defaults to a client-side download (PDF or Excel) of the current attention
-  // snapshot; `onExportReport` lets a parent intercept (e.g. a real backend later).
-  const runExport = (format: ExportFormat) => {
-    setIsExportMenuOpen(false);
-    if (onExportReport) {
-      onExportReport(format);
-      return;
-    }
-    exportAttentionReport(format, {
-      source,
-      groupAttention,
-      attentionThreshold,
-      timeline,
-      participants,
-      proctoringAlerts,
-    }).catch(() => setHasExportError(true));
-  };
+  // The full attention report now opens as an in-room overlay (graduated from
+  // wireframe S6). It mounts inside the shell so the live Twilio call is never
+  // torn down and the real AttentionContext stays available; the PDF/Excel
+  // downloads — and their own error snackbar — live inside that overlay.
+  const [isReportOpen, setIsReportOpen] = React.useState(false);
 
   return (
     <section className={classes.root} data-testid="professor-room-shell-root">
@@ -484,45 +440,14 @@ export default function ProfessorRoomShell({
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <ClickAwayListener onClickAway={() => setIsExportMenuOpen(false)}>
-                  <div
-                    className={classes.exportContainer}
-                    data-testid="professor-room-shell-export"
-                    onKeyDown={event => {
-                      if (event.key === 'Escape') setIsExportMenuOpen(false);
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className={classes.exportButton}
-                      onClick={() => setIsExportMenuOpen(open => !open)}
-                      aria-haspopup="menu"
-                      aria-expanded={isExportMenuOpen}
-                    >
-                      Exportar reporte
-                    </button>
-                    {isExportMenuOpen && (
-                      <div className={classes.exportMenu} role="menu">
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className={classes.exportMenuItem}
-                          onClick={() => runExport('pdf')}
-                        >
-                          PDF
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className={classes.exportMenuItem}
-                          onClick={() => runExport('xlsx')}
-                        >
-                          Excel (.xlsx)
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </ClickAwayListener>
+                <button
+                  type="button"
+                  className={classes.exportButton}
+                  data-testid="professor-room-shell-export"
+                  onClick={() => setIsReportOpen(true)}
+                >
+                  Ver reporte
+                </button>
               </>
             ) : (
               <div data-testid="professor-room-shell-individual-list">
@@ -548,12 +473,11 @@ export default function ProfessorRoomShell({
           </div>
         </aside>
       </div>
-      <Snackbar
-        open={hasExportError}
-        autoHideDuration={6000}
-        onClose={() => setHasExportError(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        message="No se pudo generar el reporte"
+      <AttentionReportOverlay
+        isOpen={isReportOpen}
+        onClose={() => setIsReportOpen(false)}
+        sessionName={sessionName}
+        studentCount={studentCount}
       />
     </section>
   );

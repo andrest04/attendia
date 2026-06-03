@@ -1,6 +1,8 @@
 import {
   AttentionReportInput,
+  ReportMeta,
   buildAttentionReportModel,
+  buildReportFilename,
   exportAttentionReport,
   exportAttentionReportPdf,
   exportAttentionReportXlsx,
@@ -53,7 +55,38 @@ const fixture: AttentionReportInput = {
   proctoringAlerts: [{ id: 'a1', identity: 'student-dave', kind: 'multiface', detectedAt: '10:22', confidence: 0.91 }],
 };
 
+// Fixed date so filename assertions are deterministic (Jest runs under TZ=utc).
+const meta: ReportMeta = { sessionName: 'Matemáticas — Grupo A', date: new Date('2026-06-02T10:00:00Z') };
+
 beforeEach(() => jest.clearAllMocks());
+
+describe('buildReportFilename', () => {
+  const day = new Date('2026-06-02T10:00:00Z');
+
+  it('slugifies the session name and stamps the date', () => {
+    expect(buildReportFilename({ sessionName: 'Matemáticas 101', date: day }, 'pdf')).toBe(
+      'reporte-atencion-matematicas-101-2026-06-02.pdf'
+    );
+  });
+
+  it('uses the .xlsx extension for the Excel format', () => {
+    expect(buildReportFilename({ sessionName: 'Matemáticas 101', date: day }, 'xlsx')).toBe(
+      'reporte-atencion-matematicas-101-2026-06-02.xlsx'
+    );
+  });
+
+  it('strips accents and collapses separators in the room name', () => {
+    expect(buildReportFilename({ sessionName: 'Matemáticas — Grupo A', date: day }, 'pdf')).toBe(
+      'reporte-atencion-matematicas-grupo-a-2026-06-02.pdf'
+    );
+  });
+
+  it('falls back to a stable slug when the session name is blank', () => {
+    expect(buildReportFilename({ sessionName: '   ', date: day }, 'pdf')).toBe(
+      'reporte-atencion-class-session-2026-06-02.pdf'
+    );
+  });
+});
 
 describe('buildAttentionReportModel', () => {
   it('summarizes the session and flags a mocked source', () => {
@@ -89,31 +122,37 @@ describe('buildAttentionReportModel', () => {
 });
 
 describe('exportAttentionReportPdf', () => {
-  it('renders one table per section and saves a .pdf', async () => {
-    await exportAttentionReportPdf(fixture);
+  it('renders one table per section and saves a named .pdf', async () => {
+    await exportAttentionReportPdf(fixture, meta);
     expect(mockAutoTable).toHaveBeenCalledTimes(3);
-    expect(mockPdfSave).toHaveBeenCalledWith('reporte-atencion.pdf');
+    expect(mockPdfSave).toHaveBeenCalledWith('reporte-atencion-matematicas-grupo-a-2026-06-02.pdf');
   });
 });
 
 describe('exportAttentionReportXlsx', () => {
-  it('appends one sheet per section (summary + 3 tables) and writes a .xlsx', async () => {
-    await exportAttentionReportXlsx(fixture);
+  it('appends one sheet per section (summary + 3 tables) and writes a named .xlsx', async () => {
+    await exportAttentionReportXlsx(fixture, meta);
     expect(mockBookAppendSheet).toHaveBeenCalledTimes(4);
-    expect(mockXlsxWriteFile).toHaveBeenCalledWith(expect.anything(), 'reporte-atencion.xlsx');
+    expect(mockXlsxWriteFile).toHaveBeenCalledWith(
+      expect.anything(),
+      'reporte-atencion-matematicas-grupo-a-2026-06-02.xlsx'
+    );
   });
 });
 
 describe('exportAttentionReport', () => {
   it('dispatches to the PDF exporter', async () => {
-    await exportAttentionReport('pdf', fixture);
-    expect(mockPdfSave).toHaveBeenCalledWith('reporte-atencion.pdf');
+    await exportAttentionReport('pdf', fixture, meta);
+    expect(mockPdfSave).toHaveBeenCalledWith('reporte-atencion-matematicas-grupo-a-2026-06-02.pdf');
     expect(mockXlsxWriteFile).not.toHaveBeenCalled();
   });
 
   it('dispatches to the Excel exporter', async () => {
-    await exportAttentionReport('xlsx', fixture);
-    expect(mockXlsxWriteFile).toHaveBeenCalledWith(expect.anything(), 'reporte-atencion.xlsx');
+    await exportAttentionReport('xlsx', fixture, meta);
+    expect(mockXlsxWriteFile).toHaveBeenCalledWith(
+      expect.anything(),
+      'reporte-atencion-matematicas-grupo-a-2026-06-02.xlsx'
+    );
     expect(mockPdfSave).not.toHaveBeenCalled();
   });
 });

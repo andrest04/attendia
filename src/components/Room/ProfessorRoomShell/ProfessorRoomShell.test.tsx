@@ -21,6 +21,7 @@ jest.mock('recharts', () => {
     YAxis: Stub,
     CartesianGrid: Stub,
     Tooltip: Stub,
+    ReferenceLine: Stub,
   };
 });
 
@@ -33,6 +34,7 @@ const attentionLevel = (score: number): 'high' | 'medium' | 'low' => {
 };
 
 const baseAttention = {
+  source: 'mock' as const,
   groupAttention: 64,
   attentionThreshold: 70,
   timeline: [
@@ -188,39 +190,41 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').exists()).toBe(false);
   });
 
-  it('opens the export menu and emits the chosen format', () => {
-    const onExportReport = jest.fn();
-    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} onExportReport={onExportReport} />);
+  it('opens the in-room report overlay from the "Ver reporte" button', () => {
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
 
-    // The button only toggles the format menu; no export is emitted yet.
-    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Exportar reporte').simulate('click');
-    expect(onExportReport).not.toHaveBeenCalled();
+    // The report overlay is closed until the toolbar button is clicked.
+    expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
 
+    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Ver reporte').simulate('click');
     wrapper.update();
-    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').simulate('click');
-    expect(onExportReport).toHaveBeenCalledWith('pdf');
+
+    expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
   });
 
-  it('closes the export menu on Escape', () => {
-    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} onExportReport={jest.fn()} />);
-    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Exportar reporte').simulate('click');
+  it('closes the report overlay from its Cerrar button', () => {
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
+    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Ver reporte').simulate('click');
     wrapper.update();
-    expect(wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
 
     wrapper
-      .find('[data-testid="professor-room-shell-export"]')
+      .find('[data-testid="attention-report-close"]')
       .first()
-      .simulate('keydown', { key: 'Escape' });
+      .simulate('click');
     wrapper.update();
 
-    expect(wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
   });
 
-  it('surfaces an error when the default export fails', async () => {
+  it('surfaces an error when a download from the overlay fails', async () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
-    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Exportar reporte').simulate('click');
+    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Ver reporte').simulate('click');
     wrapper.update();
-    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').simulate('click');
+    wrapper
+      .find('[data-testid="attention-report-download-pdf"]')
+      .first()
+      .simulate('click');
 
     await act(async () => {
       await Promise.resolve();
