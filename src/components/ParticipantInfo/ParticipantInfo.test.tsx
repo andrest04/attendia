@@ -229,6 +229,23 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.find('[data-testid="participant-multiface-flag"]').exists()).toBe(true);
+    const flag = wrapper.find('[data-testid="participant-multiface-flag"]');
+    expect(flag.exists()).toBe(true);
+    expect(flag.text()).toContain('Multi-rostro');
+  });
+
+  it('should render the medium level with its full Spanish word', () => {
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo
+        onClick={() => {}}
+        isSelected={false}
+        participant={{ identity: 'mockIdentity' } as any}
+        attention={{ level: 'medium', multiface: false }}
+      >
+        mock children
+      </ParticipantInfo>
+    );
+    expect(wrapper.find('[data-testid="participant-attention-overlay"]').text()).toContain('Medio');
   });
 });
