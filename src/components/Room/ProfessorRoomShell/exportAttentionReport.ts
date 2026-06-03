@@ -1,5 +1,6 @@
 import { AttentionData } from '../../AttentionProvider/types';
 import { levelLabel, proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
+import { toClassSessionRoomName } from '../../PreJoinScreens/classSessionTypes';
 
 export type ExportFormat = 'pdf' | 'xlsx';
 
@@ -11,6 +12,17 @@ export type AttentionReportInput = Pick<
   AttentionData,
   'source' | 'groupAttention' | 'attentionThreshold' | 'timeline' | 'participants' | 'proctoringAlerts'
 >;
+
+/**
+ * Report metadata used to name the downloaded file. `date` is injectable so the
+ * filename stays deterministic under test (the app passes the current date).
+ */
+export interface ReportMeta {
+  /** Human/room session name; slugified into the filename. */
+  sessionName: string;
+  /** Export date; defaults to now when omitted. */
+  date?: Date;
+}
 
 export interface ReportTable {
   title: string;
@@ -26,9 +38,26 @@ export interface AttentionReportModel {
 }
 
 const REPORT_TITLE = 'Reporte de atención';
-const PDF_FILENAME = 'reporte-atencion.pdf';
-const XLSX_FILENAME = 'reporte-atencion.xlsx';
 const EXCEL_SHEET_NAME_MAX = 31;
+
+/** Local-time YYYY-MM-DD (tests run under TZ=utc, so the day is stable). */
+function formatReportDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Builds a descriptive download filename: `reporte-atencion-{sala}-{YYYY-MM-DD}.{ext}`.
+ * The session name is slugified via the shared `toClassSessionRoomName` helper
+ * (ASCII kebab, accent-stripped, fallback `class-session`) so it is filesystem-safe.
+ */
+export function buildReportFilename(meta: ReportMeta, format: ExportFormat): string {
+  const slug = toClassSessionRoomName(meta.sessionName);
+  const day = formatReportDate(meta.date ?? new Date());
+  return `reporte-atencion-${slug}-${day}.${format}`;
+}
 
 /**
  * Builds a format-agnostic report model from the current attention snapshot.
@@ -69,7 +98,7 @@ export function buildAttentionReportModel(data: AttentionReportInput): Attention
 }
 
 /** Generates and downloads the report as a PDF. jsPDF + autotable are loaded on demand. */
-export async function exportAttentionReportPdf(data: AttentionReportInput): Promise<void> {
+export async function exportAttentionReportPdf(data: AttentionReportInput, meta: ReportMeta): Promise<void> {
   const model = buildAttentionReportModel(data);
   const jspdfModule: any = await import('jspdf');
   const JsPdf = jspdfModule.jsPDF || jspdfModule.default;
@@ -99,11 +128,11 @@ export async function exportAttentionReportPdf(data: AttentionReportInput): Prom
     startY = (lastTable && typeof lastTable.finalY === 'number' ? lastTable.finalY : startY + 40) + 10;
   });
 
-  doc.save(PDF_FILENAME);
+  doc.save(buildReportFilename(meta, 'pdf'));
 }
 
 /** Generates and downloads the report as a real .xlsx workbook (one sheet per section). SheetJS is loaded on demand. */
-export async function exportAttentionReportXlsx(data: AttentionReportInput): Promise<void> {
+export async function exportAttentionReportXlsx(data: AttentionReportInput, meta: ReportMeta): Promise<void> {
   const model = buildAttentionReportModel(data);
   const XLSX: any = await import('xlsx');
 
@@ -116,10 +145,14 @@ export async function exportAttentionReportXlsx(data: AttentionReportInput): Pro
     XLSX.utils.book_append_sheet(workbook, sheet, table.title.slice(0, EXCEL_SHEET_NAME_MAX));
   });
 
-  XLSX.writeFile(workbook, XLSX_FILENAME);
+  XLSX.writeFile(workbook, buildReportFilename(meta, 'xlsx'));
 }
 
 /** Dispatches to the PDF or Excel exporter. */
-export function exportAttentionReport(format: ExportFormat, data: AttentionReportInput): Promise<void> {
-  return format === 'pdf' ? exportAttentionReportPdf(data) : exportAttentionReportXlsx(data);
+export function exportAttentionReport(
+  format: ExportFormat,
+  data: AttentionReportInput,
+  meta: ReportMeta
+): Promise<void> {
+  return format === 'pdf' ? exportAttentionReportPdf(data, meta) : exportAttentionReportXlsx(data, meta);
 }
