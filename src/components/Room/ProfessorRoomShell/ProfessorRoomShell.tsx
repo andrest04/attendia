@@ -7,6 +7,7 @@ import { useAttention } from '../../AttentionProvider';
 import { AttentionLevel, ProctoringAlert } from '../../AttentionProvider/types';
 import SessionStatusBar from './SessionStatusBar';
 import GroupAttentionGauge from './GroupAttentionGauge';
+import { exportAttentionReport, ExportFormat } from './exportAttentionReport';
 
 const proctoringKindLabel: Record<ProctoringAlert['kind'], string> = {
   multiface: 'Múltiples rostros',
@@ -128,6 +129,33 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderBottom: `1px solid ${theme.palette.divider}`,
     backgroundColor: '#FAFAFA',
   },
+  handRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    padding: theme.spacing(0.5, 0),
+  },
+  handIdentity: {
+    fontSize: 12,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  grantTurnButton: {
+    flexShrink: 0,
+    padding: theme.spacing(0.25, 1),
+    fontSize: 11,
+    fontWeight: 600,
+    color: '#FFFFFF',
+    backgroundColor: '#027AC5',
+    border: 'none',
+    borderRadius: 4,
+    cursor: 'pointer',
+    '&:hover': {
+      backgroundColor: '#0269A8',
+    },
+  },
   proctoringFeed: {
     padding: theme.spacing(1.5),
     borderTop: `1px solid ${theme.palette.divider}`,
@@ -226,13 +254,42 @@ const useStyles = makeStyles((theme: Theme) => ({
     height: '100%',
     borderRadius: 3,
   },
+  exportContainer: {
+    position: 'relative',
+  },
   exportButton: {
+    width: '100%',
     padding: theme.spacing(1.25),
     border: `1px solid ${theme.palette.divider}`,
     borderRadius: 6,
     backgroundColor: theme.palette.background.default,
     fontSize: 12,
     cursor: 'pointer',
+  },
+  exportMenu: {
+    position: 'absolute',
+    bottom: 'calc(100% + 4px)',
+    left: 0,
+    right: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    borderRadius: 6,
+    overflow: 'hidden',
+    boxShadow: theme.shadows[3],
+    zIndex: 10,
+  },
+  exportMenuItem: {
+    padding: theme.spacing(1, 1.5),
+    fontSize: 12,
+    textAlign: 'left',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    '&:hover': {
+      backgroundColor: theme.palette.action.hover,
+    },
   },
 }));
 
@@ -251,9 +308,11 @@ interface Props {
   recording?: boolean;
   /** Identities of participants with a raised hand, in queue order. */
   handsRaised?: string[];
+  /** Professor action: give the named participant the turn (clears their raised hand). */
+  onGrantTurn?: (identity: string) => void;
   /** When true, surface the proctoring alerts feed (US30). Driven by the toolbar toggle. */
   proctoringEnabled?: boolean;
-  onExportReport?: () => void;
+  onExportReport?: (format: ExportFormat) => void;
 }
 
 export default function ProfessorRoomShell({
@@ -266,6 +325,7 @@ export default function ProfessorRoomShell({
   participantCount = 0,
   recording = false,
   handsRaised = [],
+  onGrantTurn,
   proctoringEnabled = false,
   onExportReport,
 }: Props) {
@@ -281,6 +341,26 @@ export default function ProfessorRoomShell({
   } = useAttention();
   const isGroupBelowThreshold = groupAttention < attentionThreshold;
   const sortedParticipants = [...participants].sort((a, b) => b.index - a.index);
+
+  const [isExportMenuOpen, setIsExportMenuOpen] = React.useState(false);
+
+  // Defaults to a client-side download (PDF or Excel) of the current attention
+  // snapshot; `onExportReport` lets a parent intercept (e.g. a real backend later).
+  const runExport = (format: ExportFormat) => {
+    setIsExportMenuOpen(false);
+    if (onExportReport) {
+      onExportReport(format);
+      return;
+    }
+    exportAttentionReport(format, {
+      source,
+      groupAttention,
+      attentionThreshold,
+      timeline,
+      participants,
+      proctoringAlerts,
+    });
+  };
 
   return (
     <section className={classes.root} data-testid="professor-room-shell-root">
@@ -302,8 +382,11 @@ export default function ProfessorRoomShell({
             <div className={classes.handsQueue} data-testid="professor-room-shell-hands-queue">
               <div className={classes.sectionTitle}>Manos levantadas ({handsRaised.length})</div>
               {handsRaised.map(identity => (
-                <div key={identity} className={classes.contextLine}>
-                  {identity}
+                <div key={identity} className={classes.handRow}>
+                  <span className={classes.handIdentity}>{identity}</span>
+                  <button type="button" className={classes.grantTurnButton} onClick={() => onGrantTurn?.(identity)}>
+                    Dar turno
+                  </button>
                 </div>
               ))}
             </div>
@@ -417,9 +500,37 @@ export default function ProfessorRoomShell({
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <button type="button" className={classes.exportButton} onClick={onExportReport}>
-                  Exportar reporte
-                </button>
+                <div className={classes.exportContainer}>
+                  <button
+                    type="button"
+                    className={classes.exportButton}
+                    onClick={() => setIsExportMenuOpen(open => !open)}
+                    aria-haspopup="menu"
+                    aria-expanded={isExportMenuOpen}
+                  >
+                    Exportar reporte
+                  </button>
+                  {isExportMenuOpen && (
+                    <div className={classes.exportMenu} role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={classes.exportMenuItem}
+                        onClick={() => runExport('pdf')}
+                      >
+                        PDF
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={classes.exportMenuItem}
+                        onClick={() => runExport('xlsx')}
+                      >
+                        Excel (.xlsx)
+                      </button>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <div data-testid="professor-room-shell-individual-list">

@@ -120,6 +120,22 @@ describe('ProfessorRoomShell', () => {
     expect(queue.text()).toContain('Carlos López');
   });
 
+  it('gives a student the turn from the hands-raised queue', () => {
+    const onGrantTurn = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        handsRaised={['Carlos López', 'Sofía Ruiz']}
+        onGrantTurn={onGrantTurn}
+      />
+    );
+    const grantButtons = wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Dar turno');
+    expect(grantButtons.length).toBe(2);
+
+    grantButtons.first().simulate('click');
+    expect(onGrantTurn).toHaveBeenCalledWith('Carlos López');
+  });
+
   it('shows the group-below-threshold banner when group attention is under the threshold', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
     expect(wrapper.find('[data-testid="professor-room-shell-group-banner"]').exists()).toBe(true);
@@ -168,11 +184,16 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').exists()).toBe(false);
   });
 
-  it('emits export-report clicks', () => {
+  it('opens the export menu and emits the chosen format', () => {
     const onExportReport = jest.fn();
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} onExportReport={onExportReport} />);
 
+    // The button only toggles the format menu; no export is emitted yet.
     wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Exportar reporte').simulate('click');
-    expect(onExportReport).toHaveBeenCalled();
+    expect(onExportReport).not.toHaveBeenCalled();
+
+    wrapper.update();
+    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'PDF').simulate('click');
+    expect(onExportReport).toHaveBeenCalledWith('pdf');
   });
 });

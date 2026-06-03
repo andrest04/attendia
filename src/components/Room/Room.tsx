@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { GalleryView } from '../GalleryView/GalleryView';
 import { MobileGalleryView } from '../MobileGalleryView/MobileGalleryView';
 import MainParticipant from '../MainParticipant/MainParticipant';
-import { makeStyles, Theme, useMediaQuery, useTheme } from '@material-ui/core';
+import { makeStyles, Snackbar, Theme, useMediaQuery, useTheme } from '@material-ui/core';
 import { Participant, Room as IRoom } from 'twilio-video';
 import { ParticipantAudioTracks } from '../ParticipantAudioTracks/ParticipantAudioTracks';
 import ParticipantList from '../ParticipantList/ParticipantList';
@@ -23,6 +23,7 @@ import { StudentRoomToolbar } from './StudentRoomShell';
 import ProfessorRoomShell, { ProfessorToolbar } from './ProfessorRoomShell';
 import { ProfessorRightTab } from './ProfessorRoomShell/ProfessorRoomShell';
 import useShellNotifications from './StudentRoomShell/useShellNotifications';
+import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 
 const useStyles = makeStyles((theme: Theme) => {
@@ -94,16 +95,17 @@ export default function Room() {
   const screenShareParticipant = useScreenShareParticipant();
   const [rightTab, setRightTab] = useState<'chat' | 'attention'>('chat');
   const [professorTab, setProfessorTab] = useState<ProfessorRightTab>('grupo');
-  const [handRaised, setHandRaised] = useState(false);
+  const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
   const [recording, setRecording] = useState(false);
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
+  const [isTurnSnackbarOpen, setIsTurnSnackbarOpen] = useState(false);
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
   const mainParticipant = useMainParticipant();
   const participants = useParticipants();
   const localParticipantNetworkQuality = useParticipantNetworkQualityLevel(room?.localParticipant ?? null);
   const isConnectivityDegraded =
     typeof localParticipantNetworkQuality === 'number' ? localParticipantNetworkQuality <= 2 : false;
-  const notifications = useShellNotifications(participants, handRaised);
+  const notifications = useShellNotifications(participants, isHandRaised);
   const participantCount = participants.length + 1;
   const activeSpeakerLabel = mainParticipant?.identity || 'Sin participante activo';
   const sessionLabel = 'Sesión Twilio en vivo';
@@ -114,6 +116,13 @@ export default function Room() {
   // Here we switch to speaker view when a participant starts sharing their screen, but
   // the user is still free to switch back to gallery view.
   useSetSpeakerViewOnScreenShare(screenShareParticipant, room, setIsGalleryViewActive, isGalleryViewActive);
+
+  // Surface a transient cue when the professor gives this participant the turn.
+  useEffect(() => {
+    if (turnGrantedCount > 0) {
+      setIsTurnSnackbarOpen(true);
+    }
+  }, [turnGrantedCount]);
 
   return (
     <div
@@ -155,12 +164,14 @@ export default function Room() {
           sessionName={room?.name || sessionLabel}
           participantCount={participantCount}
           recording={recording}
+          handsRaised={raisedHands}
+          onGrantTurn={grantTurn}
           proctoringEnabled={proctoringEnabled}
         />
       ) : (
         <StudentRoomShell
           stage={isGalleryViewActive ? <GalleryView /> : <MainParticipant />}
-          toolbarSlot={<StudentRoomToolbar handRaised={handRaised} onHandRaisedChange={setHandRaised} />}
+          toolbarSlot={<StudentRoomToolbar handRaised={isHandRaised} onHandRaisedChange={setHandRaised} />}
           rightTab={rightTab}
           onRightTabChange={setRightTab}
           activeSpeakerLabel={activeSpeakerLabel}
@@ -176,6 +187,13 @@ export default function Room() {
       {!isDesktopShell && <AttentionPanel />}
       <BackgroundSelectionDialog />
       <TranscriptionsOverlay />
+      <Snackbar
+        open={isTurnSnackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setIsTurnSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        message="Es tu turno · el profesor te dio la palabra"
+      />
     </div>
   );
 }
