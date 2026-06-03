@@ -16,6 +16,10 @@ import useTrack from '../../hooks/useTrack/useTrack';
 import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
 import { useAppState } from '../../state';
 import { AttentionLevel } from '../AttentionProvider/types';
+import {
+  levelColor as attentionColor,
+  levelShortLabel as attentionShortLabel,
+} from '../AttentionProvider/attentionLabels';
 
 const borderWidth = 2;
 
@@ -24,18 +28,6 @@ export interface ParticipantTileAttention {
   level: AttentionLevel;
   multiface: boolean;
 }
-
-const attentionColor: Record<AttentionLevel, string> = {
-  high: '#14B053',
-  medium: '#E6A817',
-  low: '#E22525',
-};
-
-const attentionShortLabel: Record<AttentionLevel, string> = {
-  high: 'Alto',
-  medium: 'Medio',
-  low: 'Bajo',
-};
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
