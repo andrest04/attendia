@@ -16,10 +16,26 @@ const useStyles = makeStyles((theme: Theme) =>
         background: '#600101',
       },
     },
+    dark: {
+      background: '#1B2126',
+      color: 'white',
+      '&:hover': {
+        background: '#0E1316',
+      },
+    },
   })
 );
 
-export default function EndCallButton(props: { className?: string }) {
+interface EndCallButtonProps {
+  className?: string;
+  /** Defaults to "Salir". The professor shell uses "Terminar sesión" to match the wireframe. */
+  label?: string;
+  startIcon?: React.ReactNode;
+  /** Use the neutral dark surface instead of the red brand surface (toolbar chip style). */
+  dark?: boolean;
+}
+
+export default function EndCallButton(props: EndCallButtonProps = {}) {
   const classes = useStyles();
   const { room } = useVideoContext();
 
@@ -32,8 +48,13 @@ export default function EndCallButton(props: { className?: string }) {
   };
 
   return (
-    <Button onClick={handleEndCall} className={clsx(classes.button, props.className)} data-cy-disconnect>
-      Salir
+    <Button
+      onClick={handleEndCall}
+      startIcon={props.startIcon}
+      className={clsx(props.dark ? classes.dark : classes.button, props.className)}
+      data-cy-disconnect
+    >
+      {props.label ?? 'Salir'}
     </Button>
   );
 }

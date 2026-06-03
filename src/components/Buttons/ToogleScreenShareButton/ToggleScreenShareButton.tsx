@@ -1,4 +1,5 @@
 import React from 'react';
+import clsx from 'clsx';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 
 import Button from '@material-ui/core/Button';
@@ -26,7 +27,7 @@ const useStyles = makeStyles((theme: Theme) =>
   })
 );
 
-export default function ToggleScreenShareButton(props: { disabled?: boolean }) {
+export default function ToggleScreenShareButton(props: { disabled?: boolean; className?: string }) {
   const classes = useStyles();
   const screenShareParticipant = useScreenShareParticipant();
   const { toggleScreenShare } = useVideoContext();
@@ -55,7 +56,7 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean }) {
         {/* The span element is needed because a disabled button will not emit hover events and we want to display
           a tooltip when screen sharing is disabled */}
         <Button
-          className={classes.button}
+          className={clsx(classes.button, props.className)}
           onClick={toggleScreenShare}
           disabled={isDisabled}
           startIcon={<ScreenShareIcon />}
