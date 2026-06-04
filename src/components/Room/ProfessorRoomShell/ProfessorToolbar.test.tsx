@@ -92,6 +92,8 @@ describe('ProfessorToolbar', () => {
         updateRecordingRules: mockUpdateRecordingRules,
         isFetching: false,
         roomType: 'go',
+        isGalleryViewActive: true,
+        setIsGalleryViewActive: mockSetIsGalleryViewActive,
       }));
       const wrapper = shallow(<ProfessorToolbar />);
       expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
@@ -102,6 +104,8 @@ describe('ProfessorToolbar', () => {
         updateRecordingRules: mockUpdateRecordingRules,
         isFetching: true,
         roomType: 'group',
+        isGalleryViewActive: true,
+        setIsGalleryViewActive: mockSetIsGalleryViewActive,
       }));
       const wrapper = shallow(<ProfessorToolbar />);
       expect(wrapper.find('[data-testid="professor-toolbar-record"]').prop('disabled')).toBe(true);
@@ -115,7 +119,11 @@ describe('ProfessorToolbar', () => {
       expect(chip.text()).toContain('Vista de orador');
 
       chip.simulate('click');
-      expect(mockSetIsGalleryViewActive).toHaveBeenCalled();
+      // The setter is localStorage-backed, so the functional updater form matters.
+      expect(mockSetIsGalleryViewActive).toHaveBeenCalledWith(expect.any(Function));
+      const updater = mockSetIsGalleryViewActive.mock.calls[0][0];
+      expect(updater(true)).toBe(false);
+      expect(updater(false)).toBe(true);
     });
 
     it('offers gallery view while speaker view is active', () => {
