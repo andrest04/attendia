@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import clsx from 'clsx';
 import Button from '@material-ui/core/Button';
 import ChatIcon from '../../../icons/ChatIcon';
-import clsx from 'clsx';
 import { makeStyles } from '@material-ui/core';
+import { useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
@@ -58,6 +59,7 @@ const useStyles = makeStyles({
 
 export default function ToggleChatButton() {
   const classes = useStyles();
+  const toolbarClasses = useToolbarButtonStyles();
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const { isChatWindowOpen, setIsChatWindowOpen, conversation, hasUnreadMessages } = useChatContext();
   const { setIsBackgroundSelectionOpen } = useVideoContext();
@@ -88,6 +90,7 @@ export default function ToggleChatButton() {
       data-cy-chat-button
       onClick={toggleChatWindow}
       disabled={!conversation}
+      className={clsx(toolbarClasses.toolbarButton, { [toolbarClasses.toolbarButtonActive]: isChatWindowOpen })}
       startIcon={
         <div className={classes.iconContainer}>
           <ChatIcon />

@@ -18,7 +18,7 @@ describe('the ToggleCaptionsButton component', () => {
     const wrapper = shallow(<ToggleCaptionsButton />);
     const button = wrapper.find('[aria-label="Toggle Captions"]');
     expect(button.prop('startIcon')).toEqual(<CaptionsIcon />);
-    expect(button.text()).toBe('Hide Captions');
+    expect(button.text()).toBe('Subtítulos');
   });
 
   it('should render correctly when captions are disabled', () => {
@@ -30,7 +30,7 @@ describe('the ToggleCaptionsButton component', () => {
     const wrapper = shallow(<ToggleCaptionsButton />);
     const button = wrapper.find('[aria-label="Toggle Captions"]');
     expect(button.prop('startIcon')).toEqual(<CaptionsOffIcon />);
-    expect(button.text()).toBe('Show Captions');
+    expect(button.text()).toBe('Subtítulos');
   });
 
   it('should call the correct toggle function when clicked', () => {
@@ -64,7 +64,7 @@ describe('the ToggleCaptionsButton component', () => {
     }));
     const wrapper = shallow(<ToggleCaptionsButton className="test-class" />);
     const button = wrapper.find('[aria-label="Toggle Captions"]');
-    expect(button.prop('className')).toBe('test-class');
+    expect(button.prop('className')).toContain('test-class');
   });
 
   it('should show tooltip when captions are disabled', () => {

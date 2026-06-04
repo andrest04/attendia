@@ -3,11 +3,7 @@ import { mount, shallow } from 'enzyme';
 import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
-import ToggleScreenShareButton, {
-  SCREEN_SHARE_TEXT,
-  SHARE_IN_PROGRESS_TEXT,
-  SHARE_NOT_SUPPORTED_TEXT,
-} from './ToggleScreenShareButton';
+import ToggleScreenShareButton, { SHARE_IN_PROGRESS_TEXT, SHARE_NOT_SUPPORTED_TEXT } from './ToggleScreenShareButton';
 import ScreenShareIcon from '../../../icons/ScreenShareIcon';
 import { Button, Tooltip } from '@material-ui/core';
 
@@ -31,7 +27,7 @@ describe('the ToggleScreenShareButton component', () => {
   it('should render correctly when screenSharing is allowed', () => {
     const wrapper = mount(<ToggleScreenShareButton />);
     expect(wrapper.find(ScreenShareIcon).exists()).toBe(true);
-    expect(wrapper.text()).toBe(SCREEN_SHARE_TEXT);
+    expect(wrapper.text()).toBe('Compartir');
   });
 
   it('should render correctly when another user is sharing their screen', () => {

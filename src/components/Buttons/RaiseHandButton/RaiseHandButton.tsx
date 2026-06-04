@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import clsx from 'clsx';
 import Button from '@material-ui/core/Button';
 import PanToolIcon from '@material-ui/icons/PanTool';
+import { useToolbarButtonStyles } from '../toolbarButtonStyles';
 
 // SEAM: raise-hand has no transport yet — local-only stub.
 // Real signaling (DataTrack/Conversations) is deferred (decision #6).
@@ -20,6 +22,7 @@ export default function RaiseHandButton({
 }: RaiseHandButtonProps = {}) {
   const [uncontrolledHandRaised, setUncontrolledHandRaised] = useState(false);
   const handRaised = controlledHandRaised ?? uncontrolledHandRaised;
+  const classes = useToolbarButtonStyles();
 
   const toggle = () => {
     const next = !handRaised;
@@ -37,7 +40,7 @@ export default function RaiseHandButton({
       aria-label={handRaised ? 'Bajar la mano' : 'Levantar la mano'}
       aria-pressed={handRaised}
       data-testid="raise-hand-button"
-      style={handRaised ? { backgroundColor: '#027AC5', color: '#FFFFFF' } : undefined}
+      className={clsx(classes.toolbarButton, { [classes.toolbarButtonActive]: handRaised })}
     >
       {handRaised ? 'Bajar mano' : 'Levantar mano'}
     </Button>

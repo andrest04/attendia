@@ -1,6 +1,8 @@
 import React from 'react';
+import clsx from 'clsx';
 import Button from '@material-ui/core/Button';
 import VisibilityIcon from '@material-ui/icons/Visibility';
+import { useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
@@ -12,6 +14,7 @@ import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 export default function ToggleAttentionButton() {
   const { isAttentionPanelOpen, setIsAttentionPanelOpen, setIsChatWindowOpen } = useChatContext();
   const { setIsBackgroundSelectionOpen } = useVideoContext();
+  const classes = useToolbarButtonStyles();
 
   const togglePanel = () => {
     const willOpen = !isAttentionPanelOpen;
@@ -29,6 +32,7 @@ export default function ToggleAttentionButton() {
       startIcon={<VisibilityIcon />}
       data-testid="toggle-attention-button"
       aria-label="Mi Atención"
+      className={clsx(classes.toolbarButton, { [classes.toolbarButtonActive]: isAttentionPanelOpen })}
     >
       Mi Atención
     </Button>

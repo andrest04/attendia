@@ -60,9 +60,9 @@ export default createTheme({
         },
       },
       outlinedPrimary: {
-        border: '2px solid #027AC5',
+        border: '2px solid #1d6eed',
         '&:hover': {
-          border: '2px solid rgb(1, 85, 137)',
+          border: '2px solid #1557c8',
         },
       },
       startIcon: {
@@ -105,7 +105,7 @@ export default createTheme({
     },
     MuiOutlinedInput: {
       notchedOutline: {
-        borderColor: 'rgb(136, 140, 142)',
+        borderColor: '#e2ecf9',
       },
     },
     MuiSwitch: {
@@ -147,18 +147,61 @@ export default createTheme({
         backgroundColor: '#E1E3EA',
         '$checked$checked + &': {
           opacity: 1,
-          backgroundColor: '#14B053',
+          backgroundColor: '#1d6eed',
         },
       },
     },
   },
   typography: {
     fontFamily: 'Inter, sans-serif',
+    h1: { fontFamily: 'Poppins, Inter, sans-serif' },
+    h2: { fontFamily: 'Poppins, Inter, sans-serif' },
+    h3: { fontFamily: 'Poppins, Inter, sans-serif' },
+    h4: { fontFamily: 'Poppins, Inter, sans-serif' },
+    h5: { fontFamily: 'Poppins, Inter, sans-serif' },
+    h6: { fontFamily: 'Poppins, Inter, sans-serif' },
   },
   palette: {
     primary: {
-      main: '#027AC5',
+      main: '#1d6eed',
+      dark: '#1557c8',
+      light: '#4d96ff',
+      contrastText: '#ffffff',
     },
+    secondary: {
+      main: '#1d2f6f',
+      dark: '#152356',
+      light: '#2d4a9f',
+      contrastText: '#ffffff',
+    },
+    error: {
+      main: '#ef4444',
+      dark: '#dc2626',
+      light: '#f87171',
+    },
+    success: {
+      main: '#10b981',
+      dark: '#059669',
+      light: '#34d399',
+    },
+    warning: {
+      main: '#ffb800',
+      dark: '#e6a600',
+      light: '#ffd54f',
+    },
+    background: {
+      default: '#f0f5ff',
+      paper: '#ffffff',
+    },
+    text: {
+      primary: '#1d2f6f',
+      secondary: '#64748b',
+      disabled: '#94a3b8',
+      hint: '#94a3b8',
+    },
+  },
+  shape: {
+    borderRadius: 10,
   },
   brand: '#E22525',
   footerHeight: 72,
