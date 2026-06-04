@@ -7,6 +7,7 @@ import useChatContext from '../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { useAppState } from '../../state';
 import { useMediaQuery } from '@material-ui/core';
+import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
 import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipant';
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
@@ -23,6 +24,7 @@ jest.mock('swiper', () => ({
 jest.mock('../../hooks/useChatContext/useChatContext');
 jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../state');
+jest.mock('../../hooks/useIsRecording/useIsRecording');
 jest.mock('../../hooks/useMainParticipant/useMainParticipant');
 jest.mock('../../hooks/useParticipants/useParticipants');
 jest.mock('../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel');
@@ -33,7 +35,9 @@ jest.mock('@material-ui/core', () => {
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseChatContext = useChatContext as jest.Mock<any>;
+const mockUseIsRecording = useIsRecording as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
+mockUseIsRecording.mockImplementation(() => false);
 const mockUseMediaQuery = useMediaQuery as jest.Mock<any>;
 const mockUseMainParticipant = useMainParticipant as jest.Mock<any>;
 const mockUseParticipants = useParticipants as jest.Mock<any>;
