@@ -2,7 +2,9 @@ import React from 'react';
 import clsx from 'clsx';
 import { Button, createStyles, Hidden, makeStyles, Theme } from '@material-ui/core';
 import CallEndIcon from '@material-ui/icons/CallEnd';
+import CollaborationViewIcon from '@material-ui/icons/AccountBox';
 import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
+import GridViewIcon from '@material-ui/icons/Apps';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import ChatIcon from '../../../icons/ChatIcon';
 import { isMobile } from '../../../utils';
@@ -107,7 +109,7 @@ export default function ProfessorToolbar({
   const classes = useStyles();
   const { isSharingScreen, room } = useVideoContext();
   const { conversation, hasUnreadMessages } = useChatContext();
-  const { updateRecordingRules, isFetching, roomType } = useAppState();
+  const { updateRecordingRules, isFetching, roomType, isGalleryViewActive, setIsGalleryViewActive } = useAppState();
   const isRecording = useIsRecording();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
@@ -156,6 +158,21 @@ export default function ProfessorToolbar({
         aria-pressed={proctoringEnabled}
       >
         Proctoring
+      </Button>
+      {/* Label and icon advertise the view this chip switches TO, mirroring the legacy menu. */}
+      <Button
+        onClick={() => setIsGalleryViewActive(isGallery => !isGallery)}
+        startIcon={
+          isGalleryViewActive ? (
+            <CollaborationViewIcon style={{ color: 'rgba(255,255,255,0.5)' }} />
+          ) : (
+            <GridViewIcon style={{ color: 'rgba(255,255,255,0.5)' }} />
+          )
+        }
+        className={chip}
+        data-testid="professor-toolbar-view"
+      >
+        {isGalleryViewActive ? 'Vista de orador' : 'Vista de galería'}
       </Button>
       <Hidden smDown>
         <span className={classes.divider} />

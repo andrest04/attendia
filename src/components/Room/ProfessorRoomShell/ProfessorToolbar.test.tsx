@@ -20,6 +20,7 @@ const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 const mockUseAppState = useAppState as jest.Mock<any>;
 
 const mockUpdateRecordingRules = jest.fn();
+const mockSetIsGalleryViewActive = jest.fn();
 
 describe('ProfessorToolbar', () => {
   beforeEach(() => {
@@ -35,6 +36,8 @@ describe('ProfessorToolbar', () => {
       updateRecordingRules: mockUpdateRecordingRules,
       isFetching: false,
       roomType: 'group',
+      isGalleryViewActive: true,
+      setIsGalleryViewActive: mockSetIsGalleryViewActive,
     }));
   });
 
@@ -102,6 +105,29 @@ describe('ProfessorToolbar', () => {
       }));
       const wrapper = shallow(<ProfessorToolbar />);
       expect(wrapper.find('[data-testid="professor-toolbar-record"]').prop('disabled')).toBe(true);
+    });
+  });
+
+  describe('view toggle chip', () => {
+    it('offers speaker view while gallery view is active and toggles on click', () => {
+      const wrapper = shallow(<ProfessorToolbar />);
+      const chip = wrapper.find('[data-testid="professor-toolbar-view"]');
+      expect(chip.text()).toContain('Vista de orador');
+
+      chip.simulate('click');
+      expect(mockSetIsGalleryViewActive).toHaveBeenCalled();
+    });
+
+    it('offers gallery view while speaker view is active', () => {
+      mockUseAppState.mockImplementationOnce(() => ({
+        updateRecordingRules: mockUpdateRecordingRules,
+        isFetching: false,
+        roomType: 'group',
+        isGalleryViewActive: false,
+        setIsGalleryViewActive: mockSetIsGalleryViewActive,
+      }));
+      const wrapper = shallow(<ProfessorToolbar />);
+      expect(wrapper.find('[data-testid="professor-toolbar-view"]').text()).toContain('Vista de galería');
     });
   });
 
