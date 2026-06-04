@@ -1,5 +1,5 @@
 import { LocalVideoTrack } from 'twilio-video';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 
 export default function useLocalVideoToggle() {
@@ -9,6 +9,17 @@ export default function useLocalVideoToggle() {
     track => !track.name.includes('screen') && track.kind === 'video'
   ) as LocalVideoTrack;
   const [isPublishing, setIspublishing] = useState(false);
+
+  // Guard against setState on an unmounted component when the async track-acquisition
+  // promise (getLocalVideoTrack → publishTrack) resolves after DeviceSelectionScreen
+  // has already unmounted (e.g., the user joined a room mid-operation).
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const toggleVideoEnabled = useCallback(() => {
     if (!isPublishing) {
@@ -23,7 +34,9 @@ export default function useLocalVideoToggle() {
           .then((track: LocalVideoTrack) => localParticipant?.publishTrack(track, { priority: 'low' }))
           .catch(onError)
           .finally(() => {
-            setIspublishing(false);
+            if (isMountedRef.current) {
+              setIspublishing(false);
+            }
           });
       }
     }
