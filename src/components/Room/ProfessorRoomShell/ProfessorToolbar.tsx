@@ -25,12 +25,14 @@ const useStyles = makeStyles((theme: Theme) =>
     // Vertical "chip" layout: icon stacked on top of a small caption, matching the wireframe.
     chipLayout: {
       minWidth: 78,
-      padding: theme.spacing(0.75, 1),
+      padding: theme.spacing(0.75, 1.25),
       borderRadius: 8,
       '& .MuiButton-label': {
         flexDirection: 'column',
         gap: 4,
         fontSize: 11,
+        fontFamily: 'Poppins, Inter, sans-serif',
+        fontWeight: 600,
         lineHeight: 1.2,
         textTransform: 'none',
       },
@@ -38,28 +40,34 @@ const useStyles = makeStyles((theme: Theme) =>
         margin: 0,
       },
     },
-    chipLight: {
-      backgroundColor: '#F1F3F5',
-      color: theme.palette.text.primary,
+    chipDark: {
+      backgroundColor: 'rgba(255,255,255,0.08)',
+      color: 'rgba(255,255,255,0.8)',
       '&:hover': {
-        backgroundColor: '#E4E8EB',
+        backgroundColor: 'rgba(255,255,255,0.14)',
       },
     },
-    chipActive: {
-      backgroundColor: '#1B2126',
-      color: '#FFFFFF',
+    chipRecActive: {
+      backgroundColor: 'rgba(239,68,68,0.15)',
+      color: '#ef4444',
+      border: '1px solid rgba(239,68,68,0.3)',
       '&:hover': {
-        backgroundColor: '#0E1316',
+        backgroundColor: 'rgba(239,68,68,0.22)',
       },
     },
     divider: {
       width: 1,
       alignSelf: 'stretch',
       margin: theme.spacing(0.5),
-      backgroundColor: theme.palette.divider,
+      backgroundColor: 'rgba(255,255,255,0.12)',
     },
     endCallChip: {
-      minWidth: 96,
+      minWidth: 110,
+      backgroundColor: '#1d2f6f',
+      color: '#ffffff',
+      '&:hover': {
+        backgroundColor: '#152356',
+      },
     },
   })
 );
@@ -83,7 +91,7 @@ export default function ProfessorToolbar({
   const { isSharingScreen } = useVideoContext();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
-  const chip = clsx(classes.chipLayout, classes.chipLight);
+  const chip = clsx(classes.chipLayout, classes.chipDark);
 
   return (
     <div className={classes.controlsRow} data-testid="professor-toolbar">
@@ -92,8 +100,8 @@ export default function ProfessorToolbar({
       {!isSharingScreen && !isMobile && <ToggleScreenShareButton disabled={isReconnecting} className={chip} />}
       <Button
         onClick={() => onRecordingChange?.(!recording)}
-        startIcon={<FiberManualRecordIcon style={{ color: recording ? '#FFFFFF' : '#E22525' }} />}
-        className={clsx(classes.chipLayout, recording ? classes.chipActive : classes.chipLight)}
+        startIcon={<FiberManualRecordIcon style={{ color: recording ? '#ef4444' : 'rgba(255,255,255,0.5)' }} />}
+        className={clsx(classes.chipLayout, recording ? classes.chipRecActive : classes.chipDark)}
         data-testid="professor-toolbar-record"
         aria-pressed={recording}
       >
@@ -101,7 +109,7 @@ export default function ProfessorToolbar({
       </Button>
       <Button
         onClick={() => onProctoringChange?.(!proctoringEnabled)}
-        startIcon={<VisibilityIcon />}
+        startIcon={<VisibilityIcon style={{ color: proctoringEnabled ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
         className={chip}
         data-testid="professor-toolbar-proctoring"
         aria-pressed={proctoringEnabled}

@@ -117,10 +117,14 @@ export function GalleryView() {
     return byIdentity;
   }, [isTeacher, attention]);
 
-  const { paginatedParticipants, setCurrentPage, currentPage, totalPages } = usePagination([
-    room!.localParticipant,
-    ...galleryViewParticipants,
-  ]);
+  // Students only see remote participants in the gallery stage; the local self-view
+  // is surfaced exclusively through the PiP card in StudentRoomShell. Professors keep
+  // the local tile so they can see their own feed alongside the students' tiles.
+  const galleryParticipantList = isTeacher
+    ? [room!.localParticipant, ...galleryViewParticipants]
+    : [...galleryViewParticipants];
+
+  const { paginatedParticipants, setCurrentPage, currentPage, totalPages } = usePagination(galleryParticipantList);
 
   const visibleStudentCount = paginatedParticipants.filter(participant => participant !== room!.localParticipant)
     .length;

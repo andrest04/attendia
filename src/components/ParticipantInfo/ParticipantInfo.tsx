@@ -16,10 +16,7 @@ import useTrack from '../../hooks/useTrack/useTrack';
 import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
 import { useAppState } from '../../state';
 import { AttentionLevel } from '../AttentionProvider/types';
-import {
-  levelColor as attentionColor,
-  levelShortLabel as attentionShortLabel,
-} from '../AttentionProvider/attentionLabels';
+import { levelShortLabel as attentionShortLabel } from '../AttentionProvider/attentionLabels';
 
 const borderWidth = 2;
 
@@ -28,6 +25,18 @@ export interface ParticipantTileAttention {
   level: AttentionLevel;
   multiface: boolean;
 }
+
+// Attendia design: attention badge uses colored background pill (not solid color).
+const attBadgeBg: Record<AttentionLevel, string> = {
+  high: '#d1fae5',
+  medium: '#fff8e1',
+  low: '#fee2e2',
+};
+const attBadgeText: Record<AttentionLevel, string> = {
+  high: '#065f46',
+  medium: '#7c4e00',
+  low: '#991b1b',
+};
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -156,37 +165,41 @@ const useStyles = makeStyles((theme: Theme) =>
     dominantSpeaker: {
       border: `solid ${borderWidth}px #7BEAA5`,
     },
+    // Attendia: multiface → red border on the tile.
+    multifaceTile: {
+      border: `1.5px solid rgba(239,68,68,0.9)`,
+      boxShadow: '0 0 0 2px rgba(239,68,68,0.3)',
+    },
     multifacePill: {
       position: 'absolute',
-      top: 4,
-      right: 4,
+      top: 8,
+      left: 8,
       zIndex: 3,
       display: 'inline-flex',
       alignItems: 'center',
       gap: 4,
-      padding: '2px 6px',
-      borderRadius: 4,
+      padding: '4px 9px',
+      borderRadius: 8,
       fontSize: 10,
-      fontWeight: 600,
-      lineHeight: 1.4,
-      backgroundColor: 'rgba(18, 18, 18, 0.82)',
+      fontWeight: 700,
+      fontFamily: 'Poppins, Inter, sans-serif',
+      lineHeight: 1.5,
+      backgroundColor: 'rgba(239,68,68,0.9)',
       color: '#FFFFFF',
       whiteSpace: 'nowrap',
     },
-    multifacePillIcon: {
-      color: '#F5B53F',
-    },
     attentionLevelBadge: {
       position: 'absolute',
-      bottom: 4,
-      right: 4,
+      bottom: 28,
+      right: 6,
       zIndex: 3,
-      fontSize: 9,
+      fontSize: 11,
       fontWeight: 700,
-      lineHeight: 1.4,
-      padding: '1px 6px',
-      borderRadius: 3,
-      color: '#FFFFFF',
+      fontFamily: 'Poppins, Inter, sans-serif',
+      lineHeight: '22.5px',
+      padding: '0 10px',
+      borderRadius: 20,
+      whiteSpace: 'nowrap',
     },
   })
 );
@@ -231,6 +244,8 @@ export default function ParticipantInfo({
 
   const classes = useStyles();
 
+  const hasMultiface = Boolean(attention && attention.multiface);
+
   return (
     <div
       className={clsx(classes.container, {
@@ -238,6 +253,7 @@ export default function ParticipantInfo({
         [classes.cursorPointer]: Boolean(onClick),
         [classes.dominantSpeaker]: isDominantSpeaker,
         [classes.galleryView]: isGalleryViewActive,
+        [classes.multifaceTile]: hasMultiface,
       })}
       onClick={onClick}
       data-cy-participant={participant.identity}
@@ -251,16 +267,16 @@ export default function ParticipantInfo({
                 title="Múltiples rostros detectados"
                 data-testid="participant-multiface-flag"
               >
-                <span className={classes.multifacePillIcon} aria-hidden="true">
-                  ⚠
-                </span>
                 Multi-rostro
               </span>
             )}
             <span
               className={classes.attentionLevelBadge}
               data-testid="participant-attention-overlay"
-              style={{ backgroundColor: attentionColor[attention.level] }}
+              style={{
+                backgroundColor: attBadgeBg[attention.level],
+                color: attBadgeText[attention.level],
+              }}
             >
               {attentionShortLabel[attention.level]}
             </span>
@@ -276,8 +292,8 @@ export default function ParticipantInfo({
           <span className={classes.identity}>
             <AudioLevelIndicator audioTrack={audioTrack} />
             <Typography variant="body1" className={classes.typography} component="span">
-              {participant.identity}
-              {isLocalParticipant && ' (You)'}
+              {participant.identity.replace(/\s*\[Profesor\]\s*$/i, '').trim()}
+              {isLocalParticipant && ' (Yo)'}
             </Typography>
           </span>
         </div>

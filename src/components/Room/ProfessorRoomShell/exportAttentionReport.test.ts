@@ -105,8 +105,8 @@ describe('buildAttentionReportModel', () => {
   it('builds a students table with Spanish level labels and Sí/No multiface flags', () => {
     const table = buildAttentionReportModel(fixture).tables.find(t => t.title === 'Estudiantes')!;
     expect(table.head).toEqual(['Participante', 'Índice', 'Nivel', 'Múltiples rostros']);
-    expect(table.rows).toContainEqual(['student-alice', 88, 'Alta', 'No']);
-    expect(table.rows).toContainEqual(['student-dave', 35, 'Baja', 'Sí']);
+    expect(table.rows).toContainEqual(['student-alice', 88, 'Alto', 'No']);
+    expect(table.rows).toContainEqual(['student-dave', 35, 'Bajo', 'Sí']);
   });
 
   it('builds a timeline table', () => {

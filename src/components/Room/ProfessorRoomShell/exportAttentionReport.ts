@@ -2,7 +2,7 @@ import { AttentionData } from '../../AttentionProvider/types';
 import { levelLabel, proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
 import { toClassSessionRoomName } from '../../PreJoinScreens/classSessionTypes';
 
-export type ExportFormat = 'pdf' | 'xlsx';
+export type ExportFormat = 'pdf' | 'xlsx' | 'csv';
 
 /**
  * The slice of the attention snapshot needed to render the exportable report.
@@ -148,11 +148,43 @@ export async function exportAttentionReportXlsx(data: AttentionReportInput, meta
   XLSX.writeFile(workbook, buildReportFilename(meta, 'xlsx'));
 }
 
-/** Dispatches to the PDF or Excel exporter. */
+/** Generates and downloads the report as a plain CSV (participants table). No dependencies. */
+export function exportAttentionReportCsv(data: AttentionReportInput, meta: ReportMeta): Promise<void> {
+  const model = buildAttentionReportModel(data);
+  // Use the participants table as the primary CSV content; prepend a summary header.
+  const escapeCsv = (value: string | number): string => {
+    const str = String(value);
+    return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const lines: string[] = [];
+  lines.push(model.title);
+  model.summary.forEach(entry => lines.push(`${escapeCsv(entry[0])},${escapeCsv(entry[1])}`));
+  lines.push('');
+  model.tables.forEach(table => {
+    lines.push(table.title);
+    lines.push(table.head.map(escapeCsv).join(','));
+    table.rows.forEach(row => lines.push(row.map(escapeCsv).join(',')));
+    lines.push('');
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = buildReportFilename(meta, 'csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  return Promise.resolve();
+}
+
+/** Dispatches to the PDF, Excel, or CSV exporter. */
 export function exportAttentionReport(
   format: ExportFormat,
   data: AttentionReportInput,
   meta: ReportMeta
 ): Promise<void> {
-  return format === 'pdf' ? exportAttentionReportPdf(data, meta) : exportAttentionReportXlsx(data, meta);
+  if (format === 'pdf') return exportAttentionReportPdf(data, meta);
+  if (format === 'csv') return exportAttentionReportCsv(data, meta);
+  return exportAttentionReportXlsx(data, meta);
 }
