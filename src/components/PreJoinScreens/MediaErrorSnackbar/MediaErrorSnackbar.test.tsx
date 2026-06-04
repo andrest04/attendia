@@ -67,8 +67,8 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(false, true);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "No Microphone Detected:",
-        "message": "Other participants in the room will be unable to hear you.",
+        "headline": "No se detectó micrófono:",
+        "message": "Los demás participantes no podrán escucharte.",
       }
     `);
   });
@@ -77,8 +77,8 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(true, false);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "No Camera Detected:",
-        "message": "Other participants in the room will be unable to see you.",
+        "headline": "No se detectó cámara:",
+        "message": "Los demás participantes no podrán verte.",
       }
     `);
   });
@@ -87,8 +87,8 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(false, false);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "No Camera or Microphone Detected:",
-        "message": "Other participants in the room will be unable to see and hear you.",
+        "headline": "No se detectó cámara ni micrófono:",
+        "message": "Los demás participantes no podrán verte ni escucharte.",
       }
     `);
   });
@@ -99,8 +99,8 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(true, true, error);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "Unable to Access Media:",
-        "message": "The user has denied permission to use audio and video. Please grant permission to the browser to access the microphone and camera.",
+        "headline": "No se puede acceder a los medios:",
+        "message": "El usuario denegó el permiso para usar el audio y el video. Por favor, concede acceso al micrófono y la cámara en el navegador.",
       }
     `);
   });
@@ -111,8 +111,8 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(true, true, error);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "Unable to Access Media:",
-        "message": "The operating system has blocked the browser from accessing the microphone or camera. Please check your operating system settings.",
+        "headline": "No se puede acceder a los medios:",
+        "message": "El sistema operativo bloqueó el acceso del navegador al micrófono o la cámara. Verifica la configuración de privacidad del sistema.",
       }
     `);
   });
@@ -123,8 +123,8 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(true, true, error);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "Cannot Find Microphone or Camera:",
-        "message": "The browser cannot access the microphone or camera. Please make sure all input devices are connected and enabled.",
+        "headline": "No se encontró micrófono ni cámara:",
+        "message": "El navegador no puede acceder al micrófono o la cámara. Asegúrate de que los dispositivos estén conectados y habilitados.",
       }
     `);
   });
@@ -135,7 +135,7 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(true, true, error);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "Error Acquiring Media:",
+        "headline": "Error al acceder a los medios:",
         "message": "OtherDeviceError Any other device errors",
       }
     `);
@@ -146,8 +146,8 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(true, true, error);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "Unable to Access Media:",
-        "message": "The user has denied permission to use video. Please grant permission to the browser to access the camera.",
+        "headline": "No se puede acceder a los medios:",
+        "message": "El usuario denegó el permiso para usar el video. Por favor, concede acceso a la cámara en el navegador.",
       }
     `);
   });
@@ -157,8 +157,8 @@ describe('the getSnackbarContent function', () => {
     const results = getSnackbarContent(true, true, error);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "Unable to Access Media:",
-        "message": "The user has denied permission to use audio. Please grant permission to the browser to access the microphone.",
+        "headline": "No se puede acceder a los medios:",
+        "message": "El usuario denegó el permiso para usar el audio. Por favor, concede acceso al micrófono en el navegador.",
       }
     `);
   });

@@ -124,6 +124,34 @@ export default function PreJoinScreens() {
     setStep(Steps.deviceSelectionStep);
   };
 
+  // Explicit student-path continuation: always treats the action as a student joining, regardless
+  // of the current draft role. Used by the student card in the dual-card layout so that the
+  // teacher default role never silently bypasses the room-open check.
+  const goToDeviceSelectionAsStudent = async () => {
+    setClassSessionDraft(prev => ({ ...prev, role: 'student' }));
+    const normalizedStudentRoomName = normalizeStudentJoinInputToRoomName(studentJoinCode);
+
+    setRoomName(normalizedStudentRoomName);
+    setRoomClosed(false);
+    setIsCheckingRoom(true);
+    const open = await checkRoomOpen(normalizedStudentRoomName);
+    setIsCheckingRoom(false);
+    if (open === false) {
+      setRoomClosed(true);
+      return;
+    }
+
+    // @ts-ignore
+    if (!window.location.origin.includes('twil.io') && !window.STORYBOOK_ENV) {
+      window.history.replaceState(
+        null,
+        '',
+        window.encodeURI(`/room/${normalizedStudentRoomName}${window.location.search || ''}`)
+      );
+    }
+    setStep(Steps.deviceSelectionStep);
+  };
+
   const handleCreateClassSession = () => {
     const access = createClassSessionAccess(classSessionDraft, window.location.origin, window.location.search || '');
     setClassSessionAccess(access);
@@ -153,7 +181,10 @@ export default function PreJoinScreens() {
   }
 
   return (
-    <IntroContainer maxWidth={step === Steps.deviceSelectionStep ? 940 : undefined}>
+    <IntroContainer
+      maxWidth={step === Steps.deviceSelectionStep ? 940 : undefined}
+      noHero={step === Steps.deviceSelectionStep}
+    >
       <MediaErrorSnackbar error={mediaError} />
       {step === Steps.roomNameStep && (
         <RoomNameScreen
@@ -171,6 +202,7 @@ export default function PreJoinScreens() {
           onSelectRole={role => setClassSessionDraft(prev => ({ ...prev, role }))}
           onCreateClassSession={handleCreateClassSession}
           onContinueToDeviceSelection={goToDeviceSelection}
+          onContinueAsStudent={goToDeviceSelectionAsStudent}
         />
       )}
 

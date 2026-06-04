@@ -3,7 +3,6 @@ import {
   Typography,
   makeStyles,
   TextField,
-  Grid,
   Button,
   InputLabel,
   Theme,
@@ -12,11 +11,9 @@ import {
   Box,
   CircularProgress,
 } from '@material-ui/core';
-import PersonIcon from '@material-ui/icons/Person';
 import SecurityIcon from '@material-ui/icons/Security';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
-import { Link as RouterLink } from 'react-router-dom';
 import { useAppState } from '../../../state';
 import {
   ClassSessionAccess,
@@ -27,118 +24,278 @@ import {
 } from '../classSessionTypes';
 
 const useStyles = makeStyles((theme: Theme) => ({
-  gutterBottom: {
-    marginBottom: '1em',
-  },
-  inputContainer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    margin: '1.5em 0 3.5em',
-    '& div:not(:last-child)': {
-      marginRight: '1em',
-    },
-    [theme.breakpoints.down('sm')]: {
-      margin: '1.5em 0 2em',
-    },
-  },
-  textFieldContainer: {
-    width: '100%',
-  },
-  continueButton: {
-    [theme.breakpoints.down('sm')]: {
-      width: '100%',
-    },
-  },
-  controlCard: {
-    border: `1px solid ${theme.palette.divider}`,
-    borderRadius: theme.spacing(1.5),
-    padding: theme.spacing(2),
-  },
-  controlHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: theme.spacing(2),
-  },
-  controlMeta: {
+  // ── Single-card wrapper ───────────────────────────────────────────────────────
+  singleCardLayout: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(0.5),
+    width: '100%',
   },
-  helperText: {
-    color: theme.palette.text.secondary,
+
+  // ── Individual card ──────────────────────────────────────────────────────────
+  card: {
+    display: 'flex',
+    flexDirection: 'column',
+    padding: 33,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  switchRow: {
+  cardBorderTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+  },
+  cardBorderTopTeacher: {
+    background: 'linear-gradient(90deg, #1d6eed 0%, #4d96ff 100%)',
+  },
+  cardBorderTopStudent: {
+    background: 'linear-gradient(90deg, #ffb800 0%, #ffd54f 100%)',
+  },
+
+  // ── Card header ───────────────────────────────────────────────────────────────
+  cardHeader: {
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(1),
+    gap: 14,
+    paddingTop: 8,
+    marginBottom: 0,
   },
-  recordingToggleButton: {
-    width: 40,
-    height: 22,
-    borderRadius: 11,
+  cardIconWrapTeacher: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#e3edfb',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  cardIconWrapStudent: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#fff8e1',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  cardTitleBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  cardTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 700,
+    fontSize: 19,
+    color: '#1d2f6f',
+    lineHeight: '25.65px',
+    margin: 0,
+  },
+  cardSubtitle: {
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+    fontSize: 12,
+    color: '#64748b',
+    lineHeight: '18px',
+  },
+
+  // ── Tag badge (EP01...) ────────────────────────────────────────────────────────
+  tagBadge: {
+    display: 'inline-block',
+    fontSize: 10,
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 500,
+    color: '#94a3b8',
+    border: '1px solid #e2ecf9',
+    borderRadius: 20,
+    backgroundColor: '#f0f5ff',
+    padding: '4px 10px',
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    lineHeight: '15px',
+  },
+
+  // ── Field label ────────────────────────────────────────────────────────────────
+  fieldLabel: {
+    display: 'block',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 12,
+    color: '#1d2f6f',
+    letterSpacing: '0.6px',
+    textTransform: 'uppercase',
+    lineHeight: '18px',
+    marginBottom: 6,
+    paddingBottom: 0,
+  },
+  fieldHelper: {
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+    fontSize: 11,
+    color: '#94a3b8',
+    lineHeight: '16.5px',
+    marginTop: 5,
+  },
+
+  // ── Text input ─────────────────────────────────────────────────────────────────
+  textInput: {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 10,
+      backgroundColor: '#f8faff',
+      '& fieldset': {
+        borderColor: '#e2ecf9',
+        borderWidth: '1.5px',
+      },
+      '&:hover fieldset': {
+        borderColor: '#1d6eed',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#1d6eed',
+        borderWidth: '1.5px',
+      },
+    },
+    '& .MuiInputBase-input': {
+      fontFamily: 'Poppins, Inter, sans-serif',
+      fontWeight: 400,
+      fontSize: 13,
+      color: '#353535',
+      padding: '12.5px 15.5px',
+    },
+  },
+
+  // ── Recording toggle row ───────────────────────────────────────────────────────
+  recordingRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f0f5ff',
+    border: '1px solid #e2ecf9',
+    borderRadius: 12,
+    padding: '15px 17px',
+    marginTop: 18,
+  },
+  recordingLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  recordingTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 13,
+    color: '#1d2f6f',
+    lineHeight: '19.5px',
+  },
+  recordingHelper: {
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+    fontSize: 11,
+    color: '#94a3b8',
+    lineHeight: '16.5px',
+  },
+  recordingRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toggleButton: {
+    width: 46,
+    height: 26,
+    borderRadius: 13,
     border: 0,
     cursor: 'pointer',
     position: 'relative',
     padding: 0,
-    backgroundColor: '#424242',
+    flexShrink: 0,
+    transition: 'background-color 120ms ease',
   },
-  recordingToggleKnob: {
-    width: 16,
-    height: 16,
-    borderRadius: '50%',
-    backgroundColor: '#FFFFFF',
+  toggleButtonOn: {
+    backgroundColor: '#1d6eed',
+  },
+  toggleButtonOff: {
+    backgroundColor: '#E1E3EA',
+  },
+  toggleKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    boxShadow: '0px 1px 4px 0px rgba(0,0,0,0.18)',
     position: 'absolute',
     top: 3,
-    transition: 'left 120ms ease, right 120ms ease',
+    transition: 'left 120ms ease',
   },
-  recordingToggleKnobOn: {
-    right: 4,
+  toggleKnobOn: {
+    left: 23,
   },
-  recordingToggleKnobOff: {
-    left: 4,
+  toggleKnobOff: {
+    left: 3,
   },
-  switchState: {
-    minWidth: 56,
-    textAlign: 'right',
-    fontSize: 11,
-    color: '#9E9E9E',
+  toggleLabel: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 12,
+    lineHeight: '18px',
   },
-  sensitivitySliderBlock: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing(0.5),
-    marginTop: theme.spacing(2),
+  toggleLabelOn: {
+    color: '#1d6eed',
   },
-  sensitivitySliderRow: {
+  toggleLabelOff: {
+    color: '#94a3b8',
+  },
+
+  // ── Sensitivity slider section ─────────────────────────────────────────────────
+  sensitivitySection: {
+    marginTop: 20,
+    paddingBottom: 28,
+  },
+  sensitivityHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: theme.spacing(1.5),
+    paddingBottom: 10,
   },
-  sliderEndLabel: {
-    color: '#9E9E9E',
-    fontSize: 10,
-    minWidth: 28,
+  sensitivityLeft: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  sensitivityTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 13,
+    color: '#1d2f6f',
+    lineHeight: '19.5px',
+  },
+  sensitivityHelper: {
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+    fontSize: 11,
+    color: '#94a3b8',
+    lineHeight: '16.5px',
   },
   sliderTrack: {
-    flex: 1,
-    height: 6,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 3,
+    height: 4,
+    backgroundColor: '#e2ecf9',
+    borderRadius: 2,
     position: 'relative',
+    margin: '0 0 4px',
   },
   sliderFill: {
     height: '100%',
-    backgroundColor: '#424242',
-    borderRadius: 3,
+    backgroundColor: '#1d6eed',
+    borderRadius: 2,
   },
   sliderThumb: {
     width: 14,
     height: 14,
     borderRadius: '50%',
-    backgroundColor: '#424242',
-    border: '2px solid #FFFFFF',
+    backgroundColor: '#1d6eed',
+    border: '2px solid #ffffff',
+    boxShadow: '0px 1px 3px rgba(29,110,237,0.35)',
     position: 'absolute',
     top: '50%',
     transform: 'translate(-50%, -50%)',
@@ -152,69 +309,111 @@ const useStyles = makeStyles((theme: Theme) => ({
     margin: 0,
     opacity: 0,
     cursor: 'pointer',
+    top: -9,
   },
-  sensitivityStateLabel: {
-    color: '#9E9E9E',
-    fontSize: 10,
-    marginTop: theme.spacing(0.5),
-  },
-  studentIntro: {
-    marginBottom: theme.spacing(2),
-  },
-  studentCard: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  studentHeader: {
+  sliderLabels: {
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(1),
-    marginBottom: theme.spacing(2),
+    justifyContent: 'space-between',
+    paddingTop: 4,
   },
-  studentHeaderIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#424242',
-    color: '#FFFFFF',
-  },
-  studentHeaderCaption: {
+  sliderLabelEnd: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 400,
     fontSize: 11,
-    color: '#9E9E9E',
-    lineHeight: 1.4,
+    color: '#94a3b8',
+    lineHeight: '16.5px',
   },
-  studentTag: {
-    display: 'inline-block',
-    fontSize: 10,
-    color: '#9E9E9E',
-    border: '1px solid #E0E0E0',
-    borderRadius: 3,
-    backgroundColor: '#F5F5F5',
-    padding: '4px 10px',
-    marginBottom: theme.spacing(3),
-    alignSelf: 'flex-start',
+  sliderLabelCenter: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 12,
+    color: '#1d6eed',
+    lineHeight: '18px',
   },
-  studentFields: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing(2),
-    marginBottom: theme.spacing(3),
+
+  // ── Primary buttons ────────────────────────────────────────────────────────────
+  teacherPrimaryButton: {
+    width: '100%',
+    height: 49,
+    borderRadius: 12,
+    background: 'linear-gradient(171.53deg, #1d6eed 0%, #1557c8 100%)',
+    boxShadow: '0px 4px 7px rgba(29,110,237,0.35)',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 700,
+    fontSize: 14,
+    letterSpacing: '0.14px',
+    color: '#ffffff',
+    textTransform: 'none',
+    '&:hover': {
+      background: 'linear-gradient(171.53deg, #1557c8 0%, #1040a0 100%)',
+      boxShadow: '0px 6px 10px rgba(29,110,237,0.4)',
+    },
+    '&:disabled': {
+      background: '#e2ecf9',
+      boxShadow: 'none',
+      color: '#94a3b8',
+    },
   },
-  studentPrivacyRow: {
+  studentPrimaryButton: {
+    width: '100%',
+    height: 49,
+    borderRadius: 12,
+    backgroundColor: '#1d2f6f',
+    boxShadow: '0px 4px 7px rgba(29,47,111,0.30)',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 700,
+    fontSize: 14,
+    letterSpacing: '0.14px',
+    color: '#ffffff',
+    textTransform: 'none',
+    '&:hover': {
+      backgroundColor: '#152356',
+      boxShadow: '0px 6px 10px rgba(29,47,111,0.4)',
+    },
+    '&:disabled': {
+      backgroundColor: '#e2ecf9',
+      boxShadow: 'none',
+      color: '#94a3b8',
+    },
+  },
+
+  // ── Privacy notice box ─────────────────────────────────────────────────────────
+  privacyBox: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: theme.spacing(1),
+    gap: 10,
+    backgroundColor: '#f8faff',
+    border: '1.5px solid rgba(29,110,237,0.15)',
+    borderRadius: 12,
+    padding: '15.5px 17.5px',
+    marginBottom: 28,
   },
-  studentActions: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing(1),
+  privacyIconWrap: {
+    paddingTop: 2,
+    flexShrink: 0,
   },
-  studentRoomClosed: {
+  privacyTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 12,
+    color: '#1d2f6f',
+    lineHeight: '18px',
+    marginBottom: 3,
+  },
+  privacyBody: {
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+    fontSize: 11,
+    color: '#64748b',
+    lineHeight: '17.05px',
+    '& strong': {
+      fontWeight: 700,
+    },
+  },
+
+  // ── Room closed alert ──────────────────────────────────────────────────────────
+  roomClosedAlert: {
     marginBottom: theme.spacing(2),
     padding: theme.spacing(1.5),
     borderRadius: theme.spacing(1),
@@ -222,17 +421,21 @@ const useStyles = makeStyles((theme: Theme) => ({
     border: '1px solid #F5C6CB',
     color: '#B71C1C',
   },
+
+  // ── Session created card ───────────────────────────────────────────────────────
   createdCard: {
     border: '1px solid #C8E6C9',
     backgroundColor: '#F1F8E9',
     borderRadius: theme.spacing(1),
     padding: theme.spacing(2),
+    marginTop: theme.spacing(2),
+    marginBottom: theme.spacing(1),
   },
   createdHeader: {
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(1),
-    marginBottom: theme.spacing(0.5),
+    marginBottom: 4,
   },
   createdHeaderIcon: {
     color: '#2E7D32',
@@ -260,36 +463,42 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: theme.palette.text.secondary,
     display: 'block',
   },
-  studentPrimaryButton: {
-    width: '100%',
+
+  // ── Role-switch link ───────────────────────────────────────────────────────────
+  roleSwitchRow: {
+    display: 'flex',
+    justifyContent: 'center',
+    paddingTop: 18,
+    paddingBottom: 24,
   },
-  studentBackButton: {
-    alignSelf: 'flex-start',
-    paddingLeft: 0,
-  },
-  studentPrivacyNotice: {
-    marginBottom: theme.spacing(3),
-    padding: theme.spacing(1.5),
-    border: `1px dashed ${theme.palette.divider}`,
-    borderRadius: theme.spacing(1),
-    backgroundColor: theme.palette.action.hover,
-    width: '100%',
-  },
-  studentPrivacyTitle: {
+  roleSwitchLink: {
+    fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 500,
-  },
-  studentPrivacyText: {
-    color: theme.palette.text.secondary,
-  },
-  studentPrivacyLink: {
-    display: 'inline-block',
-    marginTop: theme.spacing(0.75),
-    color: theme.palette.primary.main,
-    fontWeight: 500,
-    textDecoration: 'none',
+    fontSize: 13,
+    color: '#1d6eed',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: 0,
+    textDecoration: 'underline',
+    lineHeight: '19.5px',
     '&:hover': {
-      textDecoration: 'underline',
+      color: '#1040a0',
     },
+  },
+
+  // ── Spacing helpers ────────────────────────────────────────────────────────────
+  fieldBlock: {
+    marginTop: 22,
+    width: '100%',
+  },
+  fieldBlockInner: {
+    marginTop: 18,
+    width: '100%',
+  },
+  buttonArea: {
+    marginTop: 'auto',
+    paddingTop: 28,
   },
 }));
 
@@ -320,6 +529,9 @@ interface RoomNameScreenProps {
   onSelectRole: (role: ClassSessionRole) => void;
   onCreateClassSession: () => void;
   onContinueToDeviceSelection: () => void;
+  // Dedicated handler for the student card's join button. Ensures the student flow (room-open
+  // check, URL update) always runs even when the draft role is currently 'teacher'.
+  onContinueAsStudent?: () => void;
 }
 
 export default function RoomNameScreen({
@@ -337,10 +549,15 @@ export default function RoomNameScreen({
   onSelectRole,
   onCreateClassSession,
   onContinueToDeviceSelection,
+  onContinueAsStudent,
 }: RoomNameScreenProps) {
   const classes = useStyles();
   const { user } = useAppState();
   const [copied, setCopied] = useState(false);
+
+  // Active role is tracked locally and seeded from the draft role supplied by the parent.
+  // The role-switch link toggles between teacher and student views without needing a round-trip.
+  const [activeRole, setActiveRole] = useState<ClassSessionRole>(classSessionDraft.role);
 
   const handleCopy = (value: string) => {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -367,50 +584,268 @@ export default function RoomNameScreen({
     setClassSessionDraft(draft => ({ ...draft, monitoringSensitivity: valueToSensitivity(nextValue) }));
   };
 
+  const handleSwitchRole = (newRole: ClassSessionRole) => {
+    setActiveRole(newRole);
+    onSelectRole(newRole);
+  };
+
   const hasUsername = !window.location.search.includes('customIdentity=true') && user?.displayName;
   const canCreateTeacherSession = isClassSessionDraftReady(classSessionDraft);
-  const isStudentFlow = classSessionDraft.role === 'student';
   const canContinueStudent = Boolean(name.trim() && studentJoinCode.trim());
   const sensitivityValue = sensitivityToValue[classSessionDraft.monitoringSensitivity];
   void roomName;
 
-  if (isStudentFlow) {
-    return (
-      <div className={classes.studentCard}>
-        <div className={classes.studentHeader}>
-          <div className={classes.studentHeaderIcon}>
-            <PersonIcon fontSize="small" />
+  return (
+    <div className={classes.singleCardLayout}>
+      {activeRole === 'teacher' ? (
+        /* ── Profesor card ──────────────────────────────────────────────────────── */
+        <div className={classes.card}>
+          {/* Blue top border */}
+          <div className={`${classes.cardBorderTop} ${classes.cardBorderTopTeacher}`} />
+
+          {/* Card header */}
+          <div className={classes.cardHeader}>
+            <div className={classes.cardIconWrapTeacher}>
+              {/* Book / classroom icon */}
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M3 5.5A2.5 2.5 0 0 1 5.5 3h11A2.5 2.5 0 0 1 19 5.5v11A2.5 2.5 0 0 1 16.5 19H5.5A2.5 2.5 0 0 1 3 16.5V5.5Z"
+                  stroke="#1d6eed"
+                  strokeWidth="1.5"
+                  fill="none"
+                />
+                <path d="M7 8h8M7 11h5" stroke="#1d6eed" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className={classes.cardTitleBlock}>
+              <p className={classes.cardTitle}>Profesor</p>
+              <p className={classes.cardSubtitle}>Crear nueva sala de clase</p>
+            </div>
           </div>
 
-          <div>
-            <Typography variant="h5">Estudiante</Typography>
-            <Typography className={classes.studentHeaderCaption}>Unirme a sala existente</Typography>
+          <span className={classes.tagBadge}>Gestión de Sala</span>
+
+          {/* Session name field */}
+          <div className={classes.fieldBlock}>
+            <InputLabel shrink htmlFor="input-session-name" className={classes.fieldLabel}>
+              Nombre de la sala
+            </InputLabel>
+            <TextField
+              id="input-session-name"
+              variant="outlined"
+              fullWidth
+              size="small"
+              placeholder="Ej: Matemáticas — Grupo A"
+              value={classSessionDraft.sessionName}
+              onChange={handleSessionNameChange}
+              className={classes.textInput}
+            />
+          </div>
+
+          {/* Optional teacher name field (shown when no logged-in user or customIdentity) */}
+          {!hasUsername && (
+            <div className={classes.fieldBlockInner}>
+              <InputLabel shrink htmlFor="input-user-name" className={classes.fieldLabel}>
+                Tu nombre
+              </InputLabel>
+              <TextField
+                id="input-user-name"
+                variant="outlined"
+                fullWidth
+                size="small"
+                value={name}
+                onChange={handleNameChange}
+                className={classes.textInput}
+              />
+            </div>
+          )}
+
+          {/* Recording toggle */}
+          <FormControl component="fieldset" fullWidth>
+            <div className={classes.recordingRow}>
+              <div className={classes.recordingLeft}>
+                <FormLabel component="legend" className={classes.recordingTitle}>
+                  Habilitar grabación
+                </FormLabel>
+                <span className={classes.recordingHelper}>Guardar sesión automáticamente</span>
+              </div>
+              <div className={classes.recordingRight}>
+                <button
+                  type="button"
+                  className={`${classes.toggleButton} ${
+                    classSessionDraft.recordingEnabled ? classes.toggleButtonOn : classes.toggleButtonOff
+                  }`}
+                  role="switch"
+                  aria-checked={Boolean(classSessionDraft.recordingEnabled)}
+                  aria-label="Habilitar grabación"
+                  data-testid="recording-toggle"
+                  onClick={() =>
+                    handleRecordingChange({} as ChangeEvent<HTMLInputElement>, !classSessionDraft.recordingEnabled)
+                  }
+                >
+                  <span
+                    className={`${classes.toggleKnob} ${
+                      classSessionDraft.recordingEnabled ? classes.toggleKnobOn : classes.toggleKnobOff
+                    }`}
+                  />
+                </button>
+                <span
+                  className={`${classes.toggleLabel} ${
+                    classSessionDraft.recordingEnabled ? classes.toggleLabelOn : classes.toggleLabelOff
+                  }`}
+                >
+                  {classSessionDraft.recordingEnabled ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+            </div>
+          </FormControl>
+
+          {/* Sensitivity slider */}
+          <div className={classes.sensitivitySection}>
+            <div className={classes.sensitivityHeader}>
+              <div className={classes.sensitivityLeft}>
+                <span className={classes.sensitivityTitle}>Sensibilidad de proctoring</span>
+                <span className={classes.sensitivityHelper}>Detección de rostros adicionales</span>
+              </div>
+            </div>
+            <div className={classes.sliderTrack} data-testid="sensitivity-track">
+              <div className={classes.sliderFill} style={{ width: `${sensitivityValue}%` }} />
+              <div className={classes.sliderThumb} style={{ left: `${sensitivityValue}%` }} />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={50}
+                value={sensitivityValue}
+                className={classes.nativeRangeInput}
+                aria-label="Sensibilidad de monitoreo"
+                data-testid="sensitivity-range"
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  handleSensitivityChange(event, Number(event.target.value))
+                }
+              />
+            </div>
+            <div className={classes.sliderLabels}>
+              <span className={classes.sliderLabelEnd}>Baja</span>
+              <span className={classes.sliderLabelCenter}>{sensitivityValue}%</span>
+              <span className={classes.sliderLabelEnd}>Alta</span>
+            </div>
+          </div>
+
+          {/* Session created info */}
+          {classSessionAccess && (
+            <Box className={classes.createdCard}>
+              <div className={classes.createdHeader}>
+                <CheckCircleIcon className={classes.createdHeaderIcon} fontSize="small" />
+                <Typography variant="subtitle1" className={classes.createdTitle}>
+                  Sesión creada
+                </Typography>
+              </div>
+              <Typography variant="body2" className={classes.createdHint}>
+                Compartí el código o el link con tus estudiantes.
+              </Typography>
+
+              <div className={classes.createdRow}>
+                <div className={classes.createdValueBlock}>
+                  <Typography variant="caption" className={classes.createdLabel}>
+                    Identidad visible en sala
+                  </Typography>
+                  <Typography variant="body2">{teacherDisplayName}</Typography>
+                </div>
+              </div>
+
+              <div className={classes.createdRow}>
+                <div className={classes.createdValueBlock}>
+                  <Typography variant="caption" className={classes.createdLabel}>
+                    Nombre de la sala
+                  </Typography>
+                  <Typography variant="body2">{classSessionAccess.joinCode}</Typography>
+                </div>
+                <Button
+                  size="small"
+                  startIcon={<FileCopyOutlinedIcon fontSize="small" />}
+                  onClick={() => handleCopy(classSessionAccess.joinCode)}
+                >
+                  {copied ? 'Copiado' : 'Copiar'}
+                </Button>
+              </div>
+            </Box>
+          )}
+
+          {/* Primary button area */}
+          <div className={classes.buttonArea}>
+            {!classSessionAccess ? (
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                disabled={!canCreateTeacherSession}
+                onClick={onCreateClassSession}
+                className={classes.teacherPrimaryButton}
+              >
+                Crear sala →
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                onClick={onContinueToDeviceSelection}
+                className={classes.teacherPrimaryButton}
+              >
+                Continuar a verificación
+              </Button>
+            )}
           </div>
         </div>
+      ) : (
+        /* ── Estudiante card ────────────────────────────────────────────────────── */
+        <div className={classes.card}>
+          {/* Amber top border */}
+          <div className={`${classes.cardBorderTop} ${classes.cardBorderTopStudent}`} />
 
-        <span className={classes.studentTag}>EP01 · Flujo de acceso estudiante</span>
+          {/* Card header */}
+          <div className={classes.cardHeader}>
+            <div className={classes.cardIconWrapStudent}>
+              {/* Person / student icon */}
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="11" cy="7.5" r="3.5" stroke="#ffb800" strokeWidth="1.5" />
+                <path
+                  d="M4 18c0-3.314 3.134-6 7-6s7 2.686 7 6"
+                  stroke="#ffb800"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+            <div className={classes.cardTitleBlock}>
+              <p className={classes.cardTitle}>Estudiante</p>
+              <p className={classes.cardSubtitle}>Unirme a sala existente</p>
+            </div>
+          </div>
 
-        <Typography variant="body1" className={classes.studentIntro}>
-          Accede con el nombre de la sala que te compartió tu docente.
-        </Typography>
+          <span className={classes.tagBadge}>Acceso de Estudiante</span>
 
-        <div className={classes.studentFields}>
-          <div className={classes.textFieldContainer}>
-            <InputLabel shrink htmlFor="input-join-code">
-              Nombre de la sala
+          {/* Join code field */}
+          <div className={classes.fieldBlock}>
+            <InputLabel shrink htmlFor="input-join-code" className={classes.fieldLabel}>
+              Código o enlace de sala
             </InputLabel>
             <TextField
               id="input-join-code"
               variant="outlined"
               fullWidth
               size="small"
-              placeholder="Ej: fisica-101"
+              placeholder="Ingresar código de sesión"
               value={studentJoinCode}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setStudentJoinCode(event.target.value)}
+              className={classes.textInput}
             />
           </div>
-          <div className={classes.textFieldContainer}>
-            <InputLabel shrink htmlFor="input-student-name">
+
+          {/* Student name field */}
+          <div className={classes.fieldBlockInner}>
+            <InputLabel shrink htmlFor="input-student-name" className={classes.fieldLabel}>
               Tu nombre o alias
             </InputLabel>
             <TextField
@@ -418,253 +853,84 @@ export default function RoomNameScreen({
               variant="outlined"
               fullWidth
               size="small"
-              placeholder="Ej: María González"
+              placeholder="Ej: Ana García"
               value={name}
               onChange={handleNameChange}
+              className={classes.textInput}
             />
+            <span className={classes.fieldHelper}>No requiere crear una cuenta</span>
           </div>
-        </div>
 
-        <Box className={classes.studentPrivacyNotice}>
-          <div className={classes.studentPrivacyRow}>
-            <SecurityIcon fontSize="small" color="action" />
-            <div>
-              <Typography variant="subtitle2" className={classes.studentPrivacyTitle}>
-                Aviso de privacidad
-              </Typography>
-              <Typography variant="body2" className={classes.studentPrivacyText}>
-                Al unirte aceptas el procesamiento local de imagen para análisis de atención. No se almacenan datos
-                faciales.
-              </Typography>
-              <RouterLink to="/security" className={classes.studentPrivacyLink}>
-                Política de privacidad →
-              </RouterLink>
-            </div>
-          </div>
-        </Box>
-
-        {roomClosedError && (
-          <Box className={classes.studentRoomClosed} role="alert">
-            <Typography variant="body2">
-              La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.
-            </Typography>
-          </Box>
-        )}
-
-        <div className={classes.studentActions}>
-          <Button
-            variant="contained"
-            color="primary"
-            className={classes.studentPrimaryButton}
-            fullWidth
-            disabled={!canContinueStudent || isCheckingRoom}
-            onClick={onContinueToDeviceSelection}
-            startIcon={isCheckingRoom ? <CircularProgress size={16} color="inherit" /> : undefined}
-          >
-            {isCheckingRoom ? 'Verificando sala…' : 'Unirme a la sala'}
-          </Button>
-          <Button variant="text" className={classes.studentBackButton} onClick={() => onSelectRole('teacher')}>
-            Volver a crear sesión
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <Typography variant="h5" className={classes.gutterBottom}>
-        Crear sesión de clase
-      </Typography>
-      <Typography variant="body1">
-        Configura la sesión docente y, una vez creada, comparte el código o link con estudiantes.
-      </Typography>
-      <div className={classes.inputContainer}>
-        {!hasUsername && (
-          <div className={classes.textFieldContainer}>
-            <InputLabel shrink htmlFor="input-user-name">
-              Tu nombre
-            </InputLabel>
-            <TextField
-              id="input-user-name"
-              variant="outlined"
-              fullWidth
-              size="small"
-              value={name}
-              onChange={handleNameChange}
-            />
-          </div>
-        )}
-        <div className={classes.textFieldContainer}>
-          <InputLabel shrink htmlFor="input-session-name">
-            Nombre de la sesión
-          </InputLabel>
-          <TextField
-            id="input-session-name"
-            variant="outlined"
-            fullWidth
-            size="small"
-            value={classSessionDraft.sessionName}
-            onChange={handleSessionNameChange}
-          />
-        </div>
-      </div>
-      <Box mb={2}>
-        <FormControl component="fieldset" fullWidth>
-          <Box className={classes.controlCard}>
-            <div className={classes.controlHeader}>
-              <div className={classes.controlMeta}>
-                <FormLabel component="legend">¿Grabar sesión?</FormLabel>
-                <Typography variant="body2" className={classes.helperText}>
-                  Activa la grabación automática de la clase.
-                </Typography>
-              </div>
-              <div className={classes.switchRow}>
-                <button
-                  type="button"
-                  className={classes.recordingToggleButton}
-                  role="switch"
-                  aria-checked={Boolean(classSessionDraft.recordingEnabled)}
-                  aria-label="Grabar sesión"
-                  data-testid="recording-toggle"
-                  onClick={() =>
-                    handleRecordingChange({} as ChangeEvent<HTMLInputElement>, !classSessionDraft.recordingEnabled)
-                  }
-                >
-                  <span
-                    className={`${classes.recordingToggleKnob} ${
-                      classSessionDraft.recordingEnabled
-                        ? classes.recordingToggleKnobOn
-                        : classes.recordingToggleKnobOff
-                    }`}
-                  />
-                </button>
-                <Typography variant="body2" className={classes.switchState}>
-                  {classSessionDraft.recordingEnabled ? 'Activo' : 'Inactivo'}
-                </Typography>
+          {/* Privacy notice */}
+          <div className={classes.fieldBlockInner}>
+            <div className={classes.privacyBox}>
+              <span className={classes.privacyIconWrap}>
+                <SecurityIcon fontSize="small" style={{ color: '#1d6eed', display: 'block' }} />
+              </span>
+              <div>
+                <p className={classes.privacyTitle}>Aviso de privacidad</p>
+                <p className={classes.privacyBody}>
+                  Al unirte aceptas el procesamiento <strong>local</strong> de imagen para análisis de atención. No se
+                  almacenan datos faciales.
+                </p>
               </div>
             </div>
-          </Box>
-        </FormControl>
-      </Box>
-      <Box mb={3}>
-        <FormControl component="fieldset" fullWidth>
-          <Box className={classes.controlCard}>
-            <div className={classes.controlMeta}>
-              <div className={classes.controlHeader}>
-                <FormLabel component="legend">Sensibilidad de monitoreo</FormLabel>
-                <Typography variant="body2">
-                  {classSessionDraft.monitoringSensitivity === 'low'
-                    ? 'Baja'
-                    : classSessionDraft.monitoringSensitivity === 'high'
-                    ? 'Alta'
-                    : 'Media'}
-                </Typography>
-              </div>
-              <Typography variant="body2" className={classes.helperText}>
-                Ajusta el umbral de alertas de monitoreo.
-              </Typography>
-            </div>
-            <div className={classes.sensitivitySliderBlock}>
-              <div className={classes.sensitivitySliderRow}>
-                <span className={classes.sliderEndLabel}>Baja</span>
-                <div className={classes.sliderTrack} data-testid="sensitivity-track">
-                  <div className={classes.sliderFill} style={{ width: `${sensitivityValue}%` }} />
-                  <div className={classes.sliderThumb} style={{ left: `${sensitivityValue}%` }} />
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    step={50}
-                    value={sensitivityValue}
-                    className={classes.nativeRangeInput}
-                    aria-label="Sensibilidad de monitoreo"
-                    data-testid="sensitivity-range"
-                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                      handleSensitivityChange(event, Number(event.target.value))
-                    }
-                  />
-                </div>
-                <span className={classes.sliderEndLabel}>Alta</span>
-              </div>
-              <Typography className={classes.sensitivityStateLabel}>
-                {classSessionDraft.monitoringSensitivity === 'low'
-                  ? 'Baja'
-                  : classSessionDraft.monitoringSensitivity === 'high'
-                  ? 'Alta'
-                  : 'Media'}
-              </Typography>
-            </div>
-          </Box>
-        </FormControl>
-      </Box>
-      <Grid container justifyContent="flex-end">
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={onCreateClassSession}
-          disabled={!canCreateTeacherSession || Boolean(classSessionAccess)}
-        >
-          {classSessionAccess ? 'Sesión creada' : 'Crear sesión'}
-        </Button>
-      </Grid>
-      {!classSessionAccess && (
-        <Grid container justifyContent="flex-end" style={{ marginTop: 12 }}>
-          <Button variant="text" color="default" onClick={() => onSelectRole('student')}>
-            Unirse como estudiante
-          </Button>
-        </Grid>
-      )}
-
-      {classSessionAccess && (
-        <Box className={classes.createdCard} mt={3} mb={2}>
-          <div className={classes.createdHeader}>
-            <CheckCircleIcon className={classes.createdHeaderIcon} fontSize="small" />
-            <Typography variant="subtitle1" className={classes.createdTitle}>
-              Sesión creada
-            </Typography>
-          </div>
-          <Typography variant="body2" className={classes.createdHint}>
-            Compartí el código o el link con tus estudiantes. La sala queda abierta cuando entres a verificación.
-          </Typography>
-
-          <div className={classes.createdRow}>
-            <div className={classes.createdValueBlock}>
-              <Typography variant="caption" className={classes.createdLabel}>
-                Identidad visible en sala
-              </Typography>
-              <Typography variant="body2">{teacherDisplayName}</Typography>
-            </div>
           </div>
 
-          <div className={classes.createdRow}>
-            <div className={classes.createdValueBlock}>
-              <Typography variant="caption" className={classes.createdLabel}>
-                Nombre de la sala
+          {/* Room closed error */}
+          {roomClosedError && (
+            <Box className={classes.roomClosedAlert} role="alert">
+              <Typography variant="body2">
+                La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.
               </Typography>
-              <Typography variant="body2">{classSessionAccess.joinCode}</Typography>
-            </div>
-            <Button
-              size="small"
-              startIcon={<FileCopyOutlinedIcon fontSize="small" />}
-              onClick={() => handleCopy(classSessionAccess.joinCode)}
-            >
-              {copied ? 'Copiado' : 'Copiar'}
-            </Button>
-          </div>
+            </Box>
+          )}
 
-          <Grid container justifyContent="flex-end" style={{ marginTop: 16 }}>
+          {/* Primary button area */}
+          <div className={classes.buttonArea}>
             <Button
               variant="contained"
-              color="primary"
-              onClick={onContinueToDeviceSelection}
-              className={classes.continueButton}
+              fullWidth
+              disabled={!canContinueStudent || isCheckingRoom}
+              onClick={() => {
+                if (onContinueAsStudent) {
+                  onContinueAsStudent();
+                } else {
+                  onSelectRole('student');
+                  onContinueToDeviceSelection();
+                }
+              }}
+              className={classes.studentPrimaryButton}
+              startIcon={isCheckingRoom ? <CircularProgress size={16} color="inherit" /> : undefined}
             >
-              Continuar a verificación
+              {isCheckingRoom ? 'Verificando sala…' : 'Unirme a la sala →'}
             </Button>
-          </Grid>
-        </Box>
+          </div>
+        </div>
       )}
-    </>
+
+      {/* ── Role-switch link ─────────────────────────────────────────────────────── */}
+      <div className={classes.roleSwitchRow}>
+        {activeRole === 'teacher' ? (
+          <button
+            type="button"
+            className={classes.roleSwitchLink}
+            onClick={() => handleSwitchRole('student')}
+            data-testid="switch-to-student"
+          >
+            Unirse como estudiante
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={classes.roleSwitchLink}
+            onClick={() => handleSwitchRole('teacher')}
+            data-testid="switch-to-teacher"
+          >
+            Volver a crear sesión
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

@@ -4,8 +4,6 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import WarningIcon from '@material-ui/icons/Warning';
 import SecurityIcon from '@material-ui/icons/Security';
-import CheckCircleIcon from '@material-ui/icons/CheckCircle';
-import RemoveCircleOutlineIcon from '@material-ui/icons/RemoveCircleOutline';
 import WifiIcon from '@material-ui/icons/Wifi';
 
 import { LocalVideoTrack } from 'twilio-video';
@@ -31,11 +29,33 @@ import InfoIconOutlined from '../../../icons/InfoIconOutlined';
 // lighting check with the camera turned off) — neutral, not an error.
 type CheckState = 'ok' | 'fail' | 'pending' | 'unavailable';
 
-const CONNECTION_DOT_COLOR: Record<ConnectionQuality, string> = {
-  good: '#4CAF50',
-  medium: '#F9A825',
-  poor: '#E53935',
-  unknown: '#9E9E9E',
+const CONNECTION_QUALITY_LABEL: Record<ConnectionQuality, string> = {
+  good: 'Conexión buena',
+  medium: 'Conexión media',
+  poor: 'Conexión pobre',
+  unknown: 'Verificando…',
+};
+
+const CONNECTION_BAR_COLOR: Record<ConnectionQuality, string> = {
+  good: '#10b981',
+  medium: '#1d6eed',
+  poor: '#ef4444',
+  unknown: '#94a3b8',
+};
+
+// Icon badge colors for each check state
+const CHECK_BADGE_BG: Record<CheckState, string> = {
+  ok: '#d1fae5',
+  fail: '#fee2e2',
+  pending: '#f1f5f9',
+  unavailable: '#f1f5f9',
+};
+
+const CHECK_TEXT_COLOR: Record<CheckState, string> = {
+  ok: '#353535',
+  fail: '#7f1d1d',
+  pending: '#94a3b8',
+  unavailable: '#94a3b8',
 };
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -44,37 +64,77 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   // Header
   titleBlock: {
-    marginBottom: '1em',
+    marginBottom: '1.25em',
+  },
+  pageTitle: {
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 700,
+    fontSize: 26,
+    lineHeight: '32.5px',
+    color: '#1d2f6f',
   },
   subtitle: {
-    fontSize: '0.85rem',
-    color: '#606B85',
+    fontSize: 13,
+    color: '#64748b',
     marginTop: 4,
   },
-  // Lighting check banner — driven by real local luminance analysis.
+  subtitleBold: {
+    fontWeight: 700,
+    color: '#1d2f6f',
+  },
+  // Lighting warning banner — driven by real local luminance analysis.
   lightingBanner: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: 8,
-    padding: '10px 14px',
-    marginBottom: '1em',
-    backgroundColor: '#FFF8E1',
-    border: '1px solid #FFE082',
-    borderRadius: 4,
+    gap: 12,
+    padding: '15.5px 19.5px',
+    marginBottom: '1.25em',
+    backgroundColor: '#fff8e1',
+    border: '1.5px solid #ffe082',
+    borderRadius: 14,
   },
-  lightingBannerText: {
-    fontSize: '0.8rem',
-    color: 'rgb(40, 42, 43)',
+  lightingBannerIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,184,0,0.15)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  lightingBannerBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  lightingBannerTitle: {
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 700,
+    fontSize: 13,
+    lineHeight: '19.5px',
+    color: '#7c4e00',
+    whiteSpace: 'nowrap' as const,
+  },
+  lightingBannerSub: {
+    fontSize: 12,
+    lineHeight: '18px',
+    color: '#9a6400',
+    marginTop: 3,
+  },
+  lightingBannerClose: {
+    padding: 4,
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#9a6400',
+    display: 'flex',
+    flexShrink: 0,
+    lineHeight: 1,
   },
   // Preview column
-  deviceButton: {
-    width: '100%',
-    border: '2px solid #aaa',
-    margin: '1em 0',
-  },
   localPreviewContainer: {
     paddingRight: '2em',
-    marginBottom: '2em',
+    marginBottom: '1.5em',
     [theme.breakpoints.down('sm')]: {
       padding: '0 2.5em',
     },
@@ -103,74 +163,128 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   // "Verificación previa" panel
   panel: {
-    backgroundColor: '#FAFAFA',
-    border: '1px solid #E0E0E0',
-    borderRadius: 8,
-    padding: 20,
+    backgroundColor: '#ffffff',
+    border: '1px solid #e2ecf9',
+    borderRadius: 20,
+    padding: 27,
     display: 'flex',
     flexDirection: 'column',
-    gap: 16,
+    gap: 22,
     height: '100%',
     boxSizing: 'border-box',
+    boxShadow: '0px 2px 12px 0px rgba(29,110,237,0.08), 0px 1px 3px 0px rgba(0,0,0,0.04)',
   },
   panelTitle: {
-    fontSize: '0.95rem',
-    fontWeight: 600,
-    color: '#282A2B',
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 700,
+    fontSize: 16,
+    lineHeight: '22.4px',
+    color: '#1d2f6f',
   },
   panelGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 6,
   },
-  panelLabel: {
-    fontSize: '0.8rem',
-    fontWeight: 500,
-    color: '#3D4252',
+  // Section labels: uppercase, small, slate
+  sectionLabel: {
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 700,
+    fontSize: 11,
+    letterSpacing: '0.77px',
+    textTransform: 'uppercase' as const,
+    color: '#94a3b8',
+    lineHeight: '16.5px',
   },
+  // Connection quality pill
   connectionPill: {
-    display: 'inline-flex',
+    display: 'flex',
     alignItems: 'center',
-    gap: 6,
-    padding: '4px 10px',
+    gap: 10,
+    padding: '11.5px 15.5px',
     borderRadius: 12,
-    backgroundColor: '#EEEEEE',
-    fontSize: '0.78rem',
-    color: '#3D4252',
-    alignSelf: 'flex-start',
+    backgroundColor: '#f0f5ff',
+    border: '1.5px solid #e2ecf9',
+    marginTop: 8,
   },
-  connectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: '50%',
-    flexShrink: 0,
+  connectionLabel: {
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 500,
+    fontSize: 13,
+    color: '#353535',
+    flex: 1,
+  },
+  connectionBars: {
+    fontFamily: 'Poppins, sans-serif',
+    fontSize: 18,
+    lineHeight: '27px',
+  },
+  // Device check rows
+  checkList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    marginTop: 12,
   },
   checkRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  checkBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   checkText: {
-    fontSize: '0.78rem',
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 500,
+    fontSize: 13,
+    lineHeight: '19.5px',
   },
+  // Privacy card
   privacy: {
-    padding: 10,
-    backgroundColor: '#F5F5F5',
-    border: '1px dashed #BDBDBD',
-    borderRadius: 4,
+    padding: '15.5px 17.5px',
+    backgroundColor: '#ebf3ff',
+    border: '1.5px solid rgba(29,110,237,0.18)',
+    borderRadius: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 0,
+  },
+  privacyHeader: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: 6,
+    gap: 8,
+    marginBottom: 6,
   },
   privacyTitle: {
-    fontSize: '0.76rem',
-    fontWeight: 500,
-    color: '#3D4252',
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 700,
+    fontSize: 12,
+    color: '#1d2f6f',
+    lineHeight: '18px',
   },
   privacyText: {
-    fontSize: '0.72rem',
-    color: '#616161',
-    margin: '3px 0 0',
+    fontSize: 11,
+    color: '#64748b',
+    lineHeight: '17.05px',
+    marginBottom: 8,
+  },
+  privacyLink: {
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 600,
+    fontSize: 12,
+    color: '#1d6eed',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    lineHeight: '18px',
+    '&:hover': {
+      textDecoration: 'underline',
+    },
   },
   enterBlock: {
     marginTop: 'auto',
@@ -178,7 +292,32 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column',
     gap: 8,
   },
-  cta: {
+  // Gradient CTA button — not using MUI color="primary" so we can apply gradient
+  ctaButton: {
+    width: '100%',
+    height: 49,
+    borderRadius: 12,
+    background: 'linear-gradient(168.73deg, #1d6eed 0%, #1557c8 100%)',
+    boxShadow: '0px 4px 8px rgba(29,110,237,0.35)',
+    color: '#ffffff',
+    fontFamily: 'Poppins, sans-serif',
+    fontWeight: 700,
+    fontSize: 14,
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'opacity 0.2s',
+    '&:hover': {
+      opacity: 0.92,
+    },
+    '&:disabled': {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
+  },
+  cancelButton: {
     width: '100%',
   },
 }));
@@ -189,18 +328,92 @@ interface DeviceSelectionScreenProps {
   setStep: (step: Steps) => void;
 }
 
-function CheckIcon({ state }: { state: CheckState }) {
+// Resolve which connection bars glyph to show (▂▄▆ style)
+function ConnectionBars({ quality, color }: { quality: ConnectionQuality; color: string }) {
+  const bars = quality === 'good' ? '▂▄▆' : quality === 'medium' ? '▂▄' : quality === 'poor' ? '▂' : '···';
+  return <span style={{ color, fontFamily: 'Poppins, sans-serif', fontSize: 18, lineHeight: '27px' }}>{bars}</span>;
+}
+
+// Green check SVG for ok state (15x15)
+function OkIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 7.5l3 3 6-6" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Amber warning SVG for fail/unavailable state (15x15)
+function WarnIcon({ color }: { color: string }) {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M7.5 5.5v3M7.5 10.5h.01M1.5 12.5L7.5 2.5l6 10H1.5z"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CheckBadge({ state }: { state: CheckState }) {
+  const badgeBg = CHECK_BADGE_BG[state];
+  if (state === 'pending') {
+    return (
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 8,
+          backgroundColor: badgeBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <CircularProgress size={13} thickness={5} style={{ color: '#94a3b8' }} />
+      </div>
+    );
+  }
   if (state === 'ok') {
-    return <CheckCircleIcon style={{ fontSize: 15, color: '#4CAF50' }} />;
+    return (
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: 8,
+          backgroundColor: badgeBg,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        <OkIcon />
+      </div>
+    );
   }
-  if (state === 'fail') {
-    return <WarningIcon style={{ fontSize: 15, color: '#E53935' }} />;
-  }
-  if (state === 'unavailable') {
-    // Neutral, expected-not-applicable state (e.g. camera off) — not a failure.
-    return <RemoveCircleOutlineIcon style={{ fontSize: 15, color: '#BDBDBD' }} />;
-  }
-  return <CircularProgress size={13} thickness={5} style={{ color: '#9E9E9E' }} />;
+  // fail or unavailable
+  const warnColor = state === 'fail' ? '#ef4444' : '#94a3b8';
+  return (
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: 8,
+        backgroundColor: badgeBg,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <WarnIcon color={warnColor} />
+    </div>
+  );
 }
 
 function lightingToCheckState(status: LightingStatus): CheckState {
@@ -234,7 +447,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   const deviceChecks: Array<{ label: string; state: CheckState }> = [
     { label: 'Micrófono detectado', state: hasAudioInputDevices ? 'ok' : 'fail' },
     { label: 'Cámara detectada', state: hasVideoInputDevices ? 'ok' : 'fail' },
-    { label: 'Altavoces detectados', state: audioOutputDevices.length > 0 ? 'ok' : 'fail' },
+    { label: 'Altavoces funcionando', state: audioOutputDevices.length > 0 ? 'ok' : 'fail' },
     { label: isCameraOff ? 'Iluminación (cámara apagada)' : 'Iluminación adecuada', state: lightingState },
   ];
 
@@ -276,10 +489,14 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
 
   return (
     <>
+      {/* Page heading */}
       <div className={classes.titleBlock}>
-        <Typography variant="h5">Sala de Espera</Typography>
+        <Typography className={classes.pageTitle} component="h1">
+          Sala de Espera
+        </Typography>
         <Typography className={classes.subtitle}>
-          Verifica tus dispositivos antes de entrar · Sala: <strong>{roomName}</strong>
+          Verifica tus dispositivos antes de entrar · Clase:{' '}
+          <strong className={classes.subtitleBold}>{roomName}</strong>
         </Typography>
         <Typography className={classes.subtitle}>
           Paso compartido para profesor y estudiante antes de entrar.
@@ -289,11 +506,20 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
       {/* Lighting warning — only shown when the live luminance check finds the scene too dark. */}
       {lighting.status === 'low' && (
         <div className={classes.lightingBanner} role="note" aria-label="Verificación de iluminación">
-          <WarningIcon style={{ fontSize: 16, color: '#F9A825', flexShrink: 0, marginTop: 2 }} />
-          <Typography className={classes.lightingBannerText}>
-            <strong>Condiciones de iluminación insuficientes:</strong> mejora la luz de tu entorno para que el sistema
-            pueda analizar tu atención correctamente.
-          </Typography>
+          <div className={classes.lightingBannerIconWrap}>
+            <WarningIcon style={{ fontSize: 17, color: '#ffb800' }} />
+          </div>
+          <div className={classes.lightingBannerBody}>
+            <div className={classes.lightingBannerTitle}>
+              Condiciones de iluminación insuficientes para análisis de atención
+            </div>
+            <div className={classes.lightingBannerSub}>
+              Mejora la iluminación de tu entorno para que el sistema pueda analizar tu atención correctamente.
+            </div>
+          </div>
+          <button className={classes.lightingBannerClose} aria-label="Cerrar aviso">
+            ×
+          </button>
         </div>
       )}
 
@@ -301,7 +527,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         {/* Preview + device controls */}
         <Grid item md={8} sm={12} xs={12}>
           <div className={classes.localPreviewContainer}>
-            <LocalVideoPreview identity={name} />
+            <LocalVideoPreview identity={name}>
+              <ToggleAudioButton disabled={disableButtons} />
+              <ToggleVideoButton disabled={disableButtons} />
+            </LocalVideoPreview>
           </div>
           <div className={classes.mobileButtonBar}>
             <Hidden mdUp>
@@ -310,17 +539,6 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
               <SettingsMenu mobileButtonClass={classes.mobileButton} />
             </Hidden>
           </div>
-
-          <Hidden smDown>
-            <Grid container direction="row" justifyContent="center" spacing={2}>
-              <Grid item md={5}>
-                <ToggleAudioButton className={classes.deviceButton} disabled={disableButtons} />
-              </Grid>
-              <Grid item md={5}>
-                <ToggleVideoButton className={classes.deviceButton} disabled={disableButtons} />
-              </Grid>
-            </Grid>
-          </Hidden>
 
           {isKrispInstalled && (
             <Grid
@@ -375,63 +593,62 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
           <div className={classes.panel}>
             <Typography className={classes.panelTitle}>Verificación previa</Typography>
 
+            {/* Connection quality section */}
             <div className={classes.panelGroup}>
-              <span className={classes.panelLabel}>Calidad de conexión</span>
-              <span className={classes.connectionPill}>
-                <WifiIcon style={{ fontSize: 14, color: CONNECTION_DOT_COLOR[connection.quality] }} />
-                {connection.label}
-                <span
-                  className={classes.connectionDot}
-                  style={{ backgroundColor: CONNECTION_DOT_COLOR[connection.quality] }}
-                />
-              </span>
-            </div>
-
-            <div className={classes.panelGroup}>
-              <span className={classes.panelLabel}>Estado de dispositivos</span>
-              {deviceChecks.map((item, index) => {
-                // Until this row's turn arrives, show the spinner regardless of
-                // its (already-known) real state.
-                const effectiveState: CheckState = index < revealedChecks ? item.state : 'pending';
-                return (
-                  <div key={item.label} className={classes.checkRow}>
-                    <CheckIcon state={effectiveState} />
-                    <span
-                      className={classes.checkText}
-                      style={{ color: effectiveState === 'ok' ? '#3D4252' : '#9E9E9E' }}
-                    >
-                      {item.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className={classes.privacy}>
-              <SecurityIcon style={{ fontSize: 14, color: '#9E9E9E', marginTop: 2, flexShrink: 0 }} />
-              <div>
-                <Typography className={classes.privacyTitle}>Privacidad de datos faciales</Typography>
-                <Typography className={classes.privacyText}>
-                  El análisis de atención se procesa localmente. No se almacenan datos faciales.
-                </Typography>
+              <span className={classes.sectionLabel}>Calidad de conexión</span>
+              <div className={classes.connectionPill}>
+                <WifiIcon style={{ fontSize: 15, color: CONNECTION_BAR_COLOR[connection.quality] }} />
+                <span className={classes.connectionLabel}>{CONNECTION_QUALITY_LABEL[connection.quality]}</span>
+                <ConnectionBars quality={connection.quality} color={CONNECTION_BAR_COLOR[connection.quality]} />
               </div>
             </div>
 
+            {/* Device checks section */}
+            <div className={classes.panelGroup}>
+              <span className={classes.sectionLabel}>Estado de dispositivos</span>
+              <div className={classes.checkList}>
+                {deviceChecks.map((item, index) => {
+                  // Until this row's turn arrives, show the spinner regardless of
+                  // its (already-known) real state.
+                  const effectiveState: CheckState = index < revealedChecks ? item.state : 'pending';
+                  const textColor = CHECK_TEXT_COLOR[effectiveState];
+                  return (
+                    <div key={item.label} className={classes.checkRow}>
+                      <CheckBadge state={effectiveState} />
+                      <span className={classes.checkText} style={{ color: textColor }}>
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Privacy card */}
+            <div className={classes.privacy}>
+              <div className={classes.privacyHeader}>
+                <SecurityIcon style={{ fontSize: 15, color: '#1d6eed', marginTop: 1, flexShrink: 0 }} />
+                <span className={classes.privacyTitle}>Privacidad de datos faciales</span>
+              </div>
+              <Typography className={classes.privacyText}>
+                El análisis de atención se procesa{' '}
+                <strong style={{ fontWeight: 700, color: '#64748b' }}>localmente</strong>. No se almacenan datos
+                faciales.
+              </Typography>
+              <a href="/security" className={classes.privacyLink}>
+                Política de privacidad →
+              </a>
+            </div>
+
+            {/* CTA + cancel */}
             <div className={classes.enterBlock}>
-              <Button
-                variant="contained"
-                color="primary"
-                className={classes.cta}
-                data-cy-join-now
-                onClick={handleJoin}
-                disabled={disableButtons}
-              >
-                Entrar a la sala
-              </Button>
+              <button className={classes.ctaButton} data-cy-join-now onClick={handleJoin} disabled={disableButtons}>
+                Entrar a la sala →
+              </button>
               <Button
                 variant="outlined"
                 color="primary"
-                className={classes.cta}
+                className={classes.cancelButton}
                 onClick={() => setStep(Steps.roomNameStep)}
               >
                 Cancelar

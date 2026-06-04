@@ -11,58 +11,58 @@ export function getSnackbarContent(hasAudio: boolean, hasVideo: boolean, error?:
     // These custom errors are thrown by the useLocalTracks hook. They are thrown when the user explicitly denies
     // permission to only their camera, or only their microphone.
     case error?.message === 'CameraPermissionsDenied':
-      headline = 'Unable to Access Media:';
+      headline = 'No se puede acceder a los medios:';
       message =
-        'The user has denied permission to use video. Please grant permission to the browser to access the camera.';
+        'El usuario denegó el permiso para usar el video. Por favor, concede acceso a la cámara en el navegador.';
       break;
     case error?.message === 'MicrophonePermissionsDenied':
-      headline = 'Unable to Access Media:';
+      headline = 'No se puede acceder a los medios:';
       message =
-        'The user has denied permission to use audio. Please grant permission to the browser to access the microphone.';
+        'El usuario denegó el permiso para usar el audio. Por favor, concede acceso al micrófono en el navegador.';
       break;
 
     // This error is emitted when the user or the user's system has denied permission to use the media devices
     case error?.name === 'NotAllowedError':
-      headline = 'Unable to Access Media:';
+      headline = 'No se puede acceder a los medios:';
 
       if (error!.message === 'Permission denied by system') {
         // Chrome only
         message =
-          'The operating system has blocked the browser from accessing the microphone or camera. Please check your operating system settings.';
+          'El sistema operativo bloqueó el acceso del navegador al micrófono o la cámara. Verifica la configuración de privacidad del sistema.';
       } else {
         message =
-          'The user has denied permission to use audio and video. Please grant permission to the browser to access the microphone and camera.';
+          'El usuario denegó el permiso para usar el audio y el video. Por favor, concede acceso al micrófono y la cámara en el navegador.';
       }
 
       break;
 
     // This error is emitted when input devices are not connected or disabled in the OS settings
     case error?.name === 'NotFoundError':
-      headline = 'Cannot Find Microphone or Camera:';
+      headline = 'No se encontró micrófono ni cámara:';
       message =
-        'The browser cannot access the microphone or camera. Please make sure all input devices are connected and enabled.';
+        'El navegador no puede acceder al micrófono o la cámara. Asegúrate de que los dispositivos estén conectados y habilitados.';
       break;
 
     // Other getUserMedia errors are less likely to happen in this app. Here we will display
     // the system's error message directly to the user.
     case Boolean(error):
-      headline = 'Error Acquiring Media:';
+      headline = 'Error al acceder a los medios:';
       message = `${error!.name} ${error!.message}`;
       break;
 
     case !hasAudio && !hasVideo:
-      headline = 'No Camera or Microphone Detected:';
-      message = 'Other participants in the room will be unable to see and hear you.';
+      headline = 'No se detectó cámara ni micrófono:';
+      message = 'Los demás participantes no podrán verte ni escucharte.';
       break;
 
     case !hasVideo:
-      headline = 'No Camera Detected:';
-      message = 'Other participants in the room will be unable to see you.';
+      headline = 'No se detectó cámara:';
+      message = 'Los demás participantes no podrán verte.';
       break;
 
     case !hasAudio:
-      headline = 'No Microphone Detected:';
-      message = 'Other participants in the room will be unable to hear you.';
+      headline = 'No se detectó micrófono:';
+      message = 'Los demás participantes no podrán escucharte.';
   }
 
   return {

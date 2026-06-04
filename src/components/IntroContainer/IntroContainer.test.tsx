@@ -61,10 +61,10 @@ describe('the IntroContainer component', () => {
   it('should render children', () => {
     const wrapper = shallow(
       <IntroContainer>
-        <span>Test Content</span>
+        <div data-testid="child-content">Test Content</div>
       </IntroContainer>
     );
 
-    expect(wrapper.find('span').text()).toBe('Test Content');
+    expect(wrapper.find('[data-testid="child-content"]').text()).toBe('Test Content');
   });
 });
