@@ -32,10 +32,12 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 
   // ── Individual card ──────────────────────────────────────────────────────────
+  // Vertical spacing is fluid (clamp + vh) so the card compresses continuously
+  // with the viewport height and the lobby fits on screen without scrolling.
   card: {
     display: 'flex',
     flexDirection: 'column',
-    padding: 33,
+    padding: 'clamp(10px, 2vh, 24px) 33px',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -58,7 +60,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
     gap: 14,
-    paddingTop: 8,
+    paddingTop: 'clamp(2px, 0.8vh, 8px)',
     marginBottom: 0,
   },
   cardIconWrapTeacher: {
@@ -162,7 +164,7 @@ const useStyles = makeStyles((theme: Theme) => ({
       fontWeight: 400,
       fontSize: 13,
       color: '#353535',
-      padding: '12.5px 15.5px',
+      padding: 'clamp(8px, 1.3vh, 12.5px) 15.5px',
     },
   },
 
@@ -174,8 +176,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: '#f0f5ff',
     border: '1px solid #e2ecf9',
     borderRadius: 12,
-    padding: '15px 17px',
-    marginTop: 18,
+    padding: 'clamp(9px, 1.5vh, 15px) 17px',
+    marginTop: 'clamp(6px, 1.3vh, 14px)',
   },
   recordingLeft: {
     display: 'flex',
@@ -249,14 +251,14 @@ const useStyles = makeStyles((theme: Theme) => ({
 
   // ── Sensitivity slider section ─────────────────────────────────────────────────
   sensitivitySection: {
-    marginTop: 20,
-    paddingBottom: 28,
+    marginTop: 'clamp(6px, 1.4vh, 15px)',
+    paddingBottom: 'clamp(3px, 0.8vh, 8px)',
   },
   sensitivityHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 10,
+    paddingBottom: 'clamp(5px, 1vh, 10px)',
   },
   sensitivityLeft: {
     display: 'flex',
@@ -386,8 +388,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: '#f8faff',
     border: '1.5px solid rgba(29,110,237,0.15)',
     borderRadius: 12,
-    padding: '15.5px 17.5px',
-    marginBottom: 28,
+    padding: 'clamp(9px, 1.5vh, 15.5px) 17.5px',
+    marginBottom: 'clamp(6px, 1.4vh, 15px)',
   },
   privacyIconWrap: {
     paddingTop: 2,
@@ -468,8 +470,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   roleSwitchRow: {
     display: 'flex',
     justifyContent: 'center',
-    paddingTop: 18,
-    paddingBottom: 24,
+    paddingTop: 'clamp(6px, 1.1vh, 12px)',
+    paddingBottom: 'clamp(4px, 1vh, 10px)',
   },
   roleSwitchLink: {
     fontFamily: 'Poppins, Inter, sans-serif',
@@ -489,16 +491,16 @@ const useStyles = makeStyles((theme: Theme) => ({
 
   // ── Spacing helpers ────────────────────────────────────────────────────────────
   fieldBlock: {
-    marginTop: 22,
+    marginTop: 'clamp(8px, 1.5vh, 16px)',
     width: '100%',
   },
   fieldBlockInner: {
-    marginTop: 18,
+    marginTop: 'clamp(6px, 1.3vh, 14px)',
     width: '100%',
   },
   buttonArea: {
     marginTop: 'auto',
-    paddingTop: 28,
+    paddingTop: 'clamp(8px, 1.6vh, 16px)',
   },
 }));
 

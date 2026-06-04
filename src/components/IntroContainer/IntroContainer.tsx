@@ -20,6 +20,18 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 
   // ── Decorative background circles ────────────────────────────────────────────
+  // The circles intentionally poke outside the page edges (negative offsets). This
+  // wrapper clips them so they never extend the scrollable area — without it,
+  // bgCircle4 (bottom: -40) adds 40px of phantom vertical scroll.
+  bgDecor: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
+    pointerEvents: 'none',
+  },
   bgCircle1: {
     position: 'absolute',
     width: 320,
@@ -65,7 +77,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   header: {
     backgroundColor: 'rgba(255,255,255,0.85)',
     borderBottom: '1px solid #e2ecf9',
-    padding: '14px 36px 15px',
+    padding: 'clamp(7px, 1.2vh, 13px) 36px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -74,7 +86,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     position: 'relative',
     zIndex: 10,
     [theme.breakpoints.down('sm')]: {
-      padding: '12px 20px',
+      padding: 'clamp(8px, 1.5vh, 12px) 20px',
     },
   },
   logoMark: {
@@ -142,22 +154,30 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    padding: '0 32px 40px',
+    padding: '0 32px clamp(8px, 1.3vh, 20px)',
     position: 'relative',
     zIndex: 1,
     [theme.breakpoints.down('sm')]: {
-      padding: '0 16px 24px',
+      padding: '0 16px clamp(8px, 1.7vh, 20px)',
     },
   },
 
   // ── Hero section (pill badge + H1 + subtitle) ────────────────────────────────
+  // Vertical spacing is fluid (clamp + vh): it compresses continuously with the
+  // viewport height on any screen, so the lobby fits without scrolling. Only the
+  // decorative badge/subtitle have a cutoff, because below ~780px of height the
+  // intrinsic content provably cannot fit and CSS cannot drop content "when it
+  // doesn't fit" without a threshold.
   hero: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    paddingTop: 52,
-    paddingBottom: 40,
+    paddingTop: 'clamp(10px, 2.2vh, 26px)',
+    paddingBottom: 'clamp(8px, 2vh, 24px)',
     width: '100%',
+    '@media (max-height: 760px)': {
+      display: 'none',
+    },
   },
   heroBadge: {
     display: 'flex',
@@ -167,7 +187,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     border: '1px solid rgba(29,110,237,0.18)',
     borderRadius: 20,
     padding: '7px 17px',
-    marginBottom: 16,
+    marginBottom: 'clamp(6px, 1.2vh, 14px)',
+    '@media (max-height: 780px)': {
+      display: 'none',
+    },
   },
   heroBadgeDot: {
     width: 7,
@@ -187,10 +210,10 @@ const useStyles = makeStyles((theme: Theme) => ({
   heroTitle: {
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 800,
-    fontSize: 36,
+    fontSize: 'clamp(26px, 4.5vh, 36px)',
     color: '#1d2f6f',
     letterSpacing: '-1.08px',
-    lineHeight: '45px',
+    lineHeight: 1.25,
     textAlign: 'center',
     marginBottom: 0,
   },
@@ -205,7 +228,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     lineHeight: '22.5px',
     textAlign: 'center',
     maxWidth: 520,
-    marginTop: 11,
+    marginTop: 'clamp(4px, 0.8vh, 10px)',
+    '@media (max-height: 780px)': {
+      display: 'none',
+    },
   },
 
   // ── Content card wrapper ──────────────────────────────────────────────────────
@@ -226,7 +252,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   footer: {
     borderTop: '1px solid #e2ecf9',
     backgroundColor: 'rgba(255,255,255,0.70)',
-    padding: '17px 36px 16px',
+    padding: 'clamp(7px, 1.3vh, 14px) 36px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -235,7 +261,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     position: 'relative',
     zIndex: 10,
     [theme.breakpoints.down('sm')]: {
-      padding: '12px 20px',
+      padding: 'clamp(7px, 1.3vh, 12px) 20px',
       flexDirection: 'column',
       alignItems: 'flex-start',
     },
@@ -327,11 +353,13 @@ const IntroContainer = (props: IntroContainerProps) => {
 
   return (
     <div className={classes.root} ref={rootRef}>
-      {/* Decorative background blobs */}
-      <div className={classes.bgCircle1} aria-hidden="true" />
-      <div className={classes.bgCircle2} aria-hidden="true" />
-      <div className={classes.bgCircle3} aria-hidden="true" />
-      <div className={classes.bgCircle4} aria-hidden="true" />
+      {/* Decorative background blobs (clipped so they never create scroll) */}
+      <div className={classes.bgDecor} aria-hidden="true">
+        <div className={classes.bgCircle1} />
+        <div className={classes.bgCircle2} />
+        <div className={classes.bgCircle3} />
+        <div className={classes.bgCircle4} />
+      </div>
 
       {/* Header */}
       <div className={classes.header}>
