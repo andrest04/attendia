@@ -6,7 +6,9 @@ import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import ChatIcon from '../../../icons/ChatIcon';
 import { isMobile } from '../../../utils';
+import { useAppState } from '../../../state';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
+import useIsRecording from '../../../hooks/useIsRecording/useIsRecording';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
@@ -88,9 +90,6 @@ const useStyles = makeStyles((theme: Theme) =>
 );
 
 interface ProfessorToolbarProps {
-  /** REC indicator state. Local-only stub until recording rules are wired (US12). */
-  recording?: boolean;
-  onRecordingChange?: (next: boolean) => void;
   /** Proctoring monitoring state. Local-only stub until the CV pipeline lands (US30). */
   proctoringEnabled?: boolean;
   onProctoringChange?: (next: boolean) => void;
@@ -100,18 +99,20 @@ interface ProfessorToolbarProps {
 }
 
 export default function ProfessorToolbar({
-  recording = false,
-  onRecordingChange,
   proctoringEnabled = false,
   onProctoringChange,
   chatOpen = false,
   onChatToggle,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
-  const { isSharingScreen } = useVideoContext();
+  const { isSharingScreen, room } = useVideoContext();
   const { conversation, hasUnreadMessages } = useChatContext();
+  const { updateRecordingRules, isFetching, roomType } = useAppState();
+  const isRecording = useIsRecording();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
+  // Recording rules only exist for group rooms (same gate as the legacy menu).
+  const supportsRecording = roomType !== 'peer-to-peer' && roomType !== 'go';
   const chip = clsx(classes.chipLayout, classes.chipDark);
 
   return (
@@ -135,15 +136,18 @@ export default function ProfessorToolbar({
       >
         Chat
       </Button>
-      <Button
-        onClick={() => onRecordingChange?.(!recording)}
-        startIcon={<FiberManualRecordIcon style={{ color: recording ? '#ef4444' : 'rgba(255,255,255,0.5)' }} />}
-        className={clsx(classes.chipLayout, recording ? classes.chipRecActive : classes.chipDark)}
-        data-testid="professor-toolbar-record"
-        aria-pressed={recording}
-      >
-        {recording ? 'Detener REC' : 'Grabar'}
-      </Button>
+      {supportsRecording && (
+        <Button
+          onClick={() => updateRecordingRules(room!.sid, [{ type: isRecording ? 'exclude' : 'include', all: true }])}
+          disabled={isFetching || !room}
+          startIcon={<FiberManualRecordIcon style={{ color: isRecording ? '#ef4444' : 'rgba(255,255,255,0.5)' }} />}
+          className={clsx(classes.chipLayout, isRecording ? classes.chipRecActive : classes.chipDark)}
+          data-testid="professor-toolbar-record"
+          aria-pressed={isRecording}
+        >
+          {isRecording ? 'Detener REC' : 'Grabar'}
+        </Button>
+      )}
       <Button
         onClick={() => onProctoringChange?.(!proctoringEnabled)}
         startIcon={<VisibilityIcon style={{ color: proctoringEnabled ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}

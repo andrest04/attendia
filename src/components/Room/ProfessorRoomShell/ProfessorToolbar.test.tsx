@@ -2,16 +2,24 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import ProfessorToolbar from './ProfessorToolbar';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
+import useIsRecording from '../../../hooks/useIsRecording/useIsRecording';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
+import { useAppState } from '../../../state';
 
 jest.mock('../../../hooks/useChatContext/useChatContext');
+jest.mock('../../../hooks/useIsRecording/useIsRecording');
 jest.mock('../../../hooks/useRoomState/useRoomState');
 jest.mock('../../../hooks/useVideoContext/useVideoContext');
+jest.mock('../../../state');
 
 const mockUseChatContext = useChatContext as jest.Mock<any>;
+const mockUseIsRecording = useIsRecording as jest.Mock<any>;
 const mockUseRoomState = useRoomState as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
+const mockUseAppState = useAppState as jest.Mock<any>;
+
+const mockUpdateRecordingRules = jest.fn();
 
 describe('ProfessorToolbar', () => {
   beforeEach(() => {
@@ -20,8 +28,14 @@ describe('ProfessorToolbar', () => {
       conversation: { sid: 'CH123' },
       hasUnreadMessages: false,
     }));
+    mockUseIsRecording.mockImplementation(() => false);
     mockUseRoomState.mockImplementation(() => 'connected');
-    mockUseVideoContext.mockImplementation(() => ({ isSharingScreen: false }));
+    mockUseVideoContext.mockImplementation(() => ({ isSharingScreen: false, room: { sid: 'RM123' } }));
+    mockUseAppState.mockImplementation(() => ({
+      updateRecordingRules: mockUpdateRecordingRules,
+      isFetching: false,
+      roomType: 'group',
+    }));
   });
 
   it('renders teacher controls including record, proctoring and end call', () => {
@@ -42,23 +56,53 @@ describe('ProfessorToolbar', () => {
     expect(wrapper.find('ToggleVideoButton').prop('disabled')).toBe(true);
   });
 
-  it('toggles recording and proctoring through callbacks', () => {
-    const onRecordingChange = jest.fn();
+  it('toggles proctoring through its callback', () => {
     const onProctoringChange = jest.fn();
-    const wrapper = shallow(
-      <ProfessorToolbar
-        recording={false}
-        onRecordingChange={onRecordingChange}
-        proctoringEnabled={false}
-        onProctoringChange={onProctoringChange}
-      />
-    );
-
-    wrapper.find('[data-testid="professor-toolbar-record"]').simulate('click');
-    expect(onRecordingChange).toHaveBeenCalledWith(true);
+    const wrapper = shallow(<ProfessorToolbar proctoringEnabled={false} onProctoringChange={onProctoringChange} />);
 
     wrapper.find('[data-testid="professor-toolbar-proctoring"]').simulate('click');
     expect(onProctoringChange).toHaveBeenCalledWith(true);
+  });
+
+  describe('record chip', () => {
+    it('starts a real recording through recording rules when idle', () => {
+      const wrapper = shallow(<ProfessorToolbar />);
+      const chip = wrapper.find('[data-testid="professor-toolbar-record"]');
+      expect(chip.text()).toContain('Grabar');
+
+      chip.simulate('click');
+      expect(mockUpdateRecordingRules).toHaveBeenCalledWith('RM123', [{ type: 'include', all: true }]);
+    });
+
+    it('stops the recording through recording rules while recording', () => {
+      mockUseIsRecording.mockImplementation(() => true);
+      const wrapper = shallow(<ProfessorToolbar />);
+      const chip = wrapper.find('[data-testid="professor-toolbar-record"]');
+      expect(chip.text()).toContain('Detener REC');
+
+      chip.simulate('click');
+      expect(mockUpdateRecordingRules).toHaveBeenCalledWith('RM123', [{ type: 'exclude', all: true }]);
+    });
+
+    it('hides the record chip in rooms without recording support', () => {
+      mockUseAppState.mockImplementationOnce(() => ({
+        updateRecordingRules: mockUpdateRecordingRules,
+        isFetching: false,
+        roomType: 'go',
+      }));
+      const wrapper = shallow(<ProfessorToolbar />);
+      expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
+    });
+
+    it('disables the record chip while a recording request is in flight', () => {
+      mockUseAppState.mockImplementationOnce(() => ({
+        updateRecordingRules: mockUpdateRecordingRules,
+        isFetching: true,
+        roomType: 'group',
+      }));
+      const wrapper = shallow(<ProfessorToolbar />);
+      expect(wrapper.find('[data-testid="professor-toolbar-record"]').prop('disabled')).toBe(true);
+    });
   });
 
   describe('chat chip', () => {

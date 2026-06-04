@@ -14,6 +14,7 @@ import { useAppState } from '../../state';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
 import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
 import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipant';
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
@@ -97,7 +98,7 @@ export default function Room() {
   const [rightTab, setRightTab] = useState<'chat' | 'attention'>('chat');
   const [professorTab, setProfessorTab] = useState<ProfessorRightTab>('grupo');
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
-  const [recording, setRecording] = useState(false);
+  const isRecording = useIsRecording();
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
   const [isTurnSnackbarOpen, setIsTurnSnackbarOpen] = useState(false);
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
@@ -153,8 +154,6 @@ export default function Room() {
           stage={isGalleryViewActive ? <GalleryView /> : <MainParticipant />}
           toolbarSlot={
             <ProfessorToolbar
-              recording={recording}
-              onRecordingChange={setRecording}
               proctoringEnabled={proctoringEnabled}
               onProctoringChange={setProctoringEnabled}
               chatOpen={professorTab === 'chat'}
@@ -171,7 +170,7 @@ export default function Room() {
           sessionLabel={sessionLabel}
           sessionName={room?.name || sessionLabel}
           participantCount={participantCount}
-          recording={recording}
+          recording={isRecording}
           handsRaised={raisedHands}
           onGrantTurn={grantTurn}
           proctoringEnabled={proctoringEnabled}
