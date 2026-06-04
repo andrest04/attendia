@@ -615,6 +615,8 @@ interface Props {
   onRightTabChange?: (tab: ProfessorRightTab) => void;
   /** Content for the chat tab — the embedded ChatWindow, resolved by Room.tsx. */
   rightPanel?: React.ReactNode;
+  /** Real room participants (including the professor), in room order. Drives the left-rail roster. */
+  participants?: Array<{ identity: string }>;
   sessionLabel?: string;
   /** Human-facing session/room name shown in the top status bar. */
   sessionName?: string;
@@ -645,6 +647,7 @@ export default function ProfessorRoomShell({
   rightTab = 'grupo',
   onRightTabChange,
   rightPanel = null,
+  participants = [],
   sessionLabel = 'Sesión Twilio en vivo',
   sessionName = 'Sesión Twilio en vivo',
   participantCount = 0,
@@ -658,13 +661,18 @@ export default function ProfessorRoomShell({
     groupAttention,
     attentionThreshold,
     timeline,
-    participants,
+    participants: attentionParticipants,
     proctoringAlerts,
     source,
     attentionLevel,
   } = useAttention();
   const isGroupBelowThreshold = groupAttention < attentionThreshold;
-  const sortedParticipants = [...participants].sort((a, b) => b.index - a.index);
+  // The "Individual" tab is the analytics surface of the (mocked) attention pipeline,
+  // so it stays on attention data; the left-rail roster below shows real room presence.
+  const sortedParticipants = [...attentionParticipants].sort((a, b) => b.index - a.index);
+  // Attention decoration for real participants — identities the pipeline does not know
+  // about simply render without a badge (same defensive approach as GalleryView).
+  const attentionByIdentity = new Map(attentionParticipants.map(p => [p.identity, p]));
   const studentCount = Math.max(0, participantCount - 1);
 
   const [isReportOpen, setIsReportOpen] = React.useState(false);
@@ -721,30 +729,36 @@ export default function ProfessorRoomShell({
           )}
 
           <div data-testid="professor-room-shell-roster">
-            {participants.map(participant => (
-              <div key={participant.identity} className={classes.rosterRow}>
-                <div className={classes.rosterAvatar}>{getInitials(participant.identity)}</div>
-                <span className={classes.rosterName}>{participant.identity}</span>
-                {participant.multiface && (
-                  <span
-                    className={classes.multifaceWarning}
-                    data-testid="professor-room-shell-multiface-flag"
-                    title="Múltiples rostros detectados"
-                  >
-                    ⚠
-                  </span>
-                )}
-                <span
-                  className={classes.attBadge}
-                  style={{
-                    backgroundColor: attBadgeBg[participant.level],
-                    color: attBadgeText[participant.level],
-                  }}
-                >
-                  {levelLabel[participant.level]}
-                </span>
-              </div>
-            ))}
+            {participants.map(participant => {
+              const attention = attentionByIdentity.get(participant.identity);
+              return (
+                <div key={participant.identity} className={classes.rosterRow}>
+                  <div className={classes.rosterAvatar}>{getInitials(participant.identity)}</div>
+                  <span className={classes.rosterName}>{participant.identity}</span>
+                  {attention?.multiface && (
+                    <span
+                      className={classes.multifaceWarning}
+                      data-testid="professor-room-shell-multiface-flag"
+                      title="Múltiples rostros detectados"
+                    >
+                      ⚠
+                    </span>
+                  )}
+                  {attention && (
+                    <span
+                      className={classes.attBadge}
+                      data-testid="professor-room-shell-attention-badge"
+                      style={{
+                        backgroundColor: attBadgeBg[attention.level],
+                        color: attBadgeText[attention.level],
+                      }}
+                    >
+                      {levelLabel[attention.level]}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {proctoringEnabled && (
