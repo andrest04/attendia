@@ -143,6 +143,45 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     gap: 10,
   },
+  // Centered "Clase: X" label for the pre-session (device-check) header variant
+  headerClassLabel: {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontSize: 15,
+    fontWeight: 500,
+    color: '#64748b',
+    whiteSpace: 'nowrap',
+    [theme.breakpoints.down('xs')]: {
+      display: 'none',
+    },
+  },
+  headerClassLabelStrong: {
+    fontWeight: 700,
+    color: '#1d2f6f',
+  },
+  // "Pre-sesión" pill shown instead of the info chips on the device-check step
+  presessionPill: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '8px 18px',
+    borderRadius: 999,
+    backgroundColor: '#e3edff',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 13,
+    color: '#1d6eed',
+    whiteSpace: 'nowrap',
+  },
+  presessionDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    backgroundColor: '#1d6eed',
+    flexShrink: 0,
+  },
   userMenuWrapper: {
     marginLeft: 8,
   },
@@ -160,6 +199,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     [theme.breakpoints.down('sm')]: {
       padding: '0 16px clamp(8px, 1.7vh, 20px)',
     },
+  },
+  // Without the hero there is nothing between the header and the content card,
+  // so give the card a little fluid breathing room (device-check step).
+  mainNoHero: {
+    paddingTop: 'clamp(8px, 1.4vh, 18px)',
   },
 
   // ── Hero section (pill badge + H1 + subtitle) ────────────────────────────────
@@ -333,6 +377,9 @@ interface IntroContainerProps {
   noHero?: boolean;
   // Width of the content card. Defaults to 520 (narrow form); device-check passes a wider value.
   maxWidth?: number;
+  // Pre-session header variant: shows "Clase: <name>" centered and a "Pre-sesión"
+  // pill instead of the info chips (Figma waiting-room header).
+  headerRoomName?: string;
 }
 
 const IntroContainer = (props: IntroContainerProps) => {
@@ -368,22 +415,34 @@ const IntroContainer = (props: IntroContainerProps) => {
           <AttendiaLogo variant="full" size={32} />
         </div>
 
+        {props.headerRoomName && (
+          <span className={classes.headerClassLabel}>
+            Clase: <strong className={classes.headerClassLabelStrong}>{props.headerRoomName}</strong>
+          </span>
+        )}
+
         <div className={classes.headerRight}>
-          {/* Header info chips */}
-          <div className={classes.headerChips}>
-            <div className={classes.headerChip}>
-              <span className={classes.headerChipIcon}>
-                <LockIcon />
-              </span>
-              Acceso seguro por token
+          {props.headerRoomName ? (
+            <div className={classes.presessionPill}>
+              <span className={classes.presessionDot} />
+              Pre-sesión
             </div>
-            <div className={classes.headerChip}>
-              <span className={classes.headerChipIcon}>
-                <MonitorIcon />
-              </span>
-              Usar desde navegador
+          ) : (
+            <div className={classes.headerChips}>
+              <div className={classes.headerChip}>
+                <span className={classes.headerChipIcon}>
+                  <LockIcon />
+                </span>
+                Acceso seguro por token
+              </div>
+              <div className={classes.headerChip}>
+                <span className={classes.headerChipIcon}>
+                  <MonitorIcon />
+                </span>
+                Usar desde navegador
+              </div>
             </div>
-          </div>
+          )}
 
           {user && location.pathname !== '/login' && (
             <div className={classes.userMenuWrapper}>
@@ -394,7 +453,7 @@ const IntroContainer = (props: IntroContainerProps) => {
       </div>
 
       {/* Main content */}
-      <div className={classes.main}>
+      <div className={`${classes.main}${props.noHero ? ` ${classes.mainNoHero}` : ''}`}>
         {!props.noHero && (
           <div className={classes.hero}>
             <div className={classes.heroBadge}>

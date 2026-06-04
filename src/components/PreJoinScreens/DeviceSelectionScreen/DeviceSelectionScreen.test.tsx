@@ -109,9 +109,9 @@ describe('the DeviceSelectionScreen component', () => {
     expect(wrapper.find('[data-cy-join-now]').prop('disabled')).toBe(false);
   });
 
-  it('should show shared teacher/student handoff copy in S2', () => {
+  it('should show the waiting room subtitle with the class name', () => {
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
-    expect(wrapper.text()).toContain('Paso compartido para profesor y estudiante antes de entrar.');
+    expect(wrapper.text()).toContain('Verifica tus dispositivos antes de entrar · Clase: test room name');
   });
 
   it('should go back to the RoomNameScreen when the Cancel button is clicked', () => {
