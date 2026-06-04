@@ -98,18 +98,18 @@ describe('the MainParticipantInfo component', () => {
     expect(mockUseTrack).toHaveBeenCalledWith({ trackName: '', kind: 'video' });
   });
 
-  it('should add "(You)" to the participants identity when they are the localParticipant', () => {
+  it('should add "(Yo)" to the participants identity when they are the localParticipant', () => {
     const mockParticipant = { identity: 'mockIdentity' } as any;
     mockUseVideoContext.mockImplementationOnce(() => ({ room: { localParticipant: mockParticipant } }));
     const wrapper = shallow(<MainParticipantInfo participant={mockParticipant}>mock children</MainParticipantInfo>);
-    expect(wrapper.text()).toContain('mockIdentity (You)');
+    expect(wrapper.text()).toContain('mockIdentity (Yo)');
   });
 
-  it('should not add "(You)" to the participants identity when they are the localParticipant', () => {
+  it('should not add "(Yo)" to the participants identity when they are not the localParticipant', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.text()).not.toContain('mockIdentity (You)');
+    expect(wrapper.text()).not.toContain('mockIdentity (Yo)');
   });
 
   it('should add "- Screen" to the participants identity when they are screen sharing', () => {

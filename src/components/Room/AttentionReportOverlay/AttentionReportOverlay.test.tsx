@@ -12,14 +12,18 @@ jest.mock('../ProfessorRoomShell/exportAttentionReport', () => ({
 // recharts' ResponsiveContainer needs a measurable parent; stub it out for jsdom.
 jest.mock('recharts', () => {
   const Stub = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
+  const VoidStub = () => null;
   return {
     ResponsiveContainer: Stub,
     AreaChart: Stub,
-    Area: Stub,
-    XAxis: Stub,
-    YAxis: Stub,
-    Tooltip: Stub,
-    ReferenceLine: Stub,
+    Area: VoidStub,
+    LineChart: Stub,
+    Line: VoidStub,
+    CartesianGrid: VoidStub,
+    XAxis: VoidStub,
+    YAxis: VoidStub,
+    Tooltip: VoidStub,
+    ReferenceLine: VoidStub,
   };
 });
 
@@ -111,7 +115,7 @@ describe('AttentionReportOverlay', () => {
     expect(wrapper.text()).not.toContain('Datos simulados — pipeline CV pendiente');
   });
 
-  it('calls onClose when the Cerrar button is clicked', () => {
+  it('calls onClose when the "Volver a la sesión" button is clicked', () => {
     const onClose = jest.fn();
     const wrapper = renderOverlay({ onClose });
     wrapper
@@ -119,6 +123,29 @@ describe('AttentionReportOverlay', () => {
       .first()
       .simulate('click');
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onClose when the X close button (top-right) is clicked', () => {
+    const onClose = jest.fn();
+    const wrapper = renderOverlay({ onClose });
+    wrapper
+      .find('[data-testid="attention-report-close-x"]')
+      .first()
+      .simulate('click');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onClose when the Escape key is pressed', () => {
+    const onClose = jest.fn();
+    renderOverlay({ onClose });
+    const event = new KeyboardEvent('keydown', { key: 'Escape' });
+    document.dispatchEvent(event);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not render "Nueva sesión" as a button label', () => {
+    const wrapper = renderOverlay();
+    expect(wrapper.text()).not.toContain('Nueva sesión');
   });
 
   it('downloads a PDF with the current snapshot when "Descargar PDF" is clicked', () => {
@@ -137,14 +164,14 @@ describe('AttentionReportOverlay', () => {
     expect(mockExport.mock.calls[0][2]).toMatchObject({ sessionName: 'Matemáticas — Grupo A' });
   });
 
-  it('downloads an Excel workbook when "Descargar Excel" is clicked', () => {
+  it('downloads a CSV when "Descargar CSV" is clicked', () => {
     const wrapper = renderOverlay();
     wrapper
-      .find('[data-testid="attention-report-download-excel"]')
+      .find('[data-testid="attention-report-download-csv"]')
       .first()
       .simulate('click');
     expect(mockExport).toHaveBeenCalledTimes(1);
-    expect(mockExport.mock.calls[0][0]).toBe('xlsx');
+    expect(mockExport.mock.calls[0][0]).toBe('csv');
   });
 
   it('invokes onExportError and shows the snackbar when a download fails', async () => {

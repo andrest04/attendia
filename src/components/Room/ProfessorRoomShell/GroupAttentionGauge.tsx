@@ -1,10 +1,16 @@
 import React from 'react';
 import { AttentionLevel } from '../../AttentionProvider/types';
 
-const levelColor: Record<AttentionLevel, string> = {
-  high: '#14B053',
-  medium: '#E6A817',
-  low: '#E22525',
+const levelArcColor: Record<AttentionLevel, string> = {
+  high: '#10b981',
+  medium: '#ffb800',
+  low: '#ef4444',
+};
+
+const levelTrackColor: Record<AttentionLevel, string> = {
+  high: '#d1fae5',
+  medium: '#fff8e1',
+  low: '#fee2e2',
 };
 
 interface Props {
@@ -16,28 +22,32 @@ interface Props {
 }
 
 /**
- * Circular SVG gauge for the group attention index (US24). The arc is colored
- * by attention level; the numeric value is rendered as HTML centered over the
- * ring so it stays accessible and testable.
+ * Circular SVG gauge for the group attention index (US24). The arc color
+ * reflects the attention level (green=high, amber=medium, red=low).
  */
-export default function GroupAttentionGauge({ value, level, size = 120 }: Props) {
-  const radius = 42;
+export default function GroupAttentionGauge({ value, level, size = 140 }: Props) {
+  const strokeWidth = 12;
+  const radius = (size - strokeWidth) / 2;
   const center = size / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
   const offset = circumference - (clamped / 100) * circumference;
+  const arcColor = levelArcColor[level];
+  const trackColor = levelTrackColor[level];
 
   return (
     <div style={{ position: 'relative', width: size, height: size }} data-testid="professor-room-shell-gauge">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle cx={center} cy={center} r={radius} fill="none" stroke="#E4E7E9" strokeWidth={10} />
+        {/* Track ring */}
+        <circle cx={center} cy={center} r={radius} fill="none" stroke={trackColor} strokeWidth={strokeWidth} />
+        {/* Value arc */}
         <circle
           cx={center}
           cy={center}
           r={radius}
           fill="none"
-          stroke={levelColor[level]}
-          strokeWidth={10}
+          stroke={arcColor}
+          strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
@@ -55,8 +65,26 @@ export default function GroupAttentionGauge({ value, level, size = 120 }: Props)
           lineHeight: 1,
         }}
       >
-        <span style={{ fontSize: size * 0.3, fontWeight: 700, color: '#282A2B' }}>{clamped}</span>
-        <span style={{ fontSize: size * 0.1, color: '#606B85', marginTop: 2 }}>/ 100</span>
+        <span
+          style={{
+            fontSize: size * 0.27,
+            fontWeight: 700,
+            color: '#1d2f6f',
+            fontFamily: 'Poppins, Inter, sans-serif',
+          }}
+        >
+          {clamped}
+        </span>
+        <span
+          style={{
+            fontSize: size * 0.09,
+            color: '#64748b',
+            marginTop: 2,
+            fontFamily: 'Inter, sans-serif',
+          }}
+        >
+          / 100
+        </span>
       </div>
     </div>
   );

@@ -162,7 +162,7 @@ describe('the ParticipantInfo component', () => {
     expect(wrapper.exists(ScreenShareIcon)).toBe(false);
   });
 
-  it('should add "(You)" to the participants identity when they are the localParticipant', () => {
+  it('should add "(Yo)" to the participants identity when they are the localParticipant', () => {
     mockUseIsTrackSwitchedOff.mockImplementation(() => false);
     mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
     const wrapper = shallow(
@@ -175,10 +175,10 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.text()).toContain('mockIdentity (You)');
+    expect(wrapper.text()).toContain('mockIdentity (Yo)');
   });
 
-  it('should not add "(You)" to the participants identity when they are the localParticipant', () => {
+  it('should not add "(Yo)" to the participants identity when they are not the localParticipant', () => {
     mockUseIsTrackSwitchedOff.mockImplementation(() => false);
     mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
     const wrapper = shallow(
@@ -186,7 +186,7 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.text()).not.toContain('mockIdentity (You)');
+    expect(wrapper.text()).not.toContain('mockIdentity (Yo)');
   });
 
   it('should not render the attention overlay when no attention prop is provided', () => {

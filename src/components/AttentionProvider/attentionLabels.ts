@@ -13,11 +13,11 @@ export const levelColor: Record<AttentionLevel, string> = {
   low: '#E22525',
 };
 
-/** Feminine labels ("atención alta/media/baja") — roster + exported report. */
+/** Masculine labels ("nivel alto/medio/bajo") — roster + exported report. */
 export const levelLabel: Record<AttentionLevel, string> = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Baja',
+  high: 'Alto',
+  medium: 'Medio',
+  low: 'Bajo',
 };
 
 /** Masculine short labels ("nivel alto/medio/bajo") — per-tile gallery badge. */

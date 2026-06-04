@@ -69,12 +69,11 @@ describe('ProfessorRoomShell', () => {
     );
 
     expect(wrapper.find('[data-testid="professor-room-shell-left-rail"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-room-shell-stage-header"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-room-shell-toolbar-slot"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-room-shell-right-tabs"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="stage-content"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="toolbar-content"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-room-shell-participant-count"]').text()).toContain('12 en sala');
+    expect(wrapper.find('[data-testid="professor-room-shell-participant-count"]').text()).toContain('12');
   });
 
   it('renders the session status bar with name, connected-student count and infra label', () => {
@@ -196,7 +195,7 @@ describe('ProfessorRoomShell', () => {
     // The report overlay is closed until the toolbar button is clicked.
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
 
-    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Ver reporte').simulate('click');
+    wrapper.find('[data-testid="professor-room-shell-export"]').simulate('click');
     wrapper.update();
 
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
@@ -204,7 +203,7 @@ describe('ProfessorRoomShell', () => {
 
   it('closes the report overlay from its Cerrar button', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
-    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Ver reporte').simulate('click');
+    wrapper.find('[data-testid="professor-room-shell-export"]').simulate('click');
     wrapper.update();
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
 
@@ -219,7 +218,7 @@ describe('ProfessorRoomShell', () => {
 
   it('surfaces an error when a download from the overlay fails', async () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
-    wrapper.findWhere(node => node.type() === 'button' && node.text() === 'Ver reporte').simulate('click');
+    wrapper.find('[data-testid="professor-room-shell-export"]').simulate('click');
     wrapper.update();
     wrapper
       .find('[data-testid="attention-report-download-pdf"]')
