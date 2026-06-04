@@ -164,6 +164,10 @@ export default function Room() {
           rightTab={professorTab}
           onRightTabChange={setProfessorTab}
           rightPanel={professorTab === 'chat' ? <ChatWindow embedded isVisible /> : undefined}
+          participants={[
+            ...participants.map(p => ({ identity: p.identity })),
+            { identity: room?.localParticipant?.identity || '' },
+          ]}
           sessionLabel={sessionLabel}
           sessionName={room?.name || sessionLabel}
           participantCount={participantCount}

@@ -105,13 +105,35 @@ describe('ProfessorRoomShell', () => {
     expect(gauge.text()).toContain('/ 100');
   });
 
-  it('renders the roster with attention badges and multiface flags', () => {
-    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
+  it('renders the roster from real room participants, decorated with attention data when available', () => {
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        participants={[
+          { identity: 'Ana García' }, // has attention data (high)
+          { identity: 'María Torres' }, // has attention data (multiface)
+          { identity: 'Estudiante Real' }, // no attention data → no badge
+          { identity: 'Profe X [Profesor]' },
+        ]}
+      />
+    );
 
     const roster = wrapper.find('[data-testid="professor-room-shell-roster"]');
     expect(roster.text()).toContain('Ana García');
     expect(roster.text()).toContain('María Torres');
+    expect(roster.text()).toContain('Estudiante Real');
+    expect(roster.text()).toContain('Profe X [Profesor]');
+    // Present in the attention mock but NOT in the room → must not appear.
+    expect(roster.text()).not.toContain('Carlos López');
     expect(wrapper.find('[data-testid="professor-room-shell-multiface-flag"]').length).toBe(1);
+    // Attention badges render only for identities the attention pipeline knows about.
+    expect(wrapper.find('[data-testid="professor-room-shell-attention-badge"]').length).toBe(2);
+  });
+
+  it('renders an empty roster when no participants are provided', () => {
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
+    const roster = wrapper.find('[data-testid="professor-room-shell-roster"]');
+    expect(roster.children().length).toBe(0);
   });
 
   it('shows the hands-raised queue only when hands are up', () => {
