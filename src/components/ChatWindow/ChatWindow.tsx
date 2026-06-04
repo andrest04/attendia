@@ -15,7 +15,7 @@ const useStyles = makeStyles((theme: Theme) =>
       flexDirection: 'column',
       height: '100%',
       minHeight: 0,
-      borderLeft: '1px solid #E4E7E9',
+      borderLeft: '1px solid #e2ecf9',
       [theme.breakpoints.down('sm')]: {
         position: 'fixed',
         top: 0,
@@ -29,9 +29,22 @@ const useStyles = makeStyles((theme: Theme) =>
     // so the chat fills its cell without an extra inner border.
     embedded: {
       borderLeft: 'none',
+      flex: 1,
+      minHeight: 0,
     },
     hide: {
       display: 'none',
+    },
+    unavailableMessage: {
+      flex: 1,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '16px',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: 13,
+      color: '#64748b',
+      textAlign: 'center',
     },
   })
 );
@@ -70,7 +83,9 @@ export function BaseChatWindow({ embedded = false, isVisible = true }: ChatWindo
     >
       {!embedded && <ChatWindowHeader />}
       {isUnavailable ? (
-        <div data-testid="chat-window-unavailable">{unavailableMessage}</div>
+        <div className={classes.unavailableMessage} data-testid="chat-window-unavailable">
+          {unavailableMessage}
+        </div>
       ) : (
         <>
           <MessageList messages={messages} />

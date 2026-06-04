@@ -8,15 +8,19 @@ const useStyles = makeStyles(() =>
   createStyles({
     container: {
       height: '56px',
-      background: '#F4F4F6',
-      borderBottom: '1px solid #E4E7E9',
+      background: '#f0f5ff',
+      borderBottom: '1px solid #e2ecf9',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '0 1em',
+      flexShrink: 0,
     },
     text: {
-      fontWeight: 'bold',
+      fontFamily: 'Poppins, Inter, sans-serif',
+      fontWeight: 700,
+      fontSize: 14,
+      color: '#1d2f6f',
     },
     closeChatWindow: {
       cursor: 'pointer',
@@ -24,6 +28,7 @@ const useStyles = makeStyles(() =>
       background: 'transparent',
       border: '0',
       padding: '0.4em',
+      color: '#64748b',
     },
   })
 );

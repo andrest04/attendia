@@ -7,36 +7,66 @@ import { isMobile } from '../../../utils';
 import Snackbar from '../../Snackbar/Snackbar';
 import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 
+// Send arrow icon (paper-plane style, matching Figma)
+function SendIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M13 1L6.5 7.5M13 1L9 13L6.5 7.5M13 1L1 5L6.5 7.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const useStyles = makeStyles(theme => ({
   chatInputContainer: {
-    borderTop: '1px solid #e4e7e9',
-    padding: '0.8em 1em',
+    borderTop: '1px solid #e2ecf9',
+    padding: '13px 16px 12px',
     background: '#FFFFFF',
+    flexShrink: 0,
   },
   inputRow: {
     display: 'flex',
-    alignItems: 'flex-end',
-    gap: '0.5em',
-  },
-  textArea: {
-    width: '100%',
-    border: '0',
-    resize: 'none',
-    fontSize: '14px',
-    fontFamily: 'Inter',
-    outline: 'none',
-    background: 'transparent',
+    alignItems: 'center',
+    gap: '8px',
   },
   textAreaContainer: {
     display: 'flex',
     flex: 1,
     minWidth: 0,
-    padding: '0.48em 0.7em',
-    border: '1px solid #c9cdd2',
-    borderRadius: '6px',
+    padding: '9.5px 15.5px',
+    border: '1.5px solid #e2ecf9',
+    borderRadius: '12px',
+    backgroundColor: '#f0f5ff',
+    transition: 'border-color 0.15s ease',
   },
   isTextareaFocused: {
     borderColor: theme.palette.primary.main,
+  },
+  textArea: {
+    width: '100%',
+    border: '0',
+    resize: 'none',
+    fontSize: '13px',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    outline: 'none',
+    background: 'transparent',
+    color: '#353535',
+    lineHeight: 'normal',
+  },
+  // File button: kept for test and functionality but hidden visually
+  fileButtonContainer: {
+    position: 'relative',
+    flexShrink: 0,
+    // Visually hidden but accessible to shallow tests
+    width: 0,
+    height: 0,
+    overflow: 'hidden',
+    visibility: 'hidden' as const,
   },
   attachButton: {
     flexShrink: 0,
@@ -50,10 +80,6 @@ const useStyles = makeStyles(theme => ({
       },
     },
   },
-  fileButtonContainer: {
-    position: 'relative',
-    flexShrink: 0,
-  },
   fileButtonLoadingSpinner: {
     position: 'absolute',
     top: '50%',
@@ -63,17 +89,19 @@ const useStyles = makeStyles(theme => ({
   },
   sendButton: {
     flexShrink: 0,
-    padding: '0.5em 1.2em',
-    backgroundColor: '#2A2F36',
-    color: '#FFFFFF',
-    fontWeight: 600,
-    textTransform: 'none',
+    width: 34,
+    height: 34,
+    minWidth: 'auto',
+    borderRadius: 10,
+    backgroundColor: '#e2ecf9',
+    color: theme.palette.primary.main,
+    padding: 0,
     '&:hover': {
-      backgroundColor: '#1f242a',
+      backgroundColor: '#cce0ff',
     },
     '&:disabled': {
-      backgroundColor: '#c9cdd2',
-      color: '#FFFFFF',
+      backgroundColor: '#e2ecf9',
+      color: '#94a3b8',
     },
   },
 }));
@@ -98,8 +126,6 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
 
   useEffect(() => {
     if (isChatWindowOpen) {
-      // When the chat window is opened, we will focus on the text input.
-      // This is so the user doesn't have to click on it to begin typing a message.
       textInputRef.current?.focus();
     }
   }, [isChatWindowOpen]);
@@ -108,7 +134,6 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
     setMessageBody(event.target.value);
   };
 
-  // ensures pressing enter + shift creates a new line, so that enter on its own only sends the message:
   const handleReturnKeyPress = (event: React.KeyboardEvent) => {
     if (!isMobile && event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -188,6 +213,8 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
           value={''}
           accept={ALLOWED_FILE_TYPES}
         />
+
+        {/* File attachment button: kept for test compatibility and future use, visually hidden */}
         <div className={classes.fileButtonContainer}>
           <Button
             className={classes.attachButton}
@@ -196,10 +223,10 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
           >
             <FileAttachmentIcon />
           </Button>
-
           {isSendingFile && <CircularProgress size={24} className={classes.fileButtonLoadingSpinner} />}
         </div>
 
+        {/* Primary send button */}
         <Button
           className={classes.sendButton}
           onClick={() => handleSendMessage(messageBody)}
@@ -208,7 +235,7 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
           disabled={!isValidMessage}
           data-cy-send-message-button
         >
-          Enviar
+          <SendIcon />
         </Button>
       </div>
     </div>

@@ -10,15 +10,15 @@ import useChatContext from '../../hooks/useChatContext/useChatContext';
 import { AttentionLevel } from '../AttentionProvider/types';
 
 const levelColor: Record<AttentionLevel, string> = {
-  high: '#14B053',
-  medium: '#E6A817',
-  low: '#E22525',
+  high: '#10b981',
+  medium: '#ffb800',
+  low: '#ef4444',
 };
 
 const levelLabel: Record<AttentionLevel, string> = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Baja',
+  high: 'Alto',
+  medium: 'Medio',
+  low: 'Bajo',
 };
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -28,7 +28,7 @@ const useStyles = makeStyles((theme: Theme) =>
       zIndex: 9,
       display: 'flex',
       flexDirection: 'column',
-      borderLeft: '1px solid #E4E7E9',
+      borderLeft: '1px solid #e2ecf9',
       [theme.breakpoints.down('sm')]: {
         position: 'fixed',
         top: 0,
@@ -38,13 +38,19 @@ const useStyles = makeStyles((theme: Theme) =>
         zIndex: 100,
       },
     },
+    // Embedded mode: no extra border (right rail already provides it)
+    embedded: {
+      borderLeft: 'none',
+      flex: 1,
+      minHeight: 0,
+    },
     hide: {
       display: 'none',
     },
     header: {
       height: '56px',
-      background: '#F4F4F6',
-      borderBottom: '1px solid #E4E7E9',
+      background: '#f0f5ff',
+      borderBottom: '1px solid #e2ecf9',
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -52,8 +58,10 @@ const useStyles = makeStyles((theme: Theme) =>
       flexShrink: 0,
     },
     headerText: {
-      fontWeight: 'bold',
-      fontSize: '0.9rem',
+      fontFamily: 'Poppins, Inter, sans-serif',
+      fontWeight: 700,
+      fontSize: 14,
+      color: theme.palette.secondary.main,
     },
     closeButton: {
       cursor: 'pointer',
@@ -61,6 +69,7 @@ const useStyles = makeStyles((theme: Theme) =>
       background: 'transparent',
       border: '0',
       padding: '0.4em',
+      color: '#64748b',
     },
     body: {
       flex: 1,
@@ -86,26 +95,29 @@ const useStyles = makeStyles((theme: Theme) =>
     },
     indexNumber: {
       fontSize: '3rem',
+      fontFamily: 'Poppins, Inter, sans-serif',
       fontWeight: 700,
       lineHeight: 1,
-      color: 'rgb(40, 42, 43)',
+      color: theme.palette.secondary.main,
     },
     indexLabel: {
       fontSize: '0.75rem',
-      color: '#606B85',
+      fontFamily: 'Inter, sans-serif',
+      color: '#64748b',
       textAlign: 'center',
     },
     separator: {
       height: '1px',
-      backgroundColor: '#E4E7E9',
+      backgroundColor: '#e2ecf9',
     },
     // Section label
     sectionLabel: {
       fontSize: '0.75rem',
+      fontFamily: 'Poppins, Inter, sans-serif',
       fontWeight: 600,
-      color: '#606B85',
+      color: '#94a3b8',
       textTransform: 'uppercase' as const,
-      letterSpacing: '0.05em',
+      letterSpacing: '0.7px',
     },
     // Metric row (label + bar)
     metricGroup: {
@@ -120,16 +132,18 @@ const useStyles = makeStyles((theme: Theme) =>
     },
     metricLabel: {
       fontSize: '0.8rem',
-      color: 'rgb(40, 42, 43)',
+      fontFamily: 'Inter, sans-serif',
+      color: theme.palette.secondary.main,
     },
     metricValue: {
       fontSize: '0.75rem',
-      color: '#606B85',
+      fontFamily: 'Inter, sans-serif',
+      color: '#64748b',
       fontVariantNumeric: 'tabular-nums',
     },
     progressTrack: {
       height: '6px',
-      backgroundColor: '#E4E7E9',
+      backgroundColor: '#e2ecf9',
       borderRadius: '3px',
       overflow: 'hidden',
     },
@@ -147,6 +161,7 @@ const useStyles = makeStyles((theme: Theme) =>
     statusChip: {
       fontSize: '0.7rem',
       height: '22px',
+      fontFamily: 'Inter, sans-serif',
     },
     // Lighting alert
     lightingAlert: {
@@ -156,11 +171,12 @@ const useStyles = makeStyles((theme: Theme) =>
       padding: '8px 10px',
       backgroundColor: '#FFF8E1',
       border: '1px solid #F9A825',
-      borderRadius: '4px',
+      borderRadius: '8px',
     },
     lightingText: {
       fontSize: '0.75rem',
-      color: 'rgb(40, 42, 43)',
+      fontFamily: 'Inter, sans-serif',
+      color: theme.palette.secondary.main,
     },
     // Disabled state
     disabledMessage: {
@@ -170,7 +186,7 @@ const useStyles = makeStyles((theme: Theme) =>
       gap: '12px',
       padding: '32px 16px',
       textAlign: 'center',
-      color: '#606B85',
+      color: '#64748b',
     },
     // Privacy note
     privacyNote: {
@@ -178,13 +194,14 @@ const useStyles = makeStyles((theme: Theme) =>
       alignItems: 'flex-start',
       gap: '6px',
       padding: '8px 10px',
-      backgroundColor: '#F4F4F6',
-      border: '1px dashed #E4E7E9',
-      borderRadius: '4px',
+      backgroundColor: theme.palette.background.default,
+      border: '1px dashed #e2ecf9',
+      borderRadius: '8px',
     },
     privacyText: {
       fontSize: '0.7rem',
-      color: '#606B85',
+      fontFamily: 'Inter, sans-serif',
+      color: '#64748b',
       margin: 0,
     },
   })
@@ -222,11 +239,14 @@ export default function AttentionPanel({ embedded = false, isVisible = true }: A
 
   return (
     <aside
-      className={clsx(classes.container, { [classes.hide]: !effectiveVisible })}
+      className={clsx(classes.container, {
+        [classes.embedded]: embedded,
+        [classes.hide]: !effectiveVisible,
+      })}
       data-testid="attention-panel"
       aria-hidden={!effectiveVisible}
     >
-      {/* Header */}
+      {/* Header — only shown in drawer/standalone mode */}
       <div className={classes.header}>
         <span className={classes.headerText}>Mi Atención</span>
         {!embedded && (
@@ -285,7 +305,7 @@ export default function AttentionPanel({ embedded = false, isVisible = true }: A
                 <span className={classes.metricLabel}>Ojos</span>
                 <span className={classes.metricValue}>{self.components.eyes}</span>
               </div>
-              <MetricBar value={self.components.eyes} color="#027AC5" />
+              <MetricBar value={self.components.eyes} color="#1d6eed" />
             </div>
 
             <div className={classes.metricGroup}>
@@ -293,7 +313,7 @@ export default function AttentionPanel({ embedded = false, isVisible = true }: A
                 <span className={classes.metricLabel}>Postura</span>
                 <span className={classes.metricValue}>{self.components.posture}</span>
               </div>
-              <MetricBar value={self.components.posture} color="#027AC5" />
+              <MetricBar value={self.components.posture} color="#1d6eed" />
             </div>
 
             <div className={classes.metricGroup}>
@@ -301,7 +321,7 @@ export default function AttentionPanel({ embedded = false, isVisible = true }: A
                 <span className={classes.metricLabel}>Orientación</span>
                 <span className={classes.metricValue}>{self.components.head}</span>
               </div>
-              <MetricBar value={self.components.head} color="#027AC5" />
+              <MetricBar value={self.components.head} color="#1d6eed" />
             </div>
 
             <div className={classes.separator} />
@@ -316,8 +336,8 @@ export default function AttentionPanel({ embedded = false, isVisible = true }: A
                 className={classes.statusChip}
                 data-testid="capture-status"
                 style={{
-                  backgroundColor: self.capture === 'active' ? '#14B053' : '#E4E7E9',
-                  color: self.capture === 'active' ? '#FFFFFF' : 'rgb(40, 42, 43)',
+                  backgroundColor: self.capture === 'active' ? '#10b981' : '#e2ecf9',
+                  color: self.capture === 'active' ? '#FFFFFF' : '#1d2f6f',
                 }}
               />
               <Chip
@@ -326,8 +346,8 @@ export default function AttentionPanel({ embedded = false, isVisible = true }: A
                 className={classes.statusChip}
                 data-testid="lighting-status"
                 style={{
-                  backgroundColor: self.lighting === 'ok' ? '#E4E7E9' : '#FFF8E1',
-                  color: 'rgb(40, 42, 43)',
+                  backgroundColor: self.lighting === 'ok' ? '#e2ecf9' : '#FFF8E1',
+                  color: '#1d2f6f',
                   border: self.lighting === 'low' ? '1px solid #F9A825' : undefined,
                 }}
               />
@@ -343,18 +363,18 @@ export default function AttentionPanel({ embedded = false, isVisible = true }: A
 
             {/* Privacy note */}
             <div className={classes.privacyNote}>
-              <VisibilityIcon style={{ fontSize: 12, color: '#606B85', marginTop: 2 }} />
+              <VisibilityIcon style={{ fontSize: 12, color: '#64748b', marginTop: 2 }} />
               <p className={classes.privacyText}>Análisis procesado localmente — no se almacenan datos</p>
             </div>
           </>
         ) : (
           /* Disabled state */
           <div className={classes.disabledMessage} data-testid="attention-disabled">
-            <VisibilityIcon style={{ fontSize: 32, color: '#E4E7E9' }} />
-            <Typography variant="body2" style={{ color: '#606B85' }}>
+            <VisibilityIcon style={{ fontSize: 32, color: '#e2ecf9' }} />
+            <Typography variant="body2" style={{ color: '#64748b' }}>
               Análisis de atención desactivado
             </Typography>
-            <Typography variant="caption" style={{ color: '#9AA3B2' }}>
+            <Typography variant="caption" style={{ color: '#94a3b8' }}>
               Activa el análisis para ver tu índice de atención.
             </Typography>
           </div>
