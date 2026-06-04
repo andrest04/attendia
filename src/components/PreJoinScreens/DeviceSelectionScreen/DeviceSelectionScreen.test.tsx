@@ -1,6 +1,7 @@
 import React from 'react';
 import DeviceSelectionScreen from './DeviceSelectionScreen';
 import CircularProgress from '@material-ui/core/CircularProgress';
+import Button from '@material-ui/core/Button';
 import { shallow } from 'enzyme';
 import { Steps } from '../PreJoinScreens';
 import { useAppState } from '../../../state';
@@ -68,7 +69,7 @@ describe('the DeviceSelectionScreen component', () => {
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
 
     it('should disable the Join Now, toggle video, and toggle audio buttons', () => {
-      expect(wrapper.find({ children: 'Entrar a la sala' }).prop('disabled')).toBe(true);
+      expect(wrapper.find('[data-cy-join-now]').prop('disabled')).toBe(true);
     });
 
     it('should disable the desktop and mobile toggle video buttons', () => {
@@ -105,7 +106,7 @@ describe('the DeviceSelectionScreen component', () => {
 
   it('should not disable the Join Now button by default', () => {
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
-    expect(wrapper.find({ children: 'Entrar a la sala' }).prop('disabled')).toBe(false);
+    expect(wrapper.find('[data-cy-join-now]').prop('disabled')).toBe(false);
   });
 
   it('should show shared teacher/student handoff copy in S2', () => {
@@ -116,13 +117,16 @@ describe('the DeviceSelectionScreen component', () => {
   it('should go back to the RoomNameScreen when the Cancel button is clicked', () => {
     const mockSetStep = jest.fn();
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={mockSetStep} />);
-    wrapper.find({ children: 'Cancelar' }).simulate('click');
+    wrapper
+      .find(Button)
+      .filterWhere(b => b.prop('children') === 'Cancelar')
+      .simulate('click');
     expect(mockSetStep).toHaveBeenCalledWith(Steps.roomNameStep);
   });
 
   it('should fetch a token and connect to the Video SDK and Conversations SDK when the Join Now button is clicked', done => {
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
-    wrapper.find({ children: 'Entrar a la sala' }).simulate('click');
+    wrapper.find('[data-cy-join-now]').simulate('click');
 
     expect(mockGetToken).toHaveBeenCalledWith('test name', 'test room name');
     setImmediate(() => {
@@ -134,7 +138,7 @@ describe('the DeviceSelectionScreen component', () => {
 
   it('keeps shared S2 boundary by calling getToken(name, roomName) for student inputs', done => {
     const wrapper = shallow(<DeviceSelectionScreen name="Ana Student" roomName="manual-room-42" setStep={() => {}} />);
-    wrapper.find({ children: 'Entrar a la sala' }).simulate('click');
+    wrapper.find('[data-cy-join-now]').simulate('click');
 
     expect(mockGetToken).toHaveBeenCalledWith('Ana Student', 'manual-room-42');
     setImmediate(() => {
@@ -146,7 +150,7 @@ describe('the DeviceSelectionScreen component', () => {
   it('should fetch a token and connect to the Video SDK only when the Join Now button is clicked when the REACT_APP_DISABLE_TWILIO_CONVERSATIONS variable is true', done => {
     process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS = 'true';
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
-    wrapper.find({ children: 'Entrar a la sala' }).simulate('click');
+    wrapper.find('[data-cy-join-now]').simulate('click');
 
     expect(mockGetToken).toHaveBeenCalledWith('test name', 'test room name');
     setImmediate(() => {
