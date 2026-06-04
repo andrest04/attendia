@@ -10,11 +10,11 @@ describe('SecurityPage', () => {
 
   it('renders all 4 section titles', () => {
     const { getByText } = render(<SecurityPage />);
-    expect(getByText('Regresar')).toBeTruthy();
+    expect(getByText('Volver')).toBeTruthy();
     expect(getByText('Cifrado de transmisión')).toBeTruthy();
     expect(getByText('Tokens de acceso de sesión')).toBeTruthy();
     expect(getByText('Datos faciales — Procesamiento local')).toBeTruthy();
-    expect(getByText('Continuidad de la sesión')).toBeTruthy();
+    expect(getByText('Disponibilidad del servicio')).toBeTruthy();
   });
 
   it('shows "En desarrollo" for the facial section', () => {
