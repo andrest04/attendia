@@ -69,8 +69,8 @@ describe('AttentionPanel', () => {
       const wrapper = mount(<AttentionPanel />);
       // Chip renders nested spans; find the root div with the testid and read its text
       const chip = wrapper.find('[data-testid="attention-level-chip"]').first();
-      // index 76 > 70 → 'high' → 'Alta'
-      expect(chip.text()).toBe('Alta');
+      // index 76 > 70 → 'high' → 'Alto'
+      expect(chip.text()).toBe('Alto');
     });
 
     it('renders the three component bars with correct labels', () => {

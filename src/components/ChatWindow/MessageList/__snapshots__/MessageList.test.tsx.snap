@@ -13,24 +13,26 @@ exports[`the messageList component should render correctly 1`] = `
         class="MessageListScrollContainer-messageListContainer-3"
       >
         <div
-          class="makeStyles-messageInfoContainer-6"
+          class="makeStyles-messageInfoContainer-6 makeStyles-rightAligned-11"
         >
           <div
             class="makeStyles-author-7"
           >
-            olivia (You)
+            olivia
           </div>
-          <div>
+          <div
+            class="makeStyles-timestamp-10"
+          >
             9:48 pm
           </div>
         </div>
-        <div>
+        <div
+          class="makeStyles-messageWrapper-12 makeStyles-messageWrapperLocal-13"
+        >
           <div
-            class="makeStyles-messageContainer-8 makeStyles-isLocalParticipant-9"
+            class="makeStyles-messageContainer-14 makeStyles-isLocalParticipant-15"
           >
-            <div>
-              This is a message
-            </div>
+            This is a message
           </div>
         </div>
         <div
@@ -41,26 +43,28 @@ exports[`the messageList component should render correctly 1`] = `
           >
             tim
           </div>
-          <div>
+          <div
+            class="makeStyles-timestamp-10"
+          >
             9:48 pm
           </div>
         </div>
-        <div>
+        <div
+          class="makeStyles-messageWrapper-12"
+        >
           <div
-            class="makeStyles-messageContainer-8"
+            class="makeStyles-messageContainer-14"
           >
-            <div>
-              Hi Olivia!
-            </div>
+            Hi Olivia!
           </div>
         </div>
-        <div>
+        <div
+          class="makeStyles-messageWrapper-12"
+        >
           <div
-            class="makeStyles-messageContainer-8"
+            class="makeStyles-messageContainer-14"
           >
-            <div>
-              That is pretty rad double line message! How did you do that?
-            </div>
+            That is pretty rad double line message! How did you do that?
           </div>
         </div>
         <div
@@ -71,59 +75,65 @@ exports[`the messageList component should render correctly 1`] = `
           >
             tim
           </div>
-          <div>
+          <div
+            class="makeStyles-timestamp-10"
+          >
             9:49 pm
           </div>
         </div>
-        <div>
+        <div
+          class="makeStyles-messageWrapper-12"
+        >
           <div
-            class="makeStyles-messageContainer-8"
+            class="makeStyles-messageContainer-14"
           >
-            <div>
-              😉
-            </div>
+            😉
           </div>
         </div>
         <div
-          class="makeStyles-messageInfoContainer-6"
+          class="makeStyles-messageInfoContainer-6 makeStyles-rightAligned-11"
         >
           <div
             class="makeStyles-author-7"
           >
-            olivia (You)
+            olivia
           </div>
-          <div>
+          <div
+            class="makeStyles-timestamp-10"
+          >
             9:49 pm
           </div>
         </div>
-        <div>
+        <div
+          class="makeStyles-messageWrapper-12 makeStyles-messageWrapperLocal-13"
+        >
           <div
-            class="makeStyles-messageContainer-8 makeStyles-isLocalParticipant-9"
+            class="makeStyles-messageContainer-14 makeStyles-isLocalParticipant-15"
           >
-            <div>
-              Magic
-            </div>
+            Magic
           </div>
         </div>
         <div
-          class="makeStyles-messageInfoContainer-6"
+          class="makeStyles-messageInfoContainer-6 makeStyles-rightAligned-11"
         >
           <div
             class="makeStyles-author-7"
           >
-            olivia (You)
+            olivia
           </div>
-          <div>
+          <div
+            class="makeStyles-timestamp-10"
+          >
             9:50 pm
           </div>
         </div>
-        <div>
+        <div
+          class="makeStyles-messageWrapper-12 makeStyles-messageWrapperLocal-13"
+        >
           <div
-            class="makeStyles-messageContainer-8 makeStyles-isLocalParticipant-9"
+            class="makeStyles-messageContainer-14 makeStyles-isLocalParticipant-15"
           >
-            <div>
-              lots of magic
-            </div>
+            lots of magic
           </div>
         </div>
         <div
@@ -134,26 +144,28 @@ exports[`the messageList component should render correctly 1`] = `
           >
             tim
           </div>
-          <div>
+          <div
+            class="makeStyles-timestamp-10"
+          >
             9:50 pm
           </div>
         </div>
-        <div>
+        <div
+          class="makeStyles-messageWrapper-12"
+        >
           <div
-            class="makeStyles-messageContainer-8"
+            class="makeStyles-messageContainer-14"
           >
-            <div>
-              look at this app: 
-              <a
-                class="MuiTypography-root MuiLink-root MuiLink-underlineHover MuiTypography-colorPrimary"
-                href="http://github.com/twilio/twilio-video-app-react"
-                rel="noreferrer"
-                target="_blank"
-              >
-                github.com/twilio/twilio-video-app-react
-              </a>
-              . Neat huh?
-            </div>
+            look at this app: 
+            <a
+              class="MuiTypography-root MuiLink-root MuiLink-underlineHover MuiTypography-colorPrimary"
+              href="http://github.com/twilio/twilio-video-app-react"
+              rel="noreferrer"
+              target="_blank"
+            >
+              github.com/twilio/twilio-video-app-react
+            </a>
+            . Neat huh?
           </div>
         </div>
         <div
@@ -164,15 +176,17 @@ exports[`the messageList component should render correctly 1`] = `
           >
             tim
           </div>
-          <div>
+          <div
+            class="makeStyles-timestamp-10"
+          >
             9:49 pm
           </div>
         </div>
         <div
-          class="makeStyles-messageContainer-10"
+          class="makeStyles-messageContainer-16"
         >
           <div
-            class="makeStyles-iconContainer-11"
+            class="makeStyles-iconContainer-17"
           >
             <svg
               fill="none"
@@ -226,15 +240,15 @@ exports[`the messageList component should render correctly 1`] = `
             </svg>
           </div>
           <div
-            class="makeStyles-mediaInfo-12"
+            class="makeStyles-mediaInfo-18"
           >
             <p
-              class="makeStyles-filename-13"
+              class="makeStyles-filename-19"
             >
               test1.txt
             </p>
             <p
-              class="makeStyles-size-14"
+              class="makeStyles-size-20"
             >
               120.56 KB
                - Click to open
