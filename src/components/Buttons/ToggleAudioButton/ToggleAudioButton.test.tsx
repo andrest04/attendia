@@ -28,7 +28,7 @@ describe('the ToggleAudioButton component', () => {
     mockUseLocalAudioToggle.mockImplementation(() => [false, () => {}]);
     const wrapper = shallow(<ToggleAudioButton />);
     expect(wrapper.prop('startIcon')).toEqual(<MicOffIcon />);
-    expect(wrapper.text()).toBe('Activar audio');
+    expect(wrapper.text()).toBe('Activar');
   });
 
   it('should render correctly when there are no audio tracks', () => {
