@@ -22,7 +22,11 @@ export default function ToggleVideoButton(props: { disabled?: boolean; className
 
   return (
     <Button
-      className={clsx(classes.toolbarButton, props.className)}
+      className={clsx(
+        classes.toolbarButton,
+        { [classes.toolbarButtonActive]: hasVideoInputDevices && isVideoEnabled },
+        props.className
+      )}
       onClick={toggleVideo}
       disabled={!hasVideoInputDevices || props.disabled}
       startIcon={isVideoEnabled ? <VideoOnIcon /> : <VideoOffIcon />}

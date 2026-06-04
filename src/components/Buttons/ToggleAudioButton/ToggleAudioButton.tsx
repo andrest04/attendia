@@ -15,7 +15,11 @@ export default function ToggleAudioButton(props: { disabled?: boolean; className
 
   return (
     <Button
-      className={clsx(classes.toolbarButton, props.className)}
+      className={clsx(
+        classes.toolbarButton,
+        { [classes.toolbarButtonActive]: hasAudioTrack && isAudioEnabled },
+        props.className
+      )}
       onClick={toggleAudioEnabled}
       disabled={!hasAudioTrack || props.disabled}
       startIcon={isAudioEnabled ? <MicIcon /> : <MicOffIcon />}
