@@ -182,8 +182,11 @@ export default function PreJoinScreens() {
 
   return (
     <IntroContainer
-      maxWidth={step === Steps.deviceSelectionStep ? 940 : undefined}
+      // 1004 = the previous 940 of content + the screenWrapper side padding (2 × 32),
+      // so the preview/panel columns keep their original widths.
+      maxWidth={step === Steps.deviceSelectionStep ? 1004 : undefined}
       noHero={step === Steps.deviceSelectionStep}
+      headerRoomName={step === Steps.deviceSelectionStep ? roomName : undefined}
     >
       <MediaErrorSnackbar error={mediaError} />
       {step === Steps.roomNameStep && (

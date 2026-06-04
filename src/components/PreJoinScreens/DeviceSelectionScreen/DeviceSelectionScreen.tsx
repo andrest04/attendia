@@ -62,19 +62,30 @@ const useStyles = makeStyles((theme: Theme) => ({
   gutterBottom: {
     marginBottom: '1em',
   },
+  // Inner padding for the device-check card: the shared contentCard has no
+  // padding of its own (RoomNameScreen pads itself), so without this the title
+  // and grid sit flush against the card edges. Vertical padding is fluid
+  // (clamp + vh) so the lobby keeps fitting in one viewport — its cost is
+  // recovered by the slightly tightened panel metrics below.
+  screenWrapper: {
+    padding: 'clamp(14px, 2vh, 24px) clamp(24px, 2.4vw, 32px)',
+    [theme.breakpoints.down('sm')]: {
+      padding: '16px 16px 20px',
+    },
+  },
   // Header
   titleBlock: {
-    marginBottom: '1.25em',
+    marginBottom: 'clamp(12px, 1.6vh, 18px)',
   },
   pageTitle: {
     fontFamily: 'Poppins, sans-serif',
     fontWeight: 700,
-    fontSize: 26,
-    lineHeight: '32.5px',
+    fontSize: 28,
+    lineHeight: '34px',
     color: '#1d2f6f',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#64748b',
     marginTop: 4,
   },
@@ -150,6 +161,27 @@ const useStyles = makeStyles((theme: Theme) => ({
     padding: '0.8em 0',
     margin: 0,
   },
+  // Lobby-sized variant of the shared toolbar toggle buttons: bigger circle and
+  // label per the Figma waiting room. Colors/states stay in toolbarButtonStyles.
+  // '&&' doubles the class for specificity over the shared makeStyles rules.
+  previewToggle: {
+    '&& .MuiButton-startIcon': {
+      width: 56,
+      height: 56,
+      '& svg': {
+        width: 24,
+        height: 24,
+      },
+    },
+    '&& .MuiButton-label': {
+      gap: 10,
+    },
+    '&& .MuiButton-label > *:not(.MuiButton-startIcon)': {
+      fontSize: 14,
+      fontFamily: 'Poppins, sans-serif',
+      fontWeight: 600,
+    },
+  },
   toolTipContainer: {
     display: 'flex',
     alignItems: 'center',
@@ -166,10 +198,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: '#ffffff',
     border: '1px solid #e2ecf9',
     borderRadius: 20,
-    padding: 27,
+    padding: '23px 24px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 22,
+    gap: 19,
     height: '100%',
     boxSizing: 'border-box',
     boxShadow: '0px 2px 12px 0px rgba(29,110,237,0.08), 0px 1px 3px 0px rgba(0,0,0,0.04)',
@@ -177,8 +209,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   panelTitle: {
     fontFamily: 'Poppins, sans-serif',
     fontWeight: 700,
-    fontSize: 16,
-    lineHeight: '22.4px',
+    fontSize: 19,
+    lineHeight: '26px',
     color: '#1d2f6f',
   },
   panelGroup: {
@@ -200,7 +232,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '11.5px 15.5px',
+    padding: '12px 16px',
     borderRadius: 12,
     backgroundColor: '#f0f5ff',
     border: '1.5px solid #e2ecf9',
@@ -209,45 +241,31 @@ const useStyles = makeStyles((theme: Theme) => ({
   connectionLabel: {
     fontFamily: 'Poppins, sans-serif',
     fontWeight: 500,
-    fontSize: 13,
+    fontSize: 14,
     color: '#353535',
     flex: 1,
-  },
-  connectionBars: {
-    fontFamily: 'Poppins, sans-serif',
-    fontSize: 18,
-    lineHeight: '27px',
   },
   // Device check rows
   checkList: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 10,
-    marginTop: 12,
+    gap: 11,
+    marginTop: 10,
   },
   checkRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 10,
-  },
-  checkBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
+    gap: 12,
   },
   checkText: {
     fontFamily: 'Poppins, sans-serif',
     fontWeight: 500,
-    fontSize: 13,
-    lineHeight: '19.5px',
+    fontSize: 14,
+    lineHeight: '21px',
   },
   // Privacy card
   privacy: {
-    padding: '15.5px 17.5px',
+    padding: '16px 18px',
     backgroundColor: '#ebf3ff',
     border: '1.5px solid rgba(29,110,237,0.18)',
     borderRadius: 12,
@@ -264,14 +282,14 @@ const useStyles = makeStyles((theme: Theme) => ({
   privacyTitle: {
     fontFamily: 'Poppins, sans-serif',
     fontWeight: 700,
-    fontSize: 12,
+    fontSize: 13,
     color: '#1d2f6f',
-    lineHeight: '18px',
+    lineHeight: '19px',
   },
   privacyText: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#64748b',
-    lineHeight: '17.05px',
+    lineHeight: '18.5px',
     marginBottom: 8,
   },
   privacyLink: {
@@ -295,8 +313,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   // Gradient CTA button — not using MUI color="primary" so we can apply gradient
   ctaButton: {
     width: '100%',
-    height: 49,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 14,
     background: 'linear-gradient(168.73deg, #1d6eed 0%, #1557c8 100%)',
     boxShadow: '0px 4px 8px rgba(29,110,237,0.35)',
     color: '#ffffff',
@@ -328,25 +346,42 @@ interface DeviceSelectionScreenProps {
   setStep: (step: Steps) => void;
 }
 
-// Resolve which connection bars glyph to show (▂▄▆ style)
+// Signal-style connection bars. Active bars take the quality color; inactive
+// bars stay light gray so all three are always visible.
 function ConnectionBars({ quality, color }: { quality: ConnectionQuality; color: string }) {
-  const bars = quality === 'good' ? '▂▄▆' : quality === 'medium' ? '▂▄' : quality === 'poor' ? '▂' : '···';
-  return <span style={{ color, fontFamily: 'Poppins, sans-serif', fontSize: 18, lineHeight: '27px' }}>{bars}</span>;
-}
-
-// Green check SVG for ok state (15x15)
-function OkIcon() {
+  const activeBars = quality === 'good' ? 3 : quality === 'medium' ? 2 : quality === 'poor' ? 1 : 0;
+  const heights = [6, 10, 14];
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M3 7.5l3 3 6-6" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="20" height="14" viewBox="0 0 20 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      {heights.map((height, index) => (
+        <rect
+          key={height}
+          x={index * 7}
+          y={14 - height}
+          width="5"
+          height={height}
+          rx="1.5"
+          fill={index < activeBars ? color : '#e2e8f0'}
+        />
+      ))}
     </svg>
   );
 }
 
-// Amber warning SVG for fail/unavailable state (15x15)
+// Green circled-check SVG for ok state (Figma waiting room badge glyph)
+function OkIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="9" cy="9" r="7.2" stroke="#10b981" strokeWidth="1.6" />
+      <path d="M6 9.3l2 2 4-4.2" stroke="#10b981" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// Amber warning SVG for fail/unavailable state
 function WarnIcon({ color }: { color: string }) {
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="17" height="17" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M7.5 5.5v3M7.5 10.5h.01M1.5 12.5L7.5 2.5l6 10H1.5z"
         stroke={color}
@@ -359,59 +394,34 @@ function WarnIcon({ color }: { color: string }) {
 }
 
 function CheckBadge({ state }: { state: CheckState }) {
-  const badgeBg = CHECK_BADGE_BG[state];
+  const badgeStyle: React.CSSProperties = {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: CHECK_BADGE_BG[state],
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  };
   if (state === 'pending') {
     return (
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          backgroundColor: badgeBg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <CircularProgress size={13} thickness={5} style={{ color: '#94a3b8' }} />
+      <div style={badgeStyle}>
+        <CircularProgress size={15} thickness={5} style={{ color: '#94a3b8' }} />
       </div>
     );
   }
   if (state === 'ok') {
     return (
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          backgroundColor: badgeBg,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
+      <div style={badgeStyle}>
         <OkIcon />
       </div>
     );
   }
   // fail or unavailable
-  const warnColor = state === 'fail' ? '#ef4444' : '#94a3b8';
   return (
-    <div
-      style={{
-        width: 28,
-        height: 28,
-        borderRadius: 8,
-        backgroundColor: badgeBg,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}
-    >
-      <WarnIcon color={warnColor} />
+    <div style={badgeStyle}>
+      <WarnIcon color={state === 'fail' ? '#ef4444' : '#94a3b8'} />
     </div>
   );
 }
@@ -444,11 +454,29 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   const isCameraOff = !videoTrack && !isAcquiringLocalTracks;
   const lightingState: CheckState = isCameraOff ? 'unavailable' : lightingToCheckState(lighting.status);
 
+  // Labels must agree with the state: a failed check reads "no detectado",
+  // never the positive copy next to a warning icon.
   const deviceChecks: Array<{ label: string; state: CheckState }> = [
-    { label: 'Micrófono detectado', state: hasAudioInputDevices ? 'ok' : 'fail' },
-    { label: 'Cámara detectada', state: hasVideoInputDevices ? 'ok' : 'fail' },
-    { label: 'Altavoces funcionando', state: audioOutputDevices.length > 0 ? 'ok' : 'fail' },
-    { label: isCameraOff ? 'Iluminación (cámara apagada)' : 'Iluminación adecuada', state: lightingState },
+    {
+      label: hasAudioInputDevices ? 'Micrófono detectado' : 'Micrófono no detectado',
+      state: hasAudioInputDevices ? 'ok' : 'fail',
+    },
+    {
+      label: hasVideoInputDevices ? 'Cámara detectada' : 'Cámara no detectada',
+      state: hasVideoInputDevices ? 'ok' : 'fail',
+    },
+    {
+      label: audioOutputDevices.length > 0 ? 'Altavoces funcionando' : 'Altavoces no detectados',
+      state: audioOutputDevices.length > 0 ? 'ok' : 'fail',
+    },
+    {
+      label: isCameraOff
+        ? 'Iluminación (cámara apagada)'
+        : lightingState === 'fail'
+        ? 'Iluminación insuficiente'
+        : 'Iluminación adecuada',
+      state: lightingState,
+    },
   ];
 
   // Reveal the checks sequentially (top to bottom) so detection reads as a
@@ -474,21 +502,23 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
 
   if (isFetching || isConnecting) {
     return (
-      <Grid container justifyContent="center" alignItems="center" direction="column" style={{ height: '100%' }}>
-        <div>
-          <CircularProgress variant="indeterminate" />
-        </div>
-        <div>
-          <Typography variant="body2" style={{ fontWeight: 'bold', fontSize: '16px' }}>
-            Uniéndose a la reunión
-          </Typography>
-        </div>
-      </Grid>
+      <div className={classes.screenWrapper}>
+        <Grid container justifyContent="center" alignItems="center" direction="column" style={{ height: '100%' }}>
+          <div>
+            <CircularProgress variant="indeterminate" />
+          </div>
+          <div>
+            <Typography variant="body2" style={{ fontWeight: 'bold', fontSize: '16px' }}>
+              Uniéndose a la reunión
+            </Typography>
+          </div>
+        </Grid>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className={classes.screenWrapper}>
       {/* Page heading */}
       <div className={classes.titleBlock}>
         <Typography className={classes.pageTitle} component="h1">
@@ -497,9 +527,6 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         <Typography className={classes.subtitle}>
           Verifica tus dispositivos antes de entrar · Clase:{' '}
           <strong className={classes.subtitleBold}>{roomName}</strong>
-        </Typography>
-        <Typography className={classes.subtitle}>
-          Paso compartido para profesor y estudiante antes de entrar.
         </Typography>
       </div>
 
@@ -528,8 +555,8 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         <Grid item md={8} sm={12} xs={12}>
           <div className={classes.localPreviewContainer}>
             <LocalVideoPreview identity={name}>
-              <ToggleAudioButton disabled={disableButtons} />
-              <ToggleVideoButton disabled={disableButtons} />
+              <ToggleAudioButton className={classes.previewToggle} disabled={disableButtons} />
+              <ToggleVideoButton className={classes.previewToggle} disabled={disableButtons} />
             </LocalVideoPreview>
           </div>
           <div className={classes.mobileButtonBar}>
@@ -657,6 +684,6 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
           </div>
         </Grid>
       </Grid>
-    </>
+    </div>
   );
 }
