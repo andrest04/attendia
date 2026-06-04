@@ -163,6 +163,30 @@ describe('ProfessorRoomShell', () => {
     expect(onRightTabChange).toHaveBeenCalledWith('individual');
   });
 
+  it('switches to the chat tab', () => {
+    const onRightTabChange = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell stage={<div>stage</div>} rightTab="grupo" onRightTabChange={onRightTabChange} />
+    );
+
+    wrapper.find('[data-testid="professor-room-shell-tab-chat"]').simulate('click');
+    expect(onRightTabChange).toHaveBeenCalledWith('chat');
+  });
+
+  it('renders the rightPanel node when the chat tab is active', () => {
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        rightTab="chat"
+        rightPanel={<div data-testid="chat-panel-content">chat</div>}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="chat-panel-content"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-room-shell-group-gauge"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="professor-room-shell-individual-list"]').exists()).toBe(false);
+  });
+
   it('renders the individual attention list when the individual tab is active', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} rightTab="individual" />);
 

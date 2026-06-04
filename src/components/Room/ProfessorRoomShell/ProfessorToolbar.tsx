@@ -4,7 +4,9 @@ import { Button, createStyles, Hidden, makeStyles, Theme } from '@material-ui/co
 import CallEndIcon from '@material-ui/icons/CallEnd';
 import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
 import VisibilityIcon from '@material-ui/icons/Visibility';
+import ChatIcon from '../../../icons/ChatIcon';
 import { isMobile } from '../../../utils';
+import useChatContext from '../../../hooks/useChatContext/useChatContext';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
@@ -61,6 +63,19 @@ const useStyles = makeStyles((theme: Theme) =>
       margin: theme.spacing(0.5),
       backgroundColor: 'rgba(255,255,255,0.12)',
     },
+    chatIconContainer: {
+      position: 'relative',
+      display: 'flex',
+    },
+    unreadDot: {
+      width: 9,
+      height: 9,
+      backgroundColor: '#5BB75B',
+      borderRadius: '50%',
+      position: 'absolute',
+      top: -2,
+      right: -4,
+    },
     endCallChip: {
       minWidth: 110,
       backgroundColor: '#1d2f6f',
@@ -79,6 +94,9 @@ interface ProfessorToolbarProps {
   /** Proctoring monitoring state. Local-only stub until the CV pipeline lands (US30). */
   proctoringEnabled?: boolean;
   onProctoringChange?: (next: boolean) => void;
+  /** Whether the chat tab is active in the right rail. Driven by Room.tsx. */
+  chatOpen?: boolean;
+  onChatToggle?: () => void;
 }
 
 export default function ProfessorToolbar({
@@ -86,9 +104,12 @@ export default function ProfessorToolbar({
   onRecordingChange,
   proctoringEnabled = false,
   onProctoringChange,
+  chatOpen = false,
+  onChatToggle,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
   const { isSharingScreen } = useVideoContext();
+  const { conversation, hasUnreadMessages } = useChatContext();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
   const chip = clsx(classes.chipLayout, classes.chipDark);
@@ -98,6 +119,22 @@ export default function ProfessorToolbar({
       <ToggleAudioButton disabled={isReconnecting} className={chip} />
       <ToggleVideoButton disabled={isReconnecting} className={chip} />
       {!isSharingScreen && !isMobile && <ToggleScreenShareButton disabled={isReconnecting} className={chip} />}
+      {/* ChatIcon paints with currentColor, so the active tint lives on the wrapper div. */}
+      <Button
+        onClick={() => onChatToggle?.()}
+        disabled={!conversation}
+        startIcon={
+          <div className={classes.chatIconContainer} style={{ color: chatOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }}>
+            <ChatIcon />
+            {hasUnreadMessages && <span className={classes.unreadDot} data-testid="professor-toolbar-chat-unread" />}
+          </div>
+        }
+        className={chip}
+        data-testid="professor-toolbar-chat"
+        aria-pressed={chatOpen}
+      >
+        Chat
+      </Button>
       <Button
         onClick={() => onRecordingChange?.(!recording)}
         startIcon={<FiberManualRecordIcon style={{ color: recording ? '#ef4444' : 'rgba(255,255,255,0.5)' }} />}
