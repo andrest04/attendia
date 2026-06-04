@@ -25,6 +25,7 @@ import { ProfessorRightTab } from './ProfessorRoomShell/ProfessorRoomShell';
 import useShellNotifications from './StudentRoomShell/useShellNotifications';
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
+import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
 
 const useStyles = makeStyles((theme: Theme) => {
   const totalMobileSidebarHeight = `${theme.sidebarMobileHeight +
@@ -180,12 +181,19 @@ export default function Room() {
           notifications={notifications}
           isConnectivityDegraded={isConnectivityDegraded}
           rightPanel={rightTab === 'chat' ? <ChatWindow embedded isVisible /> : <AttentionPanel embedded isVisible />}
+          participants={[
+            ...participants.map(p => ({ identity: p.identity, isOnline: true })),
+            { identity: room?.localParticipant?.identity || '', isOnline: true },
+          ]}
+          localIdentity={room?.localParticipant?.identity}
         />
       )}
 
       {!isDesktopShell && <ChatWindow />}
       {!isDesktopShell && <AttentionPanel />}
       <BackgroundSelectionDialog />
+      {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}
+      {isDesktopShell && <OnboardingTutorial />}
       <TranscriptionsOverlay />
       <Snackbar
         open={isTurnSnackbarOpen}
