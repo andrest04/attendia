@@ -157,10 +157,13 @@ export default function Room() {
               onRecordingChange={setRecording}
               proctoringEnabled={proctoringEnabled}
               onProctoringChange={setProctoringEnabled}
+              chatOpen={professorTab === 'chat'}
+              onChatToggle={() => setProfessorTab(t => (t === 'chat' ? 'grupo' : 'chat'))}
             />
           }
           rightTab={professorTab}
           onRightTabChange={setProfessorTab}
+          rightPanel={professorTab === 'chat' ? <ChatWindow embedded isVisible /> : undefined}
           sessionLabel={sessionLabel}
           sessionName={room?.name || sessionLabel}
           participantCount={participantCount}

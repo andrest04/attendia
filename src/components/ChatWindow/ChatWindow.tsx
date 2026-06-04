@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { makeStyles, createStyles, Theme } from '@material-ui/core/styles';
 import ChatWindowHeader from './ChatWindowHeader/ChatWindowHeader';
 import ChatInput from './ChatInput/ChatInput';
@@ -64,10 +64,19 @@ export default function ChatWindow(props: ChatWindowProps = {}) {
 
 export function BaseChatWindow({ embedded = false, isVisible = true }: ChatWindowProps = {}) {
   const classes = useStyles();
-  const { isChatWindowOpen, messages, conversation } = useChatContext();
+  const { isChatWindowOpen, setIsChatWindowOpen, messages, conversation } = useChatContext();
   const isConversationsDisabled = process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS === 'true';
   const isUnavailable = isConversationsDisabled || !conversation;
   const effectiveVisible = embedded ? isVisible : isChatWindowOpen;
+
+  // Keep ChatProvider's unread tracking accurate for embedded shells: while the embedded
+  // chat is visible the window counts as "open" (clears hasUnreadMessages). The legacy
+  // mobile drawer manages this flag itself, so the effect is gated on `embedded`.
+  useEffect(() => {
+    if (!embedded) return;
+    setIsChatWindowOpen(isVisible);
+    return () => setIsChatWindowOpen(false);
+  }, [embedded, isVisible, setIsChatWindowOpen]);
 
   const unavailableMessage = isConversationsDisabled
     ? 'El chat no está disponible en esta sesión.'

@@ -305,6 +305,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column',
     gap: theme.spacing(2),
   },
+  // The embedded chat manages its own scrolling and needs the full rail cell,
+  // so the chat tab drops the analytics padding/gap (mirrors StudentRoomShell).
+  rightContentChat: {
+    padding: 0,
+    gap: 0,
+    overflowY: 'hidden',
+  },
   groupGauge: {
     display: 'flex',
     flexDirection: 'column',
@@ -599,13 +606,15 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
-export type ProfessorRightTab = 'grupo' | 'individual';
+export type ProfessorRightTab = 'grupo' | 'individual' | 'chat';
 
 interface Props {
   stage: React.ReactNode;
   toolbarSlot?: React.ReactNode;
   rightTab?: ProfessorRightTab;
   onRightTabChange?: (tab: ProfessorRightTab) => void;
+  /** Content for the chat tab — the embedded ChatWindow, resolved by Room.tsx. */
+  rightPanel?: React.ReactNode;
   sessionLabel?: string;
   /** Human-facing session/room name shown in the top status bar. */
   sessionName?: string;
@@ -635,6 +644,7 @@ export default function ProfessorRoomShell({
   toolbarSlot = null,
   rightTab = 'grupo',
   onRightTabChange,
+  rightPanel = null,
   sessionLabel = 'Sesión Twilio en vivo',
   sessionName = 'Sesión Twilio en vivo',
   participantCount = 0,
@@ -792,9 +802,18 @@ export default function ProfessorRoomShell({
             >
               Individual
             </button>
+            <button
+              type="button"
+              className={clsx(classes.tab, { [classes.tabActive]: rightTab === 'chat' })}
+              data-testid="professor-room-shell-tab-chat"
+              aria-pressed={rightTab === 'chat'}
+              onClick={() => onRightTabChange?.('chat')}
+            >
+              Chat
+            </button>
           </div>
 
-          <div className={classes.rightContent}>
+          <div className={clsx(classes.rightContent, { [classes.rightContentChat]: rightTab === 'chat' })}>
             {rightTab === 'grupo' ? (
               <>
                 <div className={classes.groupGauge} data-testid="professor-room-shell-group-gauge">
@@ -848,7 +867,7 @@ export default function ProfessorRoomShell({
                   <span>&#8595;</span> Exportar reporte
                 </button>
               </>
-            ) : (
+            ) : rightTab === 'individual' ? (
               <div data-testid="professor-room-shell-individual-list">
                 {sortedParticipants.map(participant => {
                   const pct = levelPercent[attentionLevel(participant.index)];
@@ -868,6 +887,8 @@ export default function ProfessorRoomShell({
                   );
                 })}
               </div>
+            ) : (
+              rightPanel
             )}
           </div>
         </aside>
