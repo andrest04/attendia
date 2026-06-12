@@ -1,14 +1,9 @@
 import React from 'react';
 import { mount } from 'enzyme';
-import { act } from 'react-dom/test-utils';
 import AttentionReportOverlay from './AttentionReportOverlay';
 import { useAttention } from '../../AttentionProvider';
-import { exportAttentionReport } from '../ProfessorRoomShell/exportAttentionReport';
 
 jest.mock('../../AttentionProvider');
-jest.mock('../ProfessorRoomShell/exportAttentionReport', () => ({
-  exportAttentionReport: jest.fn(() => Promise.resolve()),
-}));
 // recharts' ResponsiveContainer needs a measurable parent; stub it out for jsdom.
 jest.mock('recharts', () => {
   const Stub = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
@@ -28,7 +23,6 @@ jest.mock('recharts', () => {
 });
 
 const mockUseAttention = useAttention as jest.Mock<any>;
-const mockExport = exportAttentionReport as jest.Mock;
 
 const attentionLevel = (score: number): 'high' | 'medium' | 'low' => {
   if (score <= 40) return 'low';
@@ -71,7 +65,6 @@ describe('AttentionReportOverlay', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseAttention.mockImplementation(() => baseAttention);
-    mockExport.mockImplementation(() => Promise.resolve());
   });
 
   it('renders nothing when closed', () => {
@@ -148,54 +141,9 @@ describe('AttentionReportOverlay', () => {
     expect(wrapper.text()).not.toContain('Nueva sesión');
   });
 
-  it('downloads a PDF with the current snapshot when "Descargar PDF" is clicked', () => {
+  it('does not render any download buttons (overlay is view-only)', () => {
     const wrapper = renderOverlay();
-    wrapper
-      .find('[data-testid="attention-report-download-pdf"]')
-      .first()
-      .simulate('click');
-    expect(mockExport).toHaveBeenCalledTimes(1);
-    expect(mockExport.mock.calls[0][0]).toBe('pdf');
-    expect(mockExport.mock.calls[0][1]).toMatchObject({
-      source: 'mock',
-      groupAttention: 72,
-      attentionThreshold: 60,
-    });
-    expect(mockExport.mock.calls[0][2]).toMatchObject({ sessionName: 'Matemáticas — Grupo A' });
-  });
-
-  it('downloads a CSV when "Descargar CSV" is clicked', () => {
-    const wrapper = renderOverlay();
-    wrapper
-      .find('[data-testid="attention-report-download-csv"]')
-      .first()
-      .simulate('click');
-    expect(mockExport).toHaveBeenCalledTimes(1);
-    expect(mockExport.mock.calls[0][0]).toBe('csv');
-  });
-
-  it('invokes onExportError and shows the snackbar when a download fails', async () => {
-    mockExport.mockImplementation(() => Promise.reject(new Error('export failed')));
-    const onExportError = jest.fn();
-    const wrapper = renderOverlay({ onExportError });
-
-    wrapper
-      .find('[data-testid="attention-report-download-pdf"]')
-      .first()
-      .simulate('click');
-
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    wrapper.update();
-
-    expect(onExportError).toHaveBeenCalledTimes(1);
-    expect(
-      wrapper
-        .find('[message="No se pudo generar el reporte"]')
-        .first()
-        .prop('open')
-    ).toBe(true);
+    expect(wrapper.find('[data-testid="attention-report-download-pdf"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="attention-report-download-csv"]').exists()).toBe(false);
   });
 });

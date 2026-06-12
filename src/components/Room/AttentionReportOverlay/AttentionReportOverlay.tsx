@@ -3,9 +3,7 @@ import { makeStyles, Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import Button from '@material-ui/core/Button';
 import IconButton from '@material-ui/core/IconButton';
-import Snackbar from '@material-ui/core/Snackbar';
 import DescriptionIcon from '@material-ui/icons/Description';
-import GetAppIcon from '@material-ui/icons/GetApp';
 import EventIcon from '@material-ui/icons/Event';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import CloseIcon from '@material-ui/icons/Close';
@@ -14,7 +12,6 @@ import { LineChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YA
 import { useAttention } from '../../AttentionProvider';
 import { AttentionLevel } from '../../AttentionProvider/types';
 import { levelColor, levelLabel } from '../../AttentionProvider/attentionLabels';
-import { exportAttentionReport, ExportFormat } from '../ProfessorRoomShell/exportAttentionReport';
 
 const MOCK_DISCLOSURE = 'Datos simulados — pipeline CV pendiente';
 
@@ -377,20 +374,12 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 20,
   },
   // ── Action rows ──────────────────────────────────────────────────────────
-  downloadRow: {
+  actionsRow: {
     display: 'flex',
     justifyContent: 'flex-end',
     gap: theme.spacing(1.5),
     flexWrap: 'wrap',
     alignItems: 'center',
-  },
-  downloadBtn: {
-    borderRadius: 10,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.875rem',
-    padding: '8px 20px',
-    textTransform: 'none',
   },
   // Close button in the header (top-right X)
   closeBtn: {
@@ -428,18 +417,16 @@ interface Props {
   sessionName: string;
   /** Connected students (excludes the professor) — mirrors the status bar count. */
   studentCount: number;
-  /** Lets the parent surface its own error UI when a download fails. */
-  onExportError?: () => void;
 }
 
 /**
  * In-room full-area attention report overlay (attendia redesign of wireframe S6).
  * Mounted INSIDE the room so the live Twilio call is never torn down and the real
  * `useAttention()` context stays available; a separate route would unmount
- * VideoProvider and drop the call. Reads metrics from `useAttention()`; the
- * PDF/Excel download buttons live here (moved out of the toolbar flyout).
+ * VideoProvider and drop the call. Reads metrics from `useAttention()` and
+ * presents them read-only — no download affordances.
  */
-export default function AttentionReportOverlay({ isOpen, onClose, sessionName, studentCount, onExportError }: Props) {
+export default function AttentionReportOverlay({ isOpen, onClose, sessionName, studentCount }: Props) {
   const classes = useStyles();
   const {
     source,
@@ -450,8 +437,6 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
     proctoringAlerts,
     attentionLevel,
   } = useAttention();
-
-  const [hasExportError, setHasExportError] = React.useState(false);
 
   // Close on Escape key
   useEffect(() => {
@@ -470,24 +455,6 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
   if (!isOpen) {
     return null;
   }
-
-  const handleExport = (format: ExportFormat) => {
-    exportAttentionReport(
-      format,
-      {
-        source,
-        groupAttention,
-        attentionThreshold,
-        timeline,
-        participants,
-        proctoringAlerts,
-      },
-      { sessionName }
-    ).catch(() => {
-      setHasExportError(true);
-      onExportError?.();
-    });
-  };
 
   // Build a lookup from identity -> alert count for the table.
   const alertCountByIdentity: Record<string, number> = {};
@@ -641,8 +608,8 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
           </div>
         </div>
 
-        {/* ── Download buttons row ────────────────────────────────────── */}
-        <div className={classes.downloadRow}>
+        {/* ── Actions row ────────────────────────────────────────────── */}
+        <div className={classes.actionsRow}>
           <Button
             variant="outlined"
             className={classes.returnBtn}
@@ -650,26 +617,6 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
             data-testid="attention-report-close"
           >
             Volver a la sesión
-          </Button>
-          <Button
-            variant="outlined"
-            color="primary"
-            className={classes.downloadBtn}
-            startIcon={<GetAppIcon />}
-            onClick={() => handleExport('pdf')}
-            data-testid="attention-report-download-pdf"
-          >
-            Descargar PDF
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            className={classes.downloadBtn}
-            startIcon={<GetAppIcon />}
-            onClick={() => handleExport('csv')}
-            data-testid="attention-report-download-csv"
-          >
-            Descargar CSV
           </Button>
         </div>
 
@@ -744,14 +691,6 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
           </table>
         </div>
       </div>
-
-      <Snackbar
-        open={hasExportError}
-        autoHideDuration={6000}
-        onClose={() => setHasExportError(false)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        message="No se pudo generar el reporte"
-      />
     </div>
   );
 }
