@@ -41,3 +41,6 @@ public/virtualbackground/
 
 # Claude Code local runtime state
 .claude/
+
+# Reference repos cloned for spike/research — not committed
+_reference/
