@@ -40,21 +40,12 @@ describe('StudentRoomShell', () => {
     expect(wrapper.find('[data-testid="toolbar-content"]').exists()).toBe(true);
   });
 
-  it('renders right panel content and emits tab changes', () => {
-    const onRightTabChange = jest.fn();
+  it('renders right panel content', () => {
     const wrapper = shallow(
-      <StudentRoomShell
-        stage={<div>stage</div>}
-        rightTab="chat"
-        onRightTabChange={onRightTabChange}
-        rightPanel={<div data-testid="right-panel-content">panel</div>}
-      />
+      <StudentRoomShell stage={<div>stage</div>} rightPanel={<div data-testid="right-panel-content">panel</div>} />
     );
 
     expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(true);
-
-    wrapper.find('[data-testid="student-room-shell-tab-attention"]').simulate('click');
-    expect(onRightTabChange).toHaveBeenCalledWith('attention');
   });
 
   it('renders participant notifications when activity exists', () => {
@@ -73,11 +64,11 @@ describe('StudentRoomShell', () => {
     expect(wrapper.text()).toContain('Luis salió de la sesión');
   });
 
-  it('exposes right tab pressed state and tolerates missing change handler', () => {
-    const wrapper = shallow(<StudentRoomShell stage={<div>stage</div>} rightTab="attention" />);
+  it('renders only the chat tab and no attention tab', () => {
+    const wrapper = shallow(<StudentRoomShell stage={<div>stage</div>} />);
 
-    expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').prop('aria-pressed')).toBe(false);
-    expect(wrapper.find('[data-testid="student-room-shell-tab-attention"]').prop('aria-pressed')).toBe(true);
-    expect(() => wrapper.find('[data-testid="student-room-shell-tab-chat"]').simulate('click')).not.toThrow();
+    expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="student-room-shell-tab-attention"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').prop('aria-pressed')).toBe(true);
   });
 });

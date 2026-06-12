@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import AttentionPanel from '../AttentionPanel/AttentionPanel';
 import BackgroundSelectionDialog from '../BackgroundSelectionDialog/BackgroundSelectionDialog';
 import ChatWindow from '../ChatWindow/ChatWindow';
 import clsx from 'clsx';
@@ -89,13 +88,12 @@ export function useSetSpeakerViewOnScreenShare(
 
 export default function Room() {
   const classes = useStyles();
-  const { isChatWindowOpen, isAttentionPanelOpen } = useChatContext();
+  const { isChatWindowOpen } = useChatContext();
   const { isBackgroundSelectionOpen, room } = useVideoContext();
   const { isGalleryViewActive, setIsGalleryViewActive } = useAppState();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const screenShareParticipant = useScreenShareParticipant();
-  const [rightTab, setRightTab] = useState<'chat' | 'attention'>('chat');
   const [professorTab, setProfessorTab] = useState<ProfessorRightTab>('grupo');
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
   const isRecording = useIsRecording();
@@ -112,8 +110,7 @@ export default function Room() {
   const activeSpeakerLabel = mainParticipant?.identity || 'Sin participante activo';
   const sessionLabel = 'Sesión Twilio en vivo';
   const isDesktopShell = !isMobile;
-  const hasLegacyRightDrawer =
-    isBackgroundSelectionOpen || (!isDesktopShell && (isChatWindowOpen || isAttentionPanelOpen));
+  const hasLegacyRightDrawer = isBackgroundSelectionOpen || (!isDesktopShell && isChatWindowOpen);
 
   // Here we switch to speaker view when a participant starts sharing their screen, but
   // the user is still free to switch back to gallery view.
@@ -179,14 +176,12 @@ export default function Room() {
         <StudentRoomShell
           stage={isGalleryViewActive ? <GalleryView /> : <MainParticipant />}
           toolbarSlot={<StudentRoomToolbar handRaised={isHandRaised} onHandRaisedChange={setHandRaised} />}
-          rightTab={rightTab}
-          onRightTabChange={setRightTab}
           activeSpeakerLabel={activeSpeakerLabel}
           sessionLabel={sessionLabel}
           participantCount={participantCount}
           notifications={notifications}
           isConnectivityDegraded={isConnectivityDegraded}
-          rightPanel={rightTab === 'chat' ? <ChatWindow embedded isVisible /> : <AttentionPanel embedded isVisible />}
+          rightPanel={<ChatWindow embedded isVisible />}
           participants={[
             ...participants.map(p => ({ identity: p.identity, isOnline: true })),
             { identity: room?.localParticipant?.identity || '', isOnline: true },
@@ -196,7 +191,6 @@ export default function Room() {
       )}
 
       {!isDesktopShell && <ChatWindow />}
-      {!isDesktopShell && <AttentionPanel />}
       <BackgroundSelectionDialog />
       {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}
       {isDesktopShell && <OnboardingTutorial />}
