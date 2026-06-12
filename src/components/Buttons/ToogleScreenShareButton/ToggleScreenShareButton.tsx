@@ -30,8 +30,9 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
   const classes = useStyles();
   const toolbarClasses = useToolbarButtonStyles();
   const screenShareParticipant = useScreenShareParticipant();
-  const { toggleScreenShare } = useVideoContext();
-  const disableScreenShareButton = Boolean(screenShareParticipant);
+  const { toggleScreenShare, isSharingScreen } = useVideoContext();
+  // Only disable when SOMEONE ELSE is sharing — our own share should never block the stop button.
+  const disableScreenShareButton = Boolean(screenShareParticipant) && !isSharingScreen;
   const isScreenShareSupported = navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia;
   const isDisabled = props.disabled || disableScreenShareButton || !isScreenShareSupported;
 
@@ -56,13 +57,18 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
         {/* The span element is needed because a disabled button will not emit hover events and we want to display
           a tooltip when screen sharing is disabled */}
         <Button
-          className={clsx(toolbarClasses.toolbarButton, classes.button, props.className)}
+          className={clsx(
+            toolbarClasses.toolbarButton,
+            isSharingScreen && toolbarClasses.toolbarButtonActive,
+            classes.button,
+            props.className
+          )}
           onClick={toggleScreenShare}
           disabled={isDisabled}
           startIcon={<ScreenShareIcon />}
           data-cy-share-screen
         >
-          Compartir
+          {isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir'}
         </Button>
       </span>
     </Tooltip>

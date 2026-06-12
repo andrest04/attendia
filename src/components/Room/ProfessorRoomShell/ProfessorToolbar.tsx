@@ -107,7 +107,7 @@ export default function ProfessorToolbar({
   onChatToggle,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
-  const { isSharingScreen, room } = useVideoContext();
+  const { room } = useVideoContext();
   const { conversation, hasUnreadMessages } = useChatContext();
   const { updateRecordingRules, isFetching, roomType, isGalleryViewActive, setIsGalleryViewActive } = useAppState();
   const isRecording = useIsRecording();
@@ -121,7 +121,7 @@ export default function ProfessorToolbar({
     <div className={classes.controlsRow} data-testid="professor-toolbar">
       <ToggleAudioButton disabled={isReconnecting} className={chip} />
       <ToggleVideoButton disabled={isReconnecting} className={chip} />
-      {!isSharingScreen && !isMobile && <ToggleScreenShareButton disabled={isReconnecting} className={chip} />}
+      {!isMobile && <ToggleScreenShareButton disabled={isReconnecting} className={chip} />}
       {/* ChatIcon paints with currentColor, so the active tint lives on the wrapper div. */}
       <Button
         onClick={() => onChatToggle?.()}

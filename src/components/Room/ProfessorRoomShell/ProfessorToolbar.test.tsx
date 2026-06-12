@@ -52,6 +52,19 @@ describe('ProfessorToolbar', () => {
     expect(wrapper.find('RaiseHandButton').exists()).toBe(false);
   });
 
+  describe('screen-share button', () => {
+    it('renders the screen-share button when not sharing', () => {
+      const wrapper = shallow(<ProfessorToolbar />);
+      expect(wrapper.find('ToggleScreenShareButton').exists()).toBe(true);
+    });
+
+    it('still renders the screen-share button while the professor is sharing their screen', () => {
+      mockUseVideoContext.mockImplementationOnce(() => ({ isSharingScreen: true, room: { sid: 'RM123' } }));
+      const wrapper = shallow(<ProfessorToolbar />);
+      expect(wrapper.find('ToggleScreenShareButton').exists()).toBe(true);
+    });
+  });
+
   it('disables media controls while reconnecting', () => {
     mockUseRoomState.mockImplementationOnce(() => 'reconnecting');
     const wrapper = shallow(<ProfessorToolbar />);
