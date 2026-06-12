@@ -7,8 +7,6 @@ import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 type ChatContextType = {
   isChatWindowOpen: boolean;
   setIsChatWindowOpen: (isChatWindowOpen: boolean) => void;
-  isAttentionPanelOpen: boolean;
-  setIsAttentionPanelOpen: (isOpen: boolean) => void;
   connect: (token: string) => void;
   hasUnreadMessages: boolean;
   messages: Message[];
@@ -21,7 +19,6 @@ export const ChatProvider: React.FC = ({ children }) => {
   const { room, onError } = useVideoContext();
   const isChatWindowOpenRef = useRef(false);
   const [isChatWindowOpen, setIsChatWindowOpen] = useState(false);
-  const [isAttentionPanelOpen, setIsAttentionPanelOpen] = useState(false);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
@@ -94,8 +91,6 @@ export const ChatProvider: React.FC = ({ children }) => {
       value={{
         isChatWindowOpen,
         setIsChatWindowOpen,
-        isAttentionPanelOpen,
-        setIsAttentionPanelOpen,
         connect,
         hasUnreadMessages,
         messages,

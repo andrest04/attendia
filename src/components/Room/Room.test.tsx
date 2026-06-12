@@ -48,8 +48,6 @@ const mockOpenBackgroundSelection = jest.fn();
 mockUseChatContext.mockImplementation(() => ({
   isChatWindowOpen: false,
   setIsChatWindowOpen: mockToggleChatWindow,
-  isAttentionPanelOpen: false,
-  setIsAttentionPanelOpen: jest.fn(),
 }));
 mockUseVideoContext.mockImplementation(() => ({
   setIsBackgroundSelectionOpen: mockOpenBackgroundSelection,
@@ -71,8 +69,6 @@ describe('the Room component', () => {
   it('should render correctly with chat window open', () => {
     mockUseChatContext.mockImplementationOnce(() => ({
       isChatWindowOpen: true,
-      isAttentionPanelOpen: false,
-      setIsAttentionPanelOpen: jest.fn(),
       setIsChatWindowOpen: jest.fn(),
     }));
     const wrapper = shallow(<Room />);
@@ -87,17 +83,6 @@ describe('the Room component', () => {
     }));
     const wrapper = shallow(<Room />);
     expect(wrapper.prop('className')).toContain('rightDrawerOpen');
-  });
-
-  it('should render correctly with the attention panel open', () => {
-    mockUseChatContext.mockImplementationOnce(() => ({
-      isChatWindowOpen: false,
-      isAttentionPanelOpen: true,
-      setIsAttentionPanelOpen: jest.fn(),
-      setIsChatWindowOpen: jest.fn(),
-    }));
-    const wrapper = shallow(<Room />);
-    expect(wrapper.prop('className')).not.toContain('rightDrawerOpen');
   });
 
   it('should render correctly when gallery view is inactive', () => {
@@ -138,19 +123,13 @@ describe('the Room component', () => {
     expect(wrapper.find('StudentRoomShell').exists()).toBe(false);
   });
 
-  it('should switch right rail content from chat to attention without legacy drawer overlap', () => {
+  it('should always render chat in the right rail without legacy drawer overlap', () => {
     const wrapper = shallow(<Room />);
     const shell = wrapper.find('StudentRoomShell');
 
-    expect(shell.prop('rightTab')).toBe('chat');
-    expect(wrapper.find('ChatWindow').exists()).toBe(false);
-    expect(wrapper.find('AttentionPanel').exists()).toBe(false);
-
-    (shell.prop('onRightTabChange') as Function)('attention');
-    wrapper.update();
-
-    const updatedShell = wrapper.find('StudentRoomShell');
-    expect(updatedShell.prop('rightTab')).toBe('attention');
+    // rightTab and onRightTabChange props are gone — the shell always shows chat
+    expect(shell.prop('rightTab')).toBeUndefined();
+    expect(shell.prop('onRightTabChange')).toBeUndefined();
     expect(wrapper.prop('className')).not.toContain('rightDrawerOpen');
   });
 

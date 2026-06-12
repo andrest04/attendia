@@ -405,17 +405,6 @@ function ChatIcon({ className }: { className?: string }) {
   );
 }
 
-// Bar chart icon (attention)
-function BarChartIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1" y="7" width="3" height="6" rx="1" fill="currentColor" />
-      <rect x="5.5" y="4" width="3" height="9" rx="1" fill="currentColor" />
-      <rect x="10" y="1" width="3" height="12" rx="1" fill="currentColor" />
-    </svg>
-  );
-}
-
 // ── Emoji helper for notifications ────────────────────────────────────────────
 function notificationEmoji(kind: ShellNotification['kind'], text: string): string {
   if (kind === 'local-hand') {
@@ -431,8 +420,6 @@ function notificationEmoji(kind: ShellNotification['kind'], text: string): strin
 interface Props {
   stage: React.ReactNode;
   toolbarSlot?: React.ReactNode;
-  rightTab?: 'chat' | 'attention';
-  onRightTabChange?: (tab: 'chat' | 'attention') => void;
   rightPanel?: React.ReactNode;
   activeSpeakerLabel?: string;
   sessionLabel?: string;
@@ -448,8 +435,6 @@ interface Props {
 export default function StudentRoomShell({
   stage,
   toolbarSlot = null,
-  rightTab = 'chat',
-  onRightTabChange,
   rightPanel = null,
   activeSpeakerLabel = 'Sin participante activo',
   sessionLabel = 'Sesión Twilio en vivo',
@@ -547,27 +532,16 @@ export default function StudentRoomShell({
         <div className={classes.rightTabs} data-testid="student-room-shell-right-tabs">
           <button
             type="button"
-            className={clsx(classes.tab, { [classes.tabActive]: rightTab === 'chat' })}
+            className={clsx(classes.tab, classes.tabActive)}
             data-testid="student-room-shell-tab-chat"
-            aria-pressed={rightTab === 'chat'}
-            onClick={() => onRightTabChange?.('chat')}
+            aria-pressed={true}
           >
             <ChatIcon className={classes.tabIcon} />
             Chat
           </button>
-          <button
-            type="button"
-            className={clsx(classes.tab, { [classes.tabActive]: rightTab === 'attention' })}
-            data-testid="student-room-shell-tab-attention"
-            aria-pressed={rightTab === 'attention'}
-            onClick={() => onRightTabChange?.('attention')}
-          >
-            <BarChartIcon className={classes.tabIcon} />
-            Mi Atención
-          </button>
         </div>
 
-        {/* Panel content (ChatWindow or AttentionPanel) */}
+        {/* Panel content */}
         <div className={classes.rightContent}>{rightPanel}</div>
       </aside>
 
