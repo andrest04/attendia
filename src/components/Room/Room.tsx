@@ -26,6 +26,7 @@ import useShellNotifications from './StudentRoomShell/useShellNotifications';
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
+import ParticipantStrip from './ParticipantStrip/ParticipantStrip';
 
 const useStyles = makeStyles((theme: Theme) => {
   const totalMobileSidebarHeight = `${theme.sidebarMobileHeight +
@@ -47,6 +48,17 @@ const useStyles = makeStyles((theme: Theme) => {
     // The desktop room shells (Professor/Student) are self-contained full-bleed layouts that own their
     // left/center/right rails, so the legacy sidebar column must collapse to avoid an empty black gutter.
     desktopShell: { gridTemplateColumns: '100%' },
+    // Speaker-view stage: vertical flex column so the ParticipantStrip sits above MainParticipant.
+    speakerStage: {
+      display: 'flex',
+      flexDirection: 'column' as const,
+      height: '100%',
+      width: '100%',
+    },
+    speakerMain: {
+      flex: 1,
+      minHeight: 0,
+    },
   };
 });
 
@@ -116,6 +128,17 @@ export default function Room() {
   // the user is still free to switch back to gallery view.
   useSetSpeakerViewOnScreenShare(screenShareParticipant, room, setIsGalleryViewActive, isGalleryViewActive);
 
+  // Speaker-view stage: ParticipantStrip filmstrip on top + MainParticipant filling remaining space.
+  // Used by both desktop shells; not rendered on mobile or in gallery view.
+  const speakerViewStage = (
+    <div className={classes.speakerStage} data-testid="speaker-view-stage">
+      <ParticipantStrip />
+      <div className={classes.speakerMain}>
+        <MainParticipant />
+      </div>
+    </div>
+  );
+
   // Surface a transient cue when the professor gives this participant the turn.
   useEffect(() => {
     if (turnGrantedCount > 0) {
@@ -148,7 +171,7 @@ export default function Room() {
         )
       ) : isTeacher ? (
         <ProfessorRoomShell
-          stage={isGalleryViewActive ? <GalleryView /> : <MainParticipant />}
+          stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
           toolbarSlot={
             <ProfessorToolbar
               proctoringEnabled={proctoringEnabled}
@@ -174,7 +197,7 @@ export default function Room() {
         />
       ) : (
         <StudentRoomShell
-          stage={isGalleryViewActive ? <GalleryView /> : <MainParticipant />}
+          stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
           toolbarSlot={<StudentRoomToolbar handRaised={isHandRaised} onHandRaisedChange={setHandRaised} />}
           activeSpeakerLabel={activeSpeakerLabel}
           sessionLabel={sessionLabel}

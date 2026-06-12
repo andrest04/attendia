@@ -85,7 +85,7 @@ describe('the Room component', () => {
     expect(wrapper.prop('className')).toContain('rightDrawerOpen');
   });
 
-  it('should render correctly when gallery view is inactive', () => {
+  it('should render correctly when gallery view is inactive — student shell gets speaker-view stage', () => {
     mockUseVideoContext.mockImplementationOnce(() => ({
       isBackgroundSelectionOpen: true,
       setIsBackgroundSelectionOpen: jest.fn(),
@@ -94,12 +94,19 @@ describe('the Room component', () => {
     const wrapper = shallow(<Room />);
     const shell = wrapper.find('StudentRoomShell');
     expect(shell.exists()).toBe(true);
-    expect(((shell.prop('stage') as React.ReactElement).type as Function).name).toBe('MainParticipant');
+    // In speaker view the stage is the speakerViewStage div (data-testid="speaker-view-stage")
+    // that wraps ParticipantStrip + MainParticipant, not a bare <MainParticipant />.
+    const stage = shell.prop('stage') as React.ReactElement;
+    expect(stage.props['data-testid']).toBe('speaker-view-stage');
+    // Shallow-render the stage element to assert its children without mocking the whole tree.
+    const stageMounted = shallow(stage);
+    expect(stageMounted.find('ParticipantStrip').exists()).toBe(true);
+    expect(stageMounted.find('MainParticipant').exists()).toBe(true);
     expect(wrapper.find('ParticipantList').exists()).toBe(false);
     expect(wrapper.find('GalleryView').exists()).toBe(false);
   });
 
-  it('should render correctly when gallery view is active', () => {
+  it('should render correctly when gallery view is active — student shell gets GalleryView stage', () => {
     mockUseVideoContext.mockImplementationOnce(() => ({
       isBackgroundSelectionOpen: true,
       setIsBackgroundSelectionOpen: jest.fn(),
@@ -191,6 +198,39 @@ describe('the Room component', () => {
 
     expect(wrapper.find('ProfessorRoomShell').exists()).toBe(true);
     expect(wrapper.find('StudentRoomShell').exists()).toBe(false);
+  });
+
+  it('professor shell in speaker view receives the speaker-view stage with ParticipantStrip', () => {
+    mockUseVideoContext.mockImplementationOnce(() => ({
+      setIsBackgroundSelectionOpen: jest.fn(),
+      isBackgroundSelectionOpen: false,
+      room: { localParticipant: { identity: 'Andres Torres [Profesor]' } },
+    }));
+    // isGalleryViewActive defaults to false from beforeEach mock
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('ProfessorRoomShell');
+    expect(shell.exists()).toBe(true);
+    const stage = shell.prop('stage') as React.ReactElement;
+    expect(stage.props['data-testid']).toBe('speaker-view-stage');
+    const stageMounted = shallow(stage);
+    expect(stageMounted.find('ParticipantStrip').exists()).toBe(true);
+    expect(stageMounted.find('MainParticipant').exists()).toBe(true);
+  });
+
+  it('professor shell in gallery view receives GalleryView stage (no strip)', () => {
+    mockUseVideoContext.mockImplementationOnce(() => ({
+      setIsBackgroundSelectionOpen: jest.fn(),
+      isBackgroundSelectionOpen: false,
+      room: { localParticipant: { identity: 'Andres Torres [Profesor]' } },
+    }));
+    mockUseAppState.mockImplementationOnce(() => ({ isGalleryViewActive: true, setIsGalleryViewActive: jest.fn() }));
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('ProfessorRoomShell');
+    expect(shell.exists()).toBe(true);
+    const stage = shell.prop('stage') as React.ReactElement;
+    expect((stage.type as Function).name).toBe('GalleryView');
+    // No speaker-view-stage wrapper
+    expect(stage.props['data-testid']).not.toBe('speaker-view-stage');
   });
 });
 
