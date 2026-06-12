@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { renderHook } from '@testing-library/react-hooks';
 import { AttentionProvider, useAttention } from './index';
 import { mockAttentionData } from './mockAttentionData';
 
@@ -43,9 +43,10 @@ describe('useAttention inside AttentionProvider', () => {
     expect(result.current.proctoringAlerts.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('exposes the enabled flag as true initially (from mock)', () => {
+  it('does not expose any analysis on/off control (no enabled/setEnabled)', () => {
     const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.enabled).toBe(true);
+    expect(result.current).not.toHaveProperty('enabled');
+    expect(result.current).not.toHaveProperty('setEnabled');
   });
 });
 
@@ -79,32 +80,5 @@ describe('attentionLevel(score) with ranges { lowMax: 40, mediumMax: 70 }', () =
   it('maps 100 → "high"', () => {
     const { result } = renderHook(useAttention, { wrapper });
     expect(result.current.attentionLevel(100)).toBe('high');
-  });
-});
-
-// ─── setEnabled ───────────────────────────────────────────────────────────────
-describe('setEnabled', () => {
-  it('flips enabled to false when called with false', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.enabled).toBe(true);
-
-    act(() => {
-      result.current.setEnabled(false);
-    });
-
-    expect(result.current.enabled).toBe(false);
-  });
-
-  it('flips enabled back to true', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-
-    act(() => {
-      result.current.setEnabled(false);
-    });
-    act(() => {
-      result.current.setEnabled(true);
-    });
-
-    expect(result.current.enabled).toBe(true);
   });
 });

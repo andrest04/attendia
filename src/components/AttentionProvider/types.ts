@@ -55,8 +55,6 @@ export interface ProctoringAlert {
 export interface AttentionData {
   /** 'mock' until the CV pipeline (EP04/05/06) is wired; 'live' thereafter. */
   source: 'mock' | 'live';
-  /** Privacy toggle: when false, local analysis is paused. */
-  enabled: boolean;
   ranges: AttentionRanges;
   /** Session-wide aggregate attention index 0-100. */
   groupAttention: number;
@@ -73,6 +71,4 @@ export interface AttentionData {
 export interface AttentionContextValue extends AttentionData {
   /** Maps a 0-100 score to a level using the configured ranges. */
   attentionLevel(score: number): AttentionLevel;
-  /** Toggles the privacy/analysis flag. */
-  setEnabled(enabled: boolean): void;
 }

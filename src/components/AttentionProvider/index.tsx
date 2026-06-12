@@ -5,8 +5,11 @@
  * vision (CV) pipeline. Today it feeds `mockAttentionData` (deterministic,
  * stable). When EP04/05/06 deliver the real CV backend, the live implementation
  * will produce `AttentionData` via streaming updates and replace only the data
- * source here — consumers (S3 "Mi Atención", S4 analytics, S5 proctoring,
- * S6 report) stay unchanged because they read exclusively through `useAttention`.
+ * source here — consumers (S4 analytics, S5 proctoring, S6 report — all
+ * professor-facing) stay unchanged because they read exclusively through
+ * `useAttention`. Students have NO attention UI and NO control over the
+ * analysis (the "Mi Atención" panel and the `enabled` privacy toggle were
+ * removed by product decision, 2026-06-12).
  *
  * OUT OF SCOPE for this provider:
  * - Signaling actions (raise-hand, give-turn, proctoring responses) are a
@@ -14,7 +17,7 @@
  *   here; they belong in a dedicated SignalingProvider or equivalent.
  */
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext } from 'react';
 import { AttentionContextValue, AttentionLevel } from './types';
 import { mockAttentionData } from './mockAttentionData';
 
@@ -22,8 +25,6 @@ import { mockAttentionData } from './mockAttentionData';
 export const AttentionContext = createContext<AttentionContextValue>(null!);
 
 export const AttentionProvider: React.FC = ({ children }) => {
-  const [enabled, setEnabled] = useState<boolean>(mockAttentionData.enabled);
-
   const attentionLevel = (score: number): AttentionLevel => {
     const { lowMax, mediumMax } = mockAttentionData.ranges;
     if (score <= lowMax) return 'low';
@@ -33,8 +34,6 @@ export const AttentionProvider: React.FC = ({ children }) => {
 
   const value: AttentionContextValue = {
     ...mockAttentionData,
-    enabled,
-    setEnabled,
     attentionLevel,
   };
 
