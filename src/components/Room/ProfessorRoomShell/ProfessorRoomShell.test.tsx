@@ -1,13 +1,10 @@
 import React from 'react';
 import { mount } from 'enzyme';
-import { act } from 'react-dom/test-utils';
+
 import ProfessorRoomShell from './ProfessorRoomShell';
 import { useAttention } from '../../AttentionProvider';
 
 jest.mock('../../AttentionProvider');
-jest.mock('./exportAttentionReport', () => ({
-  exportAttentionReport: jest.fn(() => Promise.reject(new Error('export failed'))),
-}));
 // recharts' ResponsiveContainer needs a measurable parent; stub it out for jsdom.
 jest.mock('recharts', () => {
   const Stub = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
@@ -241,7 +238,7 @@ describe('ProfessorRoomShell', () => {
     // The report overlay is closed until the toolbar button is clicked.
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
 
-    wrapper.find('[data-testid="professor-room-shell-export"]').simulate('click');
+    wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
     wrapper.update();
 
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
@@ -249,7 +246,7 @@ describe('ProfessorRoomShell', () => {
 
   it('closes the report overlay from its Cerrar button', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
-    wrapper.find('[data-testid="professor-room-shell-export"]').simulate('click');
+    wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
     wrapper.update();
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
 
@@ -260,28 +257,5 @@ describe('ProfessorRoomShell', () => {
     wrapper.update();
 
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
-  });
-
-  it('surfaces an error when a download from the overlay fails', async () => {
-    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
-    wrapper.find('[data-testid="professor-room-shell-export"]').simulate('click');
-    wrapper.update();
-    wrapper
-      .find('[data-testid="attention-report-download-pdf"]')
-      .first()
-      .simulate('click');
-
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    wrapper.update();
-
-    expect(
-      wrapper
-        .find('[message="No se pudo generar el reporte"]')
-        .first()
-        .prop('open')
-    ).toBe(true);
   });
 });

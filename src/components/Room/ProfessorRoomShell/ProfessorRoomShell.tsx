@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme, Slider } from '@material-ui/core';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
+import VisibilityIcon from '@material-ui/icons/Visibility';
 import WarningIcon from '@material-ui/icons/Warning';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Tooltip } from 'recharts';
 import { useAttention } from '../../AttentionProvider';
@@ -339,7 +340,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#1d2f6f',
     marginBottom: theme.spacing(1),
   },
-  exportButton: {
+  viewReportButton: {
     width: '100%',
     padding: '10px 16px',
     border: '1.5px solid #e2ecf9',
@@ -874,11 +875,11 @@ export default function ProfessorRoomShell({
 
                 <button
                   type="button"
-                  className={classes.exportButton}
-                  data-testid="professor-room-shell-export"
+                  className={classes.viewReportButton}
+                  data-testid="professor-room-shell-view-report"
                   onClick={() => setIsReportOpen(true)}
                 >
-                  <span>&#8595;</span> Exportar reporte
+                  <VisibilityIcon style={{ fontSize: 16 }} /> Ver reporte
                 </button>
               </>
             ) : rightTab === 'individual' ? (
