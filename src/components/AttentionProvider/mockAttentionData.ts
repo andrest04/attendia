@@ -16,7 +16,6 @@ const selfComponents = { eyes: 80, posture: 75, head: 70 };
 
 export const mockAttentionData: AttentionData = {
   source: 'mock',
-  enabled: true,
   ranges: { lowMax: 40, mediumMax: 70 },
   groupAttention: 72,
   attentionThreshold: 60,
