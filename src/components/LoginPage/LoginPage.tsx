@@ -3,9 +3,8 @@ import { useAppState } from '../../state';
 
 import Button from '@material-ui/core/Button';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
-import Grid from '@material-ui/core/Grid';
 import { ReactComponent as GoogleLogo } from './google-logo.svg';
-import { InputLabel, Theme } from '@material-ui/core';
+import { Theme } from '@material-ui/core';
 import IntroContainer from '../IntroContainer/IntroContainer';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
@@ -33,97 +32,171 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     gap: 12,
     padding: '14px 16px',
-    borderRadius: 8,
-    border: '2px solid #E0E0E0',
+    borderRadius: 12,
+    border: '1.5px solid #e2ecf9',
     backgroundColor: '#FFFFFF',
     cursor: 'pointer',
     transition: 'border-color 0.15s, box-shadow 0.15s',
     '&:hover': {
-      borderColor: '#027AC5',
+      borderColor: '#1d6eed',
     },
   },
   roleCardSelected: {
-    borderColor: '#027AC5',
-    boxShadow: '0 0 0 2px rgba(2,122,197,0.15)',
+    borderColor: '#1d6eed',
+    boxShadow: '0 0 0 2px rgba(29,110,237,0.15)',
   },
   roleAvatar: {
     width: 36,
     height: 36,
-    borderRadius: 6,
+    borderRadius: 10,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   roleAvatarProfesor: {
-    backgroundColor: '#424242',
+    backgroundColor: '#e3edfb',
   },
   roleAvatarEstudiante: {
-    backgroundColor: '#9E9E9E',
+    backgroundColor: '#fff8e1',
   },
   roleLabel: {
+    fontFamily: 'Poppins, Inter, sans-serif',
     fontSize: 14,
     fontWeight: 600,
-    color: '#212121',
+    color: '#1d2f6f',
     lineHeight: 1.2,
   },
   roleCaption: {
+    fontFamily: 'Inter, sans-serif',
     fontSize: 11,
-    color: '#9E9E9E',
+    color: '#94a3b8',
     marginTop: 2,
+  },
+  roleHint: {
+    display: 'block',
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+    fontSize: 12,
+    color: '#94a3b8',
+    lineHeight: '18px',
+    marginBottom: 24,
   },
 
   // ── Auth form elements ───────────────────────────────────────────────────────
-  heading: {
-    marginBottom: '0.5em',
+  formTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 700,
+    fontSize: 19,
+    color: '#1d2f6f',
+    lineHeight: '25.65px',
+    margin: 0,
   },
-  subheading: {
-    marginBottom: '1.2em',
-    color: '#616161',
+  formSubtitle: {
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+    fontSize: 12,
+    color: '#64748b',
+    lineHeight: '18px',
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    display: 'block',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 12,
+    color: '#1d2f6f',
+    letterSpacing: '0.6px',
+    textTransform: 'uppercase',
+    lineHeight: '18px',
+    marginBottom: 6,
+  },
+  textInput: {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 10,
+      backgroundColor: '#f8faff',
+      '& fieldset': {
+        borderColor: '#e2ecf9',
+        borderWidth: '1.5px',
+      },
+      '&:hover fieldset': {
+        borderColor: '#1d6eed',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#1d6eed',
+        borderWidth: '1.5px',
+      },
+    },
+    '& .MuiInputBase-input': {
+      fontFamily: 'Poppins, Inter, sans-serif',
+      fontWeight: 400,
+      fontSize: 13,
+      color: '#353535',
+      padding: '12.5px 15.5px',
+    },
   },
   googleButton: {
-    background: 'white',
-    color: 'rgb(0, 94, 166)',
-    borderRadius: '4px',
-    border: '2px solid rgb(2, 122, 197)',
-    margin: '1.2em 0 0.7em',
+    width: '100%',
+    height: 49,
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    border: '1.5px solid #e2ecf9',
+    color: '#1d2f6f',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 14,
     textTransform: 'none',
     boxShadow: 'none',
-    padding: '0.3em 1em',
-    [theme.breakpoints.down('sm')]: {
-      width: '100%',
-    },
+    marginTop: 4,
     '&:hover': {
-      background: 'white',
+      backgroundColor: '#f8faff',
+      borderColor: '#1d6eed',
       boxShadow: 'none',
     },
   },
   errorMessage: {
-    color: 'red',
     display: 'flex',
     alignItems: 'center',
-    margin: '1em 0 0.2em',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 12,
+    color: '#d32f2f',
+    margin: '8px 0 0',
     '& svg': {
-      marginRight: '0.4em',
+      fontSize: 16,
+      marginRight: 6,
     },
   },
-  gutterBottom: {
-    marginBottom: '1em',
-  },
-  passcodeContainer: {
-    minHeight: '120px',
-  },
-  submitButton: {
-    [theme.breakpoints.down('sm')]: {
-      width: '100%',
+  primaryButton: {
+    width: '100%',
+    height: 49,
+    borderRadius: 12,
+    marginTop: 20,
+    background: 'linear-gradient(171.53deg, #1d6eed 0%, #1557c8 100%)',
+    boxShadow: '0px 4px 7px rgba(29,110,237,0.35)',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 700,
+    fontSize: 14,
+    letterSpacing: '0.14px',
+    color: '#ffffff',
+    textTransform: 'none',
+    '&:hover': {
+      background: 'linear-gradient(171.53deg, #1557c8 0%, #1040a0 100%)',
+      boxShadow: '0px 6px 10px rgba(29,110,237,0.4)',
+    },
+    '&:disabled': {
+      background: '#e2ecf9',
+      boxShadow: 'none',
+      color: '#94a3b8',
     },
   },
   securityLink: {
     display: 'block',
     marginTop: '2em',
     textAlign: 'right',
-    fontSize: '0.75rem',
-    color: theme.palette.text.secondary,
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 11,
+    color: '#94a3b8',
     textDecoration: 'none',
     '&:hover': {
       textDecoration: 'underline',
@@ -197,7 +270,7 @@ export default function LoginPage() {
           }}
         >
           <div className={`${classes.roleAvatar} ${classes.roleAvatarProfesor}`}>
-            <MenuBookIcon style={{ fontSize: 18, color: '#FFFFFF' }} />
+            <MenuBookIcon style={{ fontSize: 18, color: '#1d6eed' }} />
           </div>
           <div>
             <div className={classes.roleLabel}>Profesor</div>
@@ -220,7 +293,7 @@ export default function LoginPage() {
           }}
         >
           <div className={`${classes.roleAvatar} ${classes.roleAvatarEstudiante}`}>
-            <PersonIcon style={{ fontSize: 18, color: '#FFFFFF' }} />
+            <PersonIcon style={{ fontSize: 18, color: '#d97706' }} />
           </div>
           <div>
             <div className={classes.roleLabel}>Estudiante</div>
@@ -228,18 +301,16 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-      <Typography variant="caption" className={classes.subheading}>
+      <Typography variant="caption" className={classes.roleHint}>
         Elige tu rol para iniciar el flujo correspondiente.
       </Typography>
 
       {process.env.REACT_APP_SET_AUTH === 'firebase' && (
         <>
-          <Typography variant="h5" className={classes.heading}>
+          <Typography variant="h5" className={classes.formTitle}>
             Iniciar sesión para unirte
           </Typography>
-          <Typography variant="body1" className={classes.subheading}>
-            Inicia sesión con tu cuenta Google de Twilio
-          </Typography>
+          <Typography className={classes.formSubtitle}>Inicia sesión con tu cuenta Google de Twilio.</Typography>
           <Button variant="contained" className={classes.googleButton} onClick={login} startIcon={<GoogleLogo />}>
             Iniciar sesión con Google
           </Button>
@@ -248,43 +319,33 @@ export default function LoginPage() {
 
       {process.env.REACT_APP_SET_AUTH === 'passcode' && (
         <>
-          <Typography variant="h5" className={classes.heading}>
+          <Typography variant="h5" className={classes.formTitle}>
             Ingresa el código de acceso
           </Typography>
+          <Typography className={classes.formSubtitle}>
+            Usa el código que recibiste para acceder a la plataforma.
+          </Typography>
           <form onSubmit={handleSubmit}>
-            <Grid container justifyContent="space-between">
-              <div className={classes.passcodeContainer}>
-                <InputLabel shrink htmlFor="input-passcode">
-                  Código de acceso
-                </InputLabel>
-                <TextField
-                  id="input-passcode"
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setPasscode(e.target.value)}
-                  type="password"
-                  variant="outlined"
-                  size="small"
-                />
-                <div>
-                  {authError && (
-                    <Typography variant="caption" className={classes.errorMessage}>
-                      <ErrorOutlineIcon />
-                      {authError.message}
-                    </Typography>
-                  )}
-                </div>
-              </div>
-            </Grid>
-            <Grid container justifyContent="flex-end">
-              <Button
-                variant="contained"
-                color="primary"
-                type="submit"
-                disabled={!passcode.length}
-                className={classes.submitButton}
-              >
-                Ingresar
-              </Button>
-            </Grid>
+            <label htmlFor="input-passcode" className={classes.fieldLabel}>
+              Código de acceso
+            </label>
+            <TextField
+              id="input-passcode"
+              fullWidth
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPasscode(e.target.value)}
+              type="password"
+              variant="outlined"
+              className={classes.textInput}
+            />
+            {authError && (
+              <Typography variant="caption" className={classes.errorMessage}>
+                <ErrorOutlineIcon />
+                {authError.message}
+              </Typography>
+            )}
+            <Button variant="contained" type="submit" disabled={!passcode.length} className={classes.primaryButton}>
+              Ingresar
+            </Button>
           </form>
         </>
       )}
