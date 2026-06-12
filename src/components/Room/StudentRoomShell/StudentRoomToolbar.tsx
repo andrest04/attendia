@@ -2,7 +2,6 @@ import React from 'react';
 import { createStyles, makeStyles, Theme } from '@material-ui/core';
 import { isMobile } from '../../../utils';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
-import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
 import ToggleCaptionsButton from '../../Buttons/ToggleCaptionsButton/ToggleCaptionsButton';
@@ -35,7 +34,6 @@ interface StudentRoomToolbarProps {
 
 export default function StudentRoomToolbar({ handRaised, onHandRaisedChange }: StudentRoomToolbarProps = {}) {
   const classes = useStyles();
-  const { isSharingScreen } = useVideoContext();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
 
@@ -44,7 +42,7 @@ export default function StudentRoomToolbar({ handRaised, onHandRaisedChange }: S
       <ToggleAudioButton disabled={isReconnecting} />
       <ToggleVideoButton disabled={isReconnecting} />
       <ToggleCaptionsButton disabled={isReconnecting} />
-      {!isSharingScreen && !isMobile && <ToggleScreenShareButton disabled={isReconnecting} />}
+      {!isMobile && <ToggleScreenShareButton disabled={isReconnecting} />}
       <RaiseHandButton handRaised={handRaised} onHandRaisedChange={onHandRaisedChange} />
       <div className={classes.divider} />
       <EndCallButton />

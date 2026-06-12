@@ -2,18 +2,14 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import StudentRoomToolbar from './StudentRoomToolbar';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
-import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
 jest.mock('../../../hooks/useRoomState/useRoomState');
-jest.mock('../../../hooks/useVideoContext/useVideoContext');
 
 const mockUseRoomState = useRoomState as jest.Mock<any>;
-const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 
 describe('StudentRoomToolbar', () => {
   beforeEach(() => {
     mockUseRoomState.mockImplementation(() => 'connected');
-    mockUseVideoContext.mockImplementation(() => ({ isSharingScreen: false }));
   });
 
   it('renders student-safe controls and end call', () => {
@@ -34,5 +30,13 @@ describe('StudentRoomToolbar', () => {
     expect(wrapper.find('ToggleAudioButton').prop('disabled')).toBe(true);
     expect(wrapper.find('ToggleVideoButton').prop('disabled')).toBe(true);
     expect(wrapper.find('ToggleCaptionsButton').prop('disabled')).toBe(true);
+  });
+
+  describe('screen-share button', () => {
+    it('renders the screen-share button on desktop', () => {
+      const wrapper = shallow(<StudentRoomToolbar />);
+      // isMobile is false in the jsdom test environment, so the button is visible.
+      expect(wrapper.find('ToggleScreenShareButton').exists()).toBe(true);
+    });
   });
 });
