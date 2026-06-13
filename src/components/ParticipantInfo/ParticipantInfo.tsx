@@ -5,6 +5,7 @@ import { LocalAudioTrack, LocalVideoTrack, Participant, RemoteAudioTrack, Remote
 
 import AudioLevelIndicator from '../AudioLevelIndicator/AudioLevelIndicator';
 import AvatarIcon from '../../icons/AvatarIcon';
+import PanToolIcon from '@material-ui/icons/PanTool';
 import NetworkQualityLevel from '../NetworkQualityLevel/NetworkQualityLevel';
 import PinIcon from './PinIcon/PinIcon';
 import ScreenShareIcon from '../../icons/ScreenShareIcon';
@@ -17,6 +18,7 @@ import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecti
 import { useAppState } from '../../state';
 import { AttentionLevel } from '../AttentionProvider/types';
 import { levelShortLabel as attentionShortLabel } from '../AttentionProvider/attentionLabels';
+import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 
 const borderWidth = 2;
 
@@ -201,6 +203,23 @@ const useStyles = makeStyles((theme: Theme) =>
       borderRadius: 20,
       whiteSpace: 'nowrap',
     },
+    // Raised-hand badge — bottom-right corner of the tile of whoever raised their hand.
+    raisedHandBadge: {
+      position: 'absolute',
+      bottom: 8,
+      right: 8,
+      zIndex: 4,
+      width: 30,
+      height: 30,
+      borderRadius: '50%',
+      backgroundColor: '#ffffff',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: 16,
+      lineHeight: 1,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
+    },
   })
 );
 
@@ -243,6 +262,8 @@ export default function ParticipantInfo({
   const { isGalleryViewActive } = useAppState();
 
   const classes = useStyles();
+
+  const isHandRaised = useRaisedHand(participant.identity);
 
   const hasMultiface = Boolean(attention && attention.multiface);
 
@@ -298,6 +319,16 @@ export default function ParticipantInfo({
           </span>
         </div>
         <div>{isSelected && <PinIcon />}</div>
+        {isHandRaised && (
+          <span
+            className={classes.raisedHandBadge}
+            data-testid="participant-raised-hand"
+            title="Mano levantada"
+            aria-label="Mano levantada"
+          >
+            <PanToolIcon style={{ color: '#1f2937', fontSize: 16 }} />
+          </span>
+        )}
       </div>
       <div className={classes.innerContainer}>
         {(!isVideoEnabled || isVideoSwitchedOff) && (

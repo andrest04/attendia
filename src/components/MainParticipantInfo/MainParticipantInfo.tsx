@@ -5,6 +5,7 @@ import { LocalAudioTrack, LocalVideoTrack, Participant, RemoteAudioTrack, Remote
 
 import AudioLevelIndicator from '../AudioLevelIndicator/AudioLevelIndicator';
 import AvatarIcon from '../../icons/AvatarIcon';
+import PanToolIcon from '@material-ui/icons/PanTool';
 import NetworkQualityLevel from '../NetworkQualityLevel/NetworkQualityLevel';
 import Tooltip from '@material-ui/core/Tooltip';
 import Typography from '@material-ui/core/Typography';
@@ -16,6 +17,7 @@ import usePublications from '../../hooks/usePublications/usePublications';
 import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useTrack from '../../hooks/useTrack/useTrack';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 
 const useStyles = makeStyles((theme: Theme) => ({
   container: {
@@ -97,6 +99,23 @@ const useStyles = makeStyles((theme: Theme) => ({
     margin: '0 0.6em',
     animation: `1.25s $pulsate ease-out infinite`,
   },
+  // Raised-hand badge — bottom-right corner of the main tile when this participant raised their hand.
+  raisedHandBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    zIndex: 3,
+    width: 40,
+    height: 40,
+    borderRadius: '50%',
+    backgroundColor: '#ffffff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 22,
+    lineHeight: 1,
+    boxShadow: '0 1px 6px rgba(0,0,0,0.4)',
+  },
   '@keyframes pulsate': {
     '0%': {
       background: `#A90000`,
@@ -138,6 +157,8 @@ export default function MainParticipantInfo({ participant, children }: MainParti
   const isParticipantReconnecting = useParticipantIsReconnecting(participant);
 
   const isRecording = useIsRecording();
+
+  const isHandRaised = useRaisedHand(participant.identity);
 
   return (
     <div
@@ -184,6 +205,16 @@ export default function MainParticipantInfo({ participant, children }: MainParti
             Reconnecting...
           </Typography>
         </div>
+      )}
+      {isHandRaised && (
+        <span
+          className={classes.raisedHandBadge}
+          data-testid="participant-raised-hand"
+          title="Mano levantada"
+          aria-label="Mano levantada"
+        >
+          <PanToolIcon style={{ color: '#1f2937', fontSize: 22 }} />
+        </span>
       )}
       {children}
     </div>
