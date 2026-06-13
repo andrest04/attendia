@@ -3,6 +3,7 @@ import React from 'react';
 import MainParticipantInfo from './MainParticipantInfo';
 import AvatarIcon from '../../icons/AvatarIcon';
 import { shallow } from 'enzyme';
+import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 
 import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
 import useIsTrackSwitchedOff from '../../hooks/useIsTrackSwitchedOff/useIsTrackSwitchedOff';
@@ -18,6 +19,7 @@ jest.mock('../../hooks/useTrack/useTrack');
 jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting');
 jest.mock('../../hooks/useIsRecording/useIsRecording');
+jest.mock('../../hooks/useRaiseHand/raisedHandsContext', () => ({ useRaisedHand: jest.fn() }));
 
 const mockUsePublications = usePublications as jest.Mock<any>;
 const mockUseIsTrackSwitchedOff = useIsTrackSwitchedOff as jest.Mock<any>;
@@ -25,6 +27,7 @@ const mockUseTrack = useTrack as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 const mockUseParticipantIsReconnecting = useParticipantIsReconnecting as jest.Mock<boolean>;
 const mockUseIsRecording = useIsRecording as jest.Mock<boolean>;
+const mockUseRaisedHand = useRaisedHand as jest.Mock<boolean>;
 
 describe('the MainParticipantInfo component', () => {
   beforeEach(jest.clearAllMocks);
@@ -137,5 +140,21 @@ describe('the MainParticipantInfo component', () => {
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
     expect(wrapper.text()).toContain('Recording');
+  });
+
+  it('renders a raised-hand badge when the main participant is raising their hand', () => {
+    mockUseRaisedHand.mockReturnValueOnce(true);
+    const wrapper = shallow(
+      <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
+    );
+    expect(wrapper.find('[data-testid="participant-raised-hand"]').exists()).toBe(true);
+  });
+
+  it('does not render a raised-hand badge when the main participant is not raising their hand', () => {
+    mockUseRaisedHand.mockReturnValueOnce(false);
+    const wrapper = shallow(
+      <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
+    );
+    expect(wrapper.find('[data-testid="participant-raised-hand"]').exists()).toBe(false);
   });
 });

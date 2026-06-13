@@ -3,6 +3,7 @@ import AvatarIcon from '../../icons/AvatarIcon';
 import ParticipantInfo from './ParticipantInfo';
 import PinIcon from './PinIcon/PinIcon';
 import { shallow } from 'enzyme';
+import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { useAppState } from '../../state';
 import useIsTrackSwitchedOff from '../../hooks/useIsTrackSwitchedOff/useIsTrackSwitchedOff';
 import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
@@ -10,12 +11,14 @@ import usePublications from '../../hooks/usePublications/usePublications';
 import ScreenShareIcon from '../../icons/ScreenShareIcon';
 
 jest.mock('../../state');
+jest.mock('../../hooks/useRaiseHand/raisedHandsContext', () => ({ useRaisedHand: jest.fn() }));
 jest.mock('../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel', () => () => 4);
 jest.mock('../../hooks/usePublications/usePublications');
 jest.mock('../../hooks/useIsTrackSwitchedOff/useIsTrackSwitchedOff');
 jest.mock('../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting');
 
 const mockUseAppState = useAppState as jest.Mock<any>;
+const mockUseRaisedHand = useRaisedHand as jest.Mock<boolean>;
 const mockUsePublications = usePublications as jest.Mock<any>;
 const mockUseIsTrackSwitchedOff = useIsTrackSwitchedOff as jest.Mock<any>;
 const mockUseParticipantIsReconnecting = useParticipantIsReconnecting as jest.Mock<boolean>;
@@ -247,5 +250,27 @@ describe('the ParticipantInfo component', () => {
       </ParticipantInfo>
     );
     expect(wrapper.find('[data-testid="participant-attention-overlay"]').text()).toContain('Medio');
+  });
+
+  it('renders a raised-hand badge when this participant is raising their hand', () => {
+    mockUseRaisedHand.mockReturnValueOnce(true);
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo isSelected={false} participant={{ identity: 'mockIdentity' } as any}>
+        mock children
+      </ParticipantInfo>
+    );
+    expect(wrapper.find('[data-testid="participant-raised-hand"]').exists()).toBe(true);
+  });
+
+  it('does not render a raised-hand badge when this participant is not raising their hand', () => {
+    mockUseRaisedHand.mockReturnValueOnce(false);
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo isSelected={false} participant={{ identity: 'mockIdentity' } as any}>
+        mock children
+      </ParticipantInfo>
+    );
+    expect(wrapper.find('[data-testid="participant-raised-hand"]').exists()).toBe(false);
   });
 });

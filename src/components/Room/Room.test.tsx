@@ -11,6 +11,7 @@ import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
 import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipant';
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
+import { RaisedHandsContext } from '../../hooks/useRaiseHand/raisedHandsContext';
 
 jest.mock('swiper/react', () => ({
   Swiper: jest.fn(),
@@ -151,6 +152,13 @@ describe('the Room component', () => {
     expect(shell.prop('sessionLabel')).toBe('Sesión Twilio en vivo');
     expect(shell.prop('participantCount')).toBe(3);
     expect(shell.prop('notifications')).toEqual([]);
+  });
+
+  it('provides the raised-hands context so tiles can show the hand badge', () => {
+    const wrapper = shallow(<Room />);
+    const provider = wrapper.find(RaisedHandsContext.Provider);
+    expect(provider.exists()).toBe(true);
+    expect(provider.prop('value') instanceof Set).toBe(true);
   });
 
   it('does not pass a PiP self-view to the student shell (self is shown as a gallery tile)', () => {

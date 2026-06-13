@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import BackgroundSelectionDialog from '../BackgroundSelectionDialog/BackgroundSelectionDialog';
 import ChatWindow from '../ChatWindow/ChatWindow';
 import clsx from 'clsx';
@@ -25,6 +25,7 @@ import { ProfessorRightTab } from './ProfessorRoomShell/ProfessorRoomShell';
 import useShellNotifications from './StudentRoomShell/useShellNotifications';
 import useNotificationToasts from '../../hooks/useNotificationToasts/useNotificationToasts';
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
+import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
 import ParticipantStrip from './ParticipantStrip/ParticipantStrip';
@@ -121,6 +122,13 @@ export default function Room() {
 
   // Transient, role-curated toasts (join/leave, raise-hand, turn, recording).
   useNotificationToasts({ isTeacher, participants, raisedHands, isRecording, turnGrantedCount });
+
+  // Identities (local + remote) currently raising their hand — surfaced as a corner
+  // badge on each participant tile via RaisedHandsContext.
+  const raisedHandIdentities = useMemo(
+    () => buildRaisedHandIdentities(raisedHands, isHandRaised, room?.localParticipant?.identity),
+    [raisedHands, isHandRaised, room]
+  );
   const participantCount = participants.length + 1;
   const activeSpeakerLabel = mainParticipant?.identity || 'Sin participante activo';
   const sessionLabel = 'Sesión Twilio en vivo';
@@ -149,70 +157,72 @@ export default function Room() {
         [classes.desktopShell]: isDesktopShell && !hasLegacyRightDrawer,
       })}
     >
-      {/*
+      <RaisedHandsContext.Provider value={raisedHandIdentities}>
+        {/*
         This ParticipantAudioTracks component will render the audio track for all participants in the room.
         It is in a separate component so that the audio tracks will always be rendered, and that they will never be
         unnecessarily unmounted/mounted as the user switches between Gallery View and speaker View.
       */}
-      <ParticipantAudioTracks />
+        <ParticipantAudioTracks />
 
-      {isMobile ? (
-        isGalleryViewActive ? (
-          <MobileGalleryView />
+        {isMobile ? (
+          isGalleryViewActive ? (
+            <MobileGalleryView />
+          ) : (
+            <>
+              <MainParticipant />
+              <ParticipantList />
+            </>
+          )
+        ) : isTeacher ? (
+          <ProfessorRoomShell
+            stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
+            toolbarSlot={
+              <ProfessorToolbar
+                proctoringEnabled={proctoringEnabled}
+                onProctoringChange={setProctoringEnabled}
+                chatOpen={professorTab === 'chat'}
+                onChatToggle={() => setProfessorTab(t => (t === 'chat' ? 'grupo' : 'chat'))}
+              />
+            }
+            rightTab={professorTab}
+            onRightTabChange={setProfessorTab}
+            rightPanel={professorTab === 'chat' ? <ChatWindow embedded isVisible /> : undefined}
+            participants={[
+              ...participants.map(p => ({ identity: p.identity })),
+              { identity: room?.localParticipant?.identity || '' },
+            ]}
+            sessionLabel={sessionLabel}
+            sessionName={room?.name || sessionLabel}
+            participantCount={participantCount}
+            recording={isRecording}
+            handsRaised={raisedHands}
+            onGrantTurn={grantTurn}
+            proctoringEnabled={proctoringEnabled}
+          />
         ) : (
-          <>
-            <MainParticipant />
-            <ParticipantList />
-          </>
-        )
-      ) : isTeacher ? (
-        <ProfessorRoomShell
-          stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
-          toolbarSlot={
-            <ProfessorToolbar
-              proctoringEnabled={proctoringEnabled}
-              onProctoringChange={setProctoringEnabled}
-              chatOpen={professorTab === 'chat'}
-              onChatToggle={() => setProfessorTab(t => (t === 'chat' ? 'grupo' : 'chat'))}
-            />
-          }
-          rightTab={professorTab}
-          onRightTabChange={setProfessorTab}
-          rightPanel={professorTab === 'chat' ? <ChatWindow embedded isVisible /> : undefined}
-          participants={[
-            ...participants.map(p => ({ identity: p.identity })),
-            { identity: room?.localParticipant?.identity || '' },
-          ]}
-          sessionLabel={sessionLabel}
-          sessionName={room?.name || sessionLabel}
-          participantCount={participantCount}
-          recording={isRecording}
-          handsRaised={raisedHands}
-          onGrantTurn={grantTurn}
-          proctoringEnabled={proctoringEnabled}
-        />
-      ) : (
-        <StudentRoomShell
-          stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
-          toolbarSlot={<StudentRoomToolbar handRaised={isHandRaised} onHandRaisedChange={setHandRaised} />}
-          activeSpeakerLabel={activeSpeakerLabel}
-          sessionLabel={sessionLabel}
-          participantCount={participantCount}
-          notifications={notifications}
-          isConnectivityDegraded={isConnectivityDegraded}
-          rightPanel={<ChatWindow embedded isVisible />}
-          participants={[
-            ...participants.map(p => ({ identity: p.identity, isOnline: true })),
-            { identity: room?.localParticipant?.identity || '', isOnline: true },
-          ]}
-        />
-      )}
+          <StudentRoomShell
+            stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
+            toolbarSlot={<StudentRoomToolbar handRaised={isHandRaised} onHandRaisedChange={setHandRaised} />}
+            activeSpeakerLabel={activeSpeakerLabel}
+            sessionLabel={sessionLabel}
+            participantCount={participantCount}
+            notifications={notifications}
+            isConnectivityDegraded={isConnectivityDegraded}
+            rightPanel={<ChatWindow embedded isVisible />}
+            participants={[
+              ...participants.map(p => ({ identity: p.identity, isOnline: true })),
+              { identity: room?.localParticipant?.identity || '', isOnline: true },
+            ]}
+          />
+        )}
 
-      {!isDesktopShell && <ChatWindow />}
-      <BackgroundSelectionDialog />
-      {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}
-      {isDesktopShell && <OnboardingTutorial />}
-      <TranscriptionsOverlay />
+        {!isDesktopShell && <ChatWindow />}
+        <BackgroundSelectionDialog />
+        {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}
+        {isDesktopShell && <OnboardingTutorial />}
+        <TranscriptionsOverlay />
+      </RaisedHandsContext.Provider>
     </div>
   );
 }
