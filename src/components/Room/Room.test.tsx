@@ -32,6 +32,9 @@ jest.mock('@material-ui/core', () => {
   const actual = jest.requireActual('@material-ui/core');
   return { ...actual, useMediaQuery: jest.fn() };
 });
+jest.mock('notistack', () => ({
+  useSnackbar: () => ({ enqueueSnackbar: jest.fn(), closeSnackbar: jest.fn() }),
+}));
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseChatContext = useChatContext as jest.Mock<any>;

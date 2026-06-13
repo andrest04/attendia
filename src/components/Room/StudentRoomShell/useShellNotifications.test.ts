@@ -5,55 +5,68 @@ const createParticipant = (sid: string, identity: string) => ({ sid, identity } 
 
 describe('useShellNotifications', () => {
   it('starts with explicit empty state before any events', () => {
-    const { result } = renderHook(() => useShellNotifications([], false));
+    const { result } = renderHook(() => useShellNotifications([]));
     expect(result.current).toEqual([]);
   });
 
-  it('adds notifications when participants join and when local hand toggles', () => {
-    const { result, rerender } = renderHook(
-      ({ participants, handRaised }) => useShellNotifications(participants, handRaised),
-      {
-        initialProps: { participants: [createParticipant('PA1', 'Ana')], handRaised: false },
-      }
-    );
-
-    rerender({ participants: [createParticipant('PA1', 'Ana'), createParticipant('PA2', 'Luis')], handRaised: false });
-    rerender({ participants: [createParticipant('PA1', 'Ana'), createParticipant('PA2', 'Luis')], handRaised: true });
-
-    expect(result.current.some(notification => notification.text.includes('Luis se unió a la sesión'))).toBe(true);
-    expect(result.current.some(notification => notification.text === 'Levantaste la mano')).toBe(true);
-  });
-
-  it('adds notifications when participants leave using their latest cached identity', () => {
-    const { result, rerender } = renderHook(
-      ({ participants, handRaised }) => useShellNotifications(participants, handRaised),
-      {
-        initialProps: {
-          participants: [createParticipant('PA1', 'Ana'), createParticipant('PA2', 'Luis')],
-          handRaised: false,
-        },
-      }
-    );
-
-    rerender({
-      participants: [createParticipant('PA1', 'Ana'), createParticipant('PA2', 'Luis R.')],
-      handRaised: false,
+  it('logs classmates joining and leaving', () => {
+    const { result, rerender } = renderHook(({ participants }) => useShellNotifications(participants), {
+      initialProps: { participants: [createParticipant('PA1', 'Ana')] },
     });
-    rerender({ participants: [createParticipant('PA1', 'Ana')], handRaised: false });
 
-    expect(result.current.map(notification => notification.text)).toContain('Luis R. salió de la sesión');
+    rerender({ participants: [createParticipant('PA1', 'Ana'), createParticipant('PA2', 'Luis')] });
+    expect(result.current.some(n => n.text === 'Luis se unió a la sesión')).toBe(true);
+
+    rerender({ participants: [createParticipant('PA1', 'Ana')] });
+    expect(result.current.some(n => n.text === 'Luis salió de la sesión')).toBe(true);
   });
 
-  it('adds notifications for lowering a raised local hand', () => {
-    const { result, rerender } = renderHook(
-      ({ participants, handRaised }) => useShellNotifications(participants, handRaised),
-      {
-        initialProps: { participants: [], handRaised: true },
-      }
-    );
+  it('uses the latest cached identity when a classmate leaves', () => {
+    const { result, rerender } = renderHook(({ participants }) => useShellNotifications(participants), {
+      initialProps: { participants: [createParticipant('PA1', 'Ana'), createParticipant('PA2', 'Luis')] },
+    });
 
-    rerender({ participants: [], handRaised: false });
+    rerender({ participants: [createParticipant('PA1', 'Ana'), createParticipant('PA2', 'Luis R.')] });
+    rerender({ participants: [createParticipant('PA1', 'Ana')] });
 
-    expect(result.current.map(notification => notification.text)).toContain('Bajaste la mano');
+    expect(result.current.map(n => n.text)).toContain('Luis R. salió de la sesión');
+  });
+
+  it('does NOT log the professor joining or leaving (that is a toast, not a panel entry)', () => {
+    const { result, rerender } = renderHook(({ participants }) => useShellNotifications(participants), {
+      initialProps: { participants: [] as ReturnType<typeof createParticipant>[] },
+    });
+
+    rerender({ participants: [createParticipant('PT', 'Profe [Profesor]')] });
+    rerender({ participants: [] });
+
+    expect(result.current).toEqual([]);
+  });
+
+  it('caps the panel to the last 3 entries so it never fills with noise', () => {
+    const { result, rerender } = renderHook(({ participants }) => useShellNotifications(participants), {
+      initialProps: { participants: [] as ReturnType<typeof createParticipant>[] },
+    });
+
+    rerender({ participants: [createParticipant('P1', 'Uno')] });
+    rerender({ participants: [createParticipant('P1', 'Uno'), createParticipant('P2', 'Dos')] });
+    rerender({
+      participants: [createParticipant('P1', 'Uno'), createParticipant('P2', 'Dos'), createParticipant('P3', 'Tres')],
+    });
+    rerender({
+      participants: [
+        createParticipant('P1', 'Uno'),
+        createParticipant('P2', 'Dos'),
+        createParticipant('P3', 'Tres'),
+        createParticipant('P4', 'Cuatro'),
+      ],
+    });
+
+    expect(result.current).toHaveLength(3);
+    expect(result.current.map(n => n.text)).toEqual([
+      'Dos se unió a la sesión',
+      'Tres se unió a la sesión',
+      'Cuatro se unió a la sesión',
+    ]);
   });
 });
