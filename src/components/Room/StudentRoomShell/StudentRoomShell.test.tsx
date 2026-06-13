@@ -64,6 +64,12 @@ describe('StudentRoomShell', () => {
     expect(wrapper.text()).toContain('Luis salió de la sesión');
   });
 
+  it('does not render a separate PiP self-view (the student sees their own gallery tile instead)', () => {
+    const wrapper = shallow(<StudentRoomShell stage={<div>stage</div>} />);
+
+    expect(wrapper.find('[data-testid="student-room-shell-pip"]').exists()).toBe(false);
+  });
+
   it('renders only the chat tab and no attention tab', () => {
     const wrapper = shallow(<StudentRoomShell stage={<div>stage</div>} />);
 

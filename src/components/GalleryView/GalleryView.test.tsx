@@ -104,6 +104,14 @@ describe('the GalleryView component', () => {
     ).toBe(false);
   });
 
+  it('includes the local participant as a regular gallery tile (parity for students and professors)', () => {
+    shallow(<GalleryView />);
+    // The list handed to usePagination must lead with the local participant, regardless of role.
+    const lastCallArg = mockUsePagination.mock.calls[mockUsePagination.mock.calls.length - 1][0];
+    expect(lastCallArg[0]).toBe(mockLocalParticipant);
+    expect(lastCallArg).toEqual([mockLocalParticipant, ...mockParticipants]);
+  });
+
   it('should not render the Pagination component when there is only one page', () => {
     mockUsePagination.mockImplementationOnce(() => ({
       currentPage: 1,

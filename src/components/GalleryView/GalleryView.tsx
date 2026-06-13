@@ -117,12 +117,11 @@ export function GalleryView() {
     return byIdentity;
   }, [isTeacher, attention]);
 
-  // Students only see remote participants in the gallery stage; the local self-view
-  // is surfaced exclusively through the PiP card in StudentRoomShell. Professors keep
-  // the local tile so they can see their own feed alongside the students' tiles.
-  const galleryParticipantList = isTeacher
-    ? [room!.localParticipant, ...galleryViewParticipants]
-    : [...galleryViewParticipants];
+  // Everyone — students and professors alike — sees their own tile as a regular,
+  // equal-sized cell in the gallery (local participant first). Students used to be
+  // relegated to a tiny PiP self-view; that was removed in favour of parity with the
+  // professor layout.
+  const galleryParticipantList = [room!.localParticipant, ...galleryViewParticipants];
 
   const { paginatedParticipants, setCurrentPage, currentPage, totalPages } = usePagination(galleryParticipantList);
 

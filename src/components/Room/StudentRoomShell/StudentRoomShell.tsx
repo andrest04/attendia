@@ -245,31 +245,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     lineHeight: '15px',
     pointerEvents: 'none',
   },
-  pipCard: {
-    position: 'absolute',
-    bottom: 16,
-    right: 16,
-    zIndex: 2,
-    width: 148,
-    height: 94,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    border: '1.5px solid rgba(255,255,255,0.12)',
-    borderRadius: 14,
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    overflow: 'hidden',
-    flexShrink: 0,
-  },
-  pipLabel: {
-    fontFamily: 'Inter, sans-serif',
-    fontWeight: 400,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
-    lineHeight: '15px',
-  },
   connectivityBanner: {
     position: 'absolute',
     bottom: 48,
@@ -428,8 +403,6 @@ interface Props {
   isConnectivityDegraded?: boolean;
   /** Optional rich roster; when provided, renders avatar list instead of plain count */
   participants?: RosterParticipant[];
-  /** Identity of the local participant (for the PiP label) */
-  localIdentity?: string;
 }
 
 export default function StudentRoomShell({
@@ -442,12 +415,8 @@ export default function StudentRoomShell({
   notifications = [],
   isConnectivityDegraded = false,
   participants,
-  localIdentity,
 }: Props) {
   const classes = useStyles();
-
-  // Local participant's display name for the PiP card
-  const localDisplayName = localIdentity ? localIdentity.replace(/\[Profesor\]/gi, '').trim() : '';
 
   return (
     <section className={classes.root} data-testid="student-room-shell-root">
@@ -505,15 +474,9 @@ export default function StudentRoomShell({
           <span className={classes.connectionLabel}>Buena</span>
         </div>
 
-        {/* Stage (GalleryView / MainParticipant) */}
+        {/* Stage (GalleryView / MainParticipant). The student sees their own tile here
+            as a regular cell, exactly like the professor — no separate PiP self-view. */}
         <div className={classes.stageContent}>{stage}</div>
-
-        {/* Self-view picture-in-picture card */}
-        {localDisplayName && (
-          <div className={classes.pipCard} data-testid="student-room-shell-pip">
-            <span className={classes.pipLabel}>Yo ({localDisplayName})</span>
-          </div>
-        )}
 
         {/* "Twilio Video · WebRTC SFU" watermark */}
         <div className={classes.stageBadge}>Twilio Video · WebRTC SFU</div>

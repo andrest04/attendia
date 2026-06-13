@@ -6,6 +6,7 @@ import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
 import ToggleCaptionsButton from '../../Buttons/ToggleCaptionsButton/ToggleCaptionsButton';
 import ToggleScreenShareButton from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
+import ToggleViewButton from '../../Buttons/ToggleViewButton/ToggleViewButton';
 import RaiseHandButton from '../../Buttons/RaiseHandButton/RaiseHandButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
 
@@ -43,6 +44,7 @@ export default function StudentRoomToolbar({ handRaised, onHandRaisedChange }: S
       <ToggleVideoButton disabled={isReconnecting} />
       <ToggleCaptionsButton disabled={isReconnecting} />
       {!isMobile && <ToggleScreenShareButton disabled={isReconnecting} />}
+      <ToggleViewButton disabled={isReconnecting} />
       <RaiseHandButton handRaised={handRaised} onHandRaisedChange={onHandRaisedChange} />
       <div className={classes.divider} />
       <EndCallButton />
