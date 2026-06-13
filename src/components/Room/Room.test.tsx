@@ -150,6 +150,14 @@ describe('the Room component', () => {
     expect(shell.prop('notifications')).toEqual([]);
   });
 
+  it('does not pass a PiP self-view to the student shell (self is shown as a gallery tile)', () => {
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('StudentRoomShell');
+
+    expect(shell.prop('selfView')).toBeUndefined();
+    expect(shell.prop('localIdentity')).toBeUndefined();
+  });
+
   it('shows degraded connectivity banner when local participant quality is 2 or lower', () => {
     mockUseParticipantNetworkQualityLevel.mockImplementationOnce(() => 2);
     const wrapper = shallow(<Room />);

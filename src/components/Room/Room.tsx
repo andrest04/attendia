@@ -209,7 +209,6 @@ export default function Room() {
             ...participants.map(p => ({ identity: p.identity, isOnline: true })),
             { identity: room?.localParticipant?.identity || '', isOnline: true },
           ]}
-          localIdentity={room?.localParticipant?.identity}
         />
       )}
 

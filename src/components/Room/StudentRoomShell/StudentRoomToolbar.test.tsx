@@ -18,6 +18,7 @@ describe('StudentRoomToolbar', () => {
     expect(wrapper.find('ToggleVideoButton').exists()).toBe(true);
     expect(wrapper.find('ToggleCaptionsButton').exists()).toBe(true);
     expect(wrapper.find('RaiseHandButton').exists()).toBe(true);
+    expect(wrapper.find('ToggleViewButton').exists()).toBe(true);
     expect(wrapper.find('EndCallButton').exists()).toBe(true);
     expect(wrapper.find('ToggleChatButton').exists()).toBe(false);
     expect(wrapper.find('ToggleAttentionButton').exists()).toBe(false);
@@ -30,6 +31,7 @@ describe('StudentRoomToolbar', () => {
     expect(wrapper.find('ToggleAudioButton').prop('disabled')).toBe(true);
     expect(wrapper.find('ToggleVideoButton').prop('disabled')).toBe(true);
     expect(wrapper.find('ToggleCaptionsButton').prop('disabled')).toBe(true);
+    expect(wrapper.find('ToggleViewButton').prop('disabled')).toBe(true);
   });
 
   describe('screen-share button', () => {
