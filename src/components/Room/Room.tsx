@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { GalleryView } from '../GalleryView/GalleryView';
 import { MobileGalleryView } from '../MobileGalleryView/MobileGalleryView';
 import MainParticipant from '../MainParticipant/MainParticipant';
-import { makeStyles, Snackbar, Theme, useMediaQuery, useTheme } from '@material-ui/core';
+import { makeStyles, Theme, useMediaQuery, useTheme } from '@material-ui/core';
 import { Participant, Room as IRoom } from 'twilio-video';
 import { ParticipantAudioTracks } from '../ParticipantAudioTracks/ParticipantAudioTracks';
 import ParticipantList from '../ParticipantList/ParticipantList';
@@ -23,6 +23,7 @@ import { StudentRoomToolbar } from './StudentRoomShell';
 import ProfessorRoomShell, { ProfessorToolbar } from './ProfessorRoomShell';
 import { ProfessorRightTab } from './ProfessorRoomShell/ProfessorRoomShell';
 import useShellNotifications from './StudentRoomShell/useShellNotifications';
+import useNotificationToasts from '../../hooks/useNotificationToasts/useNotificationToasts';
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
@@ -110,14 +111,16 @@ export default function Room() {
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
   const isRecording = useIsRecording();
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
-  const [isTurnSnackbarOpen, setIsTurnSnackbarOpen] = useState(false);
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
   const mainParticipant = useMainParticipant();
   const participants = useParticipants();
   const localParticipantNetworkQuality = useParticipantNetworkQualityLevel(room?.localParticipant ?? null);
   const isConnectivityDegraded =
     typeof localParticipantNetworkQuality === 'number' ? localParticipantNetworkQuality <= 2 : false;
-  const notifications = useShellNotifications(participants, isHandRaised);
+  const notifications = useShellNotifications(participants);
+
+  // Transient, role-curated toasts (join/leave, raise-hand, turn, recording).
+  useNotificationToasts({ isTeacher, participants, raisedHands, isRecording, turnGrantedCount });
   const participantCount = participants.length + 1;
   const activeSpeakerLabel = mainParticipant?.identity || 'Sin participante activo';
   const sessionLabel = 'Sesión Twilio en vivo';
@@ -139,13 +142,6 @@ export default function Room() {
     </div>
   );
 
-  // Surface a transient cue when the professor gives this participant the turn.
-  useEffect(() => {
-    if (turnGrantedCount > 0) {
-      setIsTurnSnackbarOpen(true);
-    }
-  }, [turnGrantedCount]);
-
   return (
     <div
       className={clsx(classes.container, {
@@ -153,9 +149,9 @@ export default function Room() {
         [classes.desktopShell]: isDesktopShell && !hasLegacyRightDrawer,
       })}
     >
-      {/* 
+      {/*
         This ParticipantAudioTracks component will render the audio track for all participants in the room.
-        It is in a separate component so that the audio tracks will always be rendered, and that they will never be 
+        It is in a separate component so that the audio tracks will always be rendered, and that they will never be
         unnecessarily unmounted/mounted as the user switches between Gallery View and speaker View.
       */}
       <ParticipantAudioTracks />
@@ -217,13 +213,6 @@ export default function Room() {
       {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}
       {isDesktopShell && <OnboardingTutorial />}
       <TranscriptionsOverlay />
-      <Snackbar
-        open={isTurnSnackbarOpen}
-        autoHideDuration={6000}
-        onClose={() => setIsTurnSnackbarOpen(false)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        message="Es tu turno · el profesor te dio la palabra"
-      />
     </div>
   );
 }

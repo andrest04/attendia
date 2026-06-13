@@ -12,6 +12,7 @@ import LoginPage from './components/LoginPage/LoginPage';
 import PrivateRoute from './components/PrivateRoute/PrivateRoute';
 import theme from './theme';
 import './types';
+import { SnackbarProvider } from 'notistack';
 import { ChatProvider } from './components/ChatProvider';
 import { AttentionProvider } from './components/AttentionProvider';
 import DesignGallery from './components/design/DesignGallery';
@@ -32,7 +33,16 @@ const VideoApp = () => {
       <ParticipantProvider>
         <ChatProvider>
           <AttentionProvider>
-            <App />
+            {/* In-room transient notifications (join/leave, raise-hand, turn, recording).
+                maxSnack + autoHide keep it signal, not noise. */}
+            <SnackbarProvider
+              maxSnack={3}
+              autoHideDuration={4000}
+              anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+              dense
+            >
+              <App />
+            </SnackbarProvider>
           </AttentionProvider>
         </ChatProvider>
       </ParticipantProvider>
