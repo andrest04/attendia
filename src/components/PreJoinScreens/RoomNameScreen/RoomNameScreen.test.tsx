@@ -12,7 +12,6 @@ describe('the RoomNameScreen component', () => {
   const baseTeacherDraft = {
     ...createDefaultClassSessionDraft('Teacher Name'),
     sessionName: 'Session 1',
-    recordingEnabled: true,
     monitoringSensitivity: 'medium' as const,
   };
 
@@ -236,26 +235,21 @@ describe('the RoomNameScreen component', () => {
     expect(writeText).toHaveBeenCalledWith('session-1');
   });
 
-  it('renders recording switch and keeps teacher creation disabled without session name', () => {
+  it('keeps teacher creation disabled without session name', () => {
     mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
     const wrapper = shallow(
       <RoomNameScreen
         {...baseProps}
         name="Teacher Name"
-        classSessionDraft={{
-          ...createDefaultClassSessionDraft('Teacher Name'),
-          monitoringSensitivity: 'low',
-        }}
+        classSessionDraft={createDefaultClassSessionDraft('Teacher Name')}
       />
     );
 
-    expect(wrapper.text()).toContain('Habilitar grabación');
-    expect(wrapper.find('[data-testid="recording-toggle"]').exists()).toBe(true);
     const createButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Crear sala →');
     expect(createButton.prop('disabled')).toBe(true);
   });
 
-  it('updates teacher draft fields through session switch and slider handlers', () => {
+  it('updates the teacher session name through its handler', () => {
     mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
     const setClassSessionDraft = jest.fn();
     const wrapper = shallow(<RoomNameScreen {...baseProps} setClassSessionDraft={setClassSessionDraft} />);
@@ -265,28 +259,22 @@ describe('the RoomNameScreen component', () => {
       .simulate('change', {
         target: { value: 'Sesión avanzada' },
       });
-    wrapper.find('[data-testid="recording-toggle"]').simulate('click');
-    wrapper.find('[data-testid="sensitivity-range"]').simulate('change', { target: { value: '100' } });
 
-    expect(setClassSessionDraft).toHaveBeenCalledTimes(3);
+    expect(setClassSessionDraft).toHaveBeenCalledTimes(1);
 
     const sessionUpdater = setClassSessionDraft.mock.calls[0][0];
-    const recordingUpdater = setClassSessionDraft.mock.calls[1][0];
-    const sensitivityUpdater = setClassSessionDraft.mock.calls[2][0];
-
     expect(sessionUpdater(baseTeacherDraft)).toEqual({ ...baseTeacherDraft, sessionName: 'Sesión avanzada' });
-    expect(recordingUpdater(baseTeacherDraft)).toEqual({ ...baseTeacherDraft, recordingEnabled: false });
-    expect(sensitivityUpdater(baseTeacherDraft)).toEqual({ ...baseTeacherDraft, monitoringSensitivity: 'high' });
   });
 
-  it('renders custom sensitivity slider structure based on wireframe layout', () => {
+  it('does not render the recording toggle or the proctoring sensitivity slider', () => {
     mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
     const wrapper = shallow(<RoomNameScreen {...baseProps} />);
 
-    expect(wrapper.find('[data-testid="sensitivity-track"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="sensitivity-range"]').exists()).toBe(true);
-    expect(wrapper.text()).toContain('Baja');
-    expect(wrapper.text()).toContain('Alta');
+    expect(wrapper.find('[data-testid="recording-toggle"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Habilitar grabación');
+    expect(wrapper.find('[data-testid="sensitivity-track"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="sensitivity-range"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Sensibilidad de proctoring');
   });
 
   it('handles teacher flow action buttons', () => {

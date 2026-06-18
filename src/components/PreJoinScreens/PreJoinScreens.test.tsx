@@ -62,7 +62,6 @@ describe('the PreJoinScreens component', () => {
       ...draft,
       displayName: 'Andres Torres',
       sessionName: 'Sesión Física 101',
-      recordingEnabled: true,
       monitoringSensitivity: 'medium',
     }));
 
@@ -84,7 +83,6 @@ describe('the PreJoinScreens component', () => {
     wrapper.find(RoomNameScreen).prop('setClassSessionDraft')((draft: any) => ({
       ...draft,
       sessionName: 'Session 1',
-      recordingEnabled: true,
       monitoringSensitivity: 'high',
     }));
     wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
@@ -103,7 +101,6 @@ describe('the PreJoinScreens component', () => {
     wrapper.find(RoomNameScreen).prop('setClassSessionDraft')((draft: any) => ({
       ...draft,
       sessionName: 'Session 1',
-      recordingEnabled: true,
       monitoringSensitivity: 'medium',
     }));
     wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
@@ -262,7 +259,6 @@ describe('the PreJoinScreens component', () => {
     wrapper.find(RoomNameScreen).prop('setClassSessionDraft')((draft: any) => ({
       ...draft,
       sessionName: 'Session 1',
-      recordingEnabled: true,
       monitoringSensitivity: 'medium',
     }));
     wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
@@ -309,7 +305,6 @@ describe('the PreJoinScreens component', () => {
     const draft = wrapper.find(RoomNameScreen).prop('classSessionDraft');
     expect(draft.role).toBe('teacher');
     expect(draft.displayName).toBe('Test User');
-    expect(draft.recordingEnabled).toBe(false);
     expect(draft.monitoringSensitivity).toBe('medium');
     expect(wrapper.find(RoomNameScreen).prop('teacherDisplayName')).toBe('Test User [Profesor]');
   });
@@ -340,7 +335,6 @@ describe('the PreJoinScreens component', () => {
       ...draft,
       displayName: 'Andres Torres',
       sessionName: 'Clase de algebra',
-      recordingEnabled: true,
       monitoringSensitivity: 'low',
     }));
     wrapper.find(RoomNameScreen).prop('onCreateClassSession')();

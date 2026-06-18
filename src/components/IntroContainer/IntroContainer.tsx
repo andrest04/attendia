@@ -458,7 +458,7 @@ const IntroContainer = (props: IntroContainerProps) => {
           <div className={classes.hero}>
             <div className={classes.heroBadge}>
               <div className={classes.heroBadgeDot} />
-              <span className={classes.heroBadgeText}>Plataforma de Videoconferencia con IA</span>
+              <span className={classes.heroBadgeText}>Plataforma de Videoconferencia</span>
             </div>
             <Typography component="h1" className={classes.heroTitle}>
               Bienvenido a <span className={classes.heroTitleAccent}>attendia</span>
