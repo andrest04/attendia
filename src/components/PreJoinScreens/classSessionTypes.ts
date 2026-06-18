@@ -6,7 +6,6 @@ export interface ClassSessionDraft {
   role: ClassSessionRole;
   displayName: string;
   sessionName: string;
-  recordingEnabled: boolean;
   monitoringSensitivity: MonitoringSensitivity;
 }
 
@@ -24,7 +23,6 @@ export function createDefaultClassSessionDraft(displayName = ''): ClassSessionDr
     role: 'teacher',
     displayName,
     sessionName: '',
-    recordingEnabled: false,
     monitoringSensitivity: 'medium',
   };
 }

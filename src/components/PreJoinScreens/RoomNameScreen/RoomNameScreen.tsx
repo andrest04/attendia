@@ -1,16 +1,5 @@
 import React, { ChangeEvent, useState } from 'react';
-import {
-  Typography,
-  makeStyles,
-  TextField,
-  Button,
-  InputLabel,
-  Theme,
-  FormControl,
-  FormLabel,
-  Box,
-  CircularProgress,
-} from '@material-ui/core';
+import { Typography, makeStyles, TextField, Button, InputLabel, Theme, Box, CircularProgress } from '@material-ui/core';
 import SecurityIcon from '@material-ui/icons/Security';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
@@ -19,7 +8,6 @@ import {
   ClassSessionAccess,
   ClassSessionDraft,
   ClassSessionRole,
-  MonitoringSensitivity,
   isClassSessionDraftReady,
 } from '../classSessionTypes';
 
@@ -166,172 +154,6 @@ const useStyles = makeStyles((theme: Theme) => ({
       color: '#353535',
       padding: 'clamp(8px, 1.3vh, 12.5px) 15.5px',
     },
-  },
-
-  // ── Recording toggle row ───────────────────────────────────────────────────────
-  recordingRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#f0f5ff',
-    border: '1px solid #e2ecf9',
-    borderRadius: 12,
-    padding: 'clamp(9px, 1.5vh, 15px) 17px',
-    marginTop: 'clamp(6px, 1.3vh, 14px)',
-  },
-  recordingLeft: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-  },
-  recordingTitle: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: 13,
-    color: '#1d2f6f',
-    lineHeight: '19.5px',
-  },
-  recordingHelper: {
-    fontFamily: 'Inter, sans-serif',
-    fontWeight: 400,
-    fontSize: 11,
-    color: '#94a3b8',
-    lineHeight: '16.5px',
-  },
-  recordingRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  },
-  toggleButton: {
-    width: 46,
-    height: 26,
-    borderRadius: 13,
-    border: 0,
-    cursor: 'pointer',
-    position: 'relative',
-    padding: 0,
-    flexShrink: 0,
-    transition: 'background-color 120ms ease',
-  },
-  toggleButtonOn: {
-    backgroundColor: '#1d6eed',
-  },
-  toggleButtonOff: {
-    backgroundColor: '#E1E3EA',
-  },
-  toggleKnob: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    boxShadow: '0px 1px 4px 0px rgba(0,0,0,0.18)',
-    position: 'absolute',
-    top: 3,
-    transition: 'left 120ms ease',
-  },
-  toggleKnobOn: {
-    left: 23,
-  },
-  toggleKnobOff: {
-    left: 3,
-  },
-  toggleLabel: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: 12,
-    lineHeight: '18px',
-  },
-  toggleLabelOn: {
-    color: '#1d6eed',
-  },
-  toggleLabelOff: {
-    color: '#94a3b8',
-  },
-
-  // ── Sensitivity slider section ─────────────────────────────────────────────────
-  sensitivitySection: {
-    marginTop: 'clamp(6px, 1.4vh, 15px)',
-    paddingBottom: 'clamp(3px, 0.8vh, 8px)',
-  },
-  sensitivityHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 'clamp(5px, 1vh, 10px)',
-  },
-  sensitivityLeft: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 2,
-  },
-  sensitivityTitle: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: 13,
-    color: '#1d2f6f',
-    lineHeight: '19.5px',
-  },
-  sensitivityHelper: {
-    fontFamily: 'Inter, sans-serif',
-    fontWeight: 400,
-    fontSize: 11,
-    color: '#94a3b8',
-    lineHeight: '16.5px',
-  },
-  sliderTrack: {
-    height: 4,
-    backgroundColor: '#e2ecf9',
-    borderRadius: 2,
-    position: 'relative',
-    margin: '0 0 4px',
-  },
-  sliderFill: {
-    height: '100%',
-    backgroundColor: '#1d6eed',
-    borderRadius: 2,
-  },
-  sliderThumb: {
-    width: 14,
-    height: 14,
-    borderRadius: '50%',
-    backgroundColor: '#1d6eed',
-    border: '2px solid #ffffff',
-    boxShadow: '0px 1px 3px rgba(29,110,237,0.35)',
-    position: 'absolute',
-    top: '50%',
-    transform: 'translate(-50%, -50%)',
-    pointerEvents: 'none',
-  },
-  nativeRangeInput: {
-    position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: 22,
-    margin: 0,
-    opacity: 0,
-    cursor: 'pointer',
-    top: -9,
-  },
-  sliderLabels: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 4,
-  },
-  sliderLabelEnd: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 400,
-    fontSize: 11,
-    color: '#94a3b8',
-    lineHeight: '16.5px',
-  },
-  sliderLabelCenter: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: 12,
-    color: '#1d6eed',
-    lineHeight: '18px',
   },
 
   // ── Primary buttons ────────────────────────────────────────────────────────────
@@ -504,18 +326,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
-const sensitivityToValue: Record<MonitoringSensitivity, number> = {
-  low: 0,
-  medium: 50,
-  high: 100,
-};
-
-function valueToSensitivity(value: number): MonitoringSensitivity {
-  if (value <= 25) return 'low';
-  if (value >= 75) return 'high';
-  return 'medium';
-}
-
 interface RoomNameScreenProps {
   name: string;
   roomName: string;
@@ -577,15 +387,6 @@ export default function RoomNameScreen({
     setClassSessionDraft(draft => ({ ...draft, sessionName: value }));
   };
 
-  const handleRecordingChange = (_event: ChangeEvent<HTMLInputElement>, checked: boolean) => {
-    setClassSessionDraft(draft => ({ ...draft, recordingEnabled: checked }));
-  };
-
-  const handleSensitivityChange = (_event: unknown, value: number | number[]) => {
-    const nextValue = Array.isArray(value) ? value[0] : value;
-    setClassSessionDraft(draft => ({ ...draft, monitoringSensitivity: valueToSensitivity(nextValue) }));
-  };
-
   const handleSwitchRole = (newRole: ClassSessionRole) => {
     setActiveRole(newRole);
     onSelectRole(newRole);
@@ -594,7 +395,6 @@ export default function RoomNameScreen({
   const hasUsername = !window.location.search.includes('customIdentity=true') && user?.displayName;
   const canCreateTeacherSession = isClassSessionDraftReady(classSessionDraft);
   const canContinueStudent = Boolean(name.trim() && studentJoinCode.trim());
-  const sensitivityValue = sensitivityToValue[classSessionDraft.monitoringSensitivity];
   void roomName;
 
   return (
@@ -661,78 +461,6 @@ export default function RoomNameScreen({
               />
             </div>
           )}
-
-          {/* Recording toggle */}
-          <FormControl component="fieldset" fullWidth>
-            <div className={classes.recordingRow}>
-              <div className={classes.recordingLeft}>
-                <FormLabel component="legend" className={classes.recordingTitle}>
-                  Habilitar grabación
-                </FormLabel>
-                <span className={classes.recordingHelper}>Guardar sesión automáticamente</span>
-              </div>
-              <div className={classes.recordingRight}>
-                <button
-                  type="button"
-                  className={`${classes.toggleButton} ${
-                    classSessionDraft.recordingEnabled ? classes.toggleButtonOn : classes.toggleButtonOff
-                  }`}
-                  role="switch"
-                  aria-checked={Boolean(classSessionDraft.recordingEnabled)}
-                  aria-label="Habilitar grabación"
-                  data-testid="recording-toggle"
-                  onClick={() =>
-                    handleRecordingChange({} as ChangeEvent<HTMLInputElement>, !classSessionDraft.recordingEnabled)
-                  }
-                >
-                  <span
-                    className={`${classes.toggleKnob} ${
-                      classSessionDraft.recordingEnabled ? classes.toggleKnobOn : classes.toggleKnobOff
-                    }`}
-                  />
-                </button>
-                <span
-                  className={`${classes.toggleLabel} ${
-                    classSessionDraft.recordingEnabled ? classes.toggleLabelOn : classes.toggleLabelOff
-                  }`}
-                >
-                  {classSessionDraft.recordingEnabled ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
-            </div>
-          </FormControl>
-
-          {/* Sensitivity slider */}
-          <div className={classes.sensitivitySection}>
-            <div className={classes.sensitivityHeader}>
-              <div className={classes.sensitivityLeft}>
-                <span className={classes.sensitivityTitle}>Sensibilidad de proctoring</span>
-                <span className={classes.sensitivityHelper}>Detección de rostros adicionales</span>
-              </div>
-            </div>
-            <div className={classes.sliderTrack} data-testid="sensitivity-track">
-              <div className={classes.sliderFill} style={{ width: `${sensitivityValue}%` }} />
-              <div className={classes.sliderThumb} style={{ left: `${sensitivityValue}%` }} />
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={50}
-                value={sensitivityValue}
-                className={classes.nativeRangeInput}
-                aria-label="Sensibilidad de monitoreo"
-                data-testid="sensitivity-range"
-                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                  handleSensitivityChange(event, Number(event.target.value))
-                }
-              />
-            </div>
-            <div className={classes.sliderLabels}>
-              <span className={classes.sliderLabelEnd}>Baja</span>
-              <span className={classes.sliderLabelCenter}>{sensitivityValue}%</span>
-              <span className={classes.sliderLabelEnd}>Alta</span>
-            </div>
-          </div>
 
           {/* Session created info */}
           {classSessionAccess && (

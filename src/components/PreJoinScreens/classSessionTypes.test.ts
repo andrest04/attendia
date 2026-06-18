@@ -15,7 +15,6 @@ describe('classSessionTypes helpers', () => {
     expect(draft.role).toBe('teacher');
     expect(draft.displayName).toBe('Teacher Name');
     expect(draft.sessionName).toBe('');
-    expect(draft.recordingEnabled).toBe(false);
     expect(draft.monitoringSensitivity).toBe('medium');
     expect(isClassSessionDraftReady(draft)).toBe(false);
   });
@@ -30,7 +29,6 @@ describe('classSessionTypes helpers', () => {
         role: 'teacher',
         displayName: 'Teacher Name',
         sessionName: 'Física 101 - Mañana',
-        recordingEnabled: true,
         monitoringSensitivity: 'high',
       },
       'https://example.org',
@@ -48,7 +46,6 @@ describe('classSessionTypes helpers', () => {
         role: 'teacher',
         displayName: 'Teacher Name',
         sessionName: 'Session: A/B?',
-        recordingEnabled: false,
         monitoringSensitivity: 'low',
       },
       'https://example.org',
