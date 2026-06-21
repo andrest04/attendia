@@ -69,6 +69,40 @@ function attentionLevel(score: number): AttentionLevel {
   return 'high';
 }
 
+// ─── Frame scheduling ─────────────────────────────────────────────────────────
+
+// requestVideoFrameCallback fires once per *new* decoded video frame, so the
+// analysis loop ticks at the camera's real cadence (~30fps) instead of the
+// display refresh (~60fps). That avoids analyzing the same frame twice and
+// feeds detectForVideo an accurate per-frame timestamp. requestAnimationFrame
+// is the fallback where rVFC is unsupported. The type is declared locally
+// (via a double-cast) to stay compatible across TS lib versions.
+interface RVFCVideo {
+  requestVideoFrameCallback(cb: (now: number, metadata: unknown) => void): number;
+  cancelVideoFrameCallback(handle: number): void;
+}
+const SUPPORTS_RVFC =
+  typeof HTMLVideoElement !== 'undefined' && 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+// Small tolerance so a target fps at/above the camera cadence analyzes every
+// frame instead of dropping to half-rate from sub-millisecond timing jitter.
+const FPS_THROTTLE_TOLERANCE_MS = 4;
+
+function scheduleVideoFrame(video: HTMLVideoElement | null, cb: () => void): number {
+  if (SUPPORTS_RVFC && video) {
+    return ((video as unknown) as RVFCVideo).requestVideoFrameCallback(() => cb());
+  }
+  return requestAnimationFrame(() => cb());
+}
+
+function cancelVideoFrame(video: HTMLVideoElement | null, handle: number | null): void {
+  if (handle === null) return;
+  if (SUPPORTS_RVFC && video) {
+    ((video as unknown) as RVFCVideo).cancelVideoFrameCallback(handle);
+  } else {
+    cancelAnimationFrame(handle);
+  }
+}
+
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -312,14 +346,15 @@ export default function AttentionLab() {
   const disposedRef = useRef(false);
 
   // Analysis control
-  const [analysisFps, setAnalysisFps] = useState(2);
+  const [analysisFps, setAnalysisFps] = useState(30);
   const [blinkThreshold, setBlinkThreshold] = useState(DEFAULT_BLINK_THRESHOLD);
 
-  // Analysis state (mutable ref — updated in rAF loop, snapshot to React state for display)
+  // Analysis state (mutable ref — updated in the frame loop, snapshot to React state for display)
   const analysisRef = useRef<AnalysisState>(freshAnalysisState());
   const perfRef = useRef<PerfState>(freshPerfState());
   const lastAnalysisTimestampRef = useRef(0);
-  const rafIdRef = useRef<number | null>(null);
+  // Handle of the pending frame callback (rVFC or rAF — see scheduleVideoFrame).
+  const frameHandleRef = useRef<number | null>(null);
 
   // Display state (React state for rendering)
   const [displayAnalysis, setDisplayAnalysis] = useState<AnalysisState>(freshAnalysisState());
@@ -377,7 +412,10 @@ export default function AttentionLab() {
     setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        // 640x360 is plenty for landmarking a single close-up face and cuts the
+        // per-inference cost vs 720p. Landmarks are normalized [0,1], so the
+        // heuristics/formula are unaffected by the capture resolution.
+        video: { width: { ideal: 640 }, height: { ideal: 360 } },
       });
       // Guard: component may have unmounted while awaiting getUserMedia.
       // If so, stop all tracks immediately so the camera light turns off.
@@ -402,10 +440,8 @@ export default function AttentionLab() {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = null;
-    }
+    cancelVideoFrame(videoRef.current, frameHandleRef.current);
+    frameHandleRef.current = null;
   }, []);
 
   // ── Draw overlay ──────────────────────────────────────────────────────────
@@ -481,13 +517,15 @@ export default function AttentionLab() {
   const runAnalysis = useCallback(() => {
     const video = videoRef.current;
     if (!video || video.paused || video.ended || !landmarkerRef.current) {
-      rafIdRef.current = requestAnimationFrame(runAnalysis);
+      frameHandleRef.current = scheduleVideoFrame(video, runAnalysis);
       return;
     }
 
     const now = performance.now();
     const intervalMs = 1000 / analysisFps;
-    const shouldAnalyze = document.visibilityState !== 'hidden' && now - lastAnalysisTimestampRef.current >= intervalMs;
+    const shouldAnalyze =
+      document.visibilityState !== 'hidden' &&
+      now - lastAnalysisTimestampRef.current >= intervalMs - FPS_THROTTLE_TOLERANCE_MS;
 
     if (shouldAnalyze) {
       lastAnalysisTimestampRef.current = now;
@@ -497,7 +535,7 @@ export default function AttentionLab() {
       try {
         result = landmarkerRef.current.detectForVideo(video, now);
       } catch {
-        rafIdRef.current = requestAnimationFrame(runAnalysis);
+        frameHandleRef.current = scheduleVideoFrame(video, runAnalysis);
         return;
       }
 
@@ -629,7 +667,7 @@ export default function AttentionLab() {
       setDisplayComponents(components);
     }
 
-    rafIdRef.current = requestAnimationFrame(runAnalysis);
+    frameHandleRef.current = scheduleVideoFrame(video, runAnalysis);
   }, [analysisFps, blinkThreshold, drawOverlay]);
 
   // ── Effects ───────────────────────────────────────────────────────────────
@@ -652,13 +690,17 @@ export default function AttentionLab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Restart rAF loop when dependencies change
+  // Restart the frame loop when dependencies change
   useEffect(() => {
     if (!cameraActive || !modelReady) return;
-    if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
-    rafIdRef.current = requestAnimationFrame(runAnalysis);
+    // Capture the node so the cleanup cancels on the same element (and to
+    // satisfy react-hooks/exhaustive-deps about reading a ref in cleanup).
+    const video = videoRef.current;
+    cancelVideoFrame(video, frameHandleRef.current);
+    frameHandleRef.current = scheduleVideoFrame(video, runAnalysis);
     return () => {
-      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+      cancelVideoFrame(video, frameHandleRef.current);
+      frameHandleRef.current = null;
     };
   }, [cameraActive, modelReady, runAnalysis]);
 
