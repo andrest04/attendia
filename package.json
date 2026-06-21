@@ -76,6 +76,7 @@
     "jest-util": "^29.7.0",
     "mocha": "^10.2.0",
     "mocha-junit-reporter": "^1.23.3",
+    "patch-package": "^8.0.1",
     "pixelmatch": "^5.1.0",
     "puppeteer": "^22.8.2",
     "react-test-renderer": "^16.12.0",
@@ -91,7 +92,7 @@
     ]
   },
   "scripts": {
-    "postinstall": "rimraf public/virtualbackground && copyfiles -f node_modules/@twilio/video-processors/dist/build/* public/virtualbackground",
+    "postinstall": "patch-package && rimraf public/virtualbackground && copyfiles -f node_modules/@twilio/video-processors/dist/build/* public/virtualbackground",
     "noisecancellation:krisp": "npm install @twilio/krisp-audio-plugin && rimraf public/noisecancellation && copyfiles -f \"node_modules/@twilio/krisp-audio-plugin/dist/*\" public/noisecancellation && copyfiles -f \"node_modules/@twilio/krisp-audio-plugin/dist/weights/*\" public/noisecancellation/weights",
     "start": "concurrently npm:server npm:dev",
     "dev": "react-scripts start",
