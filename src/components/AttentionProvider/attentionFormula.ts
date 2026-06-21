@@ -10,6 +10,14 @@ import { AttentionComponents } from './types';
  * uses the weights above. THIS SINGLE FUNCTION is the one place to change the
  * formula — do not scatter the weights anywhere else in the codebase.
  *
+ * NOTE — live pipeline uses computeLabAttentionIndex (eyes + head only):
+ *   This three-component formula is used exclusively for mockAttentionData.
+ *   The live CV pipeline (useAttentionCapture) does not measure posture today,
+ *   so AttentionProvider uses computeLabAttentionIndex(eyes, head) from
+ *   attentionHeuristics.ts for real attention indexes.  When posture becomes a
+ *   measured signal, Layer 4b can wire it in here and this function becomes the
+ *   live formula again.
+ *
  * Result is rounded to the nearest integer and clamped to [0, 100].
  */
 export function computeAttentionIndex(c: AttentionComponents): number {
