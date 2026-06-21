@@ -43,6 +43,13 @@ interface StepDef {
   title: string;
   body: string;
   callout: string;
+  /**
+   * data-testid of the real room element this step points at. The tour draws a
+   * highlight box over it (anchored at runtime via getBoundingClientRect). When
+   * the element is absent (e.g. the student shell, or a step with no target) no
+   * box is drawn — the step still renders fine.
+   */
+  anchorTestId?: string;
 }
 
 const STEPS: StepDef[] = [
@@ -53,13 +60,15 @@ const STEPS: StepDef[] = [
     body:
       'Gestiona tu cámara y micrófono desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.',
     callout: 'El área resaltada en la parte inferior es la barra de herramientas principal.',
+    anchorTestId: 'professor-room-shell-toolbar-slot',
   },
   {
     accentColor: '#10b981', // success green
     icon: <ChatIcon style={{ fontSize: 20 }} />,
     title: 'Chat y participantes',
     body: 'Usa el panel derecho para comunicarte con el profesor y ver la lista de participantes de la sesión.',
-    callout: 'El icono de mano levantada te permite solicitar turno para hablar.',
+    callout: 'El panel derecho resaltado reúne la atención del grupo, el detalle individual y el chat.',
+    anchorTestId: 'professor-room-shell-right-rail',
   },
   {
     accentColor: '#ffb800', // warning amber
@@ -67,7 +76,8 @@ const STEPS: StepDef[] = [
     title: 'Detección de atención',
     body:
       'El sistema analiza tu nivel de atención de forma local en tu dispositivo. Estos datos ayudan al profesor a entender el compromiso del grupo.',
-    callout: 'Los datos faciales NO se almacenan ni se envían a servidores externos.',
+    callout: 'El indicador resaltado muestra la atención del grupo en tiempo real.',
+    anchorTestId: 'professor-room-shell-group-gauge',
   },
   {
     accentColor: '#1d2f6f', // secondary navy
@@ -75,7 +85,7 @@ const STEPS: StepDef[] = [
     title: 'Privacidad y seguridad',
     body:
       'Toda la comunicación está cifrada con SRTP. Los tokens de sesión se generan automáticamente y expiran al cerrar la sesión.',
-    callout: 'Consulta la política de privacidad desde el pie de página.',
+    callout: 'El análisis facial corre solo en tu navegador; ninguna imagen sale de tu dispositivo.',
   },
 ];
 
@@ -93,8 +103,19 @@ const useStyles = makeStyles((theme: Theme) => ({
     justifyContent: 'center',
     padding: theme.spacing(2),
   },
+  // Highlight box drawn over the real room zone a step points at. Position
+  // (top/left/width/height) is set inline from the anchor's bounding rect.
+  spotlight: {
+    position: 'fixed',
+    borderRadius: 12,
+    border: '2px solid rgba(255, 255, 255, 0.95)',
+    boxShadow: '0 0 0 4px rgba(255, 255, 255, 0.12), 0 0 28px 6px rgba(255, 255, 255, 0.25)',
+    pointerEvents: 'none',
+    transition: 'top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease',
+  },
   modal: {
     position: 'relative',
+    zIndex: 1,
     backgroundColor: theme.palette.background.paper,
     borderRadius: 16,
     boxShadow: '0 20px 60px rgba(15, 30, 69, 0.25)',
@@ -245,13 +266,18 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.85rem',
     padding: '6px 22px',
   },
-  manualLink: {
+  // Row centers the link; the clickable area is the link itself, not the full width.
+  manualRow: {
     display: 'flex',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing(0.75),
     paddingTop: theme.spacing(2),
     paddingBottom: theme.spacing(0.5),
+  },
+  manualLink: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(0.25, 0.5),
     fontSize: '0.8rem',
     color: theme.palette.text.secondary,
     textDecoration: 'underline',
@@ -259,7 +285,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     background: 'none',
     border: 'none',
     fontFamily: 'inherit',
-    width: '100%',
     '&:hover': {
       color: theme.palette.text.primary,
     },
@@ -272,9 +297,15 @@ const useStyles = makeStyles((theme: Theme) => ({
 interface Props {
   /** Skip rendering entirely when false (mobile paths are excluded by caller). */
   enabled?: boolean;
+  /**
+   * Monotonic counter bumped by an external trigger (the professor's "Ayuda"
+   * button) to force-reopen the tour from step 0, ignoring the "already seen"
+   * localStorage flag. Starts at 0 so it never opens the tour on first mount.
+   */
+  openSignal?: number;
 }
 
-export default function OnboardingTutorial({ enabled = true }: Props) {
+export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: Props) {
   const classes = useStyles();
   const [step, setStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -284,6 +315,45 @@ export default function OnboardingTutorial({ enabled = true }: Props) {
       setIsVisible(true);
     }
   }, [enabled]);
+
+  // External re-open: each time openSignal increments, restart the tour at step 0.
+  // Guarded against the initial 0 so a fresh mount does not auto-open through this path.
+  useEffect(() => {
+    if (openSignal > 0) {
+      setStep(0);
+      setIsVisible(true);
+    }
+  }, [openSignal]);
+
+  // Bounding rect of the current step's anchor element, in viewport coords.
+  // null when the step has no anchor or the element is not on the page (e.g. the
+  // student shell) — in which case no highlight box is drawn.
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (!isVisible) {
+      setAnchorRect(null);
+      return;
+    }
+    const testId = STEPS[step].anchorTestId;
+    if (!testId) {
+      setAnchorRect(null);
+      return;
+    }
+    const measure = () => {
+      const el = document.querySelector(`[data-testid="${testId}"]`);
+      setAnchorRect(el ? el.getBoundingClientRect() : null);
+    };
+    measure();
+    // Re-measure on the next frame in case layout settles after the modal mounts,
+    // and whenever the viewport changes size.
+    const raf = requestAnimationFrame(measure);
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measure);
+    };
+  }, [isVisible, step]);
 
   const dismiss = useCallback(() => {
     markOnboardingDone();
@@ -332,6 +402,20 @@ export default function OnboardingTutorial({ enabled = true }: Props) {
       aria-label="Tutorial de bienvenida"
       data-testid="onboarding-backdrop"
     >
+      {anchorRect && (
+        <div
+          className={classes.spotlight}
+          data-testid="onboarding-spotlight"
+          style={{
+            top: anchorRect.top - 8,
+            left: anchorRect.left - 8,
+            width: anchorRect.width + 16,
+            height: anchorRect.height + 16,
+            borderColor: current.accentColor,
+            boxShadow: `0 0 0 4px ${current.accentColor}33, 0 0 28px 6px ${current.accentColor}55`,
+          }}
+        />
+      )}
       <div className={classes.modal} data-testid="onboarding-modal">
         {/* Colored left border accent */}
         <div
@@ -427,18 +511,19 @@ export default function OnboardingTutorial({ enabled = true }: Props) {
             </div>
           </div>
 
-          {/* Manual link */}
-          <button
-            className={classes.manualLink}
-            onClick={() => {
-              /* stub */
-            }}
-            aria-label="Acceder al manual completo"
-            data-testid="onboarding-manual"
-          >
-            <MonitorIcon style={{ fontSize: 15 }} />
-            Acceder al manual completo
-          </button>
+          {/* Manual link — opens the full manual in a new tab so the live room
+              (this tutorial renders inside it) is never torn down by navigation. */}
+          <div className={classes.manualRow}>
+            <button
+              className={classes.manualLink}
+              onClick={() => window.open('/manual', '_blank', 'noopener')}
+              aria-label="Acceder al manual completo"
+              data-testid="onboarding-manual"
+            >
+              <MonitorIcon style={{ fontSize: 15 }} />
+              Acceder al manual completo
+            </button>
+          </div>
         </div>
       </div>
     </div>
