@@ -38,7 +38,7 @@ import {
   FocusLostState,
   RollingWindow,
   Landmark2D,
-} from './attentionHeuristics';
+} from '../../../utils/attentionHeuristics';
 
 // ─── MediaPipe lazy import (CDN WASM, not bundled) ─────────────────────────
 // We load mediapipe at runtime to avoid CRA bundling issues with WASM.

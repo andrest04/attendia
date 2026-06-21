@@ -5,8 +5,11 @@
  * NO MediaPipe imports — functions accept plain landmark arrays and numbers.
  * Ported from the Python reference at _reference/engagement_analysis.
  *
- * HARD RULE: nothing in this file may be imported by the real video flow.
- * This module belongs to src/components/lab/ — dev-only spike code only.
+ * Graduated out of src/components/lab/ into this shared module: these pure,
+ * tested helpers are the algorithmic core of the attention pipeline and are now
+ * consumed by the real video flow (the local capture hook) as well as the
+ * AttentionLab spike. Keep this module pure — no MediaPipe, no React, no I/O —
+ * so it stays trivially unit-testable on both sides.
  */
 
 // ─── Types ───────────────────────────────────────────────────────────────────
