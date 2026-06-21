@@ -39,9 +39,9 @@ const baseAttention = {
     { time: '0:05', value: 64 },
   ],
   participants: [
-    { identity: 'Ana García', index: 85, level: 'high' as const, multiface: false },
-    { identity: 'Carlos López', index: 60, level: 'medium' as const, multiface: false },
-    { identity: 'María Torres', index: 35, level: 'low' as const, multiface: true },
+    { identity: 'Ana García', index: 85, level: 'high' as const, multiface: false, cameraOff: false },
+    { identity: 'Carlos López', index: 60, level: 'medium' as const, multiface: false, cameraOff: false },
+    { identity: 'María Torres', index: 35, level: 'low' as const, multiface: true, cameraOff: false },
   ],
   proctoringAlerts: [
     { id: 'alert-001', identity: 'María Torres', kind: 'multiface' as const, detectedAt: '10:22', confidence: 0.91 },
@@ -127,6 +127,41 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-attention-badge"]').length).toBe(2);
   });
 
+  it('shows a camera-off flag next to a camera-off student in the roster', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      participants: [
+        { identity: 'Ana García', index: 85, level: 'high' as const, multiface: false, cameraOff: false },
+        { identity: 'Carlos López', index: 91, level: 'high' as const, multiface: false, cameraOff: true },
+      ],
+    }));
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        participants={[{ identity: 'Ana García' }, { identity: 'Carlos López' }]}
+      />
+    );
+    expect(wrapper.find('[data-testid="professor-room-shell-cameraoff-flag"]').length).toBe(1);
+  });
+
+  it('suppresses the attention badge for a camera-off student', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      participants: [
+        { identity: 'Ana García', index: 85, level: 'high' as const, multiface: false, cameraOff: false },
+        { identity: 'Carlos López', index: 91, level: 'high' as const, multiface: false, cameraOff: true },
+      ],
+    }));
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        participants={[{ identity: 'Ana García' }, { identity: 'Carlos López' }]}
+      />
+    );
+    // Only Ana García (camera on) keeps the attention level badge.
+    expect(wrapper.find('[data-testid="professor-room-shell-attention-badge"]').length).toBe(1);
+  });
+
   it('renders an empty roster when no participants are provided', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
     const roster = wrapper.find('[data-testid="professor-room-shell-roster"]');
@@ -158,6 +193,52 @@ describe('ProfessorRoomShell', () => {
 
     grantButtons.first().simulate('click');
     expect(onGrantTurn).toHaveBeenCalledWith('Carlos López');
+  });
+
+  it('does not render a moderation kebab without an onMuteParticipant handler', () => {
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} participants={[{ identity: 'Ana García' }]} />);
+    expect(wrapper.find('[data-testid="professor-room-shell-roster-menu-button"]').exists()).toBe(false);
+  });
+
+  it('renders a moderation kebab for students only, never the professor', () => {
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        onMuteParticipant={jest.fn()}
+        participants={[{ identity: 'Ana García' }, { identity: 'Carlos López' }, { identity: 'Profe X [Profesor]' }]}
+      />
+    );
+    // Two students get a kebab; the professor's own row does not.
+    expect(wrapper.find('button[data-testid="professor-room-shell-roster-menu-button"]').length).toBe(2);
+  });
+
+  it('mutes a student from the roster kebab menu', () => {
+    const onMuteParticipant = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        onMuteParticipant={onMuteParticipant}
+        participants={[{ identity: 'Ana García' }]}
+      />
+    );
+    // The menu is closed until the kebab is clicked.
+    expect(wrapper.find('[data-testid="professor-room-shell-roster-menu"]').exists()).toBe(false);
+
+    wrapper
+      .find('button[data-testid="professor-room-shell-roster-menu-button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+    expect(wrapper.find('[data-testid="professor-room-shell-roster-menu"]').exists()).toBe(true);
+
+    wrapper
+      .find('button[data-testid="professor-room-shell-roster-mute"]')
+      .first()
+      .simulate('click');
+    expect(onMuteParticipant).toHaveBeenCalledWith('Ana García');
+    // Menu closes after the action.
+    wrapper.update();
+    expect(wrapper.find('[data-testid="professor-room-shell-roster-menu"]').exists()).toBe(false);
   });
 
   it('shows the group-below-threshold banner when group attention is under the threshold', () => {
@@ -215,6 +296,21 @@ describe('ProfessorRoomShell', () => {
     expect(list.text()).toContain('85');
   });
 
+  it('shows a muted camera-off state in the individual tab for a camera-off student', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      participants: [
+        { identity: 'Ana García', index: 85, level: 'high' as const, multiface: false, cameraOff: false },
+        { identity: 'Carlos López', index: 91, level: 'high' as const, multiface: false, cameraOff: true },
+      ],
+    }));
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} rightTab="individual" />);
+    const list = wrapper.find('[data-testid="professor-room-shell-individual-list"]');
+    expect(list.text()).toContain('Cámara apagada');
+    // The stale 91 percentage must not be shown for the camera-off student.
+    expect(wrapper.find('[data-testid="professor-room-shell-individual-cameraoff"]').length).toBe(1);
+  });
+
   it('renders the mocked proctoring alerts feed when proctoring is enabled', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} proctoringEnabled />);
 
@@ -223,13 +319,43 @@ describe('ProfessorRoomShell', () => {
     expect(feed.text()).toContain('Alertas de proctoring (2)');
     expect(feed.text()).toContain('María Torres');
     expect(feed.text()).toContain('Múltiples rostros');
-    expect(feed.text()).toContain('Ausente');
+    expect(feed.text()).toContain('Distraído');
     expect(feed.text()).toContain('91%');
   });
 
   it('hides the proctoring feed when proctoring is disabled', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} proctoringEnabled={false} />);
     expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').exists()).toBe(false);
+  });
+
+  it('shows camera-off copy in the proctoring modal for a camera-off alert', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      proctoringAlerts: [
+        {
+          id: 'live-cameraoff-Carlos López',
+          identity: 'Carlos López',
+          kind: 'camera-off' as const,
+          detectedAt: '10:40',
+          confidence: 1.0,
+        },
+      ],
+    }));
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} proctoringEnabled />);
+    const feed = wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]');
+    expect(feed.text()).toContain('Cámara apagada');
+
+    wrapper
+      .find('[data-testid="professor-room-shell-proctoring-feed"]')
+      .find('[role="button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+    const modal = wrapper.find('[data-testid="professor-proctoring-modal"]');
+    expect(modal.exists()).toBe(true);
+    expect(modal.text()).toContain('Cámara apagada');
+    // Multiface copy must not leak into a camera-off modal.
+    expect(modal.text()).not.toContain('Se detectaron 2 rostros');
   });
 
   it('opens the in-room report overlay from the "Ver reporte" button', () => {

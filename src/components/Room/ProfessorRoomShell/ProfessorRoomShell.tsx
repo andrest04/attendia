@@ -4,8 +4,12 @@ import { makeStyles, Theme, Slider } from '@material-ui/core';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import WarningIcon from '@material-ui/icons/Warning';
+import VideocamOffIcon from '@material-ui/icons/VideocamOff';
+import MoreVertIcon from '@material-ui/icons/MoreVert';
+import MicOffIcon from '@material-ui/icons/MicOff';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Tooltip } from 'recharts';
 import { useAttention } from '../../AttentionProvider';
+import { isTeacherIdentity } from '../../PreJoinScreens/classSessionTypes';
 import { AttentionLevel } from '../../AttentionProvider/types';
 import { levelColor, levelLabel, proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
 import SessionStatusBar from './SessionStatusBar';
@@ -22,12 +26,6 @@ const attBadgeText: Record<AttentionLevel, string> = {
   high: '#065f46',
   medium: '#7c4e00',
   low: '#991b1b',
-};
-
-const levelPercent: Record<AttentionLevel, number> = {
-  high: 85,
-  medium: 60,
-  low: 35,
 };
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -47,6 +45,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     gridTemplateColumns: '228px 1fr 280px',
     gridTemplateRows: '1fr',
     overflow: 'hidden',
+    // Narrow the fixed rails on tight desktop widths (960-1280) so the video stage
+    // keeps a usable width instead of being crushed by two full-size rails.
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: 'minmax(180px, 200px) minmax(0, 1fr) minmax(220px, 240px)',
+    },
   },
 
   // ── LEFT RAIL ──
@@ -197,6 +200,74 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 11,
     color: '#ef4444',
   },
+  cameraOffFlag: {
+    flexShrink: 0,
+    fontSize: 16,
+    color: '#6b7280',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  individualCameraOff: {
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 11,
+    color: '#6b7280',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  // Per-student moderation menu (kebab) in the roster. Hand-rolled (not MUI Menu)
+  // to stay portal-free and trivially testable, mirroring the proctoring modal.
+  rosterMenuWrap: {
+    position: 'relative',
+    flexShrink: 0,
+    display: 'flex',
+  },
+  rosterMenuButton: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#94a3b8',
+    padding: '2px 4px',
+    borderRadius: 4,
+    display: 'flex',
+    alignItems: 'center',
+    '&:hover': { backgroundColor: '#f0f5ff', color: '#1d2f6f' },
+  },
+  rosterMenuBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 15,
+  },
+  rosterMenu: {
+    position: 'absolute',
+    top: '100%',
+    right: 0,
+    marginTop: 4,
+    zIndex: 16,
+    minWidth: 150,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    border: '1px solid #e2ecf9',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+    overflow: 'hidden',
+    padding: '4px 0',
+  },
+  rosterMenuItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    width: '100%',
+    padding: '8px 12px',
+    background: 'none',
+    border: 'none',
+    textAlign: 'left' as const,
+    cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 12,
+    color: '#1d2f6f',
+    '&:hover': { backgroundColor: '#f0f5ff' },
+  },
 
   // Proctoring feed
   proctoringFeed: {
@@ -327,12 +398,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     textAlign: 'center',
     lineHeight: 1.3,
   },
-  gaugeSub: {
-    fontFamily: 'Inter, sans-serif',
-    fontSize: 10,
-    color: '#64748b',
-    textAlign: 'center',
-  },
   chartTitle: {
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 600,
@@ -424,7 +489,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: 460,
     maxWidth: '90vw',
     borderLeft: '4px solid #ffb800',
-    overflow: 'hidden',
+    // Cap height and scroll so the footer actions stay reachable on short viewports.
+    maxHeight: '90vh',
+    overflowY: 'auto',
   },
   modalHeader: {
     padding: '16px 20px 12px',
@@ -628,6 +695,8 @@ interface Props {
   handsRaised?: string[];
   /** Professor action: give the named participant the turn (clears their raised hand). */
   onGrantTurn?: (identity: string) => void;
+  /** Professor action: mute the named student's microphone (via the roster kebab menu). */
+  onMuteParticipant?: (identity: string) => void;
   /** When true, surface the proctoring alerts feed (US30). Driven by the toolbar toggle. */
   proctoringEnabled?: boolean;
 }
@@ -655,6 +724,7 @@ export default function ProfessorRoomShell({
   recording = false,
   handsRaised = [],
   onGrantTurn,
+  onMuteParticipant,
   proctoringEnabled = false,
 }: Props) {
   const classes = useStyles();
@@ -677,6 +747,9 @@ export default function ProfessorRoomShell({
   const studentCount = Math.max(0, participantCount - 1);
 
   const [isReportOpen, setIsReportOpen] = React.useState(false);
+
+  // Identity whose roster moderation (kebab) menu is currently open, or null.
+  const [openMenuIdentity, setOpenMenuIdentity] = React.useState<string | null>(null);
 
   // Proctoring modal local state
   const [proctoringModalAlert, setProctoringModalAlert] = React.useState<null | typeof proctoringAlerts[0]>(null);
@@ -719,7 +792,9 @@ export default function ProfessorRoomShell({
                 <div key={identity} className={classes.handRow}>
                   <div className={classes.handIdentityWrapper}>
                     <div className={classes.handDot} />
-                    <span className={classes.handIdentity}>{identity}</span>
+                    <span className={classes.handIdentity} title={identity}>
+                      {identity}
+                    </span>
                   </div>
                   <button type="button" className={classes.grantTurnButton} onClick={() => onGrantTurn?.(identity)}>
                     Dar turno
@@ -735,7 +810,9 @@ export default function ProfessorRoomShell({
               return (
                 <div key={participant.identity} className={classes.rosterRow}>
                   <div className={classes.rosterAvatar}>{getInitials(participant.identity)}</div>
-                  <span className={classes.rosterName}>{participant.identity}</span>
+                  <span className={classes.rosterName} title={participant.identity}>
+                    {participant.identity}
+                  </span>
                   {attention?.multiface && (
                     <span
                       className={classes.multifaceWarning}
@@ -745,7 +822,17 @@ export default function ProfessorRoomShell({
                       ⚠
                     </span>
                   )}
-                  {attention && (
+                  {attention?.cameraOff && (
+                    <span
+                      className={classes.cameraOffFlag}
+                      data-testid="professor-room-shell-cameraoff-flag"
+                      title="Cámara apagada"
+                    >
+                      <VideocamOffIcon fontSize="inherit" />
+                    </span>
+                  )}
+                  {/* Suppress the (now stale) attention level badge while the camera is off. */}
+                  {attention && !attention.cameraOff && (
                     <span
                       className={classes.attBadge}
                       data-testid="professor-room-shell-attention-badge"
@@ -756,6 +843,47 @@ export default function ProfessorRoomShell({
                     >
                       {levelLabel[attention.level]}
                     </span>
+                  )}
+                  {/* Moderation kebab — students only (never the professor's own row). */}
+                  {onMuteParticipant && !isTeacherIdentity(participant.identity) && (
+                    <div className={classes.rosterMenuWrap}>
+                      <button
+                        type="button"
+                        className={classes.rosterMenuButton}
+                        data-testid="professor-room-shell-roster-menu-button"
+                        aria-label={`Acciones para ${participant.identity}`}
+                        aria-haspopup="true"
+                        aria-expanded={openMenuIdentity === participant.identity}
+                        onClick={() =>
+                          setOpenMenuIdentity(prev => (prev === participant.identity ? null : participant.identity))
+                        }
+                      >
+                        <MoreVertIcon style={{ fontSize: 18 }} />
+                      </button>
+                      {openMenuIdentity === participant.identity && (
+                        <>
+                          <div className={classes.rosterMenuBackdrop} onClick={() => setOpenMenuIdentity(null)} />
+                          <div
+                            className={classes.rosterMenu}
+                            data-testid="professor-room-shell-roster-menu"
+                            role="menu"
+                          >
+                            <button
+                              type="button"
+                              className={classes.rosterMenuItem}
+                              data-testid="professor-room-shell-roster-mute"
+                              role="menuitem"
+                              onClick={() => {
+                                onMuteParticipant(participant.identity);
+                                setOpenMenuIdentity(null);
+                              }}
+                            >
+                              <MicOffIcon style={{ fontSize: 16 }} /> Silenciar
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               );
@@ -834,7 +962,6 @@ export default function ProfessorRoomShell({
                 <div className={classes.groupGauge} data-testid="professor-room-shell-group-gauge">
                   <GroupAttentionGauge value={groupAttention} level={attentionLevel(groupAttention)} />
                   <span className={classes.gaugeLabel}>Atención grupal</span>
-                  <span className={classes.gaugeSub}>(US24)</span>
                 </div>
 
                 {isGroupBelowThreshold && (
@@ -850,14 +977,20 @@ export default function ProfessorRoomShell({
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={timeline} margin={{ top: 4, right: 4, left: -24, bottom: 4 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2ecf9" />
-                        <XAxis dataKey="time" tick={{ fontSize: 8, fill: '#94a3b8' }} />
+                        <XAxis
+                          dataKey="time"
+                          tick={{ fontSize: 8, fill: '#94a3b8' }}
+                          minTickGap={40}
+                          interval="preserveStartEnd"
+                        />
                         <YAxis domain={[0, 100]} tick={{ fontSize: 8, fill: '#94a3b8' }} />
                         <Tooltip contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2ecf9' }} />
                         <ReferenceLine
                           y={attentionThreshold}
                           stroke="#ffb800"
                           strokeDasharray="4 4"
-                          strokeWidth={1.5}
+                          strokeWidth={1}
+                          strokeOpacity={0.5}
                         />
                         <Area
                           type="monotone"
@@ -866,7 +999,8 @@ export default function ProfessorRoomShell({
                           strokeWidth={2}
                           fill="#1d6eed"
                           fillOpacity={0.1}
-                          dot={{ r: 2, fill: '#1d6eed', strokeWidth: 0 }}
+                          dot={false}
+                          isAnimationActive={false}
                         />
                       </AreaChart>
                     </ResponsiveContainer>
@@ -885,7 +1019,23 @@ export default function ProfessorRoomShell({
             ) : rightTab === 'individual' ? (
               <div data-testid="professor-room-shell-individual-list">
                 {sortedParticipants.map(participant => {
-                  const pct = levelPercent[attentionLevel(participant.index)];
+                  if (participant.cameraOff) {
+                    // Camera off → no live attention. Show a muted state, never the stale value.
+                    return (
+                      <div key={participant.identity} className={classes.individualRow}>
+                        <div className={classes.individualHeader}>
+                          <span>{participant.identity}</span>
+                        </div>
+                        <span
+                          className={classes.individualCameraOff}
+                          data-testid="professor-room-shell-individual-cameraoff"
+                        >
+                          <VideocamOffIcon fontSize="inherit" /> Cámara apagada
+                        </span>
+                      </div>
+                    );
+                  }
+                  const pct = Math.max(0, Math.min(100, participant.index));
                   return (
                     <div key={participant.identity} className={classes.individualRow}>
                       <div className={classes.individualHeader}>
@@ -917,7 +1067,9 @@ export default function ProfessorRoomShell({
               <div className={classes.modalHeaderLeft}>
                 <div className={classes.modalHeaderIcon}>⚠️</div>
                 <div>
-                  <div className={classes.modalTitle}>Detección múltiple de rostros</div>
+                  <div className={classes.modalTitle}>
+                    {proctoringModalAlert.kind === 'camera-off' ? 'Cámara apagada' : 'Detección múltiple de rostros'}
+                  </div>
                   <div className={classes.modalCaption}>Proctoring</div>
                 </div>
               </div>
@@ -941,9 +1093,18 @@ export default function ProfessorRoomShell({
                   <div className={classes.alertBox}>
                     <WarningIcon className={classes.alertBoxIcon} style={{ fontSize: 14, color: '#ffb800' }} />
                     <span className={classes.alertBoxText}>
-                      Se detectaron 2 rostros en la cámara de {proctoringModalAlert.identity} · Detectado a la{' '}
-                      {proctoringModalAlert.detectedAt} · Confianza: {Math.round(proctoringModalAlert.confidence * 100)}
-                      %
+                      {proctoringModalAlert.kind === 'camera-off' ? (
+                        <>
+                          {proctoringModalAlert.identity} apagó su cámara. No hay datos de atención mientras la cámara
+                          esté apagada · Detectado a la {proctoringModalAlert.detectedAt}
+                        </>
+                      ) : (
+                        <>
+                          Se detectaron 2 rostros en la cámara de {proctoringModalAlert.identity} · Detectado a la{' '}
+                          {proctoringModalAlert.detectedAt} · Confianza:{' '}
+                          {Math.round(proctoringModalAlert.confidence * 100)}%
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>

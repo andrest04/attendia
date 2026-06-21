@@ -5,9 +5,11 @@ import { useLocation } from 'react-router-dom';
 import { useAppState } from '../../state';
 import UserMenu from './UserMenu/UserMenu';
 
+const mockHistoryPush = jest.fn();
 jest.mock('react-router-dom', () => {
   return {
     useLocation: jest.fn(),
+    useHistory: () => ({ push: mockHistoryPush }),
   };
 });
 jest.mock('../../state');
@@ -66,5 +68,37 @@ describe('the IntroContainer component', () => {
     );
 
     expect(wrapper.find('[data-testid="child-content"]').text()).toBe('Test Content');
+  });
+
+  describe('the header logo "go home" control', () => {
+    beforeEach(() => {
+      mockHistoryPush.mockClear();
+      mockUseLocation.mockImplementation(() => ({ pathname: '/room/prueba' }));
+      mockUseAppState.mockImplementation(() => ({ user: undefined }));
+    });
+
+    it('navigates to the lobby carrying the role when the logo is clicked', () => {
+      const wrapper = shallow(
+        <IntroContainer homeRole="student">
+          <span>Test Content</span>
+        </IntroContainer>
+      );
+
+      wrapper.find('button[aria-label="Ir al inicio"]').simulate('click');
+
+      expect(mockHistoryPush).toHaveBeenCalledWith({ pathname: '/', state: { preJoinRole: 'student' } });
+    });
+
+    it('navigates to the lobby without role state when homeRole is not provided', () => {
+      const wrapper = shallow(
+        <IntroContainer>
+          <span>Test Content</span>
+        </IntroContainer>
+      );
+
+      wrapper.find('button[aria-label="Ir al inicio"]').simulate('click');
+
+      expect(mockHistoryPush).toHaveBeenCalledWith({ pathname: '/', state: undefined });
+    });
   });
 });

@@ -77,4 +77,22 @@ describe('StudentRoomShell', () => {
     expect(wrapper.find('[data-testid="student-room-shell-tab-attention"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').prop('aria-pressed')).toBe(true);
   });
+
+  it('collapses and reopens the chat panel via the chat tab, keeping the toggle always visible', () => {
+    const wrapper = shallow(
+      <StudentRoomShell stage={<div>stage</div>} rightPanel={<div data-testid="right-panel-content">panel</div>} />
+    );
+
+    expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(true);
+
+    // Collapse: panel content hidden, but the toggle button stays so it can be reopened.
+    wrapper.find('[data-testid="student-room-shell-tab-chat"]').simulate('click');
+    expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').prop('aria-pressed')).toBe(false);
+
+    // Reopen.
+    wrapper.find('[data-testid="student-room-shell-tab-chat"]').simulate('click');
+    expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(true);
+  });
 });

@@ -2,7 +2,7 @@ import React from 'react';
 import { makeStyles, Theme, Typography } from '@material-ui/core';
 import { useAppState } from '../../state';
 import UserMenu from './UserMenu/UserMenu';
-import { useLocation } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -94,6 +94,17 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     gap: 8,
     textDecoration: 'none',
+    // Rendered as a <button> so the logo can act as a "go home" control.
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    font: 'inherit',
+    '&:focus-visible': {
+      outline: '2px solid #1d6eed',
+      outlineOffset: 4,
+      borderRadius: 6,
+    },
   },
   logoIcon: {
     width: 32,
@@ -216,9 +227,21 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    paddingTop: 'clamp(10px, 2.2vh, 26px)',
+    paddingTop: 'clamp(8px, 1.6vh, 18px)',
     paddingBottom: 'clamp(8px, 2vh, 24px)',
     width: '100%',
+    // On short viewports keep a compact title (the page's only <h1>) instead of
+    // hiding the whole hero — only the decorative logo/badge/subtitle drop out.
+    '@media (max-height: 760px)': {
+      paddingTop: 4,
+      paddingBottom: 6,
+    },
+  },
+  // Standalone isotype (logo only — no wordmark) shown above the welcome badge.
+  heroLogo: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: 'clamp(4px, 0.9vh, 10px)',
     '@media (max-height: 760px)': {
       display: 'none',
     },
@@ -260,6 +283,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     lineHeight: 1.25,
     textAlign: 'center',
     marginBottom: 0,
+    '@media (max-height: 760px)': {
+      fontSize: 20,
+      letterSpacing: '-0.6px',
+    },
   },
   heroTitleAccent: {
     color: '#1d6eed',
@@ -380,13 +407,25 @@ interface IntroContainerProps {
   // Pre-session header variant: shows "Clase: <name>" centered and a "Pre-sesión"
   // pill instead of the info chips (Figma waiting-room header).
   headerRoomName?: string;
+  // Role carried when the header logo is clicked to go "home" (the lobby). Sent as
+  // location.state.preJoinRole so the lobby reopens on the right role card. Role is a
+  // client-set value (no server field), so it must travel with the navigation.
+  homeRole?: 'teacher' | 'student';
 }
 
 const IntroContainer = (props: IntroContainerProps) => {
   const classes = useStyles();
   const { user } = useAppState();
   const location = useLocation();
+  const history = useHistory();
   const rootRef = React.useRef<HTMLDivElement>(null);
+
+  // The header logo doubles as a "go home" control: it returns to the lobby (root) for the
+  // current role. Navigating to '/' remounts PreJoinScreens at the room-name step, and the
+  // role is preserved via location.state (mirrors how LoginPage seeds the role).
+  const goHome = () => {
+    history.push({ pathname: '/', state: props.homeRole ? { preJoinRole: props.homeRole } : undefined });
+  };
 
   // The root container scrolls (overflow: auto) and keeps its scroll position when the
   // prejoin flow swaps steps inside it (lobby -> device check), leaving the header
@@ -410,10 +449,10 @@ const IntroContainer = (props: IntroContainerProps) => {
 
       {/* Header */}
       <div className={classes.header}>
-        {/* attendia logo */}
-        <div className={classes.logoMark}>
+        {/* attendia logo — doubles as a "go home" (lobby) control */}
+        <button type="button" className={classes.logoMark} onClick={goHome} aria-label="Ir al inicio">
           <AttendiaLogo variant="full" size={32} />
-        </div>
+        </button>
 
         {props.headerRoomName && (
           <span className={classes.headerClassLabel}>
@@ -456,6 +495,9 @@ const IntroContainer = (props: IntroContainerProps) => {
       <div className={`${classes.main}${props.noHero ? ` ${classes.mainNoHero}` : ''}`}>
         {!props.noHero && (
           <div className={classes.hero}>
+            <div className={classes.heroLogo}>
+              <AttendiaLogo variant="icon" size={46} />
+            </div>
             <div className={classes.heroBadge}>
               <div className={classes.heroBadgeDot} />
               <span className={classes.heroBadgeText}>Plataforma de Videoconferencia</span>
