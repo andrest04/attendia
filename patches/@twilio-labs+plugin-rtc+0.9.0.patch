@@ -1,0 +1,55 @@
+diff --git a/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js b/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js
+index 00935b1..952eb52 100644
+--- a/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js
++++ b/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js
+@@ -69,8 +69,49 @@ module.exports.handler = async (context, event, callback) => {
+       // See if a room already exists
+       room = await client.video.rooms(room_name).fetch();
+     } catch (e) {
++      // Classroom access guard, ported to the serverless deploy path from
++      // server/roomAccessGuard.ts (the Express guard only runs for `npm start`,
++      // NOT for `deploy:twilio-cli`). A student — an identity WITHOUT the teacher
++      // suffix — may only join a room a teacher has already opened, so a missing
++      // room must not be created on their behalf. Teachers fall through and create.
++      //
++      // IMPORTANT: this only holds if "Client-side Room Creation" is DISABLED in the
++      // Twilio Console Room Settings. Otherwise Video.connect() materialises the room
++      // ad-hoc without ever calling this function and the guard is bypassed.
++      //
++      // The suffix below mirrors TEACHER_DISPLAY_SUFFIX / isTeacherIdentity in
++      // src/components/PreJoinScreens/classSessionTypes.ts and server/roomAccessGuard.ts.
++      // Keep all three in sync. This is a UX guardrail, NOT a security boundary: the
++      // role is the client-set identity suffix and is trivially spoofable.
++      const isTeacherIdentity =
++        typeof user_identity === 'string' &&
++        user_identity
++          .trim()
++          .toLowerCase()
++          .endsWith('[profesor]');
++
++      if (!isTeacherIdentity) {
++        // A 404 means the room is not open; any other lookup error is treated as a
++        // verification failure and fails closed (503), matching roomExists.ts.
++        const roomIsClosed = e && e.status === 404;
++        response.setStatusCode(roomIsClosed ? 403 : 503);
++        response.setBody({
++          error: roomIsClosed
++            ? {
++                message: 'room not found',
++                explanation:
++                  'La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.',
++              }
++            : {
++                message: 'room verification failed',
++                explanation: 'No pudimos verificar la sala. Intentá de nuevo en unos segundos.',
++              },
++        });
++        return callback(null, response);
++      }
++
+       try {
+-        // If room doesn't exist, create it
++        // If room doesn't exist, create it (only teachers reach this point)
+         room = await client.video.rooms.create({ uniqueName: room_name, type: ROOM_TYPE });
+       } catch (e) {
+         console.error('Error creating room:');
