@@ -117,6 +117,8 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
   const fakeRoom = { name: 'test-room', localParticipant: { identity: 'student-a' } };
 
   beforeEach(() => {
+    // Live pipeline requires the production kill-switch flag to be ON.
+    process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
     // Simulate: we are on desktop (not mobile), room is present, capture is active.
     mockUseMediaQuery.mockReturnValue(false); // false = not mobile = desktop
     mockUseVideoContext.mockReturnValue({ room: fakeRoom, localTracks: [] });
@@ -131,6 +133,10 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
       { identity: 'student-b', index: 80, multiface: false, faces: 1 },
       { identity: 'student-c', index: 30, multiface: true, faces: 2 },
     ]);
+  });
+
+  afterEach(() => {
+    delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
   });
 
   it('exposes source "live" when room is present and capture is active', () => {
@@ -195,6 +201,14 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     // have one seeded point — either is valid as long as length >= 0).
     const { result } = renderHook(useAttention, { wrapper });
     expect(Array.isArray(result.current.timeline)).toBe(true);
+  });
+
+  it('KILL-SWITCH: falls back to mock when REACT_APP_ENABLE_ATTENTION_CV is off, even on desktop with a room', () => {
+    // The legal gate: without the flag, real biometric analysis must NOT run,
+    // regardless of desktop + room + active capture.
+    delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.source).toBe('mock');
   });
 });
 
