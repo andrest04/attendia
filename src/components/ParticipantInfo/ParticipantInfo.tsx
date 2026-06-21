@@ -26,6 +26,8 @@ const borderWidth = 2;
 export interface ParticipantTileAttention {
   level: AttentionLevel;
   multiface: boolean;
+  /** When true, the camera is off and the level is stale → suppress the badge. */
+  cameraOff?: boolean;
 }
 
 // Attendia design: attention badge uses colored background pill (not solid color).
@@ -291,16 +293,20 @@ export default function ParticipantInfo({
                 Multi-rostro
               </span>
             )}
-            <span
-              className={classes.attentionLevelBadge}
-              data-testid="participant-attention-overlay"
-              style={{
-                backgroundColor: attBadgeBg[attention.level],
-                color: attBadgeText[attention.level],
-              }}
-            >
-              {attentionShortLabel[attention.level]}
-            </span>
+            {/* Suppress the (stale) attention level badge while the camera is off.
+                The tile already shows the avatar placeholder natively. */}
+            {!attention.cameraOff && (
+              <span
+                className={classes.attentionLevelBadge}
+                data-testid="participant-attention-overlay"
+                style={{
+                  backgroundColor: attBadgeBg[attention.level],
+                  color: attBadgeText[attention.level],
+                }}
+              >
+                {attentionShortLabel[attention.level]}
+              </span>
+            )}
           </>
         )}
         <NetworkQualityLevel participant={participant} />

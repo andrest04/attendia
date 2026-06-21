@@ -14,6 +14,8 @@ interface UseNotificationToastsArgs {
   isRecording: boolean;
   /** Increments each time the professor grants THIS participant the turn. */
   turnGrantedCount: number;
+  /** Increments each time the professor mutes THIS participant's microphone. */
+  mutedByProfessorCount: number;
 }
 
 /** Strip the teacher identity suffix so toasts show a clean display name. */
@@ -25,7 +27,8 @@ function displayName(identity: string): string {
  * Fires transient toast notifications with a CURATED, role-aware policy so the
  * same raw room events surface only where they matter:
  *
- * - Student: the professor joining/leaving, "es tu turno", and recording on/off.
+ * - Student: the professor joining/leaving, "es tu turno", recording on/off, and
+ *   being muted by the professor.
  *   (Classmates joining/leaving go to the panel log, not toasts; the student's own
  *   raise-hand is not toasted — it is redundant noise.)
  * - Professor: students joining/leaving and raising their hand.
@@ -40,6 +43,7 @@ export default function useNotificationToasts({
   raisedHands,
   isRecording,
   turnGrantedCount,
+  mutedByProfessorCount,
 }: UseNotificationToastsArgs) {
   const { enqueueSnackbar } = useSnackbar();
 
@@ -120,4 +124,15 @@ export default function useNotificationToasts({
     prevTurnCount.current = turnGrantedCount;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turnGrantedCount, isTeacher]);
+
+  // ── Muted by professor (student only) ─────────────────────────────────────────
+  const prevMutedCount = useRef<number>(mutedByProfessorCount);
+
+  useEffect(() => {
+    if (!isTeacher && mutedByProfessorCount > prevMutedCount.current) {
+      notify('El profesor silenció tu micrófono', 'warning');
+    }
+    prevMutedCount.current = mutedByProfessorCount;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mutedByProfessorCount, isTeacher]);
 }
