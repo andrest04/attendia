@@ -100,11 +100,11 @@ const sections: SecuritySection[] = [
     status: 'en-desarrollo',
     title: 'Datos faciales — Procesamiento local',
     description:
-      'El análisis de atención basado en visión por computadora (detección de rostro, análisis de postura, detección de parpadeo, dirección de mirada) está EN DESARROLLO. Está diseñado para ejecutarse exclusivamente en el dispositivo del usuario. Ningún dato facial, imagen o modelo derivado se transmitiría ni almacenaría en servidores externos. Esta función aún no está disponible.',
+      'El análisis de atención por visión por computadora se ejecuta exclusivamente en el dispositivo del usuario: la detección de rostro, la dirección de la mirada y la orientación de la cabeza se procesan localmente en el navegador. El análisis de postura aún está EN DESARROLLO. Ninguna imagen ni dato facial abandona el dispositivo: solo se transmiten índices numéricos agregados de atención. Esta función permanece deshabilitada de forma predeterminada y no se activa sin el consentimiento del participante.',
     bullets: [
-      'Diseñado para procesarse localmente en el navegador del usuario',
-      'El procesamiento de IA nunca abandonaría el dispositivo',
-      'Solo se transmitirían índices numéricos agregados de atención',
+      'El procesamiento de IA se realiza localmente y nunca abandona el dispositivo',
+      'Solo se transmiten índices numéricos agregados de atención, nunca imágenes',
+      'Deshabilitada por defecto; requiere el consentimiento del participante para activarse',
     ],
   },
   {

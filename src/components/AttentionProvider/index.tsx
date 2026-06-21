@@ -87,9 +87,17 @@ export const AttentionProvider: React.FC = ({ children }) => {
 
   const { room, localTracks } = useVideoContext();
 
+  // Production kill-switch (LEGAL GATE): the live CV pipeline performs real
+  // biometric analysis of students, so it is OFF unless REACT_APP_ENABLE_ATTENTION_CV
+  // is explicitly 'true'. This prevents the live pipeline from reaching production
+  // by accident before a student CONSENT flow exists (consent is still pending —
+  // see SecurityPage and the project graduation notes). Read per-render (not a
+  // module constant) so tests can toggle it.
+  const cvPipelineEnabled = process.env.REACT_APP_ENABLE_ATTENTION_CV === 'true';
+
   // Pipeline is desktop-only: never activate on mobile.
   const isDesktop = !isMobile;
-  const isActive = Boolean(room) && isDesktop;
+  const isActive = cvPipelineEnabled && Boolean(room) && isDesktop;
 
   // Extract the local camera track the same way VideoProvider does.
   // Passing `undefined` keeps useAttentionCapture inactive (no MediaPipe load).
