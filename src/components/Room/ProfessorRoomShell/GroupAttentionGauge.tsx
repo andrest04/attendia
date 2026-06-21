@@ -22,7 +22,7 @@ interface Props {
 }
 
 /**
- * Circular SVG gauge for the group attention index (US24). The arc color
+ * Circular SVG gauge for the group attention index. The arc color
  * reflects the attention level (green=high, amber=medium, red=low).
  */
 export default function GroupAttentionGauge({ value, level, size = 140 }: Props) {

@@ -30,5 +30,6 @@ export const levelShortLabel: Record<AttentionLevel, string> = {
 export const proctoringKindLabel: Record<ProctoringAlert['kind'], string> = {
   multiface: 'Múltiples rostros',
   absent: 'Sin presencia',
-  away: 'Ausente',
+  away: 'Distraído',
+  'camera-off': 'Cámara apagada',
 };

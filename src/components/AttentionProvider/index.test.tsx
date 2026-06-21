@@ -130,8 +130,8 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
       multiface: false,
     });
     mockUseAttentionTelemetry.mockReturnValue([
-      { identity: 'student-b', index: 80, multiface: false, faces: 1 },
-      { identity: 'student-c', index: 30, multiface: true, faces: 2 },
+      { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
+      { identity: 'student-c', index: 30, multiface: true, faces: 2, cameraOff: false },
     ]);
   });
 
@@ -174,14 +174,122 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     expect(result.current.groupAttention).toBe(0);
   });
 
-  it('derives a proctoring alert for each remote participant with multiface=true', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    const { proctoringAlerts } = result.current;
-    // student-c has multiface=true
-    expect(proctoringAlerts.length).toBe(1);
-    expect(proctoringAlerts[0].identity).toBe('student-c');
-    expect(proctoringAlerts[0].kind).toBe('multiface');
-    expect(proctoringAlerts[0].id).toContain('student-c');
+  it('logs a multiface proctoring alert once the condition survives the debounce', () => {
+    // The feed is an event LOG sampled on an interval — an alert appears only
+    // after the condition holds for PROCTORING_DEBOUNCE_SAMPLES (2) samples, not
+    // synchronously on first render.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:22:00Z'));
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      // Nothing yet — the debounce window has not elapsed.
+      expect(result.current.proctoringAlerts.length).toBe(0);
+      act(() => {
+        jest.advanceTimersByTime(2000); // two samples → debounce cleared
+      });
+      const { proctoringAlerts } = result.current;
+      // student-c has multiface=true (faces=2)
+      expect(proctoringAlerts.length).toBe(1);
+      expect(proctoringAlerts[0].identity).toBe('student-c');
+      expect(proctoringAlerts[0].kind).toBe('multiface');
+      expect(proctoringAlerts[0].id).toContain('student-c');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not log until the condition outlives the debounce window (anti-flicker)', () => {
+    jest.useFakeTimers();
+    try {
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(1000); // a single sample — below the debounce
+      });
+      expect(result.current.proctoringAlerts.length).toBe(0);
+      act(() => {
+        jest.advanceTimersByTime(1000); // second consecutive sample → logs
+      });
+      expect(result.current.proctoringAlerts.length).toBe(1);
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('stamps detectedAt when the alert is logged and keeps it stable afterwards', () => {
+    // detectedAt captures the instant the event is logged (after the debounce),
+    // and must NOT drift forward while the same condition persists.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:22:00Z')); // TZ=utc → "10:22"
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000); // logs at ~10:22
+      });
+      expect(result.current.proctoringAlerts[0].detectedAt).toBe('10:22');
+
+      // Clock moves forward; student-c is still multiface — no new event, same stamp.
+      act(() => {
+        jest.setSystemTime(new Date('2026-06-20T10:25:00Z'));
+        jest.advanceTimersByTime(3000);
+      });
+      expect(result.current.proctoringAlerts.length).toBe(1);
+      expect(result.current.proctoringAlerts[0].detectedAt).toBe('10:22');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps a logged alert after its condition clears and appends a fresh event on recurrence', () => {
+    // The feed is HISTORY: an alert is NOT removed when the condition resolves
+    // (e.g. the student fixes their framing). A later recurrence appends a NEW
+    // event with a NEW timestamp instead of mutating the old one.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:22:00Z'));
+      const { result, rerender, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(result.current.proctoringAlerts.length).toBe(1);
+      expect(result.current.proctoringAlerts[0].detectedAt).toBe('10:22');
+
+      // Multiface clears for everyone (and attention recovers → no 'away' either).
+      // rerender() runs OUTSIDE act (it self-wraps in act) so the telemetry ref is
+      // refreshed BEFORE the interval ticks read it — matching this file's pattern.
+      mockUseAttentionTelemetry.mockReturnValue([
+        { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
+        { identity: 'student-c', index: 80, multiface: false, faces: 1, cameraOff: false },
+      ]);
+      jest.setSystemTime(new Date('2026-06-20T10:25:00Z'));
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      // The original event is still in the feed — history is never erased.
+      expect(result.current.proctoringAlerts.length).toBe(1);
+      expect(result.current.proctoringAlerts[0].detectedAt).toBe('10:22');
+
+      // Multiface returns for student-c at a new time → a NEW event is appended.
+      mockUseAttentionTelemetry.mockReturnValue([
+        { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
+        { identity: 'student-c', index: 30, multiface: true, faces: 2, cameraOff: false },
+      ]);
+      jest.setSystemTime(new Date('2026-06-20T10:30:00Z'));
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(result.current.proctoringAlerts.length).toBe(2);
+      const latest = result.current.proctoringAlerts[result.current.proctoringAlerts.length - 1];
+      expect(latest.kind).toBe('multiface');
+      expect(latest.detectedAt).toBe('10:30');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('self reflects the capture hook result with posture marked as not-measured (-1)', () => {
@@ -201,6 +309,223 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     // have one seeded point — either is valid as long as length >= 0).
     const { result } = renderHook(useAttention, { wrapper });
     expect(Array.isArray(result.current.timeline)).toBe(true);
+  });
+
+  it('accumulates timeline points at ~1 Hz so the chart moves fluidly, not in 5 s steps', () => {
+    // Fluidity #2: the render cadence drives a new point every second (not every
+    // 5 s). Denser points + monotone interpolation make the curve advance smoothly.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:00:00Z'));
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      const seededLength = result.current.timeline.length; // one immediate seed point
+
+      act(() => {
+        jest.advanceTimersByTime(3000); // three seconds
+      });
+
+      // At 1 Hz, ~3 more points should have been pushed in 3 seconds.
+      expect(result.current.timeline.length).toBeGreaterThanOrEqual(seededLength + 2);
+      // Unmount under fake timers so the interval is cleared before we hand control
+      // back to real timers — otherwise a live interval leaks into the next test.
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('timeline value tracks the CURRENT group average, not a stale empty snapshot (regression)', () => {
+    // Bug: push() closed over remoteAttention from the render where isActive
+    // flipped true (empty at that instant), so every interval tick wrote 0 even
+    // after remotes arrived — the gauge read 91 while the chart sat flat at 0.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:00:00Z'));
+      // Start with NO remotes (telemetry has not aggregated yet).
+      mockUseAttentionTelemetry.mockReturnValue([]);
+      const { result, rerender, unmount } = renderHook(useAttention, { wrapper });
+
+      // Remotes arrive after activation: one participant at index 90.
+      mockUseAttentionTelemetry.mockReturnValue([
+        { identity: 'student-b', index: 90, multiface: false, faces: 1, cameraOff: false },
+      ]);
+      // Re-render (library wraps this in act) so the latest-value ref picks up the
+      // new telemetry, THEN advance the timer so the interval tick reads it.
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(1000); // one tick AFTER the remote arrived
+      });
+
+      const last = result.current.timeline[result.current.timeline.length - 1];
+      expect(last.value).toBe(90);
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('tracks per-student index history (min/max/avg) over the session', () => {
+    // The per-student report detail needs each student's lowest, highest, and
+    // time-averaged index — accumulated at 1 Hz from their telemetry, not just
+    // the latest snapshot.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-21T10:00:00Z'));
+      const one = (index: number) => [{ identity: 'student-x', index, multiface: false, faces: 1, cameraOff: false }];
+
+      mockUseAttentionTelemetry.mockReturnValue(one(50));
+      const { result, rerender, unmount } = renderHook(useAttention, { wrapper }); // seed sample: 50
+
+      mockUseAttentionTelemetry.mockReturnValue(one(90));
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(1000); // sample: 90
+      });
+
+      mockUseAttentionTelemetry.mockReturnValue(one(70));
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(1000); // sample: 70
+      });
+
+      const sx = result.current.participants.find(p => p.identity === 'student-x')!;
+      expect(sx.indexMin).toBe(50);
+      expect(sx.indexMax).toBe(90);
+      expect(sx.indexAvg).toBe(70); // (50 + 90 + 70) / 3
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('labels live timeline points with second-level resolution (HH:MM:SS)', () => {
+    // Fluidity #3: HH:MM labels collapse all points of the same minute onto one
+    // tick, which reads as a flat step. Second-level labels let the axis advance.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:00:07Z')); // TZ=utc → "10:00:07"
+      const { result } = renderHook(useAttention, { wrapper });
+      expect(result.current.timeline[0].time).toMatch(/^\d{2}:\d{2}:\d{2}$/);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps proctoring alert detectedAt at minute resolution (HH:MM), not seconds', () => {
+    // The timeline gained seconds, but alert timestamps must stay HH:MM — a
+    // proctoring event is reported by the minute, and existing tests depend on it.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:22:33Z'));
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(result.current.proctoringAlerts[0].detectedAt).toBe('10:22');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('logs an "absent" alert when a participant has the camera on but no face detected', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 0, multiface: false, faces: 0, cameraOff: false },
+    ]);
+    jest.useFakeTimers();
+    try {
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      const alert = result.current.proctoringAlerts.find(a => a.kind === 'absent');
+      expect(alert).toBeDefined();
+      expect(alert!.identity).toBe('student-b');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('logs an "away" alert when a single-face participant has sustained low attention', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 20, multiface: false, faces: 1, cameraOff: false },
+    ]);
+    jest.useFakeTimers();
+    try {
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      const alert = result.current.proctoringAlerts.find(a => a.kind === 'away');
+      expect(alert).toBeDefined();
+      expect(alert!.identity).toBe('student-b');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps only the last 3 events when more conditions fire than the feed holds', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 's1', index: 0, multiface: false, faces: 0, cameraOff: false },
+      { identity: 's2', index: 0, multiface: false, faces: 0, cameraOff: false },
+      { identity: 's3', index: 0, multiface: false, faces: 0, cameraOff: false },
+      { identity: 's4', index: 0, multiface: false, faces: 0, cameraOff: false },
+    ]);
+    jest.useFakeTimers();
+    try {
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(result.current.proctoringAlerts.length).toBe(3);
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('excludes a camera-off participant from the group average', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
+      { identity: 'student-c', index: 91, multiface: false, faces: 1, cameraOff: true },
+    ]);
+    const { result } = renderHook(useAttention, { wrapper });
+    // Only the camera-on participant (80) counts; the stale 91 is excluded.
+    expect(result.current.groupAttention).toBe(80);
+  });
+
+  it('camera-off participant carries cameraOff:true in participants[]', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
+      { identity: 'student-c', index: 91, multiface: false, faces: 1, cameraOff: true },
+    ]);
+    const { result } = renderHook(useAttention, { wrapper });
+    const studentC = result.current.participants.find(p => p.identity === 'student-c');
+    expect(studentC).toBeDefined();
+    expect(studentC!.cameraOff).toBe(true);
+  });
+
+  it('emits a camera-off proctoring alert for a cameraOff participant', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
+      { identity: 'student-c', index: 91, multiface: false, faces: 1, cameraOff: true },
+    ]);
+    jest.useFakeTimers();
+    try {
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      const cameraOffAlert = result.current.proctoringAlerts.find(a => a.kind === 'camera-off');
+      expect(cameraOffAlert).toBeDefined();
+      expect(cameraOffAlert!.identity).toBe('student-c');
+      expect(cameraOffAlert!.id).toContain('student-c');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('KILL-SWITCH: falls back to mock when REACT_APP_ENABLE_ATTENTION_CV is off, even on desktop with a room', () => {

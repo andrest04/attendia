@@ -28,11 +28,22 @@ export interface SelfAttention {
 export interface ParticipantAttention {
   /** Maps to the Twilio participant identity string. */
   identity: string;
-  /** Aggregate attention index 0-100. */
+  /** Aggregate attention index 0-100 (latest sample). */
   index: number;
   level: AttentionLevel;
   /** Proctoring flag: more than one face detected in frame. */
   multiface: boolean;
+  /** True when the participant's camera is off (no attention data; value is stale/absent). */
+  cameraOff: boolean;
+  /**
+   * Session history of the index, accumulated at the sampling cadence while the
+   * camera is on. Optional: present on live data and the mock; absent in ad-hoc
+   * fixtures, where consumers fall back to `index`.
+   */
+  indexMin?: number;
+  indexMax?: number;
+  /** Time-averaged index over the session (rounded). */
+  indexAvg?: number;
 }
 
 /** A single data point on the group-attention timeline (for recharts). */
@@ -45,7 +56,7 @@ export interface AttentionTimelinePoint {
 export interface ProctoringAlert {
   id: string;
   identity: string;
-  kind: 'multiface' | 'absent' | 'away';
+  kind: 'multiface' | 'absent' | 'away' | 'camera-off';
   detectedAt: string;
   /** Confidence score 0-1. */
   confidence: number;

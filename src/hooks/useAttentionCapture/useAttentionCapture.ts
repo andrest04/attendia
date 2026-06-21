@@ -115,7 +115,9 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
 
     // Reset per-run analysis state.
     analysisRef.current = freshAnalysisState();
-    let intervalId: ReturnType<typeof window.setInterval> | null = null;
+    // window.setInterval returns a number in the browser; type it explicitly so
+    // it doesn't pick up @types/node's NodeJS.Timeout overload.
+    let intervalId: number | null = null;
 
     // ── Load FaceLandmarker lazily (WASM, not bundled) ──────────────────────
     // Dynamic import mirrors AttentionLab exactly to avoid CRA WASM bundling issues.
