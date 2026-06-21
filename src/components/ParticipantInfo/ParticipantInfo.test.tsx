@@ -237,6 +237,22 @@ describe('the ParticipantInfo component', () => {
     expect(flag.text()).toContain('Multi-rostro');
   });
 
+  it('should suppress the attention level badge when the camera is off', () => {
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo
+        onClick={() => {}}
+        isSelected={false}
+        participant={{ identity: 'mockIdentity' } as any}
+        attention={{ level: 'high', multiface: false, cameraOff: true }}
+      >
+        mock children
+      </ParticipantInfo>
+    );
+    // The stale level badge must not render while the camera is off.
+    expect(wrapper.find('[data-testid="participant-attention-overlay"]').exists()).toBe(false);
+  });
+
   it('should render the medium level with its full Spanish word', () => {
     mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
     const wrapper = shallow(

@@ -14,6 +14,7 @@ const base = {
   raisedHands: [] as string[],
   isRecording: false,
   turnGrantedCount: 0,
+  mutedByProfessorCount: 0,
 };
 
 const messages = () => mockEnqueue.mock.calls.map(call => call[0]);
@@ -64,6 +65,14 @@ describe('useNotificationToasts', () => {
       rerender({ ...base, isTeacher: false, raisedHands: ['Otro'] });
       expect(mockEnqueue).not.toHaveBeenCalled();
     });
+
+    it('toasts when the professor mutes this student', () => {
+      const { rerender } = renderHook(props => useNotificationToasts(props), {
+        initialProps: { ...base, isTeacher: false, mutedByProfessorCount: 0 },
+      });
+      rerender({ ...base, isTeacher: false, mutedByProfessorCount: 1 });
+      expect(messages()).toEqual(['El profesor silenció tu micrófono']);
+    });
   });
 
   describe('professor', () => {
@@ -79,12 +88,13 @@ describe('useNotificationToasts', () => {
       expect(messages()).toEqual(['Sofía se unió a la sesión', 'Sofía levantó la mano', 'Sofía salió de la sesión']);
     });
 
-    it('does NOT toast recording or turn changes for the professor', () => {
+    it('does NOT toast recording, turn or mute changes for the professor', () => {
       const { rerender } = renderHook(props => useNotificationToasts(props), {
         initialProps: { ...base, isTeacher: true },
       });
       rerender({ ...base, isTeacher: true, isRecording: true });
       rerender({ ...base, isTeacher: true, turnGrantedCount: 5 });
+      rerender({ ...base, isTeacher: true, mutedByProfessorCount: 3 });
       expect(mockEnqueue).not.toHaveBeenCalled();
     });
   });

@@ -112,7 +112,9 @@ export function GalleryView() {
   const attentionByIdentity = useMemo(() => {
     const byIdentity = new Map<string, ParticipantTileAttention>();
     if (isTeacher && attention) {
-      attention.participants.forEach(p => byIdentity.set(p.identity, { level: p.level, multiface: p.multiface }));
+      attention.participants.forEach(p =>
+        byIdentity.set(p.identity, { level: p.level, multiface: p.multiface, cameraOff: p.cameraOff })
+      );
     }
     return byIdentity;
   }, [isTeacher, attention]);
