@@ -10,7 +10,7 @@ import CloseIcon from '@material-ui/icons/Close';
 import { LineChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 import { useAttention } from '../../AttentionProvider';
-import { AttentionLevel } from '../../AttentionProvider/types';
+import { AttentionLevel, AttentionTimelinePoint } from '../../AttentionProvider/types';
 import { levelColor, levelLabel } from '../../AttentionProvider/attentionLabels';
 
 const MOCK_DISCLOSURE = 'Datos simulados — pipeline CV pendiente';
@@ -252,8 +252,14 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#1d2f6f',
     marginBottom: theme.spacing(3),
   },
+  // Horizontal scroll wrapper so the 6-column table never clips on narrow viewports.
+  tableScroll: {
+    width: '100%',
+    overflowX: 'auto',
+  },
   table: {
     width: '100%',
+    minWidth: 520,
     borderCollapse: 'collapse',
   },
   headRow: {
@@ -398,6 +404,27 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+/**
+ * Time-average of the group attention over the recorded session (rounded).
+ * Returns 0 for an empty timeline. Used by the report so "Atención promedio
+ * grupal" is the session mean, not the last instantaneous snapshot.
+ */
+export function averageOverTime(timeline: AttentionTimelinePoint[]): number {
+  if (timeline.length === 0) return 0;
+  return Math.round(timeline.reduce((sum, p) => sum + p.value, 0) / timeline.length);
+}
+
+/**
+ * Percentage of recorded time the group attention was at or above the threshold.
+ * Returns 0 for an empty timeline. Replaces the old placeholder that just echoed
+ * the threshold constant as if it were a percentage of time.
+ */
+export function percentTimeAboveThreshold(timeline: AttentionTimelinePoint[], threshold: number): number {
+  if (timeline.length === 0) return 0;
+  const above = timeline.filter(p => p.value >= threshold).length;
+  return Math.round((above * 100) / timeline.length);
+}
+
 /** Generate initials from an identity string for the avatar. */
 function initials(identity: string): string {
   const parts = identity.trim().split(/[\s_-]+/);
@@ -462,13 +489,16 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
     alertCountByIdentity[alert.identity] = (alertCountByIdentity[alert.identity] || 0) + 1;
   });
 
-  // KPI cards config — uses real data from useAttention().
-  // "% tiempo supervisado" is not in mock data; show attentionThreshold as a
-  // placeholder until the CV pipeline provides it (same value as before).
+  // KPI cards config — all values derived from real session data.
+  // "Atención promedio grupal" is the time-average of the group timeline (falling
+  // back to the live snapshot before any point is recorded); "Umbral superado" is
+  // the real share of recorded time at/above the threshold.
+  const groupAverage = timeline.length > 0 ? averageOverTime(timeline) : groupAttention;
+  const thresholdPercent = percentTimeAboveThreshold(timeline, attentionThreshold);
   const kpiCards = [
     {
       label: 'Atención promedio grupal',
-      value: `${groupAttention}`,
+      value: `${groupAverage}`,
       sub: '/ 100',
       color: KPI_COLORS.group,
     },
@@ -486,7 +516,7 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
     },
     {
       label: 'Umbral superado',
-      value: `${attentionThreshold}%`,
+      value: `${thresholdPercent}%`,
       sub: 'del tiempo total',
       color: KPI_COLORS.threshold,
     },
@@ -579,6 +609,8 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
                   tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'Poppins, sans-serif' }}
                   axisLine={false}
                   tickLine={false}
+                  minTickGap={48}
+                  interval="preserveStartEnd"
                 />
                 <YAxis
                   domain={[0, 100]}
@@ -594,7 +626,13 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
                     boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                   }}
                 />
-                <ReferenceLine y={attentionThreshold} stroke="#ffb800" strokeWidth={2} strokeDasharray="5 5" />
+                <ReferenceLine
+                  y={attentionThreshold}
+                  stroke="#ffb800"
+                  strokeWidth={1.5}
+                  strokeDasharray="5 5"
+                  strokeOpacity={0.5}
+                />
                 <Line
                   type="monotone"
                   dataKey="value"
@@ -602,6 +640,7 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
                   strokeWidth={2.5}
                   dot={false}
                   activeDot={{ r: 4, fill: '#1d6eed' }}
+                  isAnimationActive={false}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -623,72 +662,79 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
         {/* ── Per-student table ──────────────────────────────────────── */}
         <div className={classes.tableCard} data-testid="attention-report-table">
           <Typography className={classes.tableTitle}>Detalle por estudiante</Typography>
-          <table className={classes.table}>
-            <thead>
-              <tr className={classes.headRow}>
-                {['Nombre del Estudiante', 'Índice Prom.', 'Mínimo', 'Máximo', 'Alertas Proctoring', 'Nivel'].map(h => (
-                  <th key={h} className={classes.th}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {participants.map(participant => {
-                const level = attentionLevel(participant.index);
-                const alertCount = alertCountByIdentity[participant.identity] || 0;
-                return (
-                  <tr key={participant.identity} className={classes.row}>
-                    {/* Name with avatar */}
-                    <td className={classes.nameCell}>
-                      <div className={classes.nameCellInner}>
-                        <div className={classes.avatar}>{initials(participant.identity)}</div>
-                        <span className={classes.nameText}>{participant.identity}</span>
-                      </div>
-                    </td>
-
-                    {/* Index bar + value */}
-                    <td className={classes.indexCell}>
-                      <div className={classes.indexWrap}>
-                        <div className={classes.barTrack}>
-                          <div
-                            className={classes.barFill}
-                            style={{ width: `${participant.index}%`, backgroundColor: barColor(level) }}
-                          />
+          <div className={classes.tableScroll}>
+            <table className={classes.table}>
+              <thead>
+                <tr className={classes.headRow}>
+                  {['Nombre del Estudiante', 'Índice Prom.', 'Mínimo', 'Máximo', 'Alertas Proctoring', 'Nivel'].map(
+                    h => (
+                      <th key={h} className={classes.th}>
+                        {h}
+                      </th>
+                    )
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {participants.map(participant => {
+                  // "Índice Prom." is the session average; fall back to the latest
+                  // index for fixtures/participants without accumulated history.
+                  const avg = participant.indexAvg ?? participant.index;
+                  const level = attentionLevel(avg);
+                  const alertCount = alertCountByIdentity[participant.identity] || 0;
+                  return (
+                    <tr key={participant.identity} className={classes.row}>
+                      {/* Name with avatar */}
+                      <td className={classes.nameCell}>
+                        <div className={classes.nameCellInner}>
+                          <div className={classes.avatar}>{initials(participant.identity)}</div>
+                          <span className={classes.nameText}>{participant.identity}</span>
                         </div>
-                        <span className={classes.indexValue}>{participant.index}</span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Min score — not available in mock data; show dash */}
-                    <td className={classes.scoreCell}>—</td>
+                      {/* Average index bar + value */}
+                      <td className={classes.indexCell}>
+                        <div className={classes.indexWrap}>
+                          <div className={classes.barTrack}>
+                            <div
+                              className={classes.barFill}
+                              style={{ width: `${avg}%`, backgroundColor: barColor(level) }}
+                            />
+                          </div>
+                          <span className={classes.indexValue}>{avg}</span>
+                        </div>
+                      </td>
 
-                    {/* Max score — not available in mock data; show dash */}
-                    <td className={classes.scoreCell}>—</td>
+                      {/* Min score over the session */}
+                      <td className={classes.scoreCell}>{participant.indexMin ?? '—'}</td>
 
-                    {/* Proctoring alerts count */}
-                    <td className={classes.alertsCell}>
-                      {alertCount > 0 ? (
-                        <span className={classes.alertsBadge}>{alertCount}</span>
-                      ) : (
-                        <span className={classes.alertsNone}>—</span>
-                      )}
-                    </td>
+                      {/* Max score over the session */}
+                      <td className={classes.scoreCell}>{participant.indexMax ?? '—'}</td>
 
-                    {/* Level chip */}
-                    <td className={classes.levelCell}>
-                      <span
-                        className={classes.levelBadge}
-                        style={{ backgroundColor: levelChipBg[level], color: levelChipFg[level] }}
-                      >
-                        {levelLabel[level]}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {/* Proctoring alerts count */}
+                      <td className={classes.alertsCell}>
+                        {alertCount > 0 ? (
+                          <span className={classes.alertsBadge}>{alertCount}</span>
+                        ) : (
+                          <span className={classes.alertsNone}>—</span>
+                        )}
+                      </td>
+
+                      {/* Level chip */}
+                      <td className={classes.levelCell}>
+                        <span
+                          className={classes.levelBadge}
+                          style={{ backgroundColor: levelChipBg[level], color: levelChipFg[level] }}
+                        >
+                          {levelLabel[level]}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

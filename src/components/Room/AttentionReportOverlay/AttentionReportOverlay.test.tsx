@@ -1,6 +1,6 @@
 import React from 'react';
 import { mount } from 'enzyme';
-import AttentionReportOverlay from './AttentionReportOverlay';
+import AttentionReportOverlay, { averageOverTime, percentTimeAboveThreshold } from './AttentionReportOverlay';
 import { useAttention } from '../../AttentionProvider';
 
 jest.mock('../../AttentionProvider');
@@ -61,10 +61,99 @@ function renderOverlay(props: Partial<React.ComponentProps<typeof AttentionRepor
   );
 }
 
+describe('report metric helpers', () => {
+  it('averageOverTime rounds the mean of timeline values', () => {
+    expect(
+      averageOverTime([
+        { time: 'a', value: 60 },
+        { time: 'b', value: 80 },
+      ])
+    ).toBe(70);
+  });
+
+  it('averageOverTime returns 0 for an empty timeline', () => {
+    expect(averageOverTime([])).toBe(0);
+  });
+
+  it('percentTimeAboveThreshold counts points at or above the threshold', () => {
+    const tl = [
+      { time: 'a', value: 40 },
+      { time: 'b', value: 60 },
+      { time: 'c', value: 75 },
+      { time: 'd', value: 90 },
+    ];
+    // 3 of 4 points >= 60 → 75%
+    expect(percentTimeAboveThreshold(tl, 60)).toBe(75);
+  });
+
+  it('percentTimeAboveThreshold returns 0 for an empty timeline', () => {
+    expect(percentTimeAboveThreshold([], 60)).toBe(0);
+  });
+});
+
 describe('AttentionReportOverlay', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseAttention.mockImplementation(() => baseAttention);
+  });
+
+  it('shows the per-student min, max and average from history', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      participants: [
+        {
+          identity: 'Ana García',
+          index: 85,
+          level: 'high' as const,
+          multiface: false,
+          indexMin: 70,
+          indexMax: 95,
+          indexAvg: 83,
+        },
+      ],
+    }));
+    const table = renderOverlay().find('[data-testid="attention-report-table"]');
+    expect(table.text()).toContain('70'); // min
+    expect(table.text()).toContain('95'); // max
+    expect(table.text()).toContain('83'); // avg
+  });
+
+  it('falls back to a dash for min/max when a participant has no history', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      participants: [{ identity: 'Sin Historial', index: 50, level: 'medium' as const, multiface: false }],
+    }));
+    const table = renderOverlay().find('[data-testid="attention-report-table"]');
+    expect(table.text()).toContain('—');
+  });
+
+  it('computes "Umbral superado" as the % of time at/above threshold, not the threshold constant', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      attentionThreshold: 60,
+      timeline: [
+        { time: 'a', value: 40 },
+        { time: 'b', value: 80 },
+        { time: 'c', value: 90 },
+        { time: 'd', value: 95 },
+      ],
+    }));
+    const summary = renderOverlay().find('[data-testid="attention-report-summary"]');
+    // 3 of 4 ≥ 60 → 75%, NOT the threshold value 60%
+    expect(summary.text()).toContain('75%');
+  });
+
+  it('shows the group average over time, not the instantaneous snapshot', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      groupAttention: 100, // instantaneous snapshot
+      timeline: [
+        { time: 'a', value: 60 },
+        { time: 'b', value: 80 },
+      ], // time-average 70
+    }));
+    const summary = renderOverlay().find('[data-testid="attention-report-summary"]');
+    expect(summary.text()).toContain('70');
   });
 
   it('renders nothing when closed', () => {

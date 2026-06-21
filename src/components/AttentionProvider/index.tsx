@@ -17,9 +17,9 @@
  *   useAttentionCapture measures eyes + head only.  Posture is NOT currently
  *   measured by the local CV pipeline (no accelerometer / body-pose model).
  *   In the live AttentionData we carry posture as -1 (the not-measured sentinel).
- *   The Individual-tab bar uses levelPercent[attentionLevel(index)] — driven by
- *   the aggregate index, not the raw posture component — so the -1 never shows
- *   as a misleading "0% posture" to the professor.
+ *   The Individual-tab bar width is driven by the aggregate index, not the raw
+ *   posture component — so the -1 never shows as a misleading "0% posture" to
+ *   the professor.
  *
  * Formula:
  *   The live index comes directly from useAttentionCapture which calls
@@ -57,13 +57,17 @@ import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentio
 export const AttentionContext = createContext<AttentionContextValue>(null!);
 
 // Maximum timeline points kept in memory before the oldest are evicted.
-// 60 points at 5-second intervals covers a 5-minute window — long enough to
-// show meaningful trends without unbounded memory growth.
-const TIMELINE_MAX_POINTS = 60;
+// 90 points at 1-second intervals covers a 1.5-minute sliding window — enough
+// density that the curve advances smoothly instead of jumping in coarse steps.
+const TIMELINE_MAX_POINTS = 90;
 
 // Interval (ms) at which a group-attention snapshot is pushed to the timeline.
-// 5 s is a reasonable sampling cadence for a trend chart.
-const TIMELINE_INTERVAL_MS = 5000;
+// 1 s (aligned with the 1 Hz capture cadence) keeps the chart fluid: each tick
+// appends a small segment rather than a 5 s jump. NOTE: this is purely the
+// RENDER cadence — the underlying value is still smoothed over the capture's
+// 10 s rolling window, so denser points make the motion fluid without making
+// the signal noisier.
+const TIMELINE_INTERVAL_MS = 1000;
 
 // Stable confidence sentinel for live multiface proctoring alerts.
 // The MediaPipe face count is binary (0/1/>1) rather than a probability score,
@@ -71,14 +75,68 @@ const TIMELINE_INTERVAL_MS = 5000;
 // arbitrary partial-confidence number.
 const LIVE_MULTIFACE_CONFIDENCE = 1.0;
 
+// ─── Proctoring feed (live event log) ──────────────────────────────────────────
+// The proctoring feed is a HISTORY, not a live mirror of the current state: an
+// alert is appended when a condition first appears and STAYS in the feed even
+// after the condition clears (e.g. the student turns the camera back on). Only
+// the most recent PROCTORING_FEED_MAX events are kept.
+const PROCTORING_FEED_MAX = 3;
+
+// How often (ms) the remote telemetry is sampled to look for proctoring events.
+// Aligned with the 1 Hz capture/telemetry cadence.
+const PROCTORING_SAMPLE_MS = 1000;
+
+// A condition must hold for this many CONSECUTIVE samples before it logs an
+// event. This is the anti-flicker guard: a face detector that blinks for a
+// single frame, or a momentary camera blip, never spams the feed.
+const PROCTORING_DEBOUNCE_SAMPLES = 2;
+
+// Per-kind confidence shown in the alert card. The MediaPipe signals are
+// effectively binary (camera off / no face / multiple faces), so they report
+// 1.0; 'away' (sustained low attention) is a softer inference, hence < 1.
+const KIND_CONFIDENCE: Record<ProctoringAlert['kind'], number> = {
+  multiface: LIVE_MULTIFACE_CONFIDENCE,
+  'camera-off': 1.0,
+  absent: 1.0,
+  away: 0.9,
+};
+
 /**
- * Format a Date as HH:MM for use as a timeline x-axis label.
- * Extracted so callers can unit-test without real Date.now() spill.
+ * Classify ONE remote telemetry sample into at most one proctoring condition.
+ * The kinds are mutually exclusive per participant per sample (priority order:
+ * camera off → no face → multiple faces → sustained low attention), so a single
+ * participant never produces two simultaneous alerts. Returns null when the
+ * participant shows no proctoring condition.
+ */
+function classifyProctoring(r: { cameraOff: boolean; faces: number; index: number }): ProctoringAlert['kind'] | null {
+  if (r.cameraOff) return 'camera-off';
+  if (r.faces === 0) return 'absent';
+  if (r.faces > 1) return 'multiface';
+  // Exactly one face present → flag only when attention is in the 'low' band.
+  if (r.index <= mockAttentionData.ranges.lowMax) return 'away';
+  return null;
+}
+
+/**
+ * Format a Date as HH:MM — used for proctoring alert timestamps, which are
+ * reported at minute resolution. Extracted so callers can unit-test without
+ * real Date.now() spill.
  */
 function formatTimeLabel(date: Date): string {
   const hh = String(date.getHours()).padStart(2, '0');
   const mm = String(date.getMinutes()).padStart(2, '0');
   return `${hh}:${mm}`;
+}
+
+/**
+ * Format a Date as HH:MM:SS for use as a timeline x-axis label.
+ * Second-level resolution is required for the 1 Hz timeline: HH:MM alone would
+ * collapse every point within the same minute onto a single tick, which reads
+ * as a flat step instead of a fluid advance.
+ */
+function formatTimelineLabel(date: Date): string {
+  const ss = String(date.getSeconds()).padStart(2, '0');
+  return `${formatTimeLabel(date)}:${ss}`;
 }
 
 export const AttentionProvider: React.FC = ({ children }) => {
@@ -108,32 +166,85 @@ export const AttentionProvider: React.FC = ({ children }) => {
   // Layer 2: local camera analysis (inactive when videoTrack is undefined).
   const captureResult = useAttentionCapture(videoTrack);
 
+  // Local camera-off: the pipeline is active but there is no local camera video
+  // track (the student toggled their camera off → removeLocalVideoTrack). Broadcast
+  // this so the professor sees "Cámara apagada" instead of a frozen last value.
+  const localCameraOff = isActive && !videoTrack;
+
   // Layer 3: DataTrack transport — broadcast local + aggregate remotes.
   // The hook is always called (React rules), but it short-circuits internally
   // when room is null (no DataTrack published).
-  const remoteAttention = useAttentionTelemetry(captureResult);
+  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff);
+
+  // Latest-value ref: the timeline interval is created once (deps [isActive]) and
+  // would otherwise close over the remoteAttention from the render where isActive
+  // flipped true — empty at that instant, so every tick wrote 0 forever while the
+  // gauge (computed each render) showed the real average. Mirror the latest value
+  // into a ref, updated every render, so push() always reads fresh telemetry.
+  const remoteAttentionRef = useRef(remoteAttention);
+  remoteAttentionRef.current = remoteAttention;
 
   // Live timeline: accumulated group-attention snapshots, capped at TIMELINE_MAX_POINTS.
   // A ref holds the mutable list; state triggers re-renders only when a point is added.
   const timelineRef = useRef<AttentionTimelinePoint[]>([]);
   const [timeline, setTimeline] = useState<AttentionTimelinePoint[]>([]);
 
+  // Per-student index history (min/max + running sum/count for the average),
+  // accumulated at the timeline sampling cadence from camera-on samples only.
+  // Lives in a ref because it mutates on the interval, not per render; the 1 Hz
+  // setTimeline re-render is what flushes the updated values into `participants`.
+  const participantHistoryRef = useRef<Map<string, { min: number; max: number; sum: number; count: number }>>(
+    new Map()
+  );
+
+  // Proctoring feed: a capped, append-only LOG of detected events (last 3). State
+  // drives re-render; a ref holds the mutable list so the sampling interval can
+  // read/extend it without stale closures.
+  const [proctoringAlerts, setProctoringAlerts] = useState<ProctoringAlert[]>([]);
+  const proctoringLogRef = useRef<ProctoringAlert[]>([]);
+  // Keys (`identity::kind`) whose condition is currently confirmed-active and
+  // already logged — suppresses re-logging while the same condition persists.
+  const proctoringActiveRef = useRef<Set<string>>(new Set());
+  // Consecutive-sample streak per key, backing the debounce.
+  const proctoringStreakRef = useRef<Map<string, number>>(new Map());
+  // Monotonic sequence for unique alert ids — the same identity can re-trigger
+  // the same kind later, so ids cannot be identity-based alone.
+  const proctoringSeqRef = useRef(0);
+
   useEffect(() => {
     if (!isActive) {
-      // Reset timeline when we go back to fallback.
+      // Reset timeline + per-student history when we go back to fallback.
       timelineRef.current = [];
       setTimeline([]);
+      participantHistoryRef.current.clear();
       return;
     }
 
     const push = () => {
+      // Read the latest telemetry from the ref — NOT the captured remoteAttention,
+      // which would be stale (see remoteAttentionRef above).
+      // Exclude camera-off participants from the timeline average, consistent with
+      // groupAttention — a camera-off student has no live attention to contribute.
+      const measured = remoteAttentionRef.current.filter(r => !r.cameraOff);
       const groupAvg =
-        remoteAttention.length === 0
-          ? 0
-          : Math.round(remoteAttention.reduce((sum, r) => sum + r.index, 0) / remoteAttention.length);
+        measured.length === 0 ? 0 : Math.round(measured.reduce((sum, r) => sum + r.index, 0) / measured.length);
+
+      // Accumulate each camera-on student's index into the session history.
+      const history = participantHistoryRef.current;
+      measured.forEach(r => {
+        const h = history.get(r.identity);
+        if (!h) {
+          history.set(r.identity, { min: r.index, max: r.index, sum: r.index, count: 1 });
+        } else {
+          h.min = Math.min(h.min, r.index);
+          h.max = Math.max(h.max, r.index);
+          h.sum += r.index;
+          h.count += 1;
+        }
+      });
 
       const point: AttentionTimelinePoint = {
-        time: formatTimeLabel(new Date()),
+        time: formatTimelineLabel(new Date()),
         value: groupAvg,
       };
 
@@ -146,6 +257,70 @@ export const AttentionProvider: React.FC = ({ children }) => {
     push();
 
     const id = window.setInterval(push, TIMELINE_INTERVAL_MS);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive]);
+
+  // Live proctoring feed: sample remote telemetry on an interval, detect when a
+  // condition first appears (debounced), and append it to the capped log. The
+  // log is reset whenever the pipeline goes back to fallback.
+  useEffect(() => {
+    if (!isActive) {
+      proctoringLogRef.current = [];
+      setProctoringAlerts([]);
+      proctoringActiveRef.current.clear();
+      proctoringStreakRef.current.clear();
+      proctoringSeqRef.current = 0;
+      return;
+    }
+
+    const sample = () => {
+      const streak = proctoringStreakRef.current;
+      const active = proctoringActiveRef.current;
+
+      // Currently-active conditions this tick → `identity::kind` (mutually
+      // exclusive per participant). Read from the ref for the freshest telemetry.
+      const rawActive = new Map<string, { identity: string; kind: ProctoringAlert['kind'] }>();
+      remoteAttentionRef.current.forEach(r => {
+        const kind = classifyProctoring(r);
+        if (kind) rawActive.set(`${r.identity}::${kind}`, { identity: r.identity, kind });
+      });
+
+      let changed = false;
+
+      // Bump streaks; log a fresh event once a condition clears the debounce and
+      // is not already an open (logged) condition.
+      rawActive.forEach(({ identity, kind }, key) => {
+        const n = (streak.get(key) ?? 0) + 1;
+        streak.set(key, n);
+        if (n >= PROCTORING_DEBOUNCE_SAMPLES && !active.has(key)) {
+          active.add(key);
+          proctoringSeqRef.current += 1;
+          const alert: ProctoringAlert = {
+            id: `live-${kind}-${identity}-${proctoringSeqRef.current}`,
+            identity,
+            kind,
+            detectedAt: formatTimeLabel(new Date()),
+            confidence: KIND_CONFIDENCE[kind],
+          };
+          proctoringLogRef.current = [...proctoringLogRef.current, alert].slice(-PROCTORING_FEED_MAX);
+          changed = true;
+        }
+      });
+
+      // Clear streak + open flag for conditions that ended, so a later recurrence
+      // logs a brand-new event instead of staying suppressed forever.
+      streak.forEach((_, key) => {
+        if (!rawActive.has(key)) {
+          streak.delete(key);
+          active.delete(key);
+        }
+      });
+
+      if (changed) setProctoringAlerts(proctoringLogRef.current);
+    };
+
+    const id = window.setInterval(sample, PROCTORING_SAMPLE_MS);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive]);
@@ -171,18 +346,32 @@ export const AttentionProvider: React.FC = ({ children }) => {
 
   // Live path — pipeline is active.
 
-  // Participant list: map RemoteAttention[] → ParticipantAttention[].
-  const participants = remoteAttention.map(r => ({
-    identity: r.identity,
-    index: r.index,
-    multiface: r.multiface,
-    level: attentionLevel(r.index),
-  }));
+  // Participant list: map RemoteAttention[] → ParticipantAttention[], decorating
+  // each with its session history (min/max/avg). A student with no accumulated
+  // samples yet (just joined, or camera off the whole time) falls back to the
+  // current index so the report never shows an empty cell mid-session.
+  const participants = remoteAttention.map(r => {
+    const h = participantHistoryRef.current.get(r.identity);
+    return {
+      identity: r.identity,
+      index: r.index,
+      multiface: r.multiface,
+      level: attentionLevel(r.index),
+      cameraOff: r.cameraOff,
+      indexMin: h ? h.min : r.index,
+      indexMax: h ? h.max : r.index,
+      indexAvg: h ? Math.round(h.sum / h.count) : r.index,
+    };
+  });
 
-  // Group attention: average of remote participant indexes.
-  // When no remotes are present yet, 0 is the honest neutral (gauge renders 0 correctly).
+  // Group attention: average of remote participant indexes, EXCLUDING camera-off
+  // participants (their last value is stale and must not pollute the average).
+  // When no measured remotes are present, 0 is the honest neutral.
+  const measuredParticipants = participants.filter(p => !p.cameraOff);
   const groupAttention =
-    participants.length === 0 ? 0 : Math.round(participants.reduce((sum, p) => sum + p.index, 0) / participants.length);
+    measuredParticipants.length === 0
+      ? 0
+      : Math.round(measuredParticipants.reduce((sum, p) => sum + p.index, 0) / measuredParticipants.length);
 
   // Self: index is already computeLabAttentionIndex(eyes, head) from the capture hook.
   // Posture is NOT measured — sentinel -1 keeps the shape valid without misrepresenting
@@ -199,18 +388,8 @@ export const AttentionProvider: React.FC = ({ children }) => {
     lighting: 'ok' as const, // lighting is a separate signal, out of scope for Layer 4a
   };
 
-  // Proctoring alerts: one per remote participant where multiface === true.
-  // ID is stable for the lifetime of the session (identity-based, no random seed).
-  // detectedAt uses real wall-clock time because alerts are genuinely timestamped.
-  const proctoringAlerts: ProctoringAlert[] = participants
-    .filter(p => p.multiface)
-    .map(p => ({
-      id: `live-multiface-${p.identity}`,
-      identity: p.identity,
-      kind: 'multiface' as const,
-      detectedAt: formatTimeLabel(new Date()),
-      confidence: LIVE_MULTIFACE_CONFIDENCE,
-    }));
+  // Proctoring alerts come from the live event log (state), assembled by the
+  // sampling effect above — NOT recomputed from the current render state.
 
   const value: AttentionContextValue = {
     source: 'live',

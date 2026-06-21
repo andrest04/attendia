@@ -31,9 +31,12 @@ export function computeAverageLuminance(data: Uint8ClampedArray): number {
   return total / pixelCount;
 }
 
-// Below this average luminance the scene is too dark for reliable attention
-// analysis. Tuned for a typical webcam exposure; conservative on purpose.
-export const LIGHTING_ADEQUATE_THRESHOLD = 60;
+// Below this average luminance (0–255) the scene is too dark for reliable
+// attention analysis. Set at ~35% of the full range so dim-but-visible scenes
+// (a face lit only by ambient/screen light) are flagged as low rather than
+// passed through; the gaze/head landmarks degrade well before the room looks
+// "black" to a human eye.
+export const LIGHTING_ADEQUATE_THRESHOLD = 90;
 
 /** Whether the measured luminance clears the adequacy threshold. */
 export function isLightingAdequate(luminance: number): boolean {
