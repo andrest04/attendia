@@ -3,6 +3,7 @@ import { makeStyles, Theme } from '@material-ui/core';
 import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
 import useSessionElapsed from './useSessionElapsed';
 import AttendiaLogo from '../../Brand/AttendiaLogo';
+import { useOnboarding } from '../OnboardingTutorial/onboardingContext';
 
 const useStyles = makeStyles((theme: Theme) => ({
   bar: {
@@ -76,6 +77,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontWeight: 400,
     color: 'rgba(255,255,255,0.6)',
     whiteSpace: 'nowrap',
+    // Let the (potentially long) session name truncate instead of pushing the
+    // REC badge / Ayuda button off the right edge on a narrow status bar.
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    minWidth: 0,
   },
   spacer: { flex: 1 },
   infraChip: {
@@ -87,6 +93,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: 'rgba(255,255,255,0.07)',
     border: '1px solid rgba(255,255,255,0.1)',
     flexShrink: 0,
+    // Non-essential infra label — drop it on tight widths to protect REC/name/Ayuda.
+    [theme.breakpoints.down('md')]: {
+      display: 'none',
+    },
   },
   infraDot: {
     width: 6,
@@ -133,6 +143,7 @@ interface Props {
 export default function SessionStatusBar({ sessionName = 'Sesión', studentCount = 0, recording = false }: Props) {
   const classes = useStyles();
   const elapsed = useSessionElapsed();
+  const { openTour } = useOnboarding();
 
   return (
     <div className={classes.bar} data-testid="professor-room-shell-session-bar">
@@ -160,7 +171,12 @@ export default function SessionStatusBar({ sessionName = 'Sesión', studentCount
         <span className={classes.infraText}>Twilio Video · WebRTC SFU</span>
       </div>
 
-      <button type="button" className={classes.helpButton}>
+      <button
+        type="button"
+        className={classes.helpButton}
+        onClick={openTour}
+        data-testid="professor-room-shell-help-button"
+      >
         Ayuda
       </button>
     </div>

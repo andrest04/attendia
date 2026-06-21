@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import { ShellNotification } from './useShellNotifications';
@@ -24,6 +24,18 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: '100%',
     height: '100%',
     backgroundColor: theme.palette.background.default,
+    // Narrow the left rail on tight desktop widths so the video stage keeps room.
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: '200px 1fr 264px',
+    },
+  },
+  // When the student collapses the chat, the right rail shrinks to a thin strip
+  // that still shows the toggle button — the panel is never hidden without a way back.
+  rootChatCollapsed: {
+    gridTemplateColumns: '236px 1fr 56px',
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: '200px 1fr 56px',
+    },
   },
   // ── Left rail ──────────────────────────────────────────────────────────────
   leftRail: {
@@ -316,8 +328,14 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    // Wrap (instead of overflowing/clipping the end-call button) at narrow widths.
+    flexWrap: 'wrap',
     padding: '15px 32px 14px',
     gap: 14,
+    [theme.breakpoints.down('md')]: {
+      padding: '12px 16px',
+      gap: 10,
+    },
   },
 }));
 
@@ -357,7 +375,9 @@ function RosterItem({
         {initials}
       </div>
       <div className={classes.rosterInfo}>
-        <div className={classes.rosterName}>{displayName}</div>
+        <div className={classes.rosterName} title={displayName}>
+          {displayName}
+        </div>
         {isTeacher && <div className={classes.rosterSubLabel}>Docente</div>}
       </div>
       {participant.isOnline && <div className={classes.rosterDot} />}
@@ -373,6 +393,20 @@ function ChatIcon({ className }: { className?: string }) {
         d="M7 1C3.686 1 1 3.462 1 6.5c0 1.04.305 2.01.831 2.83L1 13l3.67-.83A6.01 6.01 0 007 12c3.314 0 6-2.462 6-5.5S10.314 1 7 1z"
         stroke="currentColor"
         strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Caret({ direction, className }: { direction: 'left' | 'right'; className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d={direction === 'right' ? 'M5 2l5 5-5 5' : 'M9 2L4 7l5 5'}
+        stroke="currentColor"
+        strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -417,9 +451,15 @@ export default function StudentRoomShell({
   participants,
 }: Props) {
   const classes = useStyles();
+  // Local UI state: lets the student collapse the chat rail to give video more room.
+  // The toggle button always stays visible, so the panel is never hidden without a way back.
+  const [chatCollapsed, setChatCollapsed] = useState(false);
 
   return (
-    <section className={classes.root} data-testid="student-room-shell-root">
+    <section
+      className={clsx(classes.root, chatCollapsed && classes.rootChatCollapsed)}
+      data-testid="student-room-shell-root"
+    >
       {/* ── LEFT RAIL ────────────────────────────────────────────────────── */}
       <aside className={classes.leftRail} data-testid="student-room-shell-left-rail">
         {/* Logo + Participants heading */}
@@ -491,21 +531,25 @@ export default function StudentRoomShell({
 
       {/* ── RIGHT RAIL ───────────────────────────────────────────────────── */}
       <aside className={classes.rightRail} data-testid="student-room-shell-right-rail">
-        {/* Tabs */}
+        {/* Tabs — the Chat tab now collapses/expands the panel (real toggle, was inert) */}
         <div className={classes.rightTabs} data-testid="student-room-shell-right-tabs">
           <button
             type="button"
-            className={clsx(classes.tab, classes.tabActive)}
+            className={clsx(classes.tab, !chatCollapsed && classes.tabActive)}
             data-testid="student-room-shell-tab-chat"
-            aria-pressed={true}
+            aria-pressed={!chatCollapsed}
+            aria-label={chatCollapsed ? 'Mostrar chat' : 'Ocultar chat'}
+            title={chatCollapsed ? 'Mostrar chat' : 'Ocultar chat'}
+            onClick={() => setChatCollapsed(c => !c)}
           >
             <ChatIcon className={classes.tabIcon} />
-            Chat
+            {!chatCollapsed && 'Chat'}
+            <Caret direction={chatCollapsed ? 'left' : 'right'} className={classes.tabIcon} />
           </button>
         </div>
 
-        {/* Panel content */}
-        <div className={classes.rightContent}>{rightPanel}</div>
+        {/* Panel content — hidden when collapsed; the tab above stays as the way back */}
+        {!chatCollapsed && <div className={classes.rightContent}>{rightPanel}</div>}
       </aside>
 
       {/* ── BOTTOM TOOLBAR ───────────────────────────────────────────────── */}
