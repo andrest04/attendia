@@ -8,7 +8,13 @@ import { useAppState } from '../../../state';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
+import useLightingCheck from '../../../hooks/useLightingCheck/useLightingCheck';
 import { setImmediate } from 'timers';
+
+jest.mock('../../../hooks/useLightingCheck/useLightingCheck');
+const mockUseLightingCheck = useLightingCheck as jest.Mock;
+// Module-level default so any render (incl. before beforeEach runs) gets a valid object.
+mockUseLightingCheck.mockReturnValue({ status: 'analyzing', luminance: null });
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
@@ -33,6 +39,17 @@ describe('the DeviceSelectionScreen component', () => {
   beforeEach(() => {
     process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS = 'false';
     jest.clearAllMocks();
+    // Default: jsdom has no canvas frame, so the real hook reports 'analyzing'.
+    mockUseLightingCheck.mockReturnValue({ status: 'analyzing', luminance: null });
+  });
+
+  it('dismisses the lighting warning banner when the × close button is clicked', () => {
+    mockUseLightingCheck.mockReturnValue({ status: 'low', luminance: 10 });
+    const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
+
+    expect(wrapper.find('[aria-label="Cerrar aviso"]').exists()).toBe(true);
+    wrapper.find('[aria-label="Cerrar aviso"]').simulate('click');
+    expect(wrapper.find('[aria-label="Cerrar aviso"]').exists()).toBe(false);
   });
 
   describe('when connecting to a room', () => {

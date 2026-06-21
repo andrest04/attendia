@@ -27,7 +27,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column',
     padding: 'clamp(10px, 2vh, 24px) 33px',
     position: 'relative',
-    overflow: 'hidden',
+    // Scroll instead of clipping: when the "Sesión creada" block or the room-closed
+    // alert grows the card past a short viewport, the primary button must stay reachable.
+    overflowY: 'auto',
   },
   cardBorderTop: {
     position: 'absolute',
@@ -401,7 +403,9 @@ export default function RoomNameScreen({
     <div className={classes.singleCardLayout}>
       {activeRole === 'teacher' ? (
         /* ── Profesor card ──────────────────────────────────────────────────────── */
-        <div className={classes.card}>
+        // <form> so pressing Enter in any field implicitly submits → clicks the
+        // primary submit button. onSubmit only prevents the native page reload.
+        <form className={classes.card} onSubmit={event => event.preventDefault()}>
           {/* Blue top border */}
           <div className={`${classes.cardBorderTop} ${classes.cardBorderTopTeacher}`} />
 
@@ -489,9 +493,12 @@ export default function RoomNameScreen({
                   <Typography variant="caption" className={classes.createdLabel}>
                     Nombre de la sala
                   </Typography>
-                  <Typography variant="body2">{classSessionAccess.joinCode}</Typography>
+                  <Typography variant="body2" noWrap title={classSessionAccess.joinCode}>
+                    {classSessionAccess.joinCode}
+                  </Typography>
                 </div>
                 <Button
+                  type="button"
                   size="small"
                   startIcon={<FileCopyOutlinedIcon fontSize="small" />}
                   onClick={() => handleCopy(classSessionAccess.joinCode)}
@@ -506,6 +513,7 @@ export default function RoomNameScreen({
           <div className={classes.buttonArea}>
             {!classSessionAccess ? (
               <Button
+                type="submit"
                 variant="contained"
                 color="primary"
                 fullWidth
@@ -517,6 +525,7 @@ export default function RoomNameScreen({
               </Button>
             ) : (
               <Button
+                type="submit"
                 variant="contained"
                 color="primary"
                 fullWidth
@@ -527,10 +536,11 @@ export default function RoomNameScreen({
               </Button>
             )}
           </div>
-        </div>
+        </form>
       ) : (
         /* ── Estudiante card ────────────────────────────────────────────────────── */
-        <div className={classes.card}>
+        // <form> so Enter in the join-code or name field submits → clicks "Unirme".
+        <form className={classes.card} onSubmit={event => event.preventDefault()}>
           {/* Amber top border */}
           <div className={`${classes.cardBorderTop} ${classes.cardBorderTopStudent}`} />
 
@@ -619,6 +629,7 @@ export default function RoomNameScreen({
           {/* Primary button area */}
           <div className={classes.buttonArea}>
             <Button
+              type="submit"
               variant="contained"
               fullWidth
               disabled={!canContinueStudent || isCheckingRoom}
@@ -636,7 +647,7 @@ export default function RoomNameScreen({
               {isCheckingRoom ? 'Verificando sala…' : 'Unirme a la sala →'}
             </Button>
           </div>
-        </div>
+        </form>
       )}
 
       {/* ── Role-switch link ─────────────────────────────────────────────────────── */}

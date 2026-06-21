@@ -64,6 +64,24 @@ export function isTeacherIdentity(identity: string | null | undefined): boolean 
     .endsWith(TEACHER_DISPLAY_SUFFIX.toLowerCase());
 }
 
+/**
+ * Recovers the base display name from a participant identity by removing the trailing
+ * teacher suffix (case-insensitive). Student identities (no suffix) are returned trimmed
+ * and unchanged. Idempotent and null-safe — used to prefill the editable name field on a
+ * manual rejoin, where the teacher join flow re-appends the suffix via toClassSessionDisplayName.
+ */
+export function stripTeacherSuffix(identity: string | null | undefined): string {
+  const trimmedIdentity = (identity || '').trim();
+  if (!trimmedIdentity) return '';
+
+  const normalizedSuffix = TEACHER_DISPLAY_SUFFIX.toLowerCase();
+  if (trimmedIdentity.toLowerCase().endsWith(normalizedSuffix)) {
+    return trimmedIdentity.slice(0, trimmedIdentity.length - TEACHER_DISPLAY_SUFFIX.length).trim();
+  }
+
+  return trimmedIdentity;
+}
+
 export function toClassSessionDisplayName(name: string, role: ClassSessionRole): string {
   const trimmedName = name.trim();
 
