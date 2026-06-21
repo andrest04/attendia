@@ -22,12 +22,9 @@ import Container from '@material-ui/core/Container';
 import Divider from '@material-ui/core/Divider';
 import Paper from '@material-ui/core/Paper';
 import Slider from '@material-ui/core/Slider';
-import Switch from '@material-ui/core/Switch';
 import Typography from '@material-ui/core/Typography';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
 
-import { computeAttentionIndex } from '../../AttentionProvider/attentionFormula';
-import { AttentionComponents, AttentionLevel } from '../../AttentionProvider/types';
+import { AttentionLevel } from '../../AttentionProvider/types';
 import {
   computeGazeDirection,
   computeHeadPoseAngles,
@@ -36,6 +33,7 @@ import {
   addToRollingWindow,
   computeEyesScore,
   computeHeadScore,
+  computeLabAttentionIndex,
   BlinkState,
   FocusLostState,
   RollingWindow,
@@ -314,7 +312,6 @@ export default function AttentionLab() {
   const disposedRef = useRef(false);
 
   // Analysis control
-  const [analysisActive, setAnalysisActive] = useState(true);
   const [analysisFps, setAnalysisFps] = useState(2);
   const [blinkThreshold, setBlinkThreshold] = useState(DEFAULT_BLINK_THRESHOLD);
 
@@ -324,15 +321,12 @@ export default function AttentionLab() {
   const lastAnalysisTimestampRef = useRef(0);
   const rafIdRef = useRef<number | null>(null);
 
-  // Posture is manual (Phase 2 placeholder)
-  const [postureScore, setPostureScore] = useState(70);
-
   // Display state (React state for rendering)
   const [displayAnalysis, setDisplayAnalysis] = useState<AnalysisState>(freshAnalysisState());
   const [displayPerf, setDisplayPerf] = useState<PerfState>(freshPerfState());
-  const [displayComponents, setDisplayComponents] = useState<AttentionComponents>({
+  // Index is built from the two REAL signals only: eyes + head.
+  const [displayComponents, setDisplayComponents] = useState<{ eyes: number; head: number }>({
     eyes: 100,
-    posture: 70,
     head: 100,
   });
 
@@ -493,8 +487,7 @@ export default function AttentionLab() {
 
     const now = performance.now();
     const intervalMs = 1000 / analysisFps;
-    const shouldAnalyze =
-      analysisActive && document.visibilityState !== 'hidden' && now - lastAnalysisTimestampRef.current >= intervalMs;
+    const shouldAnalyze = document.visibilityState !== 'hidden' && now - lastAnalysisTimestampRef.current >= intervalMs;
 
     if (shouldAnalyze) {
       lastAnalysisTimestampRef.current = now;
@@ -546,6 +539,12 @@ export default function AttentionLab() {
         newState.absentMs = now - absentSince;
         newState.absentSince = absentSince;
         newState.multiface = false;
+        // No face = no attention signal. Push NEGATIVE samples so the rolling
+        // eyes/head scores decay toward 0, instead of the empty-window default
+        // (100) floating the index back up while the student is off-camera.
+        newState.gazeWindow = addToRollingWindow(state.gazeWindow, false, now);
+        newState.headWindow = addToRollingWindow(state.headWindow, false, now);
+        newState.headTurnedButGazingScreen = false;
       } else {
         newState.absentSince = null;
         newState.multiface = numFaces > 1;
@@ -576,6 +575,12 @@ export default function AttentionLab() {
         // Gaze direction from iris landmarks
         const gaze = computeGazeDirection(landmarks);
 
+        // Eyes closed? When the lids are shut the iris geometry collapses and
+        // gaze reads as falsely centred ("on screen"). Closed eyes are NOT
+        // attention, so gate the gaze signal by the eyeBlink blendshape.
+        const eyesClosed = blinkAvg >= blinkThreshold;
+        const eyesOnTask = gaze.onScreen && !eyesClosed;
+
         // Head pose from transformation matrix (column-major from MediaPipe)
         const matData =
           result.facialTransformationMatrixes && result.facialTransformationMatrixes[0]
@@ -593,7 +598,7 @@ export default function AttentionLab() {
         newState.focusLost = stepFocusLostStateMachine(state.focusLost, focusLost, now);
 
         // Rolling windows
-        newState.gazeWindow = addToRollingWindow(state.gazeWindow, gaze.onScreen, now);
+        newState.gazeWindow = addToRollingWindow(state.gazeWindow, eyesOnTask, now);
         newState.headWindow = addToRollingWindow(state.headWindow, !headPose.headTurned && !headPose.headDown, now);
 
         // "Head turned but looking at screen" — the key demo indicator
@@ -614,9 +619,8 @@ export default function AttentionLab() {
       // Snapshot to React state (throttled by analysis fps — no extra setInterval needed)
       const eyesScore = computeEyesScore(newState.gazeWindow);
       const headScore = computeHeadScore(newState.headWindow);
-      const components: AttentionComponents = {
+      const components = {
         eyes: eyesScore,
-        posture: postureScore,
         head: headScore,
       };
 
@@ -626,7 +630,7 @@ export default function AttentionLab() {
     }
 
     rafIdRef.current = requestAnimationFrame(runAnalysis);
-  }, [analysisActive, analysisFps, blinkThreshold, drawOverlay, postureScore]);
+  }, [analysisFps, blinkThreshold, drawOverlay]);
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
@@ -660,10 +664,17 @@ export default function AttentionLab() {
 
   // ── Derived display values ────────────────────────────────────────────────
 
-  const attentionIndex = computeAttentionIndex(displayComponents);
-  const level = attentionLevel(attentionIndex);
-  const levelColor = level === 'high' ? '#22c55e' : level === 'medium' ? '#f59e0b' : '#ef4444';
-  const levelLabel = level === 'high' ? 'Alta' : level === 'medium' ? 'Media' : 'Baja';
+  // The index is a MEASUREMENT. With no live signal (camera off or analysis
+  // paused) there is no measurement — show "sin datos", NOT a number. Treating
+  // absence as 0 ("Baja") or freezing the last value would assert something we
+  // never measured and would poison any later aggregation (group avg, alerts).
+  const measuring = cameraActive;
+  // Index from REAL signals only (eyes + head). Null when not measuring.
+  const attentionIndex = measuring ? computeLabAttentionIndex(displayComponents.eyes, displayComponents.head) : null;
+  const level = attentionIndex === null ? null : attentionLevel(attentionIndex);
+  const levelColor =
+    level === 'high' ? '#22c55e' : level === 'medium' ? '#f59e0b' : level === 'low' ? '#ef4444' : '#6b6b8a';
+  const levelLabel = level === 'high' ? 'Alta' : level === 'medium' ? 'Media' : level === 'low' ? 'Baja' : 'Sin datos';
 
   const fmtMs = (n: number) => `${n.toFixed(1)} ms`;
   const fmtFps = (n: number) => `${n.toFixed(1)} fps`;
@@ -737,21 +748,6 @@ export default function AttentionLab() {
                   Detener cámara
                 </Button>
               )}
-              <FormControlLabel
-                style={{ margin: 0 }}
-                control={
-                  <Switch
-                    checked={analysisActive}
-                    onChange={e => setAnalysisActive(e.target.checked)}
-                    color="primary"
-                  />
-                }
-                label={
-                  <Typography style={{ color: '#a0a0c0', fontSize: 13 }}>
-                    {analysisActive ? 'Pausar análisis' : 'Reanudar análisis'}
-                  </Typography>
-                }
-              />
             </Box>
 
             {/* Bottom row: configuration + performance side by side */}
@@ -778,18 +774,6 @@ export default function AttentionLab() {
                     step={0.05}
                     onChange={(_e, v) => setBlinkThreshold(v as number)}
                     style={{ color: '#22c55e' }}
-                  />
-                </Box>
-                <Box style={{ marginTop: 4 }}>
-                  <Typography className={classes.sliderLabel}>
-                    Postura (simulado — PoseLandmarker fase 2): {postureScore}
-                  </Typography>
-                  <Slider
-                    value={postureScore}
-                    min={0}
-                    max={100}
-                    onChange={(_e, v) => setPostureScore(v as number)}
-                    style={{ color: '#a855f7' }}
                   />
                 </Box>
               </Paper>
@@ -828,7 +812,7 @@ export default function AttentionLab() {
               <Typography className={classes.panelTitle}>Índice de atención</Typography>
               <Box style={{ textAlign: 'center', padding: '2px 0' }}>
                 <Typography className={classes.scoreIndex} style={{ color: levelColor }}>
-                  {attentionIndex}
+                  {attentionIndex === null ? '—' : attentionIndex}
                 </Typography>
                 <Chip
                   label={levelLabel}
@@ -840,15 +824,11 @@ export default function AttentionLab() {
               <Divider style={{ background: '#222235', margin: '6px 0' }} />
               <Box className={classes.counter}>
                 <Typography className={classes.counterLabel}>Ojos (ventana 10s)</Typography>
-                <Typography className={classes.counterValue}>{displayComponents.eyes}</Typography>
-              </Box>
-              <Box className={classes.counter}>
-                <Typography className={classes.counterLabel}>Postura (manual)</Typography>
-                <Typography className={classes.counterValue}>{displayComponents.posture}</Typography>
+                <Typography className={classes.counterValue}>{measuring ? displayComponents.eyes : '—'}</Typography>
               </Box>
               <Box className={classes.counter}>
                 <Typography className={classes.counterLabel}>Cabeza (ventana 10s)</Typography>
-                <Typography className={classes.counterValue}>{displayComponents.head}</Typography>
+                <Typography className={classes.counterValue}>{measuring ? displayComponents.head : '—'}</Typography>
               </Box>
             </Paper>
 

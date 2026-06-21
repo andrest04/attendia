@@ -15,6 +15,7 @@ import {
   computeWindowScore,
   computeEyesScore,
   computeHeadScore,
+  computeLabAttentionIndex,
   Landmark2D,
   BlinkState,
   FocusLostState,
@@ -406,5 +407,34 @@ describe('computeHeadScore', () => {
     const score = computeHeadScore(makeWindow(3, 5));
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(100);
+  });
+});
+
+// ─── computeLabAttentionIndex ─────────────────────────────────────────────────
+
+describe('computeLabAttentionIndex', () => {
+  it('returns 100 when both real signals are maxed', () => {
+    expect(computeLabAttentionIndex(100, 100)).toBe(100);
+  });
+
+  it('returns 0 when both real signals are zero', () => {
+    expect(computeLabAttentionIndex(0, 0)).toBe(0);
+  });
+
+  it('weights eyes more than head (eyes 4/7, head 3/7)', () => {
+    // eyes only → 4/7 ≈ 57; head only → 3/7 ≈ 43
+    expect(computeLabAttentionIndex(100, 0)).toBe(57);
+    expect(computeLabAttentionIndex(0, 100)).toBe(43);
+    expect(computeLabAttentionIndex(100, 0)).toBeGreaterThan(computeLabAttentionIndex(0, 100));
+  });
+
+  it('does NOT take posture into account (no third argument)', () => {
+    // Same eyes+head must yield the same index regardless of any posture value.
+    expect(computeLabAttentionIndex(80, 60)).toBe(Math.round((4 / 7) * 80 + (3 / 7) * 60));
+  });
+
+  it('clamps and rounds out-of-range inputs to [0, 100]', () => {
+    expect(computeLabAttentionIndex(200, 200)).toBe(100);
+    expect(computeLabAttentionIndex(-50, -50)).toBe(0);
   });
 });

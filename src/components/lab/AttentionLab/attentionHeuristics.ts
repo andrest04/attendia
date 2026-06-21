@@ -336,3 +336,22 @@ export function computeEyesScore(gazeWindow: RollingWindow): number {
 export function computeHeadScore(headWindow: RollingWindow): number {
   return computeWindowScore(headWindow);
 }
+
+// ─── computeLabAttentionIndex ─────────────────────────────────────────────────
+
+/**
+ * Aggregate attention index (0–100) from the two REAL computer-vision signals
+ * measured in the lab: eyes (gaze on-screen, gated by eyes-open) and head
+ * (head straight). Posture is intentionally EXCLUDED — in the lab it is a manual
+ * slider, not a measured signal, so it must not inflate the index.
+ *
+ * Weights preserve the product formula's eyes:head ratio (40:30) renormalized to
+ * sum to 1 over the two real signals: eyes = 4/7, head = 3/7.
+ *
+ * This is the lab's working formula and the candidate to promote into the shared
+ * attentionFormula.ts once tuned. Rounded to the nearest integer, clamped [0,100].
+ */
+export function computeLabAttentionIndex(eyes: number, head: number): number {
+  const raw = (4 / 7) * eyes + (3 / 7) * head;
+  return Math.min(100, Math.max(0, Math.round(raw)));
+}
