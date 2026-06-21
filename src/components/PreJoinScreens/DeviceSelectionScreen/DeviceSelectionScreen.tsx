@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { makeStyles, Typography, Grid, Button, Theme, Hidden, Switch, Tooltip } from '@material-ui/core';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
@@ -8,6 +8,9 @@ import WifiIcon from '@material-ui/icons/Wifi';
 
 import { LocalVideoTrack } from 'twilio-video';
 import { saveRejoinSession } from '../rejoinSession';
+import { hasConsent, saveConsent } from '../attentionConsent';
+import { isTeacherIdentity } from '../classSessionTypes';
+import AttentionConsentModal from '../AttentionConsentModal';
 import LocalVideoPreview from './LocalVideoPreview/LocalVideoPreview';
 import SettingsMenu from './SettingsMenu/SettingsMenu';
 import { Steps } from '../PreJoinScreens';
@@ -439,6 +442,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   const { connect: videoConnect, isAcquiringLocalTracks, isConnecting, localTracks } = useVideoContext();
   const { toggleKrisp } = useKrispToggle();
 
+  // Consent modal state: shown when the CV pipeline is enabled, the user is a student,
+  // and they have not yet consented for this room in the current session.
+  const [consentModalOpen, setConsentModalOpen] = useState(false);
+
   const { hasAudioInputDevices, hasVideoInputDevices, audioOutputDevices } = useDevices();
   const connection = useConnectionQuality();
   const videoTrack = localTracks.find(track => !track.name.includes('screen') && track.kind === 'video') as
@@ -484,7 +491,8 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   // frontier stay in the 'pending' (spinner) state.
   const revealedChecks = useStaggeredReveal(deviceChecks.length);
 
-  const handleJoin = () => {
+  /** Executes the actual join sequence after all gates (consent, etc.) have passed. */
+  const doJoin = () => {
     getToken(name, roomName)
       .then(({ token }) => {
         // Persist enough to auto-rejoin after a refresh. The identity carries the role
@@ -498,6 +506,38 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
       // the app-level ErrorDialog (setError in the getToken wrapper); just swallow the
       // rejection here so it doesn't become an unhandled promise rejection.
       .catch(() => {});
+  };
+
+  /**
+   * Called when the "Entrar a la sala" button is clicked.
+   *
+   * When the CV attention pipeline is enabled (REACT_APP_ENABLE_ATTENTION_CV === 'true'),
+   * students must explicitly consent before joining. Teachers are never gated.
+   * A student who already consented for this room (persisted in sessionStorage) is
+   * not re-prompted — this covers auto-rejoin after a page refresh.
+   */
+  const handleJoin = () => {
+    const cvEnabled = process.env.REACT_APP_ENABLE_ATTENTION_CV === 'true';
+    const isTeacher = isTeacherIdentity(name);
+
+    if (cvEnabled && !isTeacher && !hasConsent(roomName)) {
+      // Show the consent modal; doJoin is deferred until the student accepts.
+      setConsentModalOpen(true);
+      return;
+    }
+
+    doJoin();
+  };
+
+  const handleConsentAccept = () => {
+    saveConsent(roomName);
+    setConsentModalOpen(false);
+    doJoin();
+  };
+
+  const handleConsentDecline = () => {
+    setConsentModalOpen(false);
+    // Student chose not to consent — stay on the device-selection screen.
   };
 
   if (isFetching || isConnecting) {
@@ -684,6 +724,14 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
           </div>
         </Grid>
       </Grid>
+
+      {process.env.REACT_APP_ENABLE_ATTENTION_CV === 'true' && (
+        <AttentionConsentModal
+          open={consentModalOpen}
+          onAccept={handleConsentAccept}
+          onDecline={handleConsentDecline}
+        />
+      )}
     </div>
   );
 }
