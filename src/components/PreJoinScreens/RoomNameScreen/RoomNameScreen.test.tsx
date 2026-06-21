@@ -361,6 +361,56 @@ describe('the RoomNameScreen component', () => {
     expect(joinButton.prop('disabled')).toBe(true);
   });
 
+  // ── Keyboard submit (Enter) ─────────────────────────────────────────────────────
+
+  it('wraps the teacher card in a form whose primary action is a submit button (Enter creates)', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
+    const wrapper = shallow(
+      <RoomNameScreen {...baseProps} classSessionDraft={{ ...baseTeacherDraft, sessionName: 'Ready Session' }} />
+    );
+
+    expect(wrapper.find('form').exists()).toBe(true);
+    const createButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Crear sala →');
+    expect(createButton.prop('type')).toBe('submit');
+  });
+
+  it('prevents the native page reload when the teacher form is submitted', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
+    const wrapper = shallow(<RoomNameScreen {...baseProps} />);
+
+    const preventDefault = jest.fn();
+    wrapper.find('form').simulate('submit', { preventDefault });
+    expect(preventDefault).toHaveBeenCalled();
+  });
+
+  it('makes the student "Unirme a la sala →" a submit button so Enter joins', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: undefined }));
+    const wrapper = shallow(
+      <RoomNameScreen {...baseProps} name="Ana" studentJoinCode="room-1" classSessionDraft={baseStudentDraft} />
+    );
+
+    expect(wrapper.find('form').exists()).toBe(true);
+    const joinButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Unirme a la sala →');
+    expect(joinButton.prop('type')).toBe('submit');
+  });
+
+  it('keeps the teacher "Copiar" button as type="button" so it never hijacks Enter', () => {
+    mockUseAppState.mockImplementation(() => ({ user: { displayName: 'Teacher Name' } }));
+    const wrapper = shallow(
+      <RoomNameScreen
+        {...baseProps}
+        classSessionAccess={{
+          roomName: 'session-1',
+          joinCode: 'session-1',
+          joinLink: 'https://example.org/room/session-1',
+        }}
+      />
+    );
+
+    const copyButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Copiar');
+    expect(copyButton.prop('type')).toBe('button');
+  });
+
   it('wires student inputs and student-only actions', () => {
     mockUseAppState.mockImplementationOnce(() => ({ user: undefined }));
     const setName = jest.fn();

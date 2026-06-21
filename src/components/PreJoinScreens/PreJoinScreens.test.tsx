@@ -9,6 +9,8 @@ import { useLocation, useParams } from 'react-router-dom';
 import { useAppState } from '../../state';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { checkRoomOpen } from './checkRoomOpen';
+import { getResumableSession } from './rejoinSession';
+import useAutoRejoin from './useAutoRejoin';
 import { setImmediate } from 'timers';
 
 // @ts-ignore
@@ -30,7 +32,16 @@ jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../hooks/useChatContext/useChatContext', () => () => ({ connect: jest.fn() }));
 jest.mock('./MediaErrorSnackbar/MediaErrorSnackbar', () => () => null);
 jest.mock('./checkRoomOpen');
+// Only getResumableSession is mocked; the role helpers (isTeacherIdentity, stripTeacherSuffix)
+// stay real because they are pure.
+jest.mock('./rejoinSession', () => ({
+  ...jest.requireActual('./rejoinSession'),
+  getResumableSession: jest.fn(),
+}));
+jest.mock('./useAutoRejoin');
 const mockCheckRoomOpen = checkRoomOpen as jest.Mock;
+const mockGetResumableSession = getResumableSession as jest.Mock;
+const mockUseAutoRejoin = useAutoRejoin as jest.Mock;
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseParams = useParams as jest.Mock<any>;
 const mockUseLocation = useLocation as jest.Mock<any>;
@@ -43,10 +54,22 @@ jest.mock('./DeviceSelectionScreen/DeviceSelectionScreen', () => () => null);
 describe('the PreJoinScreens component', () => {
   beforeEach(jest.clearAllMocks);
   beforeEach(() => {
-    mockUseAppState.mockImplementation(() => ({ user: { displayName: 'Test User' } }));
+    mockUseAppState.mockImplementation(() => ({
+      user: { displayName: 'Test User' },
+      getToken: jest.fn(() => Promise.resolve({ token: 'token' })),
+      error: null,
+      setError: jest.fn(),
+    }));
     mockUseParams.mockImplementation(() => ({ URLRoomName: 'testRoom' }));
     mockUseLocation.mockImplementation(() => ({ state: undefined }));
-    mockUseVideoContext.mockImplementation(() => ({ getAudioAndVideoTracks: () => Promise.resolve() }));
+    mockUseVideoContext.mockImplementation(() => ({
+      getAudioAndVideoTracks: () => Promise.resolve(),
+      connect: jest.fn(() => Promise.resolve()),
+    }));
+    // Default: no persisted rejoin session (the common deep-link / fresh-lobby case).
+    mockGetResumableSession.mockReturnValue(null);
+    // Default: not rejoining, so the lobby renders (existing tests assert on RoomNameScreen).
+    mockUseAutoRejoin.mockReturnValue(false);
     // Default: the open-room probe says the room is open so the student flow proceeds.
     mockCheckRoomOpen.mockResolvedValue(true);
     // @ts-ignore
@@ -342,6 +365,42 @@ describe('the PreJoinScreens component', () => {
 
     expect(wrapper.find(DeviceSelectionScreen).prop('name')).toBe('Andres Torres [Profesor]');
     expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('clase-de-algebra');
+  });
+
+  // These cover the Bug 1 fallback: rejoin did NOT complete, the lobby shows, and the role
+  // must come from the persisted identity (not be hardcoded to 'student'). We force the
+  // lobby to render (auto-rejoin returns false) while leaving getResumableSession intact so
+  // the synchronous role/name resolution still reads the persisted session.
+  it('renders the teacher lobby role from a resumable teacher session on refresh', () => {
+    mockUseAutoRejoin.mockReturnValue(false);
+    mockUseParams.mockImplementation(() => ({ URLRoomName: 'prueba' }));
+    mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: 'andres [Profesor]' });
+    const wrapper = mount(<PreJoinScreens />);
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('teacher');
+    expect(wrapper.find(RoomNameScreen).prop('roomName')).toBe('prueba');
+    // The teacher suffix is stripped for the editable name field; rejoin re-appends it.
+    expect(wrapper.find(RoomNameScreen).prop('name')).toBe('andres');
+  });
+
+  it('renders the student lobby role for a deep link with no resumable session', () => {
+    mockUseAutoRejoin.mockReturnValue(false);
+    mockUseParams.mockImplementation(() => ({ URLRoomName: 'prueba' }));
+    mockGetResumableSession.mockReturnValue(null);
+    const wrapper = mount(<PreJoinScreens />);
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('student');
+    expect(wrapper.find(RoomNameScreen).prop('roomName')).toBe('prueba');
+  });
+
+  it('renders the student lobby role from a resumable student session on refresh', () => {
+    mockUseAutoRejoin.mockReturnValue(false);
+    mockUseParams.mockImplementation(() => ({ URLRoomName: 'prueba' }));
+    mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: 'Ana Lopez' });
+    const wrapper = mount(<PreJoinScreens />);
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('student');
+    expect(wrapper.find(RoomNameScreen).prop('name')).toBe('Ana Lopez');
   });
 
   it('captures errors from getAudioAndVideoTracks and passes to MediaErrorSnackbar', async () => {

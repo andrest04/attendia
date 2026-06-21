@@ -9,12 +9,15 @@ import { useLocation, useParams } from 'react-router-dom';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAutoRejoin from './useAutoRejoin';
 import { checkRoomOpen } from './checkRoomOpen';
+import { getResumableSession } from './rejoinSession';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
   createClassSessionAccess,
   createDefaultClassSessionDraft,
+  isTeacherIdentity,
   normalizeStudentJoinInputToRoomName,
+  stripTeacherSuffix,
   toClassSessionDisplayName,
 } from './classSessionTypes';
 
@@ -30,14 +33,26 @@ export default function PreJoinScreens() {
   const isRejoining = useAutoRejoin(URLRoomName);
   const location = useLocation<{ preJoinRole?: 'teacher' | 'student' }>();
   const preJoinRole = location.state?.preJoinRole;
-  const initialRole: 'teacher' | 'student' = URLRoomName
+  // A refresh on /room/:name destroys the live Room; if a session was persisted for this exact
+  // room, its identity encodes the correct role (teacher carries the [Profesor] suffix). Read it
+  // synchronously so the fallback lobby shows the RIGHT role/name instead of defaulting to student.
+  const resumable = getResumableSession(URLRoomName);
+  const initialRole: 'teacher' | 'student' = resumable
+    ? isTeacherIdentity(resumable.identity)
+      ? 'teacher'
+      : 'student'
+    : URLRoomName
     ? 'student'
     : preJoinRole === 'student'
     ? 'student'
     : 'teacher';
   const [step, setStep] = useState(Steps.roomNameStep);
 
-  const [name, setName] = useState<string>(user?.displayName || '');
+  // Prefill the editable name field from the persisted identity on a manual rejoin (teacher
+  // suffix stripped — the teacher join flow re-appends it). Falls back to the user displayName.
+  const [name, setName] = useState<string>(() =>
+    resumable ? stripTeacherSuffix(resumable.identity) : user?.displayName || ''
+  );
   const [teacherDisplayName, setTeacherDisplayName] = useState<string>(
     toClassSessionDisplayName(user?.displayName || '', 'teacher')
   );
@@ -61,7 +76,11 @@ export default function PreJoinScreens() {
     if (URLRoomName) {
       setRoomName(URLRoomName);
       setStudentJoinCode(URLRoomName);
-      setClassSessionDraft(prev => ({ ...prev, role: 'student' }));
+      // Derive the role from the persisted identity (teacher suffix) instead of hardcoding
+      // 'student' — otherwise a teacher who refreshes lands on the student card (Bug 1).
+      const session = getResumableSession(URLRoomName);
+      const role = session && isTeacherIdentity(session.identity) ? 'teacher' : 'student';
+      setClassSessionDraft(prev => ({ ...prev, role }));
     }
   }, [URLRoomName]);
 
@@ -161,7 +180,7 @@ export default function PreJoinScreens() {
 
   if (isRejoining) {
     return (
-      <IntroContainer>
+      <IntroContainer homeRole={classSessionDraft.role}>
         <div
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '2em 0' }}
           aria-live="polite"
@@ -187,6 +206,7 @@ export default function PreJoinScreens() {
       maxWidth={step === Steps.deviceSelectionStep ? 1004 : undefined}
       noHero={step === Steps.deviceSelectionStep}
       headerRoomName={step === Steps.deviceSelectionStep ? roomName : undefined}
+      homeRole={classSessionDraft.role}
     >
       <MediaErrorSnackbar error={mediaError} />
       {step === Steps.roomNameStep && (

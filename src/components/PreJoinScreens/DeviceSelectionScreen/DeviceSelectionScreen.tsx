@@ -127,7 +127,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 13,
     lineHeight: '19.5px',
     color: '#7c4e00',
-    whiteSpace: 'nowrap' as const,
   },
   lightingBannerSub: {
     fontSize: 12,
@@ -136,14 +135,21 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: 3,
   },
   lightingBannerClose: {
-    padding: 4,
+    width: 40,
+    height: 40,
+    padding: 0,
     background: 'none',
     border: 'none',
     cursor: 'pointer',
     color: '#9a6400',
     display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     flexShrink: 0,
+    fontSize: 20,
     lineHeight: 1,
+    borderRadius: 8,
+    '&:hover': { backgroundColor: 'rgba(154,100,0,0.08)' },
   },
   // Preview column
   localPreviewContainer: {
@@ -445,6 +451,8 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   // Consent modal state: shown when the CV pipeline is enabled, the user is a student,
   // and they have not yet consented for this room in the current session.
   const [consentModalOpen, setConsentModalOpen] = useState(false);
+  // Lets the user dismiss the lighting warning banner (the × was previously inert).
+  const [lightingDismissed, setLightingDismissed] = useState(false);
 
   const { hasAudioInputDevices, hasVideoInputDevices, audioOutputDevices } = useDevices();
   const connection = useConnectionQuality();
@@ -571,7 +579,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
       </div>
 
       {/* Lighting warning — only shown when the live luminance check finds the scene too dark. */}
-      {lighting.status === 'low' && (
+      {lighting.status === 'low' && !lightingDismissed && (
         <div className={classes.lightingBanner} role="note" aria-label="Verificación de iluminación">
           <div className={classes.lightingBannerIconWrap}>
             <WarningIcon style={{ fontSize: 17, color: '#ffb800' }} />
@@ -584,7 +592,11 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
               Mejora la iluminación de tu entorno para que el sistema pueda analizar tu atención correctamente.
             </div>
           </div>
-          <button className={classes.lightingBannerClose} aria-label="Cerrar aviso">
+          <button
+            className={classes.lightingBannerClose}
+            aria-label="Cerrar aviso"
+            onClick={() => setLightingDismissed(true)}
+          >
             ×
           </button>
         </div>

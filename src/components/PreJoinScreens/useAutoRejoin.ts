@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppState } from '../../state';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
-import { clearRejoinSession, getResumableSession } from './rejoinSession';
+import { clearRejoinSession, getResumableSession, RejoinSession } from './rejoinSession';
 
 /*
  * Reconnects automatically after a full page refresh.
@@ -14,24 +14,79 @@ import { clearRejoinSession, getResumableSession } from './rejoinSession';
  *
  * Returns `true` while a rejoin is in flight so the caller can show a reconnecting state
  * instead of the lobby.
+ *
+ * Resilience: `useRoom`'s connect resolves (not rejects) on an SDK-level failure and
+ * surfaces the problem through the app error state instead. On a refresh, reconnecting with
+ * the SAME identity can transiently race the server tearing down the old participant, so we
+ * retry ONCE (after a short delay) before giving up. We never clear the session on an SDK
+ * error — keeping it preserves the correct role for the fallback lobby and lets the next
+ * manual refresh retry. The session is only cleared on a genuine token rejection (room
+ * closed / passcode expired), which is a real refusal, not transient.
  */
+
+const RETRY_DELAY_MS = 2000;
+
 export default function useAutoRejoin(urlRoomName: string | undefined): boolean {
-  const { getToken, error } = useAppState();
+  const { getToken, error, setError } = useAppState();
   const { connect: videoConnect, getAudioAndVideoTracks } = useVideoContext();
   const { connect: chatConnect } = useChatContext();
 
   // Seed the spinner synchronously on first render so the lobby never flashes.
   const [isRejoining, setIsRejoining] = useState(() => Boolean(getResumableSession(urlRoomName)));
   const hasStarted = useRef(false);
+  const retriedRef = useRef(false);
+  const disposedRef = useRef(false);
+  const retryTimerRef = useRef<number | null>(null);
 
-  // `useRoom`'s connect resolves (not rejects) on an SDK-level failure and surfaces the
-  // problem through the app error state instead. So if an error appears once a rejoin is
-  // underway, drop back to the lobby rather than leaving the spinner stuck behind the dialog.
+  // The retry runs after a delay, so it must call the CURRENT connect/token functions
+  // (videoConnect closes over the freshly acquired localTracks). A ref kept up to date each
+  // render avoids the delayed retry firing with a stale closure.
+  const connectorsRef = useRef({ getToken, videoConnect, chatConnect });
   useEffect(() => {
-    if (error && hasStarted.current) {
-      clearRejoinSession();
-      setIsRejoining(false);
+    connectorsRef.current = { getToken, videoConnect, chatConnect };
+  });
+
+  // The token/video/chat connect sequence. Callable more than once (the retry reuses it).
+  // Media acquisition runs only once, before the first attempt, so it is NOT in here.
+  const connectSequence = async (session: RejoinSession) => {
+    if (disposedRef.current) return;
+    const connectors = connectorsRef.current;
+    const { token } = await connectors.getToken(session.identity, session.roomName);
+    if (disposedRef.current) return;
+    await connectors.videoConnect(token);
+    if (process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true') {
+      connectors.chatConnect(token);
     }
+    // On success the Room mounts and this component unmounts; no state update needed.
+  };
+
+  // React to an SDK-level connect failure surfaced through the app error state. The first
+  // failure triggers one retry; a second failure falls back to the lobby (session preserved).
+  useEffect(() => {
+    if (!error || !hasStarted.current) return;
+
+    if (!retriedRef.current) {
+      retriedRef.current = true;
+      console.warn('Auto-rejoin: connect failed, retrying once.', error);
+      setError(null); // dismiss the error dialog before retrying
+      const session = getResumableSession(urlRoomName);
+      retryTimerRef.current = window.setTimeout(() => {
+        if (session) {
+          connectSequence(session).catch(retryError => {
+            // A token rejection on the retry is a genuine refusal; clear and fall back.
+            console.warn('Auto-rejoin: retry token request failed.', retryError);
+            clearRejoinSession();
+            setIsRejoining(false);
+          });
+        }
+      }, RETRY_DELAY_MS);
+      return;
+    }
+
+    // Second failure → give up, drop to the lobby, but DO NOT clear the session (Bug 2).
+    console.warn('Auto-rejoin: connect failed again, falling back to lobby.', error);
+    setIsRejoining(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
 
   useEffect(() => {
@@ -55,22 +110,28 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
       }
 
       try {
-        const { token } = await getToken(session.identity, session.roomName);
-        await videoConnect(token);
-        if (process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true') {
-          chatConnect(token);
-        }
-        // On success the Room mounts and this component unmounts; no state update needed.
-      } catch {
-        // Token/connect failed (e.g. expired passcode). Drop the stale session and
-        // fall back to the lobby so the user can rejoin manually. getToken already
-        // surfaces the error through the app-level ErrorDialog.
+        await connectSequence(session);
+      } catch (connectError) {
+        // Token/connect failed (e.g. expired passcode / closed room). This is a genuine
+        // refusal, not transient — drop the stale session and fall back to the lobby so the
+        // user can rejoin manually. getToken already surfaces the error through the dialog.
+        console.warn('Auto-rejoin: token request failed, falling back to lobby.', connectError);
         clearRejoinSession();
         setIsRejoining(false);
       }
     })();
     // Run once on mount; the guard ref prevents re-entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Clear any pending retry timer and block late callbacks on unmount.
+  useEffect(() => {
+    return () => {
+      disposedRef.current = true;
+      if (retryTimerRef.current !== null) {
+        window.clearTimeout(retryTimerRef.current);
+      }
+    };
   }, []);
 
   return isRejoining;

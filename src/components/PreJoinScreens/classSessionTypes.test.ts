@@ -5,6 +5,7 @@ import {
   isClassSessionDraftReady,
   isTeacherIdentity,
   normalizeStudentJoinInputToRoomName,
+  stripTeacherSuffix,
   toClassSessionRoomName,
 } from './classSessionTypes';
 
@@ -95,5 +96,27 @@ describe('classSessionTypes helpers', () => {
   it('returns an empty room name for blank student input', () => {
     expect(normalizeStudentJoinInputToRoomName('')).toBe('');
     expect(normalizeStudentJoinInputToRoomName('   ')).toBe('');
+  });
+
+  it('strips the teacher suffix to recover the base display name', () => {
+    expect(stripTeacherSuffix('Andres Torres [Profesor]')).toBe('Andres Torres');
+    // Case-insensitive on the suffix.
+    expect(stripTeacherSuffix('Andres Torres [profesor]')).toBe('Andres Torres');
+    // Trims surrounding/leftover whitespace.
+    expect(stripTeacherSuffix('  Andres Torres   [Profesor]  ')).toBe('Andres Torres');
+    // Student names (no suffix) are returned untouched (trimmed).
+    expect(stripTeacherSuffix('Ana Lopez')).toBe('Ana Lopez');
+    expect(stripTeacherSuffix('  Ana Lopez  ')).toBe('Ana Lopez');
+    // Idempotent and null-safe.
+    expect(stripTeacherSuffix(stripTeacherSuffix('Andres Torres [Profesor]'))).toBe('Andres Torres');
+    expect(stripTeacherSuffix('')).toBe('');
+    expect(stripTeacherSuffix(undefined)).toBe('');
+    expect(stripTeacherSuffix(null)).toBe('');
+  });
+
+  it('round-trips with toClassSessionDisplayName for teachers', () => {
+    const base = 'Andres Torres';
+    const visible = toClassSessionDisplayName(base, 'teacher');
+    expect(stripTeacherSuffix(visible)).toBe(base);
   });
 });
