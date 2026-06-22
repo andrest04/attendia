@@ -19,6 +19,8 @@ import { useAppState } from '../../state';
 import { AttentionLevel } from '../AttentionProvider/types';
 import { levelShortLabel as attentionShortLabel } from '../AttentionProvider/attentionLabels';
 import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
+import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
+import RoleBadge from '../RoleBadge/RoleBadge';
 
 const borderWidth = 2;
 
@@ -169,6 +171,16 @@ const useStyles = makeStyles((theme: Theme) =>
     dominantSpeaker: {
       border: `solid ${borderWidth}px #7BEAA5`,
     },
+    // Attendia: the teacher's tile gets an accent ring so students spot it at a
+    // glance in the gallery. boxShadow (not border) so it never fights the
+    // dominantSpeaker / galleryView border.
+    teacherTile: {
+      boxShadow: `0 0 0 2px ${theme.palette.primary.main}, 0 0 0 4px rgba(29,110,237,0.25)`,
+    },
+    roleBadge: {
+      marginLeft: '0.4em',
+      marginRight: '0.3em',
+    },
     // Attendia: multiface → red border on the tile.
     multifaceTile: {
       border: `1.5px solid rgba(239,68,68,0.9)`,
@@ -269,6 +281,8 @@ export default function ParticipantInfo({
 
   const hasMultiface = Boolean(attention && attention.multiface);
 
+  const isTeacher = isTeacherIdentity(participant.identity);
+
   return (
     <div
       className={clsx(classes.container, {
@@ -277,6 +291,7 @@ export default function ParticipantInfo({
         [classes.dominantSpeaker]: isDominantSpeaker,
         [classes.galleryView]: isGalleryViewActive,
         [classes.multifaceTile]: hasMultiface,
+        [classes.teacherTile]: isTeacher,
       })}
       onClick={onClick}
       data-cy-participant={participant.identity}
@@ -319,9 +334,10 @@ export default function ParticipantInfo({
           <span className={classes.identity}>
             <AudioLevelIndicator audioTrack={audioTrack} />
             <Typography variant="body1" className={classes.typography} component="span">
-              {participant.identity.replace(/\s*\[Profesor\]\s*$/i, '').trim()}
+              {stripTeacherSuffix(participant.identity)}
               {isLocalParticipant && ' (Yo)'}
             </Typography>
+            {isTeacher && <RoleBadge size="sm" className={classes.roleBadge} />}
           </span>
         </div>
         <div>{isSelected && <PinIcon />}</div>

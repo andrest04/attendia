@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
-import { ShellNotification } from './useShellNotifications';
 import { isTeacherIdentity } from '../../PreJoinScreens/classSessionTypes';
 import AttendiaLogo from '../../Brand/AttendiaLogo';
+import RoleBadge from '../../RoleBadge/RoleBadge';
 
 // ─── Design tokens (from theme + Figma) ─────────────────────────────────────
 // Primary blue:  #1d6eed
@@ -20,7 +20,9 @@ const useStyles = makeStyles((theme: Theme) => ({
   root: {
     display: 'grid',
     gridTemplateColumns: '236px 1fr 300px',
-    gridTemplateRows: '1fr auto',
+    // Single row: the rails span the full height; the toolbar lives inside the
+    // center column (mirrors ProfessorRoomShell) so it never spans the rails.
+    gridTemplateRows: '1fr',
     width: '100%',
     height: '100%',
     backgroundColor: theme.palette.background.default,
@@ -113,7 +115,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 11,
     lineHeight: '16.5px',
   },
-  rosterAvatarTeacher: {
+  // The local user's own avatar gets the filled accent treatment so they can spot
+  // themselves in the roster (consistent across both shells).
+  rosterAvatarSelf: {
     backgroundColor: theme.palette.secondary.main,
     color: '#ffffff',
     boxShadow: '0px 1px 2px rgba(29,110,237,0.07)',
@@ -125,8 +129,13 @@ const useStyles = makeStyles((theme: Theme) => ({
   rosterInfo: {
     flex: 1,
     minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
   },
   rosterName: {
+    flex: '0 1 auto',
+    minWidth: 0,
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 700,
     fontSize: 13,
@@ -136,13 +145,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
   },
-  rosterSubLabel: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: 11,
-    color: theme.palette.primary.main,
-    lineHeight: '16.5px',
-  },
   rosterDot: {
     flexShrink: 0,
     width: 8,
@@ -150,54 +152,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 4,
     backgroundColor: '#10b981',
   },
-  // Notifications section
-  notificationsSection: {
-    borderTop: '1px solid #e2ecf9',
-    padding: '15px 18px 14px',
-    flexShrink: 0,
-  },
-  notificationsLabel: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 700,
-    fontSize: 10,
-    color: '#94a3b8',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.7px',
-    lineHeight: '15px',
-    marginBottom: 0,
-  },
-  notificationItems: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 0,
-  },
-  notificationPill: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: theme.palette.background.default,
-    border: '1px solid #e2ecf9',
-    borderRadius: 10,
-    padding: '8px 11px',
-    marginTop: 10,
-  },
-  notificationEmoji: {
-    fontSize: 13,
-    lineHeight: '19.5px',
-    flexShrink: 0,
-  },
-  notificationText: {
+  // Plain count fallback text (when no rich roster is provided).
+  countText: {
     fontFamily: 'Inter, sans-serif',
     fontWeight: 400,
     fontSize: 11,
     color: '#64748b',
     lineHeight: '16.5px',
-  },
-  notificationsEmpty: {
-    fontFamily: 'Inter, sans-serif',
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 10,
   },
   // ── Center stage ───────────────────────────────────────────────────────────
   center: {
@@ -320,22 +281,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column' as const,
   },
   // ── Bottom toolbar ─────────────────────────────────────────────────────────
-  toolbarRow: {
-    gridColumn: '1 / -1',
-    gridRow: '2',
-    borderTop: '1px solid #e2ecf9',
-    backgroundColor: theme.palette.background.paper,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Wrap (instead of overflowing/clipping the end-call button) at narrow widths.
-    flexWrap: 'wrap',
-    padding: '15px 32px 14px',
-    gap: 14,
-    [theme.breakpoints.down('md')]: {
-      padding: '12px 16px',
-      gap: 10,
-    },
+  // Dark navy surface matching ProfessorRoomShell; sits inside the center column
+  // so it only spans the video stage width, not the full-width rails.
+  toolbar: {
+    flexShrink: 0,
+    backgroundColor: '#0f1e45',
+    borderTop: '1px solid rgba(255,255,255,0.06)',
+    padding: theme.spacing(1.25, 2),
   },
 }));
 
@@ -354,6 +306,7 @@ function getInitials(identity: string): string {
 interface RosterParticipant {
   identity: string;
   isOnline?: boolean;
+  isLocal?: boolean;
 }
 
 function RosterItem({
@@ -370,7 +323,10 @@ function RosterItem({
   return (
     <div className={classes.rosterItem}>
       <div
-        className={clsx(classes.rosterAvatar, isTeacher ? classes.rosterAvatarTeacher : classes.rosterAvatarStudent)}
+        className={clsx(
+          classes.rosterAvatar,
+          participant.isLocal ? classes.rosterAvatarSelf : classes.rosterAvatarStudent
+        )}
       >
         {initials}
       </div>
@@ -378,7 +334,7 @@ function RosterItem({
         <div className={classes.rosterName} title={displayName}>
           {displayName}
         </div>
-        {isTeacher && <div className={classes.rosterSubLabel}>Docente</div>}
+        {isTeacher && <RoleBadge size="sm" />}
       </div>
       {participant.isOnline && <div className={classes.rosterDot} />}
     </div>
@@ -414,18 +370,19 @@ function Caret({ direction, className }: { direction: 'left' | 'right'; classNam
   );
 }
 
-// ── Emoji helper for notifications ────────────────────────────────────────────
-function notificationEmoji(kind: ShellNotification['kind'], text: string): string {
-  if (kind === 'local-hand') {
-    return text.includes('Levantaste') ? '✋' : '👋';
-  }
-  if (text.includes('levantó')) return '✋';
-  if (text.includes('unió')) return '🔔';
-  if (text.includes('salió')) return '👋';
-  return '🔔';
+// ── Props ─────────────────────────────────────────────────────────────────────
+// Maps a Twilio network quality level (0–5, 5 = best; null/undefined = no data
+// yet) to the connection pill's label and dot color. The <=2 "Débil" cut mirrors
+// the threshold that drives the degraded-connectivity banner, so the two never
+// contradict each other.
+type ConnectionQuality = { label: string; color: string };
+function connectionQuality(level: number | null | undefined): ConnectionQuality {
+  if (level == null) return { label: 'Sin datos', color: '#9ca3af' };
+  if (level <= 2) return { label: 'Débil', color: '#ef4444' };
+  if (level === 3) return { label: 'Media', color: '#f59e0b' };
+  return { label: 'Buena', color: '#10b981' };
 }
 
-// ── Props ─────────────────────────────────────────────────────────────────────
 interface Props {
   stage: React.ReactNode;
   toolbarSlot?: React.ReactNode;
@@ -433,8 +390,9 @@ interface Props {
   activeSpeakerLabel?: string;
   sessionLabel?: string;
   participantCount?: number;
-  notifications?: ShellNotification[];
   isConnectivityDegraded?: boolean;
+  /** Twilio network quality level (0–5) of the local participant; null/undefined = unknown. */
+  networkQualityLevel?: number | null;
   /** Optional rich roster; when provided, renders avatar list instead of plain count */
   participants?: RosterParticipant[];
 }
@@ -446,11 +404,12 @@ export default function StudentRoomShell({
   activeSpeakerLabel = 'Sin participante activo',
   sessionLabel = 'Sesión Twilio en vivo',
   participantCount = 0,
-  notifications = [],
   isConnectivityDegraded = false,
+  networkQualityLevel,
   participants,
 }: Props) {
   const classes = useStyles();
+  const connection = connectionQuality(networkQualityLevel);
   // Local UI state: lets the student collapse the chat rail to give video more room.
   // The toggle button always stays visible, so the panel is never hidden without a way back.
   const [chatCollapsed, setChatCollapsed] = useState(false);
@@ -479,28 +438,7 @@ export default function StudentRoomShell({
             participants.map(p => <RosterItem key={p.identity} participant={p} classes={classes} />)
           ) : (
             <div className={classes.rosterItem} data-testid="student-room-shell-participant-count">
-              <span className={classes.notificationText}>{participantCount} en sala</span>
-            </div>
-          )}
-        </div>
-
-        {/* NOTIFICACIONES */}
-        <div className={classes.notificationsSection}>
-          <div className={classes.notificationsLabel}>Notificaciones</div>
-          {notifications.length === 0 ? (
-            <div className={classes.notificationsEmpty} data-testid="student-room-shell-notifications-empty">
-              Sin actividad por ahora.
-            </div>
-          ) : (
-            <div className={classes.notificationItems}>
-              {notifications.map(notification => (
-                <div key={notification.id} className={classes.notificationPill}>
-                  <span className={classes.notificationEmoji} aria-hidden="true">
-                    {notificationEmoji(notification.kind, notification.text)}
-                  </span>
-                  <span className={classes.notificationText}>{notification.text}</span>
-                </div>
-              ))}
+              <span className={classes.countText}>{participantCount} en sala</span>
             </div>
           )}
         </div>
@@ -508,25 +446,33 @@ export default function StudentRoomShell({
 
       {/* ── CENTER STAGE ─────────────────────────────────────────────────── */}
       <div className={classes.center} data-testid="student-room-shell-center-stage">
-        {/* Connection quality pill */}
-        <div className={classes.connectionPill}>
-          <div className={classes.connectionDot} />
-          <span className={classes.connectionLabel}>Buena</span>
+        {/* Video region — overlays anchor here so the toolbar below stays clear. */}
+        <div className={classes.stageContent}>
+          {/* Connection quality pill */}
+          <div className={classes.connectionPill} data-testid="student-connection-pill">
+            <div className={classes.connectionDot} style={{ backgroundColor: connection.color }} />
+            <span className={classes.connectionLabel}>{connection.label}</span>
+          </div>
+
+          {/* Stage (GalleryView / MainParticipant). The student sees their own tile here
+              as a regular cell, exactly like the professor — no separate PiP self-view. */}
+          {stage}
+
+          {/* "Twilio Video · WebRTC SFU" watermark */}
+          <div className={classes.stageBadge}>Twilio Video · WebRTC SFU</div>
+
+          {/* Connectivity banner */}
+          {isConnectivityDegraded && (
+            <div className={classes.connectivityBanner} data-testid="student-room-shell-connectivity-banner">
+              Resolución reducida por baja conectividad
+            </div>
+          )}
         </div>
 
-        {/* Stage (GalleryView / MainParticipant). The student sees their own tile here
-            as a regular cell, exactly like the professor — no separate PiP self-view. */}
-        <div className={classes.stageContent}>{stage}</div>
-
-        {/* "Twilio Video · WebRTC SFU" watermark */}
-        <div className={classes.stageBadge}>Twilio Video · WebRTC SFU</div>
-
-        {/* Connectivity banner */}
-        {isConnectivityDegraded && (
-          <div className={classes.connectivityBanner} data-testid="student-room-shell-connectivity-banner">
-            Resolución reducida por baja conectividad
-          </div>
-        )}
+        {/* ── BOTTOM TOOLBAR ─────────────────────────────────────────────── */}
+        <div className={classes.toolbar} data-testid="student-room-shell-toolbar-slot">
+          {toolbarSlot}
+        </div>
       </div>
 
       {/* ── RIGHT RAIL ───────────────────────────────────────────────────── */}
@@ -551,11 +497,6 @@ export default function StudentRoomShell({
         {/* Panel content — hidden when collapsed; the tab above stays as the way back */}
         {!chatCollapsed && <div className={classes.rightContent}>{rightPanel}</div>}
       </aside>
-
-      {/* ── BOTTOM TOOLBAR ───────────────────────────────────────────────── */}
-      <div className={classes.toolbarRow} data-testid="student-room-shell-toolbar-slot">
-        {toolbarSlot}
-      </div>
 
       {/* Legacy stage header kept for test compatibility */}
       <div data-testid="student-room-shell-stage-header" style={{ display: 'none' }} aria-hidden="true" />

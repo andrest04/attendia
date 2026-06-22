@@ -22,6 +22,11 @@ jest.mock('recharts', () => {
   };
 });
 
+const mockEnqueue = jest.fn();
+jest.mock('notistack', () => ({
+  useSnackbar: () => ({ enqueueSnackbar: mockEnqueue, closeSnackbar: jest.fn() }),
+}));
+
 const mockUseAttention = useAttention as jest.Mock<any>;
 
 const attentionLevel = (score: number): 'high' | 'medium' | 'low' => {
@@ -73,6 +78,30 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-participant-count"]').text()).toContain('12');
   });
 
+  it('shows the notifications feed: empty state by default, student activity when present', () => {
+    const empty = mount(<ProfessorRoomShell stage={<div>stage</div>} participantCount={1} />);
+    expect(empty.find('[data-testid="professor-room-shell-notifications"]').exists()).toBe(true);
+    expect(empty.find('[data-testid="professor-room-shell-notifications-empty"]').exists()).toBe(true);
+
+    const withActivity = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        participantCount={2}
+        notifications={[
+          { id: 'joined-1', text: 'Ana se unió a la sesión', kind: 'participant', createdAt: 1 },
+          { id: 'left-1', text: 'Luis salió de la sesión', kind: 'participant', createdAt: 2 },
+        ]}
+      />
+    );
+    expect(withActivity.find('[data-testid="professor-room-shell-notifications-empty"]').exists()).toBe(false);
+    expect(withActivity.find('[data-testid="professor-room-shell-notifications"]').text()).toContain(
+      'Ana se unió a la sesión'
+    );
+    expect(withActivity.find('[data-testid="professor-room-shell-notifications"]').text()).toContain(
+      'Luis salió de la sesión'
+    );
+  });
+
   it('renders the session status bar with name, connected-student count and infra label', () => {
     const wrapper = mount(
       <ProfessorRoomShell stage={<div>stage</div>} sessionName="Matemáticas — Grupo A" participantCount={12} />
@@ -119,7 +148,10 @@ describe('ProfessorRoomShell', () => {
     expect(roster.text()).toContain('Ana García');
     expect(roster.text()).toContain('María Torres');
     expect(roster.text()).toContain('Estudiante Real');
-    expect(roster.text()).toContain('Profe X [Profesor]');
+    // The teacher renders without the raw [Profesor] suffix; the role shows as a badge instead.
+    expect(roster.text()).toContain('Profe X');
+    expect(roster.text()).not.toContain('[Profesor]');
+    expect(wrapper.find('[data-testid="role-badge-teacher"]').exists()).toBe(true);
     // Present in the attention mock but NOT in the room → must not appear.
     expect(roster.text()).not.toContain('Carlos López');
     expect(wrapper.find('[data-testid="professor-room-shell-multiface-flag"]').length).toBe(1);
@@ -320,7 +352,9 @@ describe('ProfessorRoomShell', () => {
     expect(feed.text()).toContain('María Torres');
     expect(feed.text()).toContain('Múltiples rostros');
     expect(feed.text()).toContain('Distraído');
-    expect(feed.text()).toContain('91%');
+    // The detected time identifies the event; the meaningless confidence % is gone.
+    expect(feed.text()).toContain('10:22');
+    expect(feed.text()).not.toContain('91%');
   });
 
   it('hides the proctoring feed when proctoring is disabled', () => {
@@ -356,6 +390,68 @@ describe('ProfessorRoomShell', () => {
     expect(modal.text()).toContain('Cámara apagada');
     // Multiface copy must not leak into a camera-off modal.
     expect(modal.text()).not.toContain('Se detectaron 2 rostros');
+    // The dead sensitivity slider was removed.
+    expect(wrapper.find('[data-testid="professor-proctoring-modal-slider"]').exists()).toBe(false);
+    expect(modal.text()).not.toContain('Umbral de sensibilidad');
+  });
+
+  const multifaceAlertAttention = {
+    ...baseAttention,
+    proctoringAlerts: [
+      { id: 'alert-mf', identity: 'María Torres', kind: 'multiface' as const, detectedAt: '10:22', confidence: 0.91 },
+    ],
+  };
+
+  const openFirstAlert = (wrapper: ReturnType<typeof mount>) => {
+    wrapper
+      .find('[data-testid="professor-room-shell-proctoring-feed"]')
+      .find('[role="button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+  };
+
+  it('sends a warning targeted at the student identity and kind, then dismisses the alert', () => {
+    mockUseAttention.mockImplementation(() => multifaceAlertAttention);
+    const onSendWarning = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell stage={<div>stage</div>} proctoringEnabled onSendWarning={onSendWarning} />
+    );
+    openFirstAlert(wrapper);
+
+    wrapper
+      .find('[data-testid="professor-proctoring-modal-warning"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+
+    expect(onSendWarning).toHaveBeenCalledWith('María Torres', 'multiface');
+    // Modal closes and the handled alert leaves the feed.
+    expect(wrapper.find('[data-testid="professor-proctoring-modal"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').text()).toContain(
+      'Alertas de proctoring (0)'
+    );
+  });
+
+  it('marking an alert as legitimate dismisses it without sending a warning', () => {
+    mockUseAttention.mockImplementation(() => multifaceAlertAttention);
+    const onSendWarning = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell stage={<div>stage</div>} proctoringEnabled onSendWarning={onSendWarning} />
+    );
+    openFirstAlert(wrapper);
+
+    wrapper
+      .find('[data-testid="professor-proctoring-modal-legitimate"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+
+    expect(onSendWarning).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="professor-proctoring-modal"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').text()).toContain(
+      'Alertas de proctoring (0)'
+    );
   });
 
   it('opens the in-room report overlay from the "Ver reporte" button', () => {

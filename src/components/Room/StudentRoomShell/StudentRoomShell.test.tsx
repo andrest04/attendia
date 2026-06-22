@@ -3,7 +3,7 @@ import { shallow } from 'enzyme';
 import StudentRoomShell from './StudentRoomShell';
 
 describe('StudentRoomShell', () => {
-  it('renders shell primitives and empty notifications state', () => {
+  it('renders shell primitives and the plain participant count', () => {
     const wrapper = shallow(
       <StudentRoomShell
         stage={<div data-testid="stage-content">stage</div>}
@@ -16,8 +16,14 @@ describe('StudentRoomShell', () => {
     expect(wrapper.find('[data-testid="student-room-shell-stage-header"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="student-room-shell-toolbar-slot"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="student-room-shell-right-tabs"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="student-room-shell-notifications-empty"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="student-room-shell-participant-count"]').text()).toContain('3 en sala');
+  });
+
+  it('does not render a notifications panel (notifications are professor-only)', () => {
+    const wrapper = shallow(<StudentRoomShell stage={<div>stage</div>} />);
+
+    expect(wrapper.find('[data-testid="student-room-shell-notifications-empty"]').exists()).toBe(false);
+    expect(wrapper.text()).not.toContain('Notificaciones');
   });
 
   it('renders connectivity banner only when degraded flag is true', () => {
@@ -46,22 +52,6 @@ describe('StudentRoomShell', () => {
     );
 
     expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(true);
-  });
-
-  it('renders participant notifications when activity exists', () => {
-    const wrapper = shallow(
-      <StudentRoomShell
-        stage={<div>stage</div>}
-        notifications={[
-          { id: 'joined-1', text: 'Ana se unió a la sesión', kind: 'participant', createdAt: 1 },
-          { id: 'left-1', text: 'Luis salió de la sesión', kind: 'participant', createdAt: 2 },
-        ]}
-      />
-    );
-
-    expect(wrapper.find('[data-testid="student-room-shell-notifications-empty"]').exists()).toBe(false);
-    expect(wrapper.text()).toContain('Ana se unió a la sesión');
-    expect(wrapper.text()).toContain('Luis salió de la sesión');
   });
 
   it('does not render a separate PiP self-view (the student sees their own gallery tile instead)', () => {
