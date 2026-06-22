@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Participant } from 'twilio-video';
 import { useSnackbar, VariantType } from 'notistack';
 import { isTeacherIdentity } from '../../components/PreJoinScreens/classSessionTypes';
+import { ProctoringAlert } from '../../components/AttentionProvider/types';
 
 interface UseNotificationToastsArgs {
   /** Whether the local participant is the professor — drives the curated, role-aware policy. */
@@ -16,6 +17,26 @@ interface UseNotificationToastsArgs {
   turnGrantedCount: number;
   /** Increments each time the professor mutes THIS participant's microphone. */
   mutedByProfessorCount: number;
+  /** Increments each time the professor sends THIS participant a proctoring warning. */
+  warnedByProfessorCount: number;
+  /** Kind of the most recent proctoring warning aimed at THIS participant (drives toast copy). */
+  lastWarningKind: ProctoringAlert['kind'] | null;
+}
+
+/** Student-facing copy for a proctoring warning, specific to the detected condition. */
+function warningMessage(kind: ProctoringAlert['kind'] | null): string {
+  switch (kind) {
+    case 'camera-off':
+      return 'El profesor te pidió encender tu cámara';
+    case 'multiface':
+      return 'El profesor detectó varias personas en tu cámara';
+    case 'away':
+      return 'El profesor te pidió volver a concentrarte en la clase';
+    case 'absent':
+      return 'El profesor no te detecta frente a la cámara';
+    default:
+      return 'El profesor te envió una advertencia';
+  }
 }
 
 /** Strip the teacher identity suffix so toasts show a clean display name. */
@@ -44,6 +65,8 @@ export default function useNotificationToasts({
   isRecording,
   turnGrantedCount,
   mutedByProfessorCount,
+  warnedByProfessorCount,
+  lastWarningKind,
 }: UseNotificationToastsArgs) {
   const { enqueueSnackbar } = useSnackbar();
 
@@ -135,4 +158,15 @@ export default function useNotificationToasts({
     prevMutedCount.current = mutedByProfessorCount;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mutedByProfessorCount, isTeacher]);
+
+  // ── Proctoring warning (student only) ─────────────────────────────────────────
+  const prevWarnedCount = useRef<number>(warnedByProfessorCount);
+
+  useEffect(() => {
+    if (!isTeacher && warnedByProfessorCount > prevWarnedCount.current) {
+      notify(warningMessage(lastWarningKind), 'warning');
+    }
+    prevWarnedCount.current = warnedByProfessorCount;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warnedByProfessorCount, isTeacher]);
 }

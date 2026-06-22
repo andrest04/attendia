@@ -9,6 +9,7 @@ import useIsTrackSwitchedOff from '../../hooks/useIsTrackSwitchedOff/useIsTrackS
 import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
 import usePublications from '../../hooks/usePublications/usePublications';
 import ScreenShareIcon from '../../icons/ScreenShareIcon';
+import RoleBadge from '../RoleBadge/RoleBadge';
 
 jest.mock('../../state');
 jest.mock('../../hooks/useRaiseHand/raisedHandsContext', () => ({ useRaisedHand: jest.fn() }));
@@ -190,6 +191,29 @@ describe('the ParticipantInfo component', () => {
       </ParticipantInfo>
     );
     expect(wrapper.text()).not.toContain('mockIdentity (Yo)');
+  });
+
+  it('renders the Profesor role badge and strips the [Profesor] suffix for a teacher', () => {
+    mockUseIsTrackSwitchedOff.mockImplementation(() => false);
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo onClick={() => {}} isSelected={false} participant={{ identity: 'Ana [Profesor]' } as any}>
+        mock children
+      </ParticipantInfo>
+    );
+    expect(wrapper.find(RoleBadge).exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('[Profesor]');
+  });
+
+  it('does not render the role badge for a student', () => {
+    mockUseIsTrackSwitchedOff.mockImplementation(() => false);
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo onClick={() => {}} isSelected={false} participant={{ identity: 'mockIdentity' } as any}>
+        mock children
+      </ParticipantInfo>
+    );
+    expect(wrapper.find(RoleBadge).exists()).toBe(false);
   });
 
   it('should not render the attention overlay when no attention prop is provided', () => {

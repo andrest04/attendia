@@ -151,7 +151,8 @@ describe('the Room component', () => {
     expect(shell.prop('activeSpeakerLabel')).toBe('profesor-demo');
     expect(shell.prop('sessionLabel')).toBe('Sesión Twilio en vivo');
     expect(shell.prop('participantCount')).toBe(3);
-    expect(shell.prop('notifications')).toEqual([]);
+    // Notifications moved to the professor rail — the student shell no longer receives them.
+    expect(shell.prop('notifications')).toBeUndefined();
   });
 
   it('provides the raised-hands context so tiles can show the hand badge', () => {
@@ -175,6 +176,14 @@ describe('the Room component', () => {
     const shell = wrapper.find('StudentRoomShell');
 
     expect(shell.prop('isConnectivityDegraded')).toBe(true);
+  });
+
+  it('forwards the local participant network quality level to the student shell', () => {
+    mockUseParticipantNetworkQualityLevel.mockImplementationOnce(() => 4);
+    const wrapper = shallow(<Room />);
+    const shell = wrapper.find('StudentRoomShell');
+
+    expect(shell.prop('networkQualityLevel')).toBe(4);
   });
 
   it('hides degraded connectivity banner when local participant quality is null', () => {

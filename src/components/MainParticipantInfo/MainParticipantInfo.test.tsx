@@ -2,6 +2,7 @@ import React from 'react';
 
 import MainParticipantInfo from './MainParticipantInfo';
 import AvatarIcon from '../../icons/AvatarIcon';
+import RoleBadge from '../RoleBadge/RoleBadge';
 import { shallow } from 'enzyme';
 import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 
@@ -69,6 +70,21 @@ describe('the MainParticipantInfo component', () => {
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
     expect(wrapper.find(AvatarIcon).exists()).toBe(true);
+  });
+
+  it('renders the Profesor role badge and strips the [Profesor] suffix for a teacher', () => {
+    const wrapper = shallow(
+      <MainParticipantInfo participant={{ identity: 'Ana [Profesor]' } as any}>mock children</MainParticipantInfo>
+    );
+    expect(wrapper.find(RoleBadge).exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('[Profesor]');
+  });
+
+  it('does not render the role badge for a student', () => {
+    const wrapper = shallow(
+      <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
+    );
+    expect(wrapper.find(RoleBadge).exists()).toBe(false);
   });
 
   it('should not render the reconnecting UI when the user is connected', () => {

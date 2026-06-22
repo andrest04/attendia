@@ -1,20 +1,52 @@
 import React from 'react';
 import clsx from 'clsx';
-import { makeStyles, Theme, Slider } from '@material-ui/core';
+import { makeStyles, Theme } from '@material-ui/core';
+import { useSnackbar } from 'notistack';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import WarningIcon from '@material-ui/icons/Warning';
 import VideocamOffIcon from '@material-ui/icons/VideocamOff';
+import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
+import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
+import PersonOutlineIcon from '@material-ui/icons/PersonOutline';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import MicOffIcon from '@material-ui/icons/MicOff';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Tooltip } from 'recharts';
 import { useAttention } from '../../AttentionProvider';
-import { isTeacherIdentity } from '../../PreJoinScreens/classSessionTypes';
-import { AttentionLevel } from '../../AttentionProvider/types';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import RoleBadge from '../../RoleBadge/RoleBadge';
+import { ShellNotification } from '../StudentRoomShell/useShellNotifications';
+import { AttentionLevel, ProctoringAlert } from '../../AttentionProvider/types';
 import { levelColor, levelLabel, proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
 import SessionStatusBar from './SessionStatusBar';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import AttentionReportOverlay from '../AttentionReportOverlay/AttentionReportOverlay';
+
+type ProctoringKind = ProctoringAlert['kind'];
+
+// Per-kind icon for the proctoring feed and modal, so the cue matches the actual
+// condition instead of a single generic warning glyph.
+const proctoringKindIcon: Record<ProctoringKind, React.ComponentType<{ style?: React.CSSProperties }>> = {
+  'camera-off': VideocamOffIcon,
+  multiface: PeopleAltIcon,
+  away: VisibilityOffIcon,
+  absent: PersonOutlineIcon,
+};
+
+// Honest, kind-specific copy. Note we do NOT claim an exact face count: the live
+// pipeline does not carry one in the alert and the number fluctuates per sample.
+function proctoringKindMessage(kind: ProctoringKind, name: string, detectedAt: string): string {
+  switch (kind) {
+    case 'camera-off':
+      return `${name} apagó su cámara. No hay datos de atención mientras esté apagada · Detectado a las ${detectedAt}`;
+    case 'multiface':
+      return `Se detectaron varios rostros en la cámara de ${name} · Detectado a las ${detectedAt}`;
+    case 'away':
+      return `${name} apartó la mirada de la pantalla · Detectado a las ${detectedAt}`;
+    case 'absent':
+      return `No se detecta a ${name} frente a la cámara · Detectado a las ${detectedAt}`;
+  }
+}
 
 // Attention level → badge background / text pairs from the attendia design.
 const attBadgeBg: Record<AttentionLevel, string> = {
@@ -176,8 +208,23 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#1d6eed',
     flexShrink: 0,
   },
-  rosterName: {
+  // The local user's own avatar gets the filled accent treatment so they can spot
+  // themselves in the roster (consistent across both shells).
+  rosterAvatarSelf: {
+    backgroundColor: theme.palette.secondary.main,
+    color: '#ffffff',
+    boxShadow: '0px 1px 2px rgba(29,110,237,0.07)',
+  },
+  rosterNameWrap: {
     flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  rosterName: {
+    flex: '0 1 auto',
+    minWidth: 0,
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 500,
     fontSize: 12,
@@ -269,11 +316,61 @@ const useStyles = makeStyles((theme: Theme) => ({
     '&:hover': { backgroundColor: '#f0f5ff' },
   },
 
+  // Notifications feed — a short, persistent log of students joining/leaving the
+  // session. Sits at the bottom of the rail (owns the marginTop:auto push) with the
+  // proctoring feed stacked right below it.
+  notificationsSection: {
+    borderTop: '1px solid #e2ecf9',
+    padding: '12px 18px',
+    marginTop: 'auto',
+    flexShrink: 0,
+  },
+  notificationsLabel: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 700,
+    fontSize: 10,
+    color: '#94a3b8',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.7px',
+    lineHeight: '15px',
+  },
+  notificationItems: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+  },
+  notificationPill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#f0f5ff',
+    border: '1px solid #e2ecf9',
+    borderRadius: 10,
+    padding: '8px 11px',
+    marginTop: 10,
+  },
+  notificationEmoji: {
+    fontSize: 13,
+    lineHeight: '19.5px',
+    flexShrink: 0,
+  },
+  notificationText: {
+    fontFamily: 'Inter, sans-serif',
+    fontWeight: 400,
+    fontSize: 11,
+    color: '#64748b',
+    lineHeight: '16.5px',
+  },
+  notificationsEmpty: {
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 10,
+  },
+
   // Proctoring feed
   proctoringFeed: {
     borderTop: '1px solid #e2ecf9',
     padding: '12px 18px',
-    marginTop: 'auto',
     flexShrink: 0,
   },
   proctoringFeedTitle: {
@@ -298,7 +395,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   proctoringAlertHeader: {
     display: 'flex',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 6,
     fontFamily: 'Poppins, Inter, sans-serif',
     fontSize: 12,
     fontWeight: 600,
@@ -605,36 +703,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontFamily: 'Inter, sans-serif',
     lineHeight: 1.4,
   },
-  sliderSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
-  },
-  sliderHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sliderLabel: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: 13,
-    color: '#1d2f6f',
-  },
-  sliderValue: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 700,
-    fontSize: 13,
-    color: '#1d6eed',
-  },
-  sliderMarks: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: 10,
-    color: '#94a3b8',
-    fontFamily: 'Inter, sans-serif',
-    marginTop: -4,
-  },
   modalFooter: {
     padding: '12px 20px',
     borderTop: '1px solid #e2ecf9',
@@ -684,7 +752,7 @@ interface Props {
   /** Content for the chat tab — the embedded ChatWindow, resolved by Room.tsx. */
   rightPanel?: React.ReactNode;
   /** Real room participants (including the professor), in room order. Drives the left-rail roster. */
-  participants?: Array<{ identity: string }>;
+  participants?: Array<{ identity: string; isLocal?: boolean }>;
   sessionLabel?: string;
   /** Human-facing session/room name shown in the top status bar. */
   sessionName?: string;
@@ -697,8 +765,20 @@ interface Props {
   onGrantTurn?: (identity: string) => void;
   /** Professor action: mute the named student's microphone (via the roster kebab menu). */
   onMuteParticipant?: (identity: string) => void;
+  /** Professor action: warn the named student about a proctoring condition (from the alert modal). */
+  onSendWarning?: (identity: string, kind: ProctoringAlert['kind']) => void;
   /** When true, surface the proctoring alerts feed (US30). Driven by the toolbar toggle. */
   proctoringEnabled?: boolean;
+  /** Short, persistent log of students joining/leaving — rendered in the left-rail Notificaciones feed. */
+  notifications?: ShellNotification[];
+}
+
+/** Emoji cue for a notification pill, derived from the event copy. */
+function notificationEmoji(text: string): string {
+  if (text.includes('levantó')) return '✋';
+  if (text.includes('unió')) return '🔔';
+  if (text.includes('salió')) return '👋';
+  return '🔔';
 }
 
 /** Returns up to 2 uppercase initials from an identity string. */
@@ -725,9 +805,12 @@ export default function ProfessorRoomShell({
   handsRaised = [],
   onGrantTurn,
   onMuteParticipant,
+  onSendWarning,
   proctoringEnabled = false,
+  notifications = [],
 }: Props) {
   const classes = useStyles();
+  const { enqueueSnackbar } = useSnackbar();
   const {
     groupAttention,
     attentionThreshold,
@@ -745,6 +828,10 @@ export default function ProfessorRoomShell({
   // about simply render without a badge (same defensive approach as GalleryView).
   const attentionByIdentity = new Map(attentionParticipants.map(p => [p.identity, p]));
   const studentCount = Math.max(0, participantCount - 1);
+  // Pin the teacher to the top of the roster (stable sort keeps student order).
+  const orderedParticipants = [...participants].sort(
+    (a, b) => Number(isTeacherIdentity(b.identity)) - Number(isTeacherIdentity(a.identity))
+  );
 
   const [isReportOpen, setIsReportOpen] = React.useState(false);
 
@@ -753,7 +840,12 @@ export default function ProfessorRoomShell({
 
   // Proctoring modal local state
   const [proctoringModalAlert, setProctoringModalAlert] = React.useState<null | typeof proctoringAlerts[0]>(null);
-  const [sensitivityValue, setSensitivityValue] = React.useState<number>(65);
+  // Alert ids the professor has resolved (legitimate or warned) — filtered out of the
+  // feed so a handled alert disappears. Local to the session; the provider re-logs a
+  // fresh id if the condition recurs after it clears.
+  const [dismissedIds, setDismissedIds] = React.useState<Set<string>>(() => new Set());
+  const visibleAlerts = proctoringAlerts.filter(a => !dismissedIds.has(a.id));
+  const ModalKindIcon = proctoringModalAlert ? proctoringKindIcon[proctoringModalAlert.kind] : null;
 
   const handleOpenProctoringModal = (alert: typeof proctoringAlerts[0]) => {
     setProctoringModalAlert(alert);
@@ -762,9 +854,22 @@ export default function ProfessorRoomShell({
     setProctoringModalAlert(null);
   };
   const handleMarkLegitimate = () => {
+    if (proctoringModalAlert) {
+      setDismissedIds(prev => new Set(prev).add(proctoringModalAlert.id));
+      enqueueSnackbar(`Alerta de ${stripTeacherSuffix(proctoringModalAlert.identity)} marcada como legítima`, {
+        variant: 'success',
+      });
+    }
     setProctoringModalAlert(null);
   };
   const handleSendWarning = () => {
+    if (proctoringModalAlert) {
+      onSendWarning?.(proctoringModalAlert.identity, proctoringModalAlert.kind);
+      setDismissedIds(prev => new Set(prev).add(proctoringModalAlert.id));
+      enqueueSnackbar(`Advertencia enviada a ${stripTeacherSuffix(proctoringModalAlert.identity)}`, {
+        variant: 'warning',
+      });
+    }
     setProctoringModalAlert(null);
   };
 
@@ -805,14 +910,23 @@ export default function ProfessorRoomShell({
           )}
 
           <div data-testid="professor-room-shell-roster">
-            {participants.map(participant => {
+            {orderedParticipants.map(participant => {
               const attention = attentionByIdentity.get(participant.identity);
               return (
                 <div key={participant.identity} className={classes.rosterRow}>
-                  <div className={classes.rosterAvatar}>{getInitials(participant.identity)}</div>
-                  <span className={classes.rosterName} title={participant.identity}>
-                    {participant.identity}
-                  </span>
+                  <div
+                    className={clsx(classes.rosterAvatar, {
+                      [classes.rosterAvatarSelf]: participant.isLocal,
+                    })}
+                  >
+                    {getInitials(participant.identity)}
+                  </div>
+                  <div className={classes.rosterNameWrap}>
+                    <span className={classes.rosterName} title={participant.identity}>
+                      {stripTeacherSuffix(participant.identity)}
+                    </span>
+                    {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" />}
+                  </div>
                   {attention?.multiface && (
                     <span
                       className={classes.multifaceWarning}
@@ -890,27 +1004,50 @@ export default function ProfessorRoomShell({
             })}
           </div>
 
+          <div className={classes.notificationsSection} data-testid="professor-room-shell-notifications">
+            <div className={classes.notificationsLabel}>Notificaciones</div>
+            {notifications.length === 0 ? (
+              <div className={classes.notificationsEmpty} data-testid="professor-room-shell-notifications-empty">
+                Sin actividad por ahora.
+              </div>
+            ) : (
+              <div className={classes.notificationItems}>
+                {notifications.map(notification => (
+                  <div key={notification.id} className={classes.notificationPill}>
+                    <span className={classes.notificationEmoji} aria-hidden="true">
+                      {notificationEmoji(notification.text)}
+                    </span>
+                    <span className={classes.notificationText}>{notification.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {proctoringEnabled && (
             <div className={classes.proctoringFeed} data-testid="professor-room-shell-proctoring-feed">
-              <div className={classes.proctoringFeedTitle}>Alertas de proctoring ({proctoringAlerts.length})</div>
-              {proctoringAlerts.map(alert => (
-                <div
-                  key={alert.id}
-                  className={classes.proctoringAlertCard}
-                  onClick={() => handleOpenProctoringModal(alert)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={e => e.key === 'Enter' && handleOpenProctoringModal(alert)}
-                >
-                  <div className={classes.proctoringAlertHeader}>
-                    <span>{alert.identity}</span>
-                    <span>{Math.round(alert.confidence * 100)}%</span>
+              <div className={classes.proctoringFeedTitle}>Alertas de proctoring ({visibleAlerts.length})</div>
+              {visibleAlerts.map(alert => {
+                const KindIcon = proctoringKindIcon[alert.kind];
+                return (
+                  <div
+                    key={alert.id}
+                    className={classes.proctoringAlertCard}
+                    onClick={() => handleOpenProctoringModal(alert)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={e => e.key === 'Enter' && handleOpenProctoringModal(alert)}
+                  >
+                    <div className={classes.proctoringAlertHeader}>
+                      <KindIcon style={{ fontSize: 15, color: '#b45309' }} />
+                      <span>{stripTeacherSuffix(alert.identity)}</span>
+                    </div>
+                    <span className={classes.proctoringAlertMeta}>
+                      {proctoringKindLabel[alert.kind]} · {alert.detectedAt}
+                    </span>
                   </div>
-                  <span className={classes.proctoringAlertMeta}>
-                    {proctoringKindLabel[alert.kind]} · {alert.detectedAt}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
               {source === 'mock' && <span className={classes.mockTag}>Datos simulados — pipeline CV pendiente</span>}
             </div>
           )}
@@ -1065,11 +1202,11 @@ export default function ProfessorRoomShell({
           <div className={classes.modalCard}>
             <div className={classes.modalHeader}>
               <div className={classes.modalHeaderLeft}>
-                <div className={classes.modalHeaderIcon}>⚠️</div>
+                <div className={classes.modalHeaderIcon}>
+                  {ModalKindIcon && <ModalKindIcon style={{ fontSize: 20, color: '#b45309' }} />}
+                </div>
                 <div>
-                  <div className={classes.modalTitle}>
-                    {proctoringModalAlert.kind === 'camera-off' ? 'Cámara apagada' : 'Detección múltiple de rostros'}
-                  </div>
+                  <div className={classes.modalTitle}>{proctoringKindLabel[proctoringModalAlert.kind]}</div>
                   <div className={classes.modalCaption}>Proctoring</div>
                 </div>
               </div>
@@ -1088,44 +1225,18 @@ export default function ProfessorRoomShell({
               <div className={classes.studentCard}>
                 <div className={classes.studentCardAvatar}>{getInitials(proctoringModalAlert.identity)}</div>
                 <div className={classes.studentCardInfo}>
-                  <div className={classes.studentCardName}>{proctoringModalAlert.identity}</div>
+                  <div className={classes.studentCardName}>{stripTeacherSuffix(proctoringModalAlert.identity)}</div>
                   <div className={classes.studentCardRole}>Estudiante · Sesión activa</div>
                   <div className={classes.alertBox}>
                     <WarningIcon className={classes.alertBoxIcon} style={{ fontSize: 14, color: '#ffb800' }} />
                     <span className={classes.alertBoxText}>
-                      {proctoringModalAlert.kind === 'camera-off' ? (
-                        <>
-                          {proctoringModalAlert.identity} apagó su cámara. No hay datos de atención mientras la cámara
-                          esté apagada · Detectado a la {proctoringModalAlert.detectedAt}
-                        </>
-                      ) : (
-                        <>
-                          Se detectaron 2 rostros en la cámara de {proctoringModalAlert.identity} · Detectado a la{' '}
-                          {proctoringModalAlert.detectedAt} · Confianza:{' '}
-                          {Math.round(proctoringModalAlert.confidence * 100)}%
-                        </>
+                      {proctoringKindMessage(
+                        proctoringModalAlert.kind,
+                        stripTeacherSuffix(proctoringModalAlert.identity),
+                        proctoringModalAlert.detectedAt
                       )}
                     </span>
                   </div>
-                </div>
-              </div>
-
-              <div className={classes.sliderSection}>
-                <div className={classes.sliderHeader}>
-                  <span className={classes.sliderLabel}>Umbral de sensibilidad de proctoring</span>
-                  <span className={classes.sliderValue}>{sensitivityValue}%</span>
-                </div>
-                <Slider
-                  value={sensitivityValue}
-                  onChange={(_e, val) => setSensitivityValue(val as number)}
-                  min={0}
-                  max={100}
-                  aria-label="Umbral de sensibilidad"
-                  data-testid="professor-proctoring-modal-slider"
-                />
-                <div className={classes.sliderMarks}>
-                  <span>Permisivo</span>
-                  <span>Estricto</span>
                 </div>
               </div>
             </div>

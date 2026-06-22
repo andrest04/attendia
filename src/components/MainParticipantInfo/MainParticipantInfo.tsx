@@ -18,6 +18,8 @@ import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/use
 import useTrack from '../../hooks/useTrack/useTrack';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
+import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
+import RoleBadge from '../RoleBadge/RoleBadge';
 
 const useStyles = makeStyles((theme: Theme) => ({
   container: {
@@ -35,6 +37,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     },
     marginRight: '0.4em',
     alignItems: 'center',
+  },
+  roleBadge: {
+    marginLeft: '0.5em',
+    alignSelf: 'center',
   },
   infoContainer: {
     position: 'absolute',
@@ -173,10 +179,11 @@ export default function MainParticipantInfo({ participant, children }: MainParti
           <div className={classes.identity}>
             <AudioLevelIndicator audioTrack={audioTrack} />
             <Typography variant="body1" color="inherit">
-              {participant.identity.replace(/\s*\[Profesor\]\s*$/i, '').trim()}
+              {stripTeacherSuffix(participant.identity)}
               {isLocal && ' (Yo)'}
               {screenSharePublication && ' - Screen'}
             </Typography>
+            {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" className={classes.roleBadge} />}
           </div>
           <NetworkQualityLevel participant={participant} />
         </div>

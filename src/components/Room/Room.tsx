@@ -26,6 +26,7 @@ import useShellNotifications from './StudentRoomShell/useShellNotifications';
 import useNotificationToasts from '../../hooks/useNotificationToasts/useNotificationToasts';
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
 import useModeration from '../../hooks/useModeration/useModeration';
+import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctoringWarnings';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
@@ -113,6 +114,7 @@ export default function Room() {
   const [professorTab, setProfessorTab] = useState<ProfessorRightTab>('grupo');
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
   const { muteParticipant, mutedByProfessorCount } = useModeration();
+  const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
   const isRecording = useIsRecording();
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
   // Re-open trigger for the onboarding tour: the professor's "Ayuda" button bumps this
@@ -129,7 +131,16 @@ export default function Room() {
   const notifications = useShellNotifications(participants);
 
   // Transient, role-curated toasts (join/leave, raise-hand, turn, recording).
-  useNotificationToasts({ isTeacher, participants, raisedHands, isRecording, turnGrantedCount, mutedByProfessorCount });
+  useNotificationToasts({
+    isTeacher,
+    participants,
+    raisedHands,
+    isRecording,
+    turnGrantedCount,
+    mutedByProfessorCount,
+    warnedByProfessorCount,
+    lastWarningKind,
+  });
 
   // Identities (local + remote) currently raising their hand — surfaced as a corner
   // badge on each participant tile via RaisedHandsContext.
@@ -199,7 +210,7 @@ export default function Room() {
               rightPanel={professorTab === 'chat' ? <ChatWindow embedded isVisible /> : undefined}
               participants={[
                 ...participants.map(p => ({ identity: p.identity })),
-                { identity: room?.localParticipant?.identity || '' },
+                { identity: room?.localParticipant?.identity || '', isLocal: true },
               ]}
               sessionLabel={sessionLabel}
               sessionName={room?.name || sessionLabel}
@@ -208,7 +219,9 @@ export default function Room() {
               handsRaised={raisedHands}
               onGrantTurn={grantTurn}
               onMuteParticipant={muteParticipant}
+              onSendWarning={sendWarning}
               proctoringEnabled={proctoringEnabled}
+              notifications={notifications}
             />
           ) : (
             <StudentRoomShell
@@ -217,12 +230,12 @@ export default function Room() {
               activeSpeakerLabel={activeSpeakerLabel}
               sessionLabel={sessionLabel}
               participantCount={participantCount}
-              notifications={notifications}
               isConnectivityDegraded={isConnectivityDegraded}
+              networkQualityLevel={localParticipantNetworkQuality}
               rightPanel={<ChatWindow embedded isVisible />}
               participants={[
                 ...participants.map(p => ({ identity: p.identity, isOnline: true })),
-                { identity: room?.localParticipant?.identity || '', isOnline: true },
+                { identity: room?.localParticipant?.identity || '', isOnline: true, isLocal: true },
               ]}
             />
           )}

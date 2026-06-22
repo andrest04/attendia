@@ -15,6 +15,8 @@ const base = {
   isRecording: false,
   turnGrantedCount: 0,
   mutedByProfessorCount: 0,
+  warnedByProfessorCount: 0,
+  lastWarningKind: null as null | 'multiface' | 'absent' | 'away' | 'camera-off',
 };
 
 const messages = () => mockEnqueue.mock.calls.map(call => call[0]);
@@ -73,6 +75,14 @@ describe('useNotificationToasts', () => {
       rerender({ ...base, isTeacher: false, mutedByProfessorCount: 1 });
       expect(messages()).toEqual(['El profesor silenció tu micrófono']);
     });
+
+    it('toasts a kind-specific message when the professor sends this student a warning', () => {
+      const { rerender } = renderHook(props => useNotificationToasts(props), {
+        initialProps: { ...base, isTeacher: false },
+      });
+      rerender({ ...base, isTeacher: false, warnedByProfessorCount: 1, lastWarningKind: 'camera-off' });
+      expect(messages()).toEqual(['El profesor te pidió encender tu cámara']);
+    });
   });
 
   describe('professor', () => {
@@ -95,6 +105,7 @@ describe('useNotificationToasts', () => {
       rerender({ ...base, isTeacher: true, isRecording: true });
       rerender({ ...base, isTeacher: true, turnGrantedCount: 5 });
       rerender({ ...base, isTeacher: true, mutedByProfessorCount: 3 });
+      rerender({ ...base, isTeacher: true, warnedByProfessorCount: 2, lastWarningKind: 'multiface' });
       expect(mockEnqueue).not.toHaveBeenCalled();
     });
   });
