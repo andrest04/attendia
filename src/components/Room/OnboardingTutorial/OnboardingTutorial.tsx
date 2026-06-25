@@ -5,12 +5,11 @@ import IconButton from '@material-ui/core/IconButton';
 import Typography from '@material-ui/core/Typography';
 
 // MUI icons — all in existing deps
-import VideocamIcon from '@material-ui/icons/Videocam';
-import ChatIcon from '@material-ui/icons/Chat';
-import TrackChangesIcon from '@material-ui/icons/TrackChanges';
+import CameraAltIcon from '@material-ui/icons/CameraAlt';
+import MemoryIcon from '@material-ui/icons/Memory';
 import SecurityIcon from '@material-ui/icons/Security';
 import CloseIcon from '@material-ui/icons/Close';
-import MonitorIcon from '@material-ui/icons/DesktopMac';
+import MenuBookIcon from '@material-ui/icons/MenuBook';
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 
 // ---------------------------------------------------------------------------
@@ -43,6 +42,8 @@ interface StepDef {
   title: string;
   body: string;
   callout: string;
+  /** Icon shown inside the tinted callout. Defaults to InfoOutlinedIcon. */
+  calloutIcon?: React.ElementType;
   /**
    * data-testid of the real room element this step points at. The tour draws a
    * highlight box over it (anchored at runtime via getBoundingClientRect). When
@@ -52,32 +53,40 @@ interface StepDef {
   anchorTestId?: string;
 }
 
+// Progress bar fill is the primary blue on every step (independent of the
+// per-step accent color), and only the current segment is filled — matches Figma.
+const PROGRESS_FILL_COLOR = '#1d6eed';
+
 const STEPS: StepDef[] = [
   {
     accentColor: '#1d6eed', // primary blue
-    icon: <VideocamIcon style={{ fontSize: 20 }} />,
+    icon: <CameraAltIcon style={{ fontSize: 20 }} />,
     title: 'Controles de cámara y micrófono',
     body:
       'Gestiona tu cámara y micrófono desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.',
     callout: 'El área resaltada en la parte inferior es la barra de herramientas principal.',
+    calloutIcon: CameraAltIcon,
     anchorTestId: 'professor-room-shell-toolbar-slot',
   },
   {
     accentColor: '#10b981', // success green
-    icon: <ChatIcon style={{ fontSize: 20 }} />,
+    icon: <MenuBookIcon style={{ fontSize: 20 }} />,
     title: 'Chat y participantes',
-    body: 'Usa el panel derecho para comunicarte con el profesor y ver la lista de participantes de la sesión.',
-    callout: 'El panel derecho resaltado reúne la atención del grupo, el detalle individual y el chat.',
+    body: 'Usa el panel derecho para comunicarte por el chat y ver la lista de participantes de la sesión.',
+    callout: 'El ícono de mano levantada te permite solicitar turno para hablar.',
+    calloutIcon: MenuBookIcon,
     anchorTestId: 'professor-room-shell-right-rail',
   },
   {
     accentColor: '#ffb800', // warning amber
-    icon: <TrackChangesIcon style={{ fontSize: 20 }} />,
+    icon: <MemoryIcon style={{ fontSize: 20 }} />,
     title: 'Detección de atención',
     body:
       'El sistema analiza tu nivel de atención de forma local en tu dispositivo. Estos datos ayudan al profesor a entender el compromiso del grupo.',
-    callout: 'El indicador resaltado muestra la atención del grupo en tiempo real.',
-    anchorTestId: 'professor-room-shell-group-gauge',
+    callout: 'Los datos faciales NO se almacenan ni se envían a servidores externos.',
+    calloutIcon: MemoryIcon,
+    // No spotlight: the Figma copy here is about data privacy, not a highlighted
+    // room zone, so this step intentionally points at nothing.
   },
   {
     accentColor: '#1d2f6f', // secondary navy
@@ -85,7 +94,8 @@ const STEPS: StepDef[] = [
     title: 'Privacidad y seguridad',
     body:
       'Toda la comunicación está cifrada con SRTP. Los tokens de sesión se generan automáticamente y expiran al cerrar la sesión.',
-    callout: 'El análisis facial corre solo en tu navegador; ninguna imagen sale de tu dispositivo.',
+    callout: 'Consulta la política de privacidad desde el pie de página.',
+    calloutIcon: SecurityIcon,
   },
 ];
 
@@ -139,49 +149,56 @@ const useStyles = makeStyles((theme: Theme) => ({
       padding: theme.spacing(2.5, 2.5, 2, 2.5),
     },
   },
-  // Header row: icon chip + step label + close
+  // Header row: (icon chip + step label over title) ... close button
   headerRow: {
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing(0.5),
-  },
-  chipAndLabel: {
-    display: 'flex',
-    alignItems: 'center',
     gap: theme.spacing(1.5),
+    marginBottom: theme.spacing(2),
   },
-  iconChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+  chipAndText: {
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    transition: 'background-color 0.3s ease',
-    color: '#ffffff',
+    gap: theme.spacing(1.75),
+    minWidth: 0,
   },
-  stepLabel: {
-    fontSize: '0.7rem',
-    fontWeight: 500,
-    color: theme.palette.text.secondary,
-    letterSpacing: '0.02em',
+  headerText: {
+    display: 'flex',
+    flexDirection: 'column',
+    minWidth: 0,
   },
   closeBtn: {
     padding: 6,
+    marginTop: -2,
+    marginRight: -6,
     color: theme.palette.text.secondary,
     '&:hover': {
       backgroundColor: 'rgba(0,0,0,0.05)',
     },
+  },
+  iconChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    transition: 'background-color 0.3s ease, color 0.3s ease',
+  },
+  stepLabel: {
+    fontSize: '0.72rem',
+    fontWeight: 500,
+    color: theme.palette.text.secondary,
+    letterSpacing: '0.02em',
+    marginBottom: theme.spacing(0.25),
   },
   title: {
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 700,
     fontSize: '1.15rem',
     color: theme.palette.text.primary,
-    marginTop: theme.spacing(1),
-    marginBottom: theme.spacing(2),
     letterSpacing: '-0.02em',
     lineHeight: 1.3,
   },
@@ -278,15 +295,16 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     gap: theme.spacing(0.75),
     padding: theme.spacing(0.25, 0.5),
-    fontSize: '0.8rem',
-    color: theme.palette.text.secondary,
-    textDecoration: 'underline',
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    color: theme.palette.primary.main,
+    textDecoration: 'none',
     cursor: 'pointer',
     background: 'none',
     border: 'none',
     fontFamily: 'inherit',
     '&:hover': {
-      color: theme.palette.text.primary,
+      textDecoration: 'underline',
     },
   },
 }));
@@ -393,6 +411,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
   // Callout tint derived from accent (very light wash)
   const calloutBg = current.accentColor + '14'; // ~8% opacity
   const calloutColor = current.accentColor;
+  const CalloutIcon = current.calloutIcon || InfoOutlinedIcon;
 
   return (
     <div
@@ -425,19 +444,24 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
         />
 
         <div className={classes.inner}>
-          {/* Header row */}
+          {/* Header row: (icon chip + step label over title) ... close */}
           <div className={classes.headerRow}>
-            <div className={classes.chipAndLabel}>
+            <div className={classes.chipAndText}>
               <div
                 className={classes.iconChip}
-                style={{ backgroundColor: current.accentColor }}
+                style={{ backgroundColor: current.accentColor + '1A', color: current.accentColor }}
                 data-testid="onboarding-icon-chip"
               >
                 {current.icon}
               </div>
-              <span className={classes.stepLabel} data-testid="onboarding-step-label">
-                Paso {step + 1} de {STEPS.length}
-              </span>
+              <div className={classes.headerText}>
+                <span className={classes.stepLabel} data-testid="onboarding-step-label">
+                  Paso {step + 1} de {STEPS.length}
+                </span>
+                <Typography className={classes.title} data-testid="onboarding-title">
+                  {current.title}
+                </Typography>
+              </div>
             </div>
             <IconButton
               size="small"
@@ -450,19 +474,14 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
             </IconButton>
           </div>
 
-          {/* Title */}
-          <Typography className={classes.title} data-testid="onboarding-title">
-            {current.title}
-          </Typography>
-
           {/* Segmented progress bar */}
           <div className={classes.progressBar} data-testid="onboarding-progress">
             {STEPS.map((_, i) => (
               <div
                 key={i}
                 className={classes.progressSegment}
-                style={i <= step ? { backgroundColor: current.accentColor } : undefined}
-                data-testid={i <= step ? 'onboarding-progress-filled' : 'onboarding-progress-empty'}
+                style={i === step ? { backgroundColor: PROGRESS_FILL_COLOR } : undefined}
+                data-testid={i === step ? 'onboarding-progress-filled' : 'onboarding-progress-empty'}
               />
             ))}
           </div>
@@ -474,7 +493,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
 
           {/* Tinted callout */}
           <div className={classes.callout} style={{ backgroundColor: calloutBg }} data-testid="onboarding-callout">
-            <InfoOutlinedIcon className={classes.calloutIcon} style={{ color: calloutColor }} />
+            <CalloutIcon className={classes.calloutIcon} style={{ color: calloutColor }} />
             <span className={classes.calloutText} style={{ color: calloutColor }}>
               {current.callout}
             </span>
@@ -520,7 +539,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
               aria-label="Acceder al manual completo"
               data-testid="onboarding-manual"
             >
-              <MonitorIcon style={{ fontSize: 15 }} />
+              <MenuBookIcon style={{ fontSize: 18 }} />
               Acceder al manual completo
             </button>
           </div>
