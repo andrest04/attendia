@@ -45,11 +45,35 @@ describe('the DeviceSelectionScreen component', () => {
 
   it('dismisses the lighting warning banner when the × close button is clicked', () => {
     mockUseLightingCheck.mockReturnValue({ status: 'low', luminance: 10 });
+    // The banner only makes sense when the camera is actually delivering frames,
+    // so provide an unmuted local video track for this scenario.
+    mockUseVideoContext.mockReturnValueOnce({
+      connect: mockConnect,
+      isAcquiringLocalTracks: false,
+      isConnecting: false,
+      localTracks: [{ kind: 'video', name: 'camera', mediaStreamTrack: { muted: false } }],
+    });
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
 
     expect(wrapper.find('[aria-label="Cerrar aviso"]').exists()).toBe(true);
     wrapper.find('[aria-label="Cerrar aviso"]').simulate('click');
     expect(wrapper.find('[aria-label="Cerrar aviso"]').exists()).toBe(false);
+  });
+
+  it('does not report adequate lighting when the camera track is muted (blocked by the OS)', () => {
+    // Even if the luminance read clears the threshold, a muted source means no
+    // real frame — the lighting verdict must not be a false positive.
+    mockUseLightingCheck.mockReturnValue({ status: 'ok', luminance: 150 });
+    mockUseVideoContext.mockReturnValueOnce({
+      connect: mockConnect,
+      isAcquiringLocalTracks: false,
+      isConnecting: false,
+      localTracks: [{ kind: 'video', name: 'camera', mediaStreamTrack: { muted: true } }],
+    });
+    const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
+
+    expect(wrapper.text()).toContain('Iluminación (cámara bloqueada)');
+    expect(wrapper.text()).not.toContain('Iluminación adecuada');
   });
 
   describe('when connecting to a room', () => {
