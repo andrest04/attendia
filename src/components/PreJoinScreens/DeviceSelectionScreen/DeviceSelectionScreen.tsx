@@ -22,6 +22,7 @@ import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import useDevices from '../../../hooks/useDevices/useDevices';
 import useConnectionQuality, { ConnectionQuality } from '../../../hooks/useConnectionQuality/useConnectionQuality';
 import useLightingCheck, { LightingStatus } from '../../../hooks/useLightingCheck/useLightingCheck';
+import useVideoTrackMuted from '../../../hooks/useVideoTrackMuted/useVideoTrackMuted';
 import useStaggeredReveal from '../../../hooks/useStaggeredReveal/useStaggeredReveal';
 import { useKrispToggle } from '../../../hooks/useKrispToggle/useKrispToggle';
 import SmallCheckIcon from '../../../icons/SmallCheckIcon';
@@ -460,14 +461,22 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
     | LocalVideoTrack
     | undefined;
   const lighting = useLightingCheck(videoTrack);
+  // A blocked/preempted camera (OS privacy switch, another app holding it) keeps
+  // the Twilio track but mutes the underlying MediaStreamTrack, so no real frame
+  // flows. Without this we'd read luminance off a flat gray frame and falsely
+  // report "Iluminación adecuada".
+  const isVideoMuted = useVideoTrackMuted(videoTrack);
 
   const disableButtons = isFetching || isAcquiringLocalTracks || isConnecting;
 
-  // With the camera off the track is removed, so there's no frame to analyze.
-  // Surface that as a neutral "unavailable" rather than an endless spinner.
-  // While tracks are still being acquired, keep it pending instead.
+  // The lighting check is only meaningful when the camera delivers frames.
+  // Two ways it can't: the track is gone (toggled off) or it's muted at the
+  // source (blocked). Surface either as a neutral "unavailable" rather than an
+  // endless spinner or a false positive. While tracks are still being acquired,
+  // keep it pending instead.
   const isCameraOff = !videoTrack && !isAcquiringLocalTracks;
-  const lightingState: CheckState = isCameraOff ? 'unavailable' : lightingToCheckState(lighting.status);
+  const isCameraUnavailable = isCameraOff || isVideoMuted;
+  const lightingState: CheckState = isCameraUnavailable ? 'unavailable' : lightingToCheckState(lighting.status);
 
   // Labels must agree with the state: a failed check reads "no detectado",
   // never the positive copy next to a warning icon.
@@ -487,6 +496,8 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
     {
       label: isCameraOff
         ? 'Iluminación (cámara apagada)'
+        : isVideoMuted
+        ? 'Iluminación (cámara bloqueada)'
         : lightingState === 'fail'
         ? 'Iluminación insuficiente'
         : 'Iluminación adecuada',
@@ -578,8 +589,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         </Typography>
       </div>
 
-      {/* Lighting warning — only shown when the live luminance check finds the scene too dark. */}
-      {lighting.status === 'low' && !lightingDismissed && (
+      {/* Lighting warning — only shown when the live luminance check finds the scene
+          too dark. Suppressed when the camera isn't delivering frames, since the
+          reading would be invalid. */}
+      {lighting.status === 'low' && !isCameraUnavailable && !lightingDismissed && (
         <div className={classes.lightingBanner} role="note" aria-label="Verificación de iluminación">
           <div className={classes.lightingBannerIconWrap}>
             <WarningIcon style={{ fontSize: 17, color: '#ffb800' }} />
