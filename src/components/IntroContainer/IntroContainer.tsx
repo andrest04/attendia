@@ -526,10 +526,7 @@ const IntroContainer = (props: IntroContainerProps) => {
         </div>
         <div className={classes.footerLinks}>
           <a href="/security" className={classes.footerLink}>
-            Política de privacidad de datos faciales
-          </a>
-          <a href="/security" className={classes.footerLink}>
-            Seguridad y cifrado
+            Seguridad y Privacidad
           </a>
         </div>
       </div>
