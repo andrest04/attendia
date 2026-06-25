@@ -189,7 +189,7 @@ describe('OnboardingTutorial component', () => {
     ).toBe('Comenzar');
   });
 
-  it('fills all 4 segments on the last step', () => {
+  it('fills only the current (last) segment on the last step', () => {
     const wrapper = mount(<OnboardingTutorial />);
     for (let i = 0; i < 3; i++) {
       wrapper
@@ -197,8 +197,19 @@ describe('OnboardingTutorial component', () => {
         .first()
         .simulate('click');
     }
-    expect(wrapper.find('[data-testid="onboarding-progress-filled"]').length).toBe(4);
-    expect(wrapper.find('[data-testid="onboarding-progress-empty"]').length).toBe(0);
+    expect(wrapper.find('[data-testid="onboarding-progress-filled"]').length).toBe(1);
+    expect(wrapper.find('[data-testid="onboarding-progress-empty"]').length).toBe(3);
+  });
+
+  it('keeps the progress fill blue regardless of the step accent color', () => {
+    const wrapper = mount(<OnboardingTutorial />);
+    // advance to step 2 (green accent) — the filled segment must stay blue
+    wrapper
+      .find('[data-testid="onboarding-next"]')
+      .first()
+      .simulate('click');
+    const fillStyle = wrapper.find('[data-testid="onboarding-progress-filled"]').prop('style') as React.CSSProperties;
+    expect(fillStyle.backgroundColor).toBe('#1d6eed');
   });
 
   // -------------------------------------------------------------------------
