@@ -17,9 +17,12 @@ const useStyles = makeStyles(() => ({
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
-    // justify-content: center clips the left edge once the row overflows (the
-    // overflowed start becomes unscrollable); auto margins on the edge tiles
-    // center the row when it fits and degrade to a normal scroll row when not.
+    // `safe center` centers the tiles when the row fits and degrades to a normal
+    // scroll row (start-aligned, no clipped/unreachable left edge) when it overflows.
+    // The earlier first/last-child `margin: auto` trick mis-centered whenever the
+    // edge tile was `display:none` (the hidden main participant): `:last-child`
+    // still matched the invisible tile, so the visible tile was pushed to one side.
+    justifyContent: 'safe center',
     overflowX: 'auto',
     overflowY: 'hidden',
     backgroundColor: '#121C2D',
@@ -31,12 +34,6 @@ const useStyles = makeStyles(() => ({
       display: 'none',
     },
     flexShrink: 0,
-    '& > :first-child': {
-      marginLeft: 'auto',
-    },
-    '& > :last-child': {
-      marginRight: 'auto',
-    },
   },
   // Keeps the Participant mounted (track subscriptions intact) while removing
   // the fixed-size wrapper from the layout — without this, a hidden main

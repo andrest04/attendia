@@ -26,6 +26,12 @@ const useStyles = makeStyles((theme: Theme) => ({
     position: 'relative',
     display: 'flex',
     alignItems: 'center',
+    // Fill the parent so the absolutely-positioned avatar/video (height:100%) have a
+    // sized box. The legacy layout stretched this via its CSS grid cell; inside the
+    // classroom shells' flex speaker stage nothing stretched it, so the tile collapsed
+    // to height 0 and the avatar/video bled out the top.
+    height: '100%',
+    width: '100%',
   },
   identity: {
     background: 'rgba(0, 0, 0, 0.5)',
