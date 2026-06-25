@@ -43,11 +43,33 @@ export function getSnackbarContent(hasAudio: boolean, hasVideo: boolean, error?:
         'El navegador no puede acceder al micrófono o la cámara. Asegúrate de que los dispositivos estén conectados y habilitados.';
       break;
 
-    // Other getUserMedia errors are less likely to happen in this app. Here we will display
-    // the system's error message directly to the user.
+    // This error is emitted when the camera/microphone exists and permission was granted, but the
+    // hardware cannot be started — typically because another application is already using it, or
+    // because of a driver/hardware failure. 'TrackStartError' is the legacy Chrome alias.
+    case error?.name === 'NotReadableError':
+    case error?.name === 'TrackStartError':
+      headline = 'No se puede usar la cámara o el micrófono:';
+      message =
+        'Otra aplicación (por ejemplo Zoom, Teams o Meet) podría estar usando tu cámara o micrófono. Ciérrala o cierra las otras pestañas que los usen y vuelve a intentarlo.';
+      break;
+
+    // This error is emitted when the requested device (e.g. the previously selected camera) can no
+    // longer satisfy the constraints — usually because it was unplugged or is no longer available.
+    // 'ConstraintNotSatisfiedError' is the legacy alias.
+    case error?.name === 'OverconstrainedError':
+    case error?.name === 'ConstraintNotSatisfiedError':
+      headline = 'No se puede usar la cámara seleccionada:';
+      message =
+        'La cámara seleccionada ya no está disponible. Selecciona otra cámara en la lista o reconecta el dispositivo e inténtalo de nuevo.';
+      break;
+
+    // Other getUserMedia errors are less likely to happen in this app. Here we show a generic
+    // Spanish message instead of the raw SDK error, and keep the technical detail in the console
+    // (logged by the PreJoinScreens catch) for support/debugging.
     case Boolean(error):
-      headline = 'Error al acceder a los medios:';
-      message = `${error!.name} ${error!.message}`;
+      headline = 'No se pudo acceder a la cámara o el micrófono:';
+      message =
+        'Ocurrió un problema al acceder a tus dispositivos. Revisa que la cámara y el micrófono estén conectados y disponibles, y vuelve a intentarlo.';
       break;
 
     case !hasAudio && !hasVideo:

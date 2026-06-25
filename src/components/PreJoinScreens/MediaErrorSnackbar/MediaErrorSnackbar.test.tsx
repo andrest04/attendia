@@ -129,14 +129,62 @@ describe('the getSnackbarContent function', () => {
     `);
   });
 
-  it('should return the correct content when there is any other kind of error', () => {
+  it('should return the correct content when there is a NotReadableError', () => {
+    const error = new Error('Could not start video source');
+    error.name = 'NotReadableError';
+    const results = getSnackbarContent(true, true, error);
+    expect(results).toMatchInlineSnapshot(`
+      {
+        "headline": "No se puede usar la cámara o el micrófono:",
+        "message": "Otra aplicación (por ejemplo Zoom, Teams o Meet) podría estar usando tu cámara o micrófono. Ciérrala o cierra las otras pestañas que los usen y vuelve a intentarlo.",
+      }
+    `);
+  });
+
+  it('should return the correct content when there is a TrackStartError (legacy alias of NotReadableError)', () => {
+    const error = new Error();
+    error.name = 'TrackStartError';
+    const results = getSnackbarContent(true, true, error);
+    expect(results).toMatchInlineSnapshot(`
+      {
+        "headline": "No se puede usar la cámara o el micrófono:",
+        "message": "Otra aplicación (por ejemplo Zoom, Teams o Meet) podría estar usando tu cámara o micrófono. Ciérrala o cierra las otras pestañas que los usen y vuelve a intentarlo.",
+      }
+    `);
+  });
+
+  it('should return the correct content when there is an OverconstrainedError', () => {
+    const error = new Error();
+    error.name = 'OverconstrainedError';
+    const results = getSnackbarContent(true, true, error);
+    expect(results).toMatchInlineSnapshot(`
+      {
+        "headline": "No se puede usar la cámara seleccionada:",
+        "message": "La cámara seleccionada ya no está disponible. Selecciona otra cámara en la lista o reconecta el dispositivo e inténtalo de nuevo.",
+      }
+    `);
+  });
+
+  it('should return the correct content when there is a ConstraintNotSatisfiedError (legacy alias of OverconstrainedError)', () => {
+    const error = new Error();
+    error.name = 'ConstraintNotSatisfiedError';
+    const results = getSnackbarContent(true, true, error);
+    expect(results).toMatchInlineSnapshot(`
+      {
+        "headline": "No se puede usar la cámara seleccionada:",
+        "message": "La cámara seleccionada ya no está disponible. Selecciona otra cámara en la lista o reconecta el dispositivo e inténtalo de nuevo.",
+      }
+    `);
+  });
+
+  it('should return a generic Spanish message when there is any other kind of error', () => {
     const error = new Error('Any other device errors');
     error.name = 'OtherDeviceError';
     const results = getSnackbarContent(true, true, error);
     expect(results).toMatchInlineSnapshot(`
       {
-        "headline": "Error al acceder a los medios:",
-        "message": "OtherDeviceError Any other device errors",
+        "headline": "No se pudo acceder a la cámara o el micrófono:",
+        "message": "Ocurrió un problema al acceder a tus dispositivos. Revisa que la cámara y el micrófono estén conectados y disponibles, y vuelve a intentarlo.",
       }
     `);
   });
