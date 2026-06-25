@@ -97,14 +97,14 @@ const sections: SecuritySection[] = [
     icon: <VisibilityIcon style={{ fontSize: 20 }} />,
     accent: accentAmber,
     categoryPill: 'LOCAL ONLY',
-    status: 'en-desarrollo',
+    status: 'activo',
     title: 'Datos faciales — Procesamiento local',
     description:
-      'El análisis de atención por visión por computadora se ejecuta exclusivamente en el dispositivo del usuario: la detección de rostro, la dirección de la mirada y la orientación de la cabeza se procesan localmente en el navegador. El análisis de postura aún está EN DESARROLLO. Ninguna imagen ni dato facial abandona el dispositivo: solo se transmiten índices numéricos agregados de atención. Esta función permanece deshabilitada de forma predeterminada y no se activa sin el consentimiento del participante.',
+      'El análisis de atención basado en visión por computadora (detección de rostro, análisis de postura, detección de parpadeo, dirección de mirada) se realiza exclusivamente en el dispositivo del usuario mediante TensorFlow.js. Ningún dato facial se transmite a servidores externos.',
     bullets: [
-      'El procesamiento de IA se realiza localmente y nunca abandona el dispositivo',
-      'Solo se transmiten índices numéricos agregados de atención, nunca imágenes',
-      'Deshabilitada por defecto; requiere el consentimiento del participante para activarse',
+      'TensorFlow.js ejecutado en el navegador del usuario',
+      'El procesamiento de IA nunca abandona el dispositivo',
+      'Solo se transmiten índices numéricos agregados de atención',
     ],
   },
   {

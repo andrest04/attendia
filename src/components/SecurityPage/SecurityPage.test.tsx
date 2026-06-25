@@ -17,10 +17,9 @@ describe('SecurityPage', () => {
     expect(getByText('Disponibilidad del servicio')).toBeTruthy();
   });
 
-  it('shows "En desarrollo" for the facial section', () => {
-    const { getAllByText } = render(<SecurityPage />);
-    const items = getAllByText('En desarrollo');
-    expect(items.length).toBeGreaterThan(0);
+  it('does not show "En desarrollo" (all sections presented as active)', () => {
+    const { queryByText } = render(<SecurityPage />);
+    expect(queryByText('En desarrollo')).toBeNull();
   });
 
   it('does not contain the word "Implementado"', () => {
