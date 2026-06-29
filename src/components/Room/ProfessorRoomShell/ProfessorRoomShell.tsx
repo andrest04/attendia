@@ -6,6 +6,7 @@ import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import WarningIcon from '@material-ui/icons/Warning';
 import VideocamOffIcon from '@material-ui/icons/VideocamOff';
+import SmartphoneIcon from '@material-ui/icons/Smartphone';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import PersonOutlineIcon from '@material-ui/icons/PersonOutline';
@@ -540,6 +541,25 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#ffb800',
     flexShrink: 0,
   },
+  // Neutral "no data" banner — distinct from the amber below-threshold alarm so a
+  // connection gap never reads as "the group has zero attention".
+  bannerInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    padding: theme.spacing(1),
+    borderRadius: 6,
+    backgroundColor: '#f1f5f9',
+    border: '1px solid #cbd5e1',
+    color: '#475569',
+    fontSize: 12,
+    fontFamily: 'Inter, sans-serif',
+  },
+  bannerInfoIcon: {
+    fontSize: 16,
+    color: '#94a3b8',
+    flexShrink: 0,
+  },
 
   // Individual tab
   individualRow: {
@@ -813,6 +833,7 @@ export default function ProfessorRoomShell({
   const { enqueueSnackbar } = useSnackbar();
   const {
     groupAttention,
+    groupDataAvailable,
     attentionThreshold,
     timeline,
     participants: attentionParticipants,
@@ -820,7 +841,10 @@ export default function ProfessorRoomShell({
     source,
     attentionLevel,
   } = useAttention();
-  const isGroupBelowThreshold = groupAttention < attentionThreshold;
+  // Only fire the below-threshold alarm when there is a real reading. With no
+  // data, groupAttention is a placeholder 0 — not "0% attention" — so the alarm
+  // would be a false alert during a connection drop.
+  const isGroupBelowThreshold = groupDataAvailable && groupAttention < attentionThreshold;
   // The "Individual" tab is the analytics surface of the (mocked) attention pipeline,
   // so it stays on attention data; the left-rail roster below shows real room presence.
   const sortedParticipants = [...attentionParticipants].sort((a, b) => b.index - a.index);
@@ -936,7 +960,15 @@ export default function ProfessorRoomShell({
                       ⚠
                     </span>
                   )}
-                  {attention?.cameraOff && (
+                  {attention?.unsupported ? (
+                    <span
+                      className={classes.cameraOffFlag}
+                      data-testid="professor-room-shell-unsupported-flag"
+                      title="No medible (celular)"
+                    >
+                      <SmartphoneIcon fontSize="inherit" />
+                    </span>
+                  ) : attention?.cameraOff ? (
                     <span
                       className={classes.cameraOffFlag}
                       data-testid="professor-room-shell-cameraoff-flag"
@@ -944,9 +976,16 @@ export default function ProfessorRoomShell({
                     >
                       <VideocamOffIcon fontSize="inherit" />
                     </span>
-                  )}
-                  {/* Suppress the (now stale) attention level badge while the camera is off. */}
-                  {attention && !attention.cameraOff && (
+                  ) : attention && attention.faces === 0 ? (
+                    // Face not detected → don't show a (stale/placeholder) level badge.
+                    <span
+                      className={classes.cameraOffFlag}
+                      data-testid="professor-room-shell-nomeasure-flag"
+                      title="Sin medición — rostro no detectado"
+                    >
+                      <VisibilityOffIcon fontSize="inherit" />
+                    </span>
+                  ) : attention ? (
                     <span
                       className={classes.attBadge}
                       data-testid="professor-room-shell-attention-badge"
@@ -957,7 +996,7 @@ export default function ProfessorRoomShell({
                     >
                       {levelLabel[attention.level]}
                     </span>
-                  )}
+                  ) : null}
                   {/* Moderation kebab — students only (never the professor's own row). */}
                   {onMuteParticipant && !isTeacherIdentity(participant.identity) && (
                     <div className={classes.rosterMenuWrap}>
@@ -1097,9 +1136,20 @@ export default function ProfessorRoomShell({
             {rightTab === 'grupo' ? (
               <>
                 <div className={classes.groupGauge} data-testid="professor-room-shell-group-gauge">
-                  <GroupAttentionGauge value={groupAttention} level={attentionLevel(groupAttention)} />
+                  <GroupAttentionGauge
+                    value={groupAttention}
+                    level={attentionLevel(groupAttention)}
+                    available={groupDataAvailable}
+                  />
                   <span className={classes.gaugeLabel}>Atención grupal</span>
                 </div>
+
+                {!groupDataAvailable && (
+                  <div className={classes.bannerInfo} data-testid="professor-room-shell-group-nodata-banner">
+                    <WarningIcon className={classes.bannerInfoIcon} />
+                    <span>Sin datos de atención — verificá la conexión de los estudiantes.</span>
+                  </div>
+                )}
 
                 {isGroupBelowThreshold && (
                   <div className={classes.banner} data-testid="professor-room-shell-group-banner">
@@ -1156,6 +1206,23 @@ export default function ProfessorRoomShell({
             ) : rightTab === 'individual' ? (
               <div data-testid="professor-room-shell-individual-list">
                 {sortedParticipants.map(participant => {
+                  if (participant.unsupported) {
+                    // Mobile device — the CV pipeline is desktop-only, so attention is
+                    // simply not measurable here. Distinct from "distracted" or "0%".
+                    return (
+                      <div key={participant.identity} className={classes.individualRow}>
+                        <div className={classes.individualHeader}>
+                          <span>{participant.identity}</span>
+                        </div>
+                        <span
+                          className={classes.individualCameraOff}
+                          data-testid="professor-room-shell-individual-unsupported"
+                        >
+                          <SmartphoneIcon fontSize="inherit" /> No medible (celular)
+                        </span>
+                      </div>
+                    );
+                  }
                   if (participant.cameraOff) {
                     // Camera off → no live attention. Show a muted state, never the stale value.
                     return (
@@ -1168,6 +1235,24 @@ export default function ProfessorRoomShell({
                           data-testid="professor-room-shell-individual-cameraoff"
                         >
                           <VideocamOffIcon fontSize="inherit" /> Cámara apagada
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (participant.faces === 0) {
+                    // Face not detected (turned away / lighting / angle) → the index has
+                    // decayed to a placeholder 0. Show "sin medición", NOT "0% attention":
+                    // we cannot claim she is distracted if we cannot see her face.
+                    return (
+                      <div key={participant.identity} className={classes.individualRow}>
+                        <div className={classes.individualHeader}>
+                          <span>{participant.identity}</span>
+                        </div>
+                        <span
+                          className={classes.individualCameraOff}
+                          data-testid="professor-room-shell-individual-nomeasure"
+                        >
+                          <VisibilityOffIcon fontSize="inherit" /> Sin medición — rostro no detectado
                         </span>
                       </div>
                     );

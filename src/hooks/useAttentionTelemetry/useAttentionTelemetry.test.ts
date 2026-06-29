@@ -44,7 +44,14 @@ const inactiveResult: AttentionCaptureResult = {
 };
 
 const telemetryMsg = (index: number, faces = 1) =>
-  JSON.stringify({ type: 'attention-telemetry', index, multiface: faces > 1, faces, cameraOff: false });
+  JSON.stringify({
+    type: 'attention-telemetry',
+    index,
+    multiface: faces > 1,
+    faces,
+    cameraOff: false,
+    unsupported: false,
+  });
 
 describe('useAttentionTelemetry', () => {
   let mockRoom: any;
@@ -121,7 +128,7 @@ describe('useAttentionTelemetry', () => {
       bobData.emit('message', telemetryMsg(82));
     });
     expect(result.current).toEqual([
-      { identity: 'student-bob', index: 82, multiface: false, faces: 1, cameraOff: false },
+      { identity: 'student-bob', index: 82, multiface: false, faces: 1, cameraOff: false, unsupported: false },
     ]);
   });
 
@@ -157,8 +164,22 @@ describe('useAttentionTelemetry', () => {
     expect(identities).toEqual(['student-alice', 'student-bob']);
     const alice_ = result.current.find((r: any) => r.identity === 'student-alice');
     const bob_ = result.current.find((r: any) => r.identity === 'student-bob');
-    expect(alice_).toEqual({ identity: 'student-alice', index: 60, multiface: false, faces: 1, cameraOff: false });
-    expect(bob_).toEqual({ identity: 'student-bob', index: 90, multiface: true, faces: 2, cameraOff: false });
+    expect(alice_).toEqual({
+      identity: 'student-alice',
+      index: 60,
+      multiface: false,
+      faces: 1,
+      cameraOff: false,
+      unsupported: false,
+    });
+    expect(bob_).toEqual({
+      identity: 'student-bob',
+      index: 90,
+      multiface: true,
+      faces: 2,
+      cameraOff: false,
+      unsupported: false,
+    });
   });
 
   it('updating the same participant overwrites the previous entry (no duplicates)', () => {
@@ -183,7 +204,7 @@ describe('useAttentionTelemetry', () => {
     const { result } = renderHook(() => useAttentionTelemetry());
     act(() => void carolData.emit('message', telemetryMsg(77)));
     expect(result.current).toEqual([
-      { identity: 'student-carol', index: 77, multiface: false, faces: 1, cameraOff: false },
+      { identity: 'student-carol', index: 77, multiface: false, faces: 1, cameraOff: false, unsupported: false },
     ]);
   });
 
@@ -324,6 +345,40 @@ describe('useAttentionTelemetry', () => {
     });
     expect(result.current).toHaveLength(1);
     expect(result.current[0].cameraOff).toBe(true);
+  });
+
+  it('beats an unsupported heartbeat when the device cannot run the pipeline (mobile)', () => {
+    jest.useFakeTimers();
+    try {
+      renderHook(() => useAttentionTelemetry(undefined, false, true));
+      expect(mockSend).toHaveBeenCalledTimes(1);
+      const first = JSON.parse(mockSend.mock.calls[0][0]);
+      expect(first).toMatchObject({ type: 'attention-telemetry', unsupported: true, cameraOff: false, faces: 0 });
+
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(mockSend).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(mockSend.mock.calls[1][0]).unsupported).toBe(true);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('a remote unsupported message marks the entry unsupported:true', () => {
+    const bob = createParticipant('student-bob');
+    const bobData = createDataTrack();
+    const { result } = renderHook(() => useAttentionTelemetry());
+    act(() => {
+      mockRoom.emit('participantConnected', bob);
+      bob.emit('trackSubscribed', bobData);
+      bobData.emit(
+        'message',
+        JSON.stringify({ type: 'attention-telemetry', index: 0, multiface: false, faces: 0, unsupported: true })
+      );
+    });
+    expect(result.current).toHaveLength(1);
+    expect(result.current[0].unsupported).toBe(true);
   });
 
   it('expires a stale remote entry after STALE_TTL_MS with no refresh', () => {

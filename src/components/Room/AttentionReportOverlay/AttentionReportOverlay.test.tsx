@@ -33,6 +33,7 @@ const attentionLevel = (score: number): 'high' | 'medium' | 'low' => {
 const baseAttention = {
   source: 'mock' as const,
   groupAttention: 72,
+  groupDataAvailable: true,
   attentionThreshold: 60,
   timeline: [
     { time: '10:00', value: 68 },
@@ -147,6 +148,36 @@ describe('AttentionReportOverlay', () => {
     mockUseAttention.mockImplementation(() => ({
       ...baseAttention,
       groupAttention: 100, // instantaneous snapshot
+      timeline: [
+        { time: 'a', value: 60 },
+        { time: 'b', value: 80 },
+      ], // time-average 70
+    }));
+    const summary = renderOverlay().find('[data-testid="attention-report-summary"]');
+    expect(summary.text()).toContain('70');
+  });
+
+  it('shows a dash for the group KPIs when the session recorded no data at all', () => {
+    // No timeline history AND no live reading (report opened during a connection
+    // drop before any data was captured) → group average and "Umbral superado"
+    // must read "—", never a placeholder 0 that implies "the group had 0%".
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      groupAttention: 0,
+      groupDataAvailable: false,
+      timeline: [],
+    }));
+    const summary = renderOverlay().find('[data-testid="attention-report-summary"]');
+    expect(summary.text()).toContain('—');
+    expect(summary.text()).not.toContain('0 / 100');
+  });
+
+  it('still shows recorded history even if currently disconnected', () => {
+    // groupDataAvailable false (offline now) but the session DID accumulate data →
+    // the report reflects the real history, not a dash.
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      groupDataAvailable: false,
       timeline: [
         { time: 'a', value: 60 },
         { time: 'b', value: 80 },

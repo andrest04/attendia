@@ -36,6 +36,20 @@ export interface ParticipantAttention {
   /** True when the participant's camera is off (no attention data; value is stale/absent). */
   cameraOff: boolean;
   /**
+   * Faces detected in the latest sample. `0` means the CV pipeline could not
+   * find the participant's face (turned away, bad lighting/angle, GPU failure),
+   * so `index` is a decayed-to-0 placeholder, NOT a real "0% attention". The UI
+   * must render "sin medición" instead of 0, and the group average excludes them.
+   * Optional: absent in ad-hoc fixtures, where consumers treat it as measured.
+   */
+  faces?: number;
+  /**
+   * True when the participant's device cannot run the CV pipeline at all (mobile —
+   * the pipeline is desktop-only). Distinct from cameraOff/no-face: the student is
+   * present and fine, the DEVICE just can't measure. UI shows "No medible (celular)".
+   */
+  unsupported?: boolean;
+  /**
    * Session history of the index, accumulated at the sampling cadence while the
    * camera is on. Optional: present on live data and the mock; absent in ad-hoc
    * fixtures, where consumers fall back to `index`.
@@ -69,6 +83,14 @@ export interface AttentionData {
   ranges: AttentionRanges;
   /** Session-wide aggregate attention index 0-100. */
   groupAttention: number;
+  /**
+   * False when the live pipeline has zero measured (camera-on, reachable)
+   * participants right now — i.e. `groupAttention` is a placeholder, not a real
+   * reading (low connection, everyone camera-off, no students). Consumers must
+   * render "sin datos" instead of "0" and must NOT raise the below-threshold
+   * alarm. Always true for the mock.
+   */
+  groupDataAvailable: boolean;
   /** Scores below this are flagged as "group below threshold". */
   attentionThreshold: number;
   /** Group attention over time, ready for recharts. */
