@@ -17,6 +17,13 @@ import { useLocation, useHistory, Link } from 'react-router-dom';
 type PreJoinRole = 'teacher' | 'student';
 
 const useStyles = makeStyles((theme: Theme) => ({
+  // Inner padded wrapper. IntroContainer's contentCard is a flush, overflow:hidden
+  // shell — every other consumer (RoomNameScreen, DeviceSelectionScreen) wraps its
+  // content in its own padded container. Without this, the role cards, inputs and
+  // links sit flush against the card edges.
+  formBody: {
+    padding: 'clamp(24px, 3vh, 32px) clamp(24px, 3vw, 32px)',
+  },
   // ── Role cards ──────────────────────────────────────────────────────────────
   roleCards: {
     display: 'flex',
@@ -254,105 +261,107 @@ export default function LoginPage() {
 
   return (
     <IntroContainer>
-      <div className={classes.roleCards}>
-        <div
-          data-testid="role-card-profesor"
-          className={`${classes.roleCard} ${selectedRole === 'teacher' ? classes.roleCardSelected : ''}`}
-          onClick={() => setSelectedRole('teacher')}
-          role="button"
-          tabIndex={0}
-          aria-pressed={selectedRole === 'teacher'}
-          onKeyDown={event => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              setSelectedRole('teacher');
-            }
-          }}
-        >
-          <div className={`${classes.roleAvatar} ${classes.roleAvatarProfesor}`}>
-            <MenuBookIcon style={{ fontSize: 18, color: '#1d6eed' }} />
+      <div className={classes.formBody}>
+        <div className={classes.roleCards}>
+          <div
+            data-testid="role-card-profesor"
+            className={`${classes.roleCard} ${selectedRole === 'teacher' ? classes.roleCardSelected : ''}`}
+            onClick={() => setSelectedRole('teacher')}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedRole === 'teacher'}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setSelectedRole('teacher');
+              }
+            }}
+          >
+            <div className={`${classes.roleAvatar} ${classes.roleAvatarProfesor}`}>
+              <MenuBookIcon style={{ fontSize: 18, color: '#1d6eed' }} />
+            </div>
+            <div>
+              <div className={classes.roleLabel}>Profesor</div>
+              <div className={classes.roleCaption}>Crear nueva sala de clase</div>
+            </div>
           </div>
-          <div>
-            <div className={classes.roleLabel}>Profesor</div>
-            <div className={classes.roleCaption}>Crear nueva sala de clase</div>
+
+          <div
+            data-testid="role-card-estudiante"
+            className={`${classes.roleCard} ${selectedRole === 'student' ? classes.roleCardSelected : ''}`}
+            onClick={() => setSelectedRole('student')}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedRole === 'student'}
+            onKeyDown={event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setSelectedRole('student');
+              }
+            }}
+          >
+            <div className={`${classes.roleAvatar} ${classes.roleAvatarEstudiante}`}>
+              <PersonIcon style={{ fontSize: 18, color: '#d97706' }} />
+            </div>
+            <div>
+              <div className={classes.roleLabel}>Estudiante</div>
+              <div className={classes.roleCaption}>Unirme a sala existente</div>
+            </div>
           </div>
         </div>
+        <Typography variant="caption" className={classes.roleHint}>
+          Elige tu rol para iniciar el flujo correspondiente.
+        </Typography>
 
-        <div
-          data-testid="role-card-estudiante"
-          className={`${classes.roleCard} ${selectedRole === 'student' ? classes.roleCardSelected : ''}`}
-          onClick={() => setSelectedRole('student')}
-          role="button"
-          tabIndex={0}
-          aria-pressed={selectedRole === 'student'}
-          onKeyDown={event => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              setSelectedRole('student');
-            }
-          }}
-        >
-          <div className={`${classes.roleAvatar} ${classes.roleAvatarEstudiante}`}>
-            <PersonIcon style={{ fontSize: 18, color: '#d97706' }} />
-          </div>
-          <div>
-            <div className={classes.roleLabel}>Estudiante</div>
-            <div className={classes.roleCaption}>Unirme a sala existente</div>
-          </div>
-        </div>
-      </div>
-      <Typography variant="caption" className={classes.roleHint}>
-        Elige tu rol para iniciar el flujo correspondiente.
-      </Typography>
-
-      {process.env.REACT_APP_SET_AUTH === 'firebase' && (
-        <>
-          <Typography variant="h5" className={classes.formTitle}>
-            Iniciar sesión para unirte
-          </Typography>
-          <Typography className={classes.formSubtitle}>Inicia sesión con tu cuenta Google de Twilio.</Typography>
-          <Button variant="contained" className={classes.googleButton} onClick={login} startIcon={<GoogleLogo />}>
-            Iniciar sesión con Google
-          </Button>
-        </>
-      )}
-
-      {process.env.REACT_APP_SET_AUTH === 'passcode' && (
-        <>
-          <Typography variant="h5" className={classes.formTitle}>
-            Ingresa el código de acceso
-          </Typography>
-          <Typography className={classes.formSubtitle}>
-            Usa el código que recibiste para acceder a la plataforma.
-          </Typography>
-          <form onSubmit={handleSubmit}>
-            <label htmlFor="input-passcode" className={classes.fieldLabel}>
-              Código de acceso
-            </label>
-            <TextField
-              id="input-passcode"
-              fullWidth
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setPasscode(e.target.value)}
-              type="password"
-              variant="outlined"
-              className={classes.textInput}
-            />
-            {authError && (
-              <Typography variant="caption" className={classes.errorMessage}>
-                <ErrorOutlineIcon />
-                {authError.message}
-              </Typography>
-            )}
-            <Button variant="contained" type="submit" disabled={!passcode.length} className={classes.primaryButton}>
-              Ingresar
+        {process.env.REACT_APP_SET_AUTH === 'firebase' && (
+          <>
+            <Typography variant="h5" className={classes.formTitle}>
+              Iniciar sesión para unirte
+            </Typography>
+            <Typography className={classes.formSubtitle}>Inicia sesión con tu cuenta Google de Twilio.</Typography>
+            <Button variant="contained" className={classes.googleButton} onClick={login} startIcon={<GoogleLogo />}>
+              Iniciar sesión con Google
             </Button>
-          </form>
-        </>
-      )}
+          </>
+        )}
 
-      <Link to="/security" className={classes.securityLink}>
-        Seguridad y privacidad
-      </Link>
+        {process.env.REACT_APP_SET_AUTH === 'passcode' && (
+          <>
+            <Typography variant="h5" className={classes.formTitle}>
+              Ingresa el código de acceso
+            </Typography>
+            <Typography className={classes.formSubtitle}>
+              Usa el código que recibiste para acceder a la plataforma.
+            </Typography>
+            <form onSubmit={handleSubmit}>
+              <label htmlFor="input-passcode" className={classes.fieldLabel}>
+                Código de acceso
+              </label>
+              <TextField
+                id="input-passcode"
+                fullWidth
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setPasscode(e.target.value)}
+                type="password"
+                variant="outlined"
+                className={classes.textInput}
+              />
+              {authError && (
+                <Typography variant="caption" className={classes.errorMessage}>
+                  <ErrorOutlineIcon />
+                  {authError.message}
+                </Typography>
+              )}
+              <Button variant="contained" type="submit" disabled={!passcode.length} className={classes.primaryButton}>
+                Ingresar
+              </Button>
+            </form>
+          </>
+        )}
+
+        <Link to="/security" className={classes.securityLink}>
+          Seguridad y Privacidad
+        </Link>
+      </div>
     </IntroContainer>
   );
 }
