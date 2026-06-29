@@ -28,15 +28,21 @@ export default function ParticipantTracks({
 }: ParticipantTracksProps) {
   const publications = usePublications(participant);
 
+  // Data tracks (raise-hand, attention telemetry, etc.) are consumed through hooks,
+  // not rendered here — Publication returns null for them. Drop them so they don't
+  // occupy render slots or collide on the React key (multiple data tracks all key
+  // to `publication.kind === 'data'`).
+  const visiblePublications = publications.filter(p => p.kind !== 'data');
+
   let filteredPublications;
 
-  if (enableScreenShare && publications.some(p => p.trackName.includes('screen'))) {
+  if (enableScreenShare && visiblePublications.some(p => p.trackName.includes('screen'))) {
     // When displaying a screenshare track is allowed, and a screen share track exists,
     // remove all video tracks without the name 'screen'.
-    filteredPublications = publications.filter(p => p.trackName.includes('screen') || p.kind !== 'video');
+    filteredPublications = visiblePublications.filter(p => p.trackName.includes('screen') || p.kind !== 'video');
   } else {
     // Else, remove all screenshare tracks
-    filteredPublications = publications.filter(p => !p.trackName.includes('screen'));
+    filteredPublications = visiblePublications.filter(p => !p.trackName.includes('screen'));
   }
 
   return (
