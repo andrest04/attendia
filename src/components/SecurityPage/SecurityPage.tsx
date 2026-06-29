@@ -129,6 +129,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.palette.background.default,
     minHeight: '100vh',
     position: 'relative',
+    // The decorative circles are positioned with negative right offsets and poke
+    // outside the right edge. Clip the horizontal overflow so they never add a
+    // phantom horizontal scrollbar on this info-only page.
+    overflowX: 'hidden',
   },
   // Decorative background circles
   bgCircle1: {
