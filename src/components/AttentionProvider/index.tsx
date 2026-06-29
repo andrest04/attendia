@@ -234,6 +234,18 @@ export const AttentionProvider: React.FC = ({ children }) => {
     }
 
     const push = () => {
+      // Reconcile the per-student history against the CURRENT telemetry: evict any
+      // identity that is no longer present (the student disconnected). Without this,
+      // a student who leaves and rejoins with the same identity would resume onto
+      // their stale min/max/avg. Done before the early return so eviction happens
+      // even on a tick with no measured participants.
+      const presentIdentities = new Set(remoteAttentionRef.current.map(r => r.identity));
+      participantHistoryRef.current.forEach((_, identity) => {
+        if (!presentIdentities.has(identity)) {
+          participantHistoryRef.current.delete(identity);
+        }
+      });
+
       // Read the latest telemetry from the ref — NOT the captured remoteAttention,
       // which would be stale (see remoteAttentionRef above).
       // Exclude camera-off participants from the timeline average, consistent with

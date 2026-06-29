@@ -1,7 +1,11 @@
 import React from 'react';
 import { renderHook, act } from '@testing-library/react-hooks';
+import { useMediaQuery } from '@material-ui/core';
 import { AttentionProvider, useAttention } from './index';
 import { mockAttentionData } from './mockAttentionData';
+import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
+import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
+import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 
 // ─── Mock the two CV pipeline hooks ──────────────────────────────────────────
 // These are mocked at the top level so tests control exactly when the provider
@@ -41,11 +45,6 @@ jest.mock('@material-ui/core', () => {
     useTheme: jest.fn(() => ({ breakpoints: { down: jest.fn(() => 'sm') } })),
   };
 });
-
-import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
-import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
-import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
-import { useMediaQuery } from '@material-ui/core';
 
 const mockUseAttentionCapture = useAttentionCapture as jest.Mock;
 const mockUseAttentionTelemetry = useAttentionTelemetry as jest.Mock;
@@ -444,6 +443,50 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
       expect(sx.indexMin).toBe(50);
       expect(sx.indexMax).toBe(90);
       expect(sx.indexAvg).toBe(70); // (50 + 90 + 70) / 3
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("drops a departed student's history so a same-identity rejoin starts fresh", () => {
+    // A student who leaves and later rejoins with the SAME identity must NOT
+    // resume accumulating onto their old min/max/avg. The per-student history is
+    // reconciled against current telemetry each tick: an identity that vanishes
+    // is evicted, so a rejoin is a clean slate.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-22T10:00:00Z'));
+      const one = (index: number) => [{ identity: 'student-x', index, multiface: false, faces: 1, cameraOff: false }];
+
+      mockUseAttentionTelemetry.mockReturnValue(one(50));
+      const { result, rerender, unmount } = renderHook(useAttention, { wrapper }); // seed sample: 50
+
+      mockUseAttentionTelemetry.mockReturnValue(one(90));
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(1000); // sample: 90 → history { min:50, max:90 }
+      });
+
+      // student-x leaves: telemetry no longer reports them.
+      mockUseAttentionTelemetry.mockReturnValue([]);
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(1000); // tick reconciles → student-x history evicted
+      });
+
+      // student-x rejoins with the same identity at a fresh index.
+      mockUseAttentionTelemetry.mockReturnValue(one(70));
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(1000); // sample: 70 → fresh history { min:70, max:70 }
+      });
+
+      const sx = result.current.participants.find(p => p.identity === 'student-x')!;
+      // Stale 50/90 must be gone — rejoin accumulates from scratch.
+      expect(sx.indexMin).toBe(70);
+      expect(sx.indexMax).toBe(70);
+      expect(sx.indexAvg).toBe(70);
       unmount();
     } finally {
       jest.useRealTimers();
