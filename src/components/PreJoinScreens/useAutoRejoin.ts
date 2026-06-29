@@ -37,6 +37,11 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
   const retriedRef = useRef(false);
   const disposedRef = useRef(false);
   const retryTimerRef = useRef<number | null>(null);
+  // Set when a genuine token rejection has already been handled by a catch block below.
+  // getToken both setError()s AND rejects, so after the catch clears the session, the app
+  // error state flips truthy and would trigger the error-watcher's retry/dismiss path. This
+  // flag tells the watcher to leave the ErrorDialog up instead of auto-dismissing it.
+  const tokenRejectedRef = useRef(false);
 
   // The retry runs after a delay, so it must call the CURRENT connect/token functions
   // (videoConnect closes over the freshly acquired localTracks). A ref kept up to date each
@@ -65,6 +70,11 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
   useEffect(() => {
     if (!error || !hasStarted.current) return;
 
+    // A genuine token rejection (room closed / passcode expired) was already handled by a
+    // catch block: the session is cleared and the ErrorDialog is up by design. Do NOT treat
+    // it as an SDK resolve-with-error to retry, and do NOT dismiss the dialog the user needs.
+    if (tokenRejectedRef.current) return;
+
     if (!retriedRef.current) {
       retriedRef.current = true;
       console.warn('Auto-rejoin: connect failed, retrying once.', error);
@@ -75,6 +85,7 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
           connectSequence(session).catch(retryError => {
             // A token rejection on the retry is a genuine refusal; clear and fall back.
             console.warn('Auto-rejoin: retry token request failed.', retryError);
+            tokenRejectedRef.current = true;
             clearRejoinSession();
             setIsRejoining(false);
           });
@@ -116,6 +127,7 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
         // refusal, not transient — drop the stale session and fall back to the lobby so the
         // user can rejoin manually. getToken already surfaces the error through the dialog.
         console.warn('Auto-rejoin: token request failed, falling back to lobby.', connectError);
+        tokenRejectedRef.current = true;
         clearRejoinSession();
         setIsRejoining(false);
       }

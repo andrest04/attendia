@@ -91,6 +91,31 @@ describe('the useAutoRejoin hook', () => {
     expect(videoConnect).not.toHaveBeenCalled();
   });
 
+  it('preserves the error dialog when getToken rejects (does not auto-dismiss it)', async () => {
+    mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: 'Ana Lopez' });
+    // The real getToken both setError()s AND rejects on a genuine refusal (room closed).
+    getToken.mockRejectedValue(new Error('room closed'));
+
+    const { result, rerender } = renderHook(() => useAutoRejoin('prueba'));
+    await flush();
+
+    // The mount catch cleared the session and stopped rejoining.
+    expect(mockClearRejoinSession).toHaveBeenCalledTimes(1);
+    expect(result.current).toBe(false);
+
+    // Now the app error state flips truthy because getToken called setError(). The
+    // error-watcher must NOT dismiss the dialog the user needs ("room closed").
+    mockUseAppState.mockImplementation(() => ({ getToken, error: new Error('room closed'), setError }));
+    await act(async () => {
+      rerender();
+    });
+
+    expect(setError).not.toHaveBeenCalledWith(null);
+    // No retry was scheduled for a genuine token rejection.
+    expect(getToken).toHaveBeenCalledTimes(1);
+    expect(videoConnect).not.toHaveBeenCalled();
+  });
+
   it('retries once on a transient connect error without clearing the session', async () => {
     jest.useFakeTimers();
     try {
