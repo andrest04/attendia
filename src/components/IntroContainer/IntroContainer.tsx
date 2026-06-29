@@ -219,10 +219,9 @@ const useStyles = makeStyles((theme: Theme) => ({
 
   // ── Hero section (pill badge + H1 + subtitle) ────────────────────────────────
   // Vertical spacing is fluid (clamp + vh): it compresses continuously with the
-  // viewport height on any screen, so the lobby fits without scrolling. Only the
-  // decorative badge/subtitle have a cutoff, because below ~780px of height the
-  // intrinsic content provably cannot fit and CSS cannot drop content "when it
-  // doesn't fit" without a threshold.
+  // viewport height. Nothing in the hero is hidden on short viewports — when the
+  // content cannot fit (e.g. a zoomed-in browser) the page scrolls (root is
+  // overflow:auto) rather than dropping the logo, badge or subtitle.
   hero: {
     display: 'flex',
     flexDirection: 'column',
@@ -230,21 +229,12 @@ const useStyles = makeStyles((theme: Theme) => ({
     paddingTop: 'clamp(8px, 1.6vh, 18px)',
     paddingBottom: 'clamp(8px, 2vh, 24px)',
     width: '100%',
-    // On short viewports keep a compact title (the page's only <h1>) instead of
-    // hiding the whole hero — only the decorative logo/badge/subtitle drop out.
-    '@media (max-height: 760px)': {
-      paddingTop: 4,
-      paddingBottom: 6,
-    },
   },
   // Standalone isotype (logo only — no wordmark) shown above the welcome badge.
   heroLogo: {
     display: 'flex',
     justifyContent: 'center',
     marginBottom: 'clamp(4px, 0.9vh, 10px)',
-    '@media (max-height: 760px)': {
-      display: 'none',
-    },
   },
   heroBadge: {
     display: 'flex',
@@ -255,9 +245,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 20,
     padding: '7px 17px',
     marginBottom: 'clamp(6px, 1.2vh, 14px)',
-    '@media (max-height: 780px)': {
-      display: 'none',
-    },
   },
   heroBadgeDot: {
     width: 7,
@@ -283,10 +270,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     lineHeight: 1.25,
     textAlign: 'center',
     marginBottom: 0,
-    '@media (max-height: 760px)': {
-      fontSize: 20,
-      letterSpacing: '-0.6px',
-    },
   },
   heroTitleAccent: {
     color: '#1d6eed',
@@ -300,9 +283,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     textAlign: 'center',
     maxWidth: 520,
     marginTop: 'clamp(4px, 0.8vh, 10px)',
-    '@media (max-height: 780px)': {
-      display: 'none',
-    },
   },
 
   // ── Content card wrapper ──────────────────────────────────────────────────────
