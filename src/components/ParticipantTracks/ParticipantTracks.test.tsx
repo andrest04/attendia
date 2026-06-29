@@ -19,6 +19,22 @@ describe('the ParticipantTracks component', () => {
     expect(wrapper).toMatchSnapshot();
   });
 
+  it('should filter out data publications so they do not collide on the React key', () => {
+    mockUsePublications.mockImplementation(() => [
+      { trackName: '', trackSid: 0, kind: 'video' },
+      { trackName: '', trackSid: 1, kind: 'data' },
+      { trackName: '', trackSid: 2, kind: 'data' },
+    ]);
+    const wrapper = shallow(<ParticipantTracks participant={'mockParticipant' as any} />);
+    expect(wrapper.find('Publication').length).toBe(1);
+    expect(
+      wrapper
+        .find('Publication')
+        .at(0)
+        .prop('publication')
+    ).toEqual({ trackName: '', trackSid: 0, kind: 'video' });
+  });
+
   it('should filter out any screen share publications', () => {
     mockUsePublications.mockImplementation(() => [
       { trackName: 'screen', trackSid: 0, kind: 'video' },
