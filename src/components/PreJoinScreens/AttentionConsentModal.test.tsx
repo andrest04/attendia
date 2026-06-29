@@ -71,8 +71,13 @@ describe('AttentionConsentModal', () => {
     expect(treeText).toMatch(/presencial|alternativa/i);
   });
 
-  it('has disableBackdropClick so students cannot dismiss it accidentally', () => {
-    const wrapper = shallow(<AttentionConsentModal {...defaultProps} />);
-    expect(wrapper.find(Dialog).prop('disableBackdropClick')).toBe(true);
+  it('does not dismiss on backdrop click so students cannot close it accidentally', () => {
+    const onAccept = jest.fn();
+    const onDecline = jest.fn();
+    const wrapper = shallow(<AttentionConsentModal {...defaultProps} onAccept={onAccept} onDecline={onDecline} />);
+    const onClose = wrapper.find(Dialog).prop('onClose') as (event: object, reason: string) => void;
+    onClose({}, 'backdropClick');
+    expect(onAccept).not.toHaveBeenCalled();
+    expect(onDecline).not.toHaveBeenCalled();
   });
 });

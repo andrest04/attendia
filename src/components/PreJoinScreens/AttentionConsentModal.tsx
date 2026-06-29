@@ -105,8 +105,15 @@ interface AttentionConsentModalProps {
 export default function AttentionConsentModal({ open, onAccept, onDecline }: AttentionConsentModalProps) {
   const classes = useStyles();
 
+  // The consent modal is a hard gate: students must explicitly accept or go back.
+  // Swallow backdrop clicks instead of using the deprecated `disableBackdropClick`
+  // prop (escape is still blocked via `disableEscapeKeyDown`).
+  const handleClose = (_event: object, reason: 'backdropClick' | 'escapeKeyDown') => {
+    if (reason === 'backdropClick') return;
+  };
+
   return (
-    <Dialog open={open} maxWidth="sm" fullWidth disableBackdropClick disableEscapeKeyDown>
+    <Dialog open={open} maxWidth="sm" fullWidth onClose={handleClose} disableEscapeKeyDown>
       <DialogTitle disableTypography>
         <span className={classes.title}>
           <SecurityIcon style={{ fontSize: 20, color: '#1d6eed', flexShrink: 0 }} />
