@@ -147,6 +147,31 @@ describe('useRaiseHand', () => {
     expect(result.current.raisedHands).toEqual([]);
   });
 
+  it('preserves the raise order when an already-raised hand re-announces on a join', () => {
+    // When a new participant connects, every raised student re-broadcasts raise:true
+    // so the late joiner can rebuild the queue. That re-announce must NOT move an
+    // already-queued hand to the end and corrupt the FIFO raise order (#6 fix).
+    const bob = createParticipant('student-bob');
+    const bobData = createDataTrack();
+    const alice = createParticipant('student-alice');
+    const aliceData = createDataTrack();
+    const { result } = renderHook(() => useRaiseHand());
+    act(() => {
+      mockRoom.emit('participantConnected', bob);
+      bob.emit('trackSubscribed', bobData);
+      bobData.emit('message', raiseHand(true));
+      mockRoom.emit('participantConnected', alice);
+      alice.emit('trackSubscribed', aliceData);
+      aliceData.emit('message', raiseHand(true));
+    });
+    expect(result.current.raisedHands).toEqual(['student-bob', 'student-alice']);
+
+    // Bob re-announces (as happens when a third participant joins). Order must hold.
+    act(() => void bobData.emit('message', raiseHand(true)));
+
+    expect(result.current.raisedHands).toEqual(['student-bob', 'student-alice']);
+  });
+
   it('cleans up room listeners on unmount', () => {
     const { unmount } = renderHook(() => useRaiseHand());
     expect(mockRoom.listenerCount('participantConnected')).toBe(1);

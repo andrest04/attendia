@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { LocalDataTrack } from 'twilio-video';
+import { useEffect, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import { AttentionCaptureResult } from '../useAttentionCapture/useAttentionCapture';
 
 /**
@@ -112,39 +112,41 @@ export default function useAttentionTelemetry(
 ): RemoteAttention[] {
   const { room } = useVideoContext();
   const [remoteAttention, setRemoteAttention] = useState<Map<string, StoredRemoteAttention>>(new Map());
-  const dataTrackRef = useRef<LocalDataTrack | null>(null);
 
-  const send = useCallback((message: AttentionTelemetryMessage) => {
-    try {
-      dataTrackRef.current?.send(JSON.stringify(message));
-    } catch {
-      // Track not yet connected/subscribed — dropping the signal is acceptable.
-    }
-  }, []);
+  // Unreliable + unordered track: this is "latest value wins" telemetry, not a
+  // delivery-guaranteed event. See the header comment for why reliable delivery
+  // collapses the group index to 0 under congestion.
+  const { send } = useClassDataChannel<AttentionTelemetryMessage>({
+    trackOptions: { ordered: false, maxRetransmits: 0 },
+    onMessage: (parsed, participant) => {
+      if (!isAttentionTelemetryMessage(parsed)) return;
+      const identity = participant.identity;
+      const entry: StoredRemoteAttention = {
+        identity,
+        index: parsed.index,
+        multiface: parsed.multiface,
+        faces: parsed.faces,
+        // Backward compatible: older senders omit cameraOff → treat as camera on.
+        cameraOff: parsed.cameraOff === true,
+        // Backward compatible: older senders omit unsupported → treat as supported.
+        unsupported: parsed.unsupported === true,
+        receivedAt: Date.now(),
+      };
 
-  // Publish one LocalDataTrack per room connection. Unpublish is chained onto the
-  // publish promise so a fast unmount/remount never unpublishes a track Twilio is
-  // still in the middle of publishing (which would leave a dangling publication).
-  useEffect(() => {
-    if (!room || !room.localParticipant) return;
-    const localParticipant = room.localParticipant;
-    // Unreliable + unordered: this is "latest value wins" telemetry, not a
-    // delivery-guaranteed event. See the header comment for why reliable delivery
-    // collapses the group index to 0 under congestion.
-    const dataTrack = new LocalDataTrack({ ordered: false, maxRetransmits: 0 });
-    dataTrackRef.current = dataTrack;
-    const published = Promise.resolve(localParticipant.publishTrack(dataTrack)).catch(() => undefined);
-    return () => {
-      published.then(() => {
-        try {
-          localParticipant.unpublishTrack(dataTrack);
-        } catch {
-          // Already unpublished on disconnect.
-        }
+      setRemoteAttention(prev => {
+        const next = new Map(prev);
+        next.set(identity, entry);
+        return next;
       });
-      dataTrackRef.current = null;
-    };
-  }, [room]);
+    },
+    onParticipantDisconnected: participant => {
+      setRemoteAttention(prev => {
+        const next = new Map(prev);
+        next.delete(participant.identity);
+        return next;
+      });
+    },
+  });
 
   // Broadcast local attention whenever capture is active.
   useEffect(() => {
@@ -185,79 +187,6 @@ export default function useAttentionTelemetry(
     const id = window.setInterval(beat, CAMERA_OFF_HEARTBEAT_MS);
     return () => window.clearInterval(id);
   }, [unsupported, send]);
-
-  // Receive attention-telemetry messages from remote participants.
-  useEffect(() => {
-    if (!room || !room.localParticipant) return;
-    const cleanups: Array<() => void> = [];
-    const attachedTracks = new Set<unknown>();
-
-    const listen = (emitter: any, event: string, handler: (...args: any[]) => void) => {
-      emitter.on(event, handler);
-      cleanups.push(() => emitter.off(event, handler));
-    };
-
-    const handleMessage = (raw: unknown, identity: string) => {
-      if (typeof raw !== 'string') return;
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        return;
-      }
-      if (!isAttentionTelemetryMessage(parsed)) return;
-
-      const entry: StoredRemoteAttention = {
-        identity,
-        index: parsed.index,
-        multiface: parsed.multiface,
-        faces: parsed.faces,
-        // Backward compatible: older senders omit cameraOff → treat as camera on.
-        cameraOff: parsed.cameraOff === true,
-        // Backward compatible: older senders omit unsupported → treat as supported.
-        unsupported: parsed.unsupported === true,
-        receivedAt: Date.now(),
-      };
-
-      setRemoteAttention(prev => {
-        const next = new Map(prev);
-        next.set(identity, entry);
-        return next;
-      });
-    };
-
-    // Guard against double-subscribing the same track (the initial tracks loop and
-    // a later trackSubscribed can reference the same object; re-subscribes give new ones).
-    const attachDataTrack = (track: any, identity: string) => {
-      if (track && track.kind === 'data' && !attachedTracks.has(track)) {
-        attachedTracks.add(track);
-        listen(track, 'message', (data: unknown) => handleMessage(data, identity));
-      }
-    };
-
-    const attachParticipant = (participant: any) => {
-      listen(participant, 'trackSubscribed', (track: any) => attachDataTrack(track, participant.identity));
-      participant.tracks?.forEach((publication: any) => attachDataTrack(publication.track, participant.identity));
-    };
-
-    const handleParticipantConnected = (participant: any) => {
-      attachParticipant(participant);
-    };
-
-    const handleDisconnect = (participant: any) => {
-      setRemoteAttention(prev => {
-        const next = new Map(prev);
-        next.delete(participant.identity);
-        return next;
-      });
-    };
-
-    room.participants.forEach(attachParticipant);
-    listen(room, 'participantConnected', handleParticipantConnected);
-    listen(room, 'participantDisconnected', handleDisconnect);
-
-    return () => cleanups.forEach(off => off());
-  }, [room]);
 
   // Staleness sweep: drop entries not refreshed within STALE_TTL_MS. A participant
   // that goes silent (crash, abrupt drop without a disconnect event) expires; a

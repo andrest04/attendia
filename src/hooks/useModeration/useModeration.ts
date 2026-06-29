@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { LocalDataTrack } from 'twilio-video';
+import { useCallback, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 
 /**
  * Classroom moderation signaling over a Twilio LocalDataTrack.
  *
  * Transport rationale: mirrors useRaiseHand / useAttentionTelemetry — a DataTrack
  * is part of Video core, so it is always available even when Conversations/chat is
- * disabled. There is NO server involved (SDK-as-state, same as the rest).
+ * disabled. There is NO server involved (SDK-as-state, same as the rest). The shared
+ * DataTrack scaffold lives in useClassDataChannel; this hook only adds the protocol.
  *
  * IMPORTANT — moderation by convention, NOT a security boundary. A professor cannot
  * reach into another browser and disable its microphone directly: muting is a
@@ -42,106 +43,35 @@ export interface ModerationApi {
 export default function useModeration(): ModerationApi {
   const { room } = useVideoContext();
   const [mutedByProfessorCount, setMutedByProfessorCount] = useState(0);
-  const dataTrackRef = useRef<LocalDataTrack | null>(null);
 
-  const send = useCallback((message: ModerationMessage) => {
-    try {
-      dataTrackRef.current?.send(JSON.stringify(message));
-    } catch {
-      // Track not yet connected/subscribed — dropping the signal is acceptable.
-    }
-  }, []);
-
-  // Publish one LocalDataTrack per room connection. Unpublish is chained onto the
-  // publish promise so a fast unmount/remount never unpublishes a track Twilio is
-  // still in the middle of publishing (which would leave a dangling publication).
-  useEffect(() => {
-    if (!room || !room.localParticipant) return;
-    const localParticipant = room.localParticipant;
-    const dataTrack = new LocalDataTrack();
-    dataTrackRef.current = dataTrack;
-    const published = Promise.resolve(localParticipant.publishTrack(dataTrack)).catch(() => undefined);
-    return () => {
-      published.then(() => {
-        try {
-          localParticipant.unpublishTrack(dataTrack);
-        } catch {
-          // Already unpublished on disconnect.
-        }
-      });
-      dataTrackRef.current = null;
-    };
-  }, [room]);
-
-  // Receive moderation messages from remote participants (the professor).
-  useEffect(() => {
-    if (!room || !room.localParticipant) return;
-    const localParticipant = room.localParticipant;
-    const localIdentity = localParticipant.identity;
-    const cleanups: Array<() => void> = [];
-    const attachedTracks = new Set<unknown>();
-
-    const listen = (emitter: any, event: string, handler: (...args: any[]) => void) => {
-      emitter.on(event, handler);
-      cleanups.push(() => emitter.off(event, handler));
-    };
-
-    const muteLocalAudio = (): boolean => {
-      // Honor the request by disabling our OWN audio track (soft mute — the track
-      // stays published, so the student can re-enable it from their mic button).
-      // Only act on tracks that are actually enabled, and report whether anything
-      // changed: muting an already-muted mic is a no-op and must not notify the
-      // student (there was nothing to silence).
-      let didMute = false;
-      localParticipant.audioTracks.forEach((publication: any) => {
-        const track = publication.track;
-        if (track?.isEnabled) {
-          track.disable();
-          didMute = true;
-        }
-      });
-      return didMute;
-    };
-
-    const handleMessage = (raw: unknown) => {
-      if (typeof raw !== 'string') return;
-      let message: ModerationMessage;
-      try {
-        message = JSON.parse(raw);
-      } catch {
-        return;
-      }
-
-      if (message.type === 'mute-audio' && typeof message.identity === 'string' && message.identity === localIdentity) {
-        // Bump the count (which drives the toast) only when audio was actually
-        // silenced — never when the mic was already off.
-        if (muteLocalAudio()) {
+  const { send } = useClassDataChannel<ModerationMessage>({
+    onMessage: message => {
+      const localParticipant = room?.localParticipant;
+      if (!localParticipant) return;
+      if (
+        message.type === 'mute-audio' &&
+        typeof message.identity === 'string' &&
+        message.identity === localParticipant.identity
+      ) {
+        // Honor the request by disabling our OWN audio track (soft mute — the track
+        // stays published, so the student can re-enable it from their mic button).
+        // Only act on tracks that are actually enabled, and bump the count (which
+        // drives the toast) only when audio was actually silenced — muting an
+        // already-muted mic is a no-op and must not notify the student.
+        let didMute = false;
+        localParticipant.audioTracks.forEach((publication: any) => {
+          const track = publication.track;
+          if (track?.isEnabled) {
+            track.disable();
+            didMute = true;
+          }
+        });
+        if (didMute) {
           setMutedByProfessorCount(count => count + 1);
         }
       }
-    };
-
-    // Guard against double-subscribing the same track (the initial tracks loop and
-    // a later trackSubscribed can reference the same object; re-subscribes give new ones).
-    const attachDataTrack = (track: any) => {
-      if (track && track.kind === 'data' && !attachedTracks.has(track)) {
-        attachedTracks.add(track);
-        listen(track, 'message', (data: unknown) => handleMessage(data));
-      }
-    };
-
-    const attachParticipant = (participant: any) => {
-      listen(participant, 'trackSubscribed', (track: any) => attachDataTrack(track));
-      participant.tracks?.forEach((publication: any) => attachDataTrack(publication.track));
-    };
-
-    room.participants.forEach(attachParticipant);
-    listen(room, 'participantConnected', attachParticipant);
-    // No participantDisconnected listener: this hook holds no per-participant state
-    // to clean up (unlike the raise-hand queue).
-
-    return () => cleanups.forEach(off => off());
-  }, [room]);
+    },
+  });
 
   const muteParticipant = useCallback(
     (identity: string) => {
