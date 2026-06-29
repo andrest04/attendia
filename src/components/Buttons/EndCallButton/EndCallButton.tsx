@@ -59,7 +59,9 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
   // not run this handler — that path keeps the session and reconnects.
   const handleEndCall = () => {
     clearRejoinSession();
-    room!.disconnect();
+    // Optional-chain: a refresh ('beforeunload') or a double-click race can have
+    // already disconnected and nulled the room — calling disconnect() then throws.
+    room?.disconnect();
   };
 
   return (
