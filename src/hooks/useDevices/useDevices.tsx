@@ -14,11 +14,19 @@ export default function useDevices() {
   });
 
   useEffect(() => {
-    const getDevices = () => getDeviceInfo().then(devices => setDeviceInfo(devices));
+    // getDeviceInfo() is async; guard against resolving after the component has
+    // unmounted (e.g. the prejoin screen unmounting on join) to avoid a setState
+    // on an unmounted component.
+    let isMounted = true;
+    const getDevices = () =>
+      getDeviceInfo().then(devices => {
+        if (isMounted) setDeviceInfo(devices);
+      });
     navigator.mediaDevices.addEventListener('devicechange', getDevices);
     getDevices();
 
     return () => {
+      isMounted = false;
       navigator.mediaDevices.removeEventListener('devicechange', getDevices);
     };
   }, []);
