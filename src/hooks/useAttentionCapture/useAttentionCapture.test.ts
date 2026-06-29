@@ -12,6 +12,7 @@
 
 import { renderHook, act } from '@testing-library/react-hooks';
 import { LocalVideoTrack } from 'twilio-video';
+import useAttentionCapture from './useAttentionCapture';
 
 // ---------------------------------------------------------------------------
 // Mock @mediapipe/tasks-vision
@@ -51,15 +52,35 @@ async function flushPromises(ticks = 5) {
   }
 }
 
+/**
+ * A promise whose resolution is controlled externally. Used to hold a model
+ * load "in flight" while we swap the track, so we can reproduce the
+ * cleanup-then-restart race deterministically.
+ */
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 /** Build a minimal fake LocalVideoTrack for tests. */
 function makeMockTrack(): LocalVideoTrack {
-  const videoEl = document.createElement('video');
-  // Make readyState simulate a ready video
-  Object.defineProperty(videoEl, 'readyState', { value: 4, configurable: true });
+  // Twilio's attach(el) configures the element it is given, autoplays it, and
+  // returns it. Mirror that: stamp readyState on the SAME element the hook
+  // created (the one it later runs detectForVideo against) so it passes the
+  // hook's "frames decoded yet?" guard.
+  const attach = jest.fn((el?: HTMLVideoElement) => {
+    const videoEl = el ?? document.createElement('video');
+    Object.defineProperty(videoEl, 'readyState', { value: 4, configurable: true });
+    return videoEl;
+  });
   return ({
-    attach: jest.fn(() => videoEl),
+    attach,
     detach: jest.fn(),
-    _videoEl: videoEl,
   } as unknown) as LocalVideoTrack;
 }
 
@@ -138,8 +159,6 @@ function makeFaceResult(faceCount: number) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
-import useAttentionCapture from './useAttentionCapture';
 
 describe('useAttentionCapture', () => {
   beforeEach(() => {
@@ -358,6 +377,67 @@ describe('useAttentionCapture', () => {
     expect(track1.detach).toHaveBeenCalled();
     expect(track2.attach).toHaveBeenCalledTimes(1);
 
+    unmount();
+  });
+
+  // ─── Test 7: track swap mid-load must not leak or spawn a ghost interval ──
+  //
+  // Regression: the disposal guard used to be a single shared ref that was reset
+  // to false at the top of every effect run. When the track changed WHILE the
+  // model was still loading, cleanup of the first run set the flag true, then the
+  // second run reset it to false. The first run's in-flight async continuation
+  // then re-read the (now false) shared flag, so it neither bailed nor closed its
+  // landmarker — leaking WASM/GPU and starting a ghost 1 Hz interval whose cleanup
+  // had already run. The fix is a per-invocation local guard captured in the
+  // effect closure.
+  it('does not leak the first landmarker or spawn a ghost interval when the track swaps mid-load', async () => {
+    const setIntervalSpy = jest.spyOn(window, 'setInterval');
+
+    const closeA = jest.fn();
+    const closeB = jest.fn();
+    const landmarkerA = { detectForVideo: jest.fn().mockReturnValue(makeFaceResult(1)), close: closeA };
+    const landmarkerB = { detectForVideo: jest.fn().mockReturnValue(makeFaceResult(1)), close: closeB };
+
+    // Hold each run's createFromOptions pending so we control exactly when the
+    // model "finishes loading" relative to the track swap.
+    const defA = deferred<typeof landmarkerA>();
+    const defB = deferred<typeof landmarkerB>();
+    mockCreateFromOptions.mockReset();
+    mockCreateFromOptions.mockReturnValueOnce(defA.promise).mockReturnValueOnce(defB.promise);
+
+    const track1 = makeMockTrack();
+    const track2 = makeMockTrack();
+
+    const { rerender, unmount } = renderHook(({ track }: { track?: LocalVideoTrack }) => useAttentionCapture(track), {
+      initialProps: { track: track1 },
+    });
+
+    // Run A advances up to its (still-pending) createFromOptions await.
+    await act(async () => {
+      await flushPromises();
+    });
+    expect(mockCreateFromOptions).toHaveBeenCalledTimes(1); // A's GPU load is in flight
+
+    // Swap the track while A's model load is still pending: cleanup A, start B.
+    await act(async () => {
+      rerender({ track: track2 });
+      await flushPromises();
+    });
+
+    // Now let both loads resolve. A resolves AFTER its effect was cleaned up.
+    await act(async () => {
+      defA.resolve(landmarkerA);
+      defB.resolve(landmarkerB);
+      await flushPromises();
+    });
+
+    // Run A was cancelled before it finished loading, so its landmarker must be
+    // closed (no WASM/GPU leak) and it must NOT have started a sampling interval.
+    expect(closeA).toHaveBeenCalledTimes(1);
+    // Only the live second run may own an interval — no ghost interval from run A.
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+
+    setIntervalSpy.mockRestore();
     unmount();
   });
 });

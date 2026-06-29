@@ -95,8 +95,6 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const landmarkerRef = useRef<any>(null);
   const analysisRef = useRef<AnalysisState>(freshAnalysisState());
-  // Guard: set to true in cleanup so in-flight async operations can bail out.
-  const disposedRef = useRef(false);
 
   useEffect(() => {
     if (!videoTrack) {
@@ -104,14 +102,38 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
       return;
     }
 
-    // Reset disposal guard for this effect invocation.
-    disposedRef.current = false;
+    // Per-invocation disposal guard captured in THIS effect run's closure.
+    // It must NOT be a shared ref: when videoTrack changes while the model is
+    // still loading, React runs the old run's cleanup (sets this true) then the
+    // new run's body. A shared ref would be reset to false by the new run, so
+    // the old run's in-flight async continuation would see false, fail to bail,
+    // and leak its FaceLandmarker plus a ghost interval. A local keeps each run's
+    // cancellation independent.
+    let disposed = false;
 
     // Attach the Twilio track to an offscreen video element (never enters the DOM).
     // Pattern borrowed from useLightingCheck: track.attach(videoEl) → track.detach(videoEl).
     const videoEl = document.createElement('video');
     videoEl.muted = true;
+    videoEl.playsInline = true;
     videoTrack.attach(videoEl);
+    // The element is never inserted into the DOM. Twilio's attach() autoplays on
+    // most browsers, but a DOM-detached element does not reliably advance frames
+    // everywhere — and without ticking frames detectForVideo() sees an empty frame
+    // and reports numFaces:0 forever (index decays to 0 while capture stays
+    // 'active'). Force play defensively; a rejection is harmless (muted autoplay).
+    try {
+      const playResult = videoEl.play();
+      // play() returns a promise in browsers; guard for environments (jsdom) where
+      // it returns undefined or throws. A rejection is harmless (muted autoplay).
+      if (playResult && typeof playResult.then === 'function') {
+        playResult.catch(() => {
+          /* autoplay may be deferred; the readyState guard below covers this */
+        });
+      }
+    } catch (_) {
+      /* play() unsupported in this environment; the readyState guard covers it */
+    }
 
     // Reset per-run analysis state.
     analysisRef.current = freshAnalysisState();
@@ -128,20 +150,32 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
         const { FaceLandmarker, FilesetResolver } = vision;
 
         const filesetResolver = await FilesetResolver.forVisionTasks(WASM_CDN);
-        const fl = await FaceLandmarker.createFromOptions(filesetResolver, {
+        const createOptions = (delegate: 'GPU' | 'CPU') => ({
           baseOptions: {
             modelAssetPath: MODEL_URL,
-            delegate: 'GPU',
+            delegate,
           },
-          runningMode: 'VIDEO',
+          runningMode: 'VIDEO' as const,
           // Detect up to 2 faces so the multiface proctoring signal works.
           numFaces: 2,
           outputFaceBlendshapes: true,
           outputFacialTransformationMatrixes: true,
         });
 
+        // Prefer GPU; fall back to CPU when GPU initialisation fails. Some
+        // machines/browsers lack a usable WebGL context for MediaPipe, which
+        // otherwise leaves the landmarker alive but producing zero detections
+        // (face never recognised → index stuck at 0 for that participant).
+        let fl;
+        try {
+          fl = await FaceLandmarker.createFromOptions(filesetResolver, createOptions('GPU'));
+        } catch (_) {
+          if (disposed) return;
+          fl = await FaceLandmarker.createFromOptions(filesetResolver, createOptions('CPU'));
+        }
+
         // Guard: this effect may have been cleaned up while the model was loading.
-        if (disposedRef.current) {
+        if (disposed) {
           try {
             fl.close();
           } catch (_) {
@@ -156,7 +190,12 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
         // setInterval rather than rAF: 1 Hz is the right cadence for an
         // attention signal (not a visual rendering loop).
         intervalId = window.setInterval(() => {
-          if (disposedRef.current || !landmarkerRef.current) return;
+          if (disposed || !landmarkerRef.current) return;
+
+          // Skip until the offscreen element actually has decoded frame data
+          // (HAVE_CURRENT_DATA). Running detectForVideo on a not-yet-ready
+          // element yields no landmarks and would falsely decay the index to 0.
+          if (videoEl.readyState < 2) return;
 
           const now = performance.now();
 
@@ -241,7 +280,7 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
         }, SAMPLE_INTERVAL_MS);
       } catch (_) {
         // Model load failed — stay inactive. A retry mechanism is a future concern.
-        if (!disposedRef.current) {
+        if (!disposed) {
           setResult(INACTIVE_RESULT);
         }
       }
@@ -251,7 +290,7 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
 
     // ── Cleanup ────────────────────────────────────────────────────────────
     return () => {
-      disposedRef.current = true;
+      disposed = true;
 
       if (intervalId !== null) {
         window.clearInterval(intervalId);
