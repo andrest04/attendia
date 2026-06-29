@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LocalDataTrack } from 'twilio-video';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 
 /**
  * Classroom raise-hand / give-turn signaling over a Twilio LocalDataTrack.
@@ -9,7 +9,8 @@ import useVideoContext from '../useVideoContext/useVideoContext';
  * available even when Conversations/chat is disabled — unlike piggy-backing on
  * the chat client. Every participant publishes one data track; students send
  * `raise-hand` messages, the professor sends `grant-turn`. There is NO server
- * involved (mirrors the rest of the SDK-as-state design).
+ * involved (mirrors the rest of the SDK-as-state design). The shared DataTrack
+ * scaffold lives in useClassDataChannel; this hook just supplies the protocol.
  *
  * Protocol:
  * - { type: 'raise-hand', raised } — a participant toggled their own hand.
@@ -52,111 +53,49 @@ export default function useRaiseHand(): RaiseHandApi {
   const [raisedHands, setRaisedHands] = useState<string[]>([]);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [turnGrantedCount, setTurnGrantedCount] = useState(0);
-  const dataTrackRef = useRef<LocalDataTrack | null>(null);
   const isHandRaisedRef = useRef(false);
+  // Holds the channel's send so the message/connect handlers can re-broadcast.
+  const sendRef = useRef<(message: ClassMessage) => void>(() => undefined);
 
   useEffect(() => {
     isHandRaisedRef.current = isHandRaised;
   }, [isHandRaised]);
 
-  const send = useCallback((message: ClassMessage) => {
-    try {
-      dataTrackRef.current?.send(JSON.stringify(message));
-    } catch {
-      // Track not yet connected/subscribed — dropping the signal is acceptable.
-    }
-  }, []);
-
-  // Publish one LocalDataTrack per room connection. Unpublish is chained onto the
-  // publish promise so a fast unmount/remount never unpublishes a track Twilio is
-  // still in the middle of publishing (which would leave a dangling publication).
-  useEffect(() => {
-    if (!room || !room.localParticipant) return;
-    const localParticipant = room.localParticipant;
-    const dataTrack = new LocalDataTrack();
-    dataTrackRef.current = dataTrack;
-    const published = Promise.resolve(localParticipant.publishTrack(dataTrack)).catch(() => undefined);
-    return () => {
-      published.then(() => {
-        try {
-          localParticipant.unpublishTrack(dataTrack);
-        } catch {
-          // Already unpublished on disconnect.
-        }
-      });
-      dataTrackRef.current = null;
-    };
-  }, [room]);
-
-  // Receive raise-hand / grant-turn messages from remote participants.
-  useEffect(() => {
-    if (!room || !room.localParticipant) return;
-    const localIdentity = room.localParticipant.identity;
-    const cleanups: Array<() => void> = [];
-    const attachedTracks = new Set<unknown>();
-
-    const listen = (emitter: any, event: string, handler: (...args: any[]) => void) => {
-      emitter.on(event, handler);
-      cleanups.push(() => emitter.off(event, handler));
-    };
-
-    const handleMessage = (raw: unknown, identity: string) => {
-      if (typeof raw !== 'string') return;
-      let message: ClassMessage;
-      try {
-        message = JSON.parse(raw);
-      } catch {
-        return;
-      }
-
+  const { send } = useClassDataChannel<ClassMessage>({
+    onMessage: (message, participant) => {
       if (message.type === 'raise-hand' && typeof message.raised === 'boolean') {
         const { raised } = message;
+        const identity = participant.identity;
         setRaisedHands(prev => {
-          const without = prev.filter(id => id !== identity);
-          return raised ? [...without, identity] : without;
+          if (raised) {
+            // Preserve FIFO position: a re-announce when someone joins must not move
+            // an already-queued hand to the end and corrupt the raise order. Only a
+            // genuinely new raised hand is appended.
+            return prev.includes(identity) ? prev : [...prev, identity];
+          }
+          return prev.filter(id => id !== identity);
         });
       } else if (
         message.type === 'grant-turn' &&
         typeof message.identity === 'string' &&
-        message.identity === localIdentity
+        message.identity === room?.localParticipant?.identity
       ) {
         setIsHandRaised(false);
         setTurnGrantedCount(count => count + 1);
-        send({ type: 'raise-hand', raised: false });
+        sendRef.current({ type: 'raise-hand', raised: false });
       }
-    };
-
-    // Guard against double-subscribing the same track (the initial tracks loop and a
-    // later trackSubscribed can reference the same object; re-subscribes give new ones).
-    const attachDataTrack = (track: any, identity: string) => {
-      if (track && track.kind === 'data' && !attachedTracks.has(track)) {
-        attachedTracks.add(track);
-        listen(track, 'message', (data: unknown) => handleMessage(data, identity));
-      }
-    };
-
-    const attachParticipant = (participant: any) => {
-      listen(participant, 'trackSubscribed', (track: any) => attachDataTrack(track, participant.identity));
-      participant.tracks?.forEach((publication: any) => attachDataTrack(publication.track, participant.identity));
-    };
-
-    const handleParticipantConnected = (participant: any) => {
-      attachParticipant(participant);
+    },
+    onParticipantConnected: () => {
       // Re-announce our raised hand to the late joiner — see the file header note.
       if (isHandRaisedRef.current) {
-        send({ type: 'raise-hand', raised: true });
+        sendRef.current({ type: 'raise-hand', raised: true });
       }
-    };
-
-    const handleDisconnect = (participant: any) =>
+    },
+    onParticipantDisconnected: participant => {
       setRaisedHands(prev => prev.filter(id => id !== participant.identity));
-
-    room.participants.forEach(attachParticipant);
-    listen(room, 'participantConnected', handleParticipantConnected);
-    listen(room, 'participantDisconnected', handleDisconnect);
-
-    return () => cleanups.forEach(off => off());
-  }, [room, send]);
+    },
+  });
+  sendRef.current = send;
 
   const setHandRaised = useCallback(
     (raised: boolean) => {
