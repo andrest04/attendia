@@ -41,7 +41,9 @@ export default function useLightingCheck(videoTrack?: LocalVideoTrack): Lighting
     const canvas = document.createElement('canvas');
     canvas.width = SAMPLE_SIZE;
     canvas.height = SAMPLE_SIZE;
-    const ctx = canvas.getContext('2d');
+    // `willReadFrequently` hints the browser to keep the canvas backing store in
+    // CPU memory, since we call getImageData on every sample (~every 1.5s).
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     let active = true;
 
