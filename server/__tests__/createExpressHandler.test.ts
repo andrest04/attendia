@@ -68,4 +68,38 @@ describe('the createExpressHandler function', () => {
     expect(mockResponse.set).toHaveBeenCalledWith({ mockHeader: '123' });
     expect(mockResponse.json).toHaveBeenCalledWith({ foo: 'bar' });
   });
+
+  it('should only write one response when the serverless callback is invoked more than once', () => {
+    const mockServerlessFunction: ServerlessFunction = (_, __, callback) => {
+      const mockTwilioResponse: any = {
+        body: { foo: 'bar' },
+        statusCode: 401,
+        headers: { mockHeader: '123' },
+      };
+
+      // plugin-rtc's token.js can invoke the callback twice (e.g. the bad-passcode path)
+      callback(null, mockTwilioResponse);
+      callback(null, mockTwilioResponse);
+    };
+
+    const expressHandler = createExpressHandler(mockServerlessFunction);
+    expressHandler(mockRequest, mockResponse);
+
+    expect(mockResponse.json).toHaveBeenCalledTimes(1);
+    expect(mockResponse.status).toHaveBeenCalledTimes(1);
+  });
+
+  it('should respond with a 500 when the serverless function rejects without invoking the callback', async () => {
+    const mockServerlessFunction = (() => Promise.reject(new Error('boom'))) as ServerlessFunction;
+
+    const expressHandler = createExpressHandler(mockServerlessFunction);
+    expressHandler(mockRequest, mockResponse);
+
+    // Allow the rejected promise's .catch microtask to flush
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockResponse.status).toHaveBeenCalledWith(500);
+    expect(mockResponse.json).toHaveBeenCalledTimes(1);
+  });
 });

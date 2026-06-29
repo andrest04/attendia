@@ -27,13 +27,33 @@ const context: ServerlessContext = {
 
 export function createExpressHandler(serverlessFunction: ServerlessFunction) {
   return (req: Request, res: Response) => {
-    serverlessFunction(context, req.body, (_, serverlessResponse) => {
-      const { statusCode, headers, body } = serverlessResponse;
+    // plugin-rtc's token.js can invoke the callback more than once (e.g. the bad-passcode
+    // path), which would otherwise throw "Cannot set headers after they are sent". Guard so
+    // only the first send wins, and recover with a 500 if the serverless promise rejects
+    // without ever responding (instead of leaving the request hanging).
+    let responded = false;
 
-      res
-        .status(statusCode)
-        .set(headers)
-        .json(body);
+    Promise.resolve(
+      serverlessFunction(context, req.body, (_, serverlessResponse) => {
+        if (responded || res.headersSent) {
+          return;
+        }
+        responded = true;
+
+        const { statusCode, headers, body } = serverlessResponse;
+
+        res
+          .status(statusCode)
+          .set(headers)
+          .json(body);
+      })
+    ).catch(() => {
+      if (responded || res.headersSent) {
+        return;
+      }
+      responded = true;
+
+      res.status(500).json({ error: { message: 'Internal server error' } });
     });
   };
 }
