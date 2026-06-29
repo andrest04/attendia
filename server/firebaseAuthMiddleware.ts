@@ -30,7 +30,7 @@ const firebaseAuthMiddleware: RequestHandler = async (req, res, next) => {
     // Twilio email address or the Firestore allowlist contains their email.
     // The logic in this if statement can be changed if you would like to
     // authorize your users in a different manner.
-    if (token.email && (/@twilio.com$/.test(token.email) || allowedEmails.includes(token.email))) {
+    if (token.email && (/@twilio\.com$/.test(token.email) || allowedEmails.includes(token.email))) {
       next();
     } else {
       res.status(401).send();

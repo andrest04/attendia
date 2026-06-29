@@ -100,6 +100,14 @@ describe('the firebaseAuthMiddleware function', () => {
     expect(mockResponse.send).not.toHaveBeenCalled();
   });
 
+  it('should reject an email where the dot in @twilio.com is any character (unescaped regex)', async () => {
+    mockVerifyIdToken.mockImplementationOnce(() => Promise.resolve({ email: 'test@twilioXcom' }));
+    await firebaseAuthMiddleware(mockRequest, mockResponse, mockNext);
+    expect(mockResponse.status).toHaveBeenCalledWith(401);
+    expect(mockResponse.send).toHaveBeenCalled();
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+
   it('should reject non-@twilio.com users not in the allowlist', async () => {
     mockVerifyIdToken.mockImplementationOnce(() => Promise.resolve({ email: 'test@example.com' }));
     await firebaseAuthMiddleware(mockRequest, mockResponse, mockNext);
