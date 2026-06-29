@@ -23,6 +23,36 @@ describe('the useRoom hook', () => {
     expect(result.current.isConnecting).toBe(false);
   });
 
+  it('should connect with the latest localTracks even when connect was captured before they updated', async () => {
+    const initialTracks: LocalTrack[] = [];
+    // Stable onError/options across renders (as in the real app) so connect identity depends
+    // only on whether localTracks is a dependency.
+    const onError = () => {};
+    const options = {};
+    const { result, rerender, waitForNextUpdate } = renderHook(({ tracks }) => useRoom(tracks, onError, options), {
+      initialProps: { tracks: initialTracks },
+    });
+
+    // Capture the connect reference while localTracks is still empty (mirrors a delayed
+    // call from a closure created before media was acquired, e.g. auto-rejoin).
+    const capturedConnect = result.current.connect;
+
+    // localTracks update on a later render (media acquired) after the ref was captured.
+    const newTracks = [{ kind: 'video' } as LocalTrack, { kind: 'audio' } as LocalTrack];
+    rerender({ tracks: newTracks });
+
+    // connect identity must be stable (localTracks is read from a ref, not a dependency).
+    expect(result.current.connect).toBe(capturedConnect);
+
+    // The originally-captured connect must still publish the LATEST tracks.
+    act(() => {
+      capturedConnect('token');
+    });
+    await waitForNextUpdate();
+
+    expect(Video.connect).toHaveBeenCalledWith('token', expect.objectContaining({ tracks: newTracks }));
+  });
+
   it('should set the priority of video tracks to low', async () => {
     const { result, waitForNextUpdate } = renderHook(() => useRoom([{ kind: 'video' } as LocalTrack], () => {}, {}));
     act(() => {
