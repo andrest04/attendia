@@ -458,6 +458,7 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
   const {
     source,
     groupAttention,
+    groupDataAvailable,
     attentionThreshold,
     timeline,
     participants,
@@ -495,10 +496,15 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
   // the real share of recorded time at/above the threshold.
   const groupAverage = timeline.length > 0 ? averageOverTime(timeline) : groupAttention;
   const thresholdPercent = percentTimeAboveThreshold(timeline, attentionThreshold);
+  // The group KPIs are honest only when the session recorded real data: either
+  // accumulated timeline points, or a live reading at open time. With neither
+  // (report opened during a connection drop before any data was captured), show
+  // "—" instead of a placeholder 0 that reads as "the group had 0% attention".
+  const hasGroupData = timeline.length > 0 || groupDataAvailable;
   const kpiCards = [
     {
       label: 'Atención promedio grupal',
-      value: `${groupAverage}`,
+      value: hasGroupData ? `${groupAverage}` : '—',
       sub: '/ 100',
       color: KPI_COLORS.group,
     },
@@ -516,7 +522,7 @@ export default function AttentionReportOverlay({ isOpen, onClose, sessionName, s
     },
     {
       label: 'Umbral superado',
-      value: `${thresholdPercent}%`,
+      value: hasGroupData ? `${thresholdPercent}%` : '—',
       sub: 'del tiempo total',
       color: KPI_COLORS.threshold,
     },

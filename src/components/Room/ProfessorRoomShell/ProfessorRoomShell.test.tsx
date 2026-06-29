@@ -38,6 +38,7 @@ const attentionLevel = (score: number): 'high' | 'medium' | 'low' => {
 const baseAttention = {
   source: 'mock' as const,
   groupAttention: 64,
+  groupDataAvailable: true,
   attentionThreshold: 70,
   timeline: [
     { time: '0:00', value: 88 },
@@ -282,6 +283,24 @@ describe('ProfessorRoomShell', () => {
     expect(healthy.find('[data-testid="professor-room-shell-group-banner"]').exists()).toBe(false);
   });
 
+  it('renders the no-data state honestly when no attention reading is available', () => {
+    // groupAttention 0 + groupDataAvailable false = low connection / no measured
+    // students. The gauge must read "—" (not 0), show the neutral no-data banner,
+    // and NEVER raise the red below-threshold alarm.
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      groupAttention: 0,
+      groupDataAvailable: false,
+    }));
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
+
+    const gaugeText = wrapper.find('[data-testid="professor-room-shell-group-gauge"]').text();
+    expect(gaugeText).toContain('—');
+    expect(gaugeText).not.toContain('0 / 100');
+    expect(wrapper.find('[data-testid="professor-room-shell-group-nodata-banner"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-room-shell-group-banner"]').exists()).toBe(false);
+  });
+
   it('defaults to the group tab and switches to the individual tab', () => {
     const onRightTabChange = jest.fn();
     const wrapper = mount(
@@ -341,6 +360,35 @@ describe('ProfessorRoomShell', () => {
     expect(list.text()).toContain('Cámara apagada');
     // The stale 91 percentage must not be shown for the camera-off student.
     expect(wrapper.find('[data-testid="professor-room-shell-individual-cameraoff"]').length).toBe(1);
+  });
+
+  it('shows "Sin medición" in the individual tab when a student\'s face is not detected', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      participants: [
+        { identity: 'Ana García', index: 85, level: 'high' as const, multiface: false, cameraOff: false, faces: 1 },
+        // Face not detected → index 0 is a placeholder, must read "sin medición", not "0".
+        { identity: 'Heather', index: 0, level: 'low' as const, multiface: false, cameraOff: false, faces: 0 },
+      ],
+    }));
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} rightTab="individual" />);
+    const list = wrapper.find('[data-testid="professor-room-shell-individual-list"]');
+    expect(list.text()).toContain('Sin medición');
+    expect(wrapper.find('[data-testid="professor-room-shell-individual-nomeasure"]').length).toBe(1);
+  });
+
+  it('shows "No medible (celular)" in the individual tab for a mobile student', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      participants: [
+        { identity: 'Ana García', index: 85, level: 'high' as const, multiface: false, cameraOff: false, faces: 1 },
+        { identity: 'Matiu', index: 0, level: 'low' as const, multiface: false, cameraOff: false, unsupported: true },
+      ],
+    }));
+    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} rightTab="individual" />);
+    const list = wrapper.find('[data-testid="professor-room-shell-individual-list"]');
+    expect(list.text()).toContain('No medible');
+    expect(wrapper.find('[data-testid="professor-room-shell-individual-unsupported"]').length).toBe(1);
   });
 
   it('renders the mocked proctoring alerts feed when proctoring is enabled', () => {

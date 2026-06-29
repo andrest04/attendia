@@ -108,7 +108,14 @@ const KIND_CONFIDENCE: Record<ProctoringAlert['kind'], number> = {
  * participant never produces two simultaneous alerts. Returns null when the
  * participant shows no proctoring condition.
  */
-function classifyProctoring(r: { cameraOff: boolean; faces: number; index: number }): ProctoringAlert['kind'] | null {
+function classifyProctoring(r: {
+  cameraOff: boolean;
+  faces: number;
+  index: number;
+  unsupported?: boolean;
+}): ProctoringAlert['kind'] | null {
+  // A mobile (unsupported) device cannot measure — it is not a proctoring event.
+  if (r.unsupported) return null;
   if (r.cameraOff) return 'camera-off';
   if (r.faces === 0) return 'absent';
   if (r.faces > 1) return 'multiface';
@@ -171,10 +178,16 @@ export const AttentionProvider: React.FC = ({ children }) => {
   // this so the professor sees "Cámara apagada" instead of a frozen last value.
   const localCameraOff = isActive && !videoTrack;
 
+  // Unsupported device: the pipeline is enabled and a room is connected, but this
+  // is mobile (CV is desktop-only). The capture/telemetry never runs here, so we
+  // broadcast an explicit "unsupported" beat — otherwise a mobile student is just
+  // silently absent from the professor's view (indistinguishable from "not joined").
+  const isMobileUnsupported = cvPipelineEnabled && isMobile && Boolean(room);
+
   // Layer 3: DataTrack transport — broadcast local + aggregate remotes.
   // The hook is always called (React rules), but it short-circuits internally
   // when room is null (no DataTrack published).
-  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff);
+  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported);
 
   // Latest-value ref: the timeline interval is created once (deps [isActive]) and
   // would otherwise close over the remoteAttention from the render where isActive
@@ -225,9 +238,16 @@ export const AttentionProvider: React.FC = ({ children }) => {
       // which would be stale (see remoteAttentionRef above).
       // Exclude camera-off participants from the timeline average, consistent with
       // groupAttention — a camera-off student has no live attention to contribute.
-      const measured = remoteAttentionRef.current.filter(r => !r.cameraOff);
-      const groupAvg =
-        measured.length === 0 ? 0 : Math.round(measured.reduce((sum, r) => sum + r.index, 0) / measured.length);
+      // Measured = camera on, device able to run CV, AND a face actually detected
+      // (faces 0 = decayed placeholder, not a real reading). Exclude all three from
+      // the group average so "can't measure her" never drags the number down.
+      const measured = remoteAttentionRef.current.filter(r => !r.cameraOff && !r.unsupported && r.faces > 0);
+      // No measured participants (low connection, all camera-off, no students):
+      // skip the point entirely rather than recording a fake 0 that dives the
+      // "Evolución temporal" curve and pollutes the report's time-average. The
+      // curve simply doesn't advance during the gap and resumes when data returns.
+      if (measured.length === 0) return;
+      const groupAvg = Math.round(measured.reduce((sum, r) => sum + r.index, 0) / measured.length);
 
       // Accumulate each camera-on student's index into the session history.
       const history = participantHistoryRef.current;
@@ -358,6 +378,8 @@ export const AttentionProvider: React.FC = ({ children }) => {
       multiface: r.multiface,
       level: attentionLevel(r.index),
       cameraOff: r.cameraOff,
+      faces: r.faces,
+      unsupported: r.unsupported,
       indexMin: h ? h.min : r.index,
       indexMax: h ? h.max : r.index,
       indexAvg: h ? Math.round(h.sum / h.count) : r.index,
@@ -367,11 +389,18 @@ export const AttentionProvider: React.FC = ({ children }) => {
   // Group attention: average of remote participant indexes, EXCLUDING camera-off
   // participants (their last value is stale and must not pollute the average).
   // When no measured remotes are present, 0 is the honest neutral.
-  const measuredParticipants = participants.filter(p => !p.cameraOff);
-  const groupAttention =
-    measuredParticipants.length === 0
-      ? 0
-      : Math.round(measuredParticipants.reduce((sum, p) => sum + p.index, 0) / measuredParticipants.length);
+  // Exclude camera-off, mobile-unsupported, AND face-not-detected (faces 0 = a
+  // decayed placeholder index, not real attention) from the group average and the
+  // groupDataAvailable flag — same honesty rule as the group-level no-data fix.
+  const measuredParticipants = participants.filter(p => !p.cameraOff && !p.unsupported && p.faces !== 0);
+  // groupDataAvailable distinguishes "real reading" from "placeholder 0": when no
+  // measured participants are present the index is NOT 0 attention, it is NO DATA
+  // (low connection / all camera-off / no students). The UI gates the gauge value
+  // and the below-threshold alarm on this flag.
+  const groupDataAvailable = measuredParticipants.length > 0;
+  const groupAttention = groupDataAvailable
+    ? Math.round(measuredParticipants.reduce((sum, p) => sum + p.index, 0) / measuredParticipants.length)
+    : 0;
 
   // Self: index is already computeLabAttentionIndex(eyes, head) from the capture hook.
   // Posture is NOT measured — sentinel -1 keeps the shape valid without misrepresenting
@@ -395,6 +424,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
     source: 'live',
     ranges,
     groupAttention,
+    groupDataAvailable,
     attentionThreshold: mockAttentionData.attentionThreshold,
     timeline,
     self,

@@ -174,6 +174,58 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     expect(result.current.groupAttention).toBe(0);
   });
 
+  it('flags groupDataAvailable false when no measured participants (placeholder 0, not real 0)', () => {
+    mockUseAttentionTelemetry.mockReturnValue([]);
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.groupDataAvailable).toBe(false);
+  });
+
+  it('flags groupDataAvailable true when at least one camera-on remote is present', () => {
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.groupDataAvailable).toBe(true);
+  });
+
+  it('treats an all-camera-off group as no data (groupDataAvailable false)', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'a', index: 0, multiface: false, faces: 0, cameraOff: true },
+      { identity: 'b', index: 0, multiface: false, faces: 0, cameraOff: true },
+    ]);
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.groupDataAvailable).toBe(false);
+  });
+
+  it('excludes a face-not-detected (faces 0) participant from the group average', () => {
+    // The faces-0 student has a decayed placeholder index 0, NOT real 0% attention.
+    // Average must be 80 (the measured one), not (80+0)/2 = 40.
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'a', index: 80, multiface: false, faces: 1, cameraOff: false, unsupported: false },
+      { identity: 'b', index: 0, multiface: false, faces: 0, cameraOff: false, unsupported: false },
+    ]);
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.groupAttention).toBe(80);
+    expect(result.current.groupDataAvailable).toBe(true);
+  });
+
+  it('excludes a mobile (unsupported) participant from the group average and proctoring', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'a', index: 80, multiface: false, faces: 1, cameraOff: false, unsupported: false },
+      { identity: 'mobile', index: 0, multiface: false, faces: 0, cameraOff: false, unsupported: true },
+    ]);
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.groupAttention).toBe(80);
+    // The mobile entry is still listed as a participant (so the UI can show it),
+    // but carries the unsupported flag through.
+    expect(result.current.participants.find(p => p.identity === 'mobile')!.unsupported).toBe(true);
+  });
+
+  it('groupDataAvailable false when the only remote has no detectable face', () => {
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'a', index: 0, multiface: false, faces: 0, cameraOff: false, unsupported: false },
+    ]);
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.groupDataAvailable).toBe(false);
+  });
+
   it('logs a multiface proctoring alert once the condition survives the debounce', () => {
     // The feed is an event LOG sampled on an interval — an alert appears only
     // after the condition holds for PROCTORING_DEBOUNCE_SAMPLES (2) samples, not

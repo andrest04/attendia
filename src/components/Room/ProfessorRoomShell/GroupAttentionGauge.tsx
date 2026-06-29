@@ -18,6 +18,12 @@ interface Props {
   value: number;
   /** Attention level, used to color the arc. */
   level: AttentionLevel;
+  /**
+   * False when there is no live reading (low connection / no measured students).
+   * The gauge then shows a neutral "—" with an empty grey arc instead of "0",
+   * which would read as "zero attention" rather than "no data".
+   */
+  available?: boolean;
   size?: number;
 }
 
@@ -25,15 +31,16 @@ interface Props {
  * Circular SVG gauge for the group attention index. The arc color
  * reflects the attention level (green=high, amber=medium, red=low).
  */
-export default function GroupAttentionGauge({ value, level, size = 140 }: Props) {
+export default function GroupAttentionGauge({ value, level, available = true, size = 140 }: Props) {
   const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const center = size / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, Math.round(value)));
-  const offset = circumference - (clamped / 100) * circumference;
-  const arcColor = levelArcColor[level];
-  const trackColor = levelTrackColor[level];
+  // No data → empty arc, neutral grey, "—" readout. The level color is irrelevant.
+  const offset = available ? circumference - (clamped / 100) * circumference : circumference;
+  const arcColor = available ? levelArcColor[level] : '#cbd5e1';
+  const trackColor = available ? levelTrackColor[level] : '#f1f5f9';
 
   return (
     <div style={{ position: 'relative', width: size, height: size }} data-testid="professor-room-shell-gauge">
@@ -73,7 +80,7 @@ export default function GroupAttentionGauge({ value, level, size = 140 }: Props)
             fontFamily: 'Poppins, Inter, sans-serif',
           }}
         >
-          {clamped}
+          {available ? clamped : '—'}
         </span>
         <span
           style={{

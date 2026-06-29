@@ -7,7 +7,15 @@ import { AttentionCaptureResult } from '../useAttentionCapture/useAttentionCaptu
  * Classroom attention telemetry transport over a Twilio LocalDataTrack.
  *
  * Transport rationale: mirrors useRaiseHand — DataTracks are always available
- * within the Video SDK regardless of whether Conversations is enabled.
+ * within the Video SDK regardless of whether Conversations is enabled. UNLIKE
+ * raise-hand (a discrete event that must arrive), attention is a 1 Hz "latest
+ * value wins" telemetry stream, so the track is published UNRELIABLE and
+ * UNORDERED (maxRetransmits:0, ordered:false). Under low bandwidth a reliable
+ * track head-of-line-blocks: stale snapshots queue and retransmit ahead of fresh
+ * ones, the backlog blows past STALE_TTL_MS, entries get swept, and the professor
+ * sees the group index collapse to 0. Unreliable delivery drops the stale frame
+ * and lets the next ~30-byte snapshot through — the number survives even when the
+ * video tracks are switched off by Twilio's bandwidth profile.
  *
  * Layer 3 of the CV pipeline graduation:
  * - Layer 1: pure heuristics in attentionHeuristics.ts
@@ -56,6 +64,8 @@ interface AttentionTelemetryMessage {
   multiface: boolean;
   faces: number;
   cameraOff: boolean;
+  /** True when this device cannot run the CV pipeline at all (mobile). */
+  unsupported: boolean;
 }
 
 export interface RemoteAttention {
@@ -65,10 +75,12 @@ export interface RemoteAttention {
   index: number;
   /** Proctoring flag: more than one face detected. */
   multiface: boolean;
-  /** Raw face count; Layer 4 derives level from index using attentionLevel(). */
+  /** Raw face count; 0 = face not detected (index is a decayed placeholder, not real). */
   faces: number;
   /** True when the participant's camera is off (no attention data). */
   cameraOff: boolean;
+  /** True when the participant's device cannot run the pipeline at all (mobile). */
+  unsupported: boolean;
 }
 
 /** Internal entry: RemoteAttention plus the receive timestamp used for TTL expiry. */
@@ -79,7 +91,10 @@ interface StoredRemoteAttention extends RemoteAttention {
 
 function isAttentionTelemetryMessage(
   value: unknown
-): value is Omit<AttentionTelemetryMessage, 'cameraOff'> & { cameraOff?: boolean } {
+): value is Omit<AttentionTelemetryMessage, 'cameraOff' | 'unsupported'> & {
+  cameraOff?: boolean;
+  unsupported?: boolean;
+} {
   if (typeof value !== 'object' || value === null) return false;
   const msg = value as Record<string, unknown>;
   return (
@@ -92,7 +107,8 @@ function isAttentionTelemetryMessage(
 
 export default function useAttentionTelemetry(
   localResult?: AttentionCaptureResult,
-  cameraOff: boolean = false
+  cameraOff: boolean = false,
+  unsupported: boolean = false
 ): RemoteAttention[] {
   const { room } = useVideoContext();
   const [remoteAttention, setRemoteAttention] = useState<Map<string, StoredRemoteAttention>>(new Map());
@@ -112,7 +128,10 @@ export default function useAttentionTelemetry(
   useEffect(() => {
     if (!room || !room.localParticipant) return;
     const localParticipant = room.localParticipant;
-    const dataTrack = new LocalDataTrack();
+    // Unreliable + unordered: this is "latest value wins" telemetry, not a
+    // delivery-guaranteed event. See the header comment for why reliable delivery
+    // collapses the group index to 0 under congestion.
+    const dataTrack = new LocalDataTrack({ ordered: false, maxRetransmits: 0 });
     dataTrackRef.current = dataTrack;
     const published = Promise.resolve(localParticipant.publishTrack(dataTrack)).catch(() => undefined);
     return () => {
@@ -136,6 +155,7 @@ export default function useAttentionTelemetry(
       multiface: localResult.multiface,
       faces: localResult.faces,
       cameraOff: false,
+      unsupported: false,
     });
   }, [localResult, send]);
 
@@ -145,11 +165,26 @@ export default function useAttentionTelemetry(
   // frozen last value, and late-joining professors learn about it within 1 second.
   useEffect(() => {
     if (!cameraOff) return;
-    const beat = () => send({ type: 'attention-telemetry', index: 0, multiface: false, faces: 0, cameraOff: true });
+    const beat = () =>
+      send({ type: 'attention-telemetry', index: 0, multiface: false, faces: 0, cameraOff: true, unsupported: false });
     beat();
     const id = window.setInterval(beat, CAMERA_OFF_HEARTBEAT_MS);
     return () => window.clearInterval(id);
   }, [cameraOff, send]);
+
+  // Unsupported-device heartbeat: a mobile student never runs capture (the CV
+  // pipeline is desktop-only), so without this it would broadcast nothing and be
+  // invisible to the professor — indistinguishable from "not joined". Beat an
+  // explicit unsupported signal so the professor sees "No medible (celular)"
+  // instead of silence. Mirrors the camera-off heartbeat.
+  useEffect(() => {
+    if (!unsupported) return;
+    const beat = () =>
+      send({ type: 'attention-telemetry', index: 0, multiface: false, faces: 0, cameraOff: false, unsupported: true });
+    beat();
+    const id = window.setInterval(beat, CAMERA_OFF_HEARTBEAT_MS);
+    return () => window.clearInterval(id);
+  }, [unsupported, send]);
 
   // Receive attention-telemetry messages from remote participants.
   useEffect(() => {
@@ -179,6 +214,8 @@ export default function useAttentionTelemetry(
         faces: parsed.faces,
         // Backward compatible: older senders omit cameraOff → treat as camera on.
         cameraOff: parsed.cameraOff === true,
+        // Backward compatible: older senders omit unsupported → treat as supported.
+        unsupported: parsed.unsupported === true,
         receivedAt: Date.now(),
       };
 
