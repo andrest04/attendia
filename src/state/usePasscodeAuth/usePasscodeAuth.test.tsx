@@ -202,6 +202,28 @@ describe('the usePasscodeAuth hook', () => {
         expect(err.message).toBe('Passcode has expired');
       });
     });
+
+    it('should reject with the statusText when the error response body is not JSON', async () => {
+      // @ts-ignore
+      window.fetch = jest.fn(() =>
+        // Return a successful response when the passcode is initially verified
+        Promise.resolve({ ok: true, json: () => Promise.resolve({ token: 'mockVideoToken' }) })
+      );
+      window.sessionStorage.setItem('passcode', '123123');
+      const { result, waitForNextUpdate } = renderHook(usePasscodeAuth, { wrapper });
+      await waitForNextUpdate();
+      // @ts-ignore
+      window.fetch = jest.fn(() =>
+        // Simulate a proxy returning a non-JSON error body (e.g. a 502 HTML page)
+        Promise.resolve({
+          ok: false,
+          statusText: 'Bad Gateway',
+          json: () => Promise.reject(new SyntaxError('Unexpected token < in JSON at position 0')),
+        })
+      );
+
+      await expect(result.current.getToken('test-name', 'test-room')).rejects.toThrow('Bad Gateway');
+    });
   });
 });
 
@@ -252,6 +274,21 @@ describe('the verifyPasscode function', () => {
 
     const result = await verifyPasscode('123456');
     expect(result).toEqual({ isValid: false, error: 'errorMessage' });
+  });
+
+  it('should not throw a SyntaxError when the response body is not JSON', async () => {
+    // @ts-ignore
+    window.fetch = jest.fn(() =>
+      // Simulate a proxy returning a non-JSON error body (e.g. a 502 HTML page)
+      Promise.resolve({
+        status: 502,
+        statusText: 'Bad Gateway',
+        json: () => Promise.reject(new SyntaxError('Unexpected token < in JSON at position 0')),
+      })
+    );
+
+    const result = await verifyPasscode('123456');
+    expect(result).toBeUndefined();
   });
 
   it('should call the API with the correct parameters', async () => {
