@@ -34,7 +34,9 @@ export function fetchToken(
 export function verifyPasscode(passcode: string) {
   return fetchToken('temp-name', 'temp-room', passcode, false /* create_room */, false /* create_conversation */).then(
     async res => {
-      const jsonResponse = await res.json();
+      // Guard against a non-JSON body (e.g. a proxy 502/504 HTML page) so json()
+      // doesn't throw a raw SyntaxError; mirror the other auth-mode variants.
+      const jsonResponse = await res.json().catch(() => ({}));
       if (res.status === 401) {
         return { isValid: false, error: jsonResponse.error?.message };
       }
@@ -70,7 +72,9 @@ export default function usePasscodeAuth() {
           if (res.ok) {
             return res;
           }
-          const json = await res.json();
+          // Guard against a non-JSON body (e.g. a proxy 502/504 HTML page) so json()
+          // doesn't throw a raw SyntaxError; mirror the other auth-mode variants.
+          const json = await res.json().catch(() => ({}));
           // Prefer the server's localized explanation (e.g. the room-access guard) over
           // the short error code so the Spanish UI shows a meaningful message.
           const errorMessage = getErrorMessage(json.error?.explanation || json.error?.message || res.statusText);
