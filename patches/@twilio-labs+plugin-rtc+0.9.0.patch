@@ -1,3 +1,28 @@
+diff --git a/node_modules/@twilio-labs/plugin-rtc/src/helpers.js b/node_modules/@twilio-labs/plugin-rtc/src/helpers.js
+index 7c383a6..64d13d6 100644
+--- a/node_modules/@twilio-labs/plugin-rtc/src/helpers.js
++++ b/node_modules/@twilio-labs/plugin-rtc/src/helpers.js
+@@ -58,6 +58,20 @@ async function getAssets(folder) {
+       path: '/login',
+       name: '/login',
+     },
++    // SPA client-side routes that are linked/opened directly (incl. new tabs).
++    // Twilio Assets only serves registered paths, so without these a hard GET
++    // to /security or /manual 404s on the deploy even though they work locally
++    // (the Express token server has an app.get('*') index.html fallback).
++    {
++      ...indexHTML,
++      path: '/security',
++      name: '/security',
++    },
++    {
++      ...indexHTML,
++      path: '/manual',
++      name: '/manual',
++    },
+   ]);
+ 
+   return allAssets;
 diff --git a/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js b/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js
 index 00935b1..952eb52 100644
 --- a/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js
