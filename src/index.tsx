@@ -15,10 +15,8 @@ import './types';
 import { SnackbarProvider } from 'notistack';
 import { ChatProvider } from './components/ChatProvider';
 import { AttentionProvider } from './components/AttentionProvider';
-import DesignGallery from './components/design/DesignGallery';
 import SecurityPage from './components/SecurityPage/SecurityPage';
 import ManualPage from './components/ManualPage/ManualPage';
-import AttentionLab from './components/lab/AttentionLab/AttentionLab';
 import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
 import useConnectionOptions from './utils/useConnectionOptions/useConnectionOptions';
@@ -67,20 +65,12 @@ export const ReactApp = () => (
             <Route path="/login">
               <LoginPage />
             </Route>
-            {/* Dev-only design gallery — mock wireframe screens, not wired to Twilio. */}
-            <Route path="/design">
-              <DesignGallery />
-            </Route>
             <Route path="/security">
               <SecurityPage />
             </Route>
             {/* Full user manual — plain route, opened in a new tab from the in-room tutorial. */}
             <Route path="/manual">
               <ManualPage />
-            </Route>
-            {/* Dev-only attention analysis lab — real MediaPipe face analysis spike. */}
-            <Route path="/lab/attention">
-              <AttentionLab />
             </Route>
             <Redirect to="/" />
           </Switch>
