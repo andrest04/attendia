@@ -8,12 +8,9 @@ import VpnKeyIcon from '@material-ui/icons/VpnKey';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import LanguageIcon from '@material-ui/icons/Language';
 import SecurityIcon from '@material-ui/icons/Security';
-import ScheduleIcon from '@material-ui/icons/Schedule';
 import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import DoneIcon from '@material-ui/icons/Done';
 import AttendiaLogo from '../Brand/AttendiaLogo';
-
-type SecurityStatus = 'activo' | 'en-desarrollo';
 
 interface CardAccent {
   topBar: string;
@@ -27,7 +24,6 @@ interface SecuritySection {
   icon: React.ReactNode;
   accent: CardAccent;
   categoryPill: string;
-  status: SecurityStatus;
   title: string;
   description: string;
   bullets: string[];
@@ -67,7 +63,6 @@ const sections: SecuritySection[] = [
     icon: <LockIcon style={{ fontSize: 20 }} />,
     accent: accentBlue,
     categoryPill: 'SRTP · TLS',
-    status: 'activo',
     title: 'Cifrado de transmisión',
     description:
       'Todos los flujos de audio, video y datos se cifran mediante SRTP (Secure Real-time Transport Protocol) y TLS (Transport Layer Security), garantizando la confidencialidad e integridad de los medios en tránsito a través de la infraestructura Twilio Video.',
@@ -82,7 +77,6 @@ const sections: SecuritySection[] = [
     icon: <VpnKeyIcon style={{ fontSize: 20 }} />,
     accent: accentGreen,
     categoryPill: 'JWT · SESSION',
-    status: 'activo',
     title: 'Tokens de acceso de sesión',
     description:
       'El acceso a cada sala de clase se gestiona mediante tokens JWT únicos generados por el servidor. Cada token es específico para cada sesión y participante, expirando automáticamente al cerrar la sesión o transcurrido el período de tiempo configurado.',
@@ -97,7 +91,6 @@ const sections: SecuritySection[] = [
     icon: <VisibilityIcon style={{ fontSize: 20 }} />,
     accent: accentAmber,
     categoryPill: 'LOCAL ONLY',
-    status: 'activo',
     title: 'Datos faciales — Procesamiento local',
     description:
       'El análisis de atención basado en visión por computadora (detección de rostro, análisis de postura, detección de parpadeo, dirección de mirada) se realiza exclusivamente en el dispositivo del usuario mediante TensorFlow.js. Ningún dato facial se transmite a servidores externos.',
@@ -112,7 +105,6 @@ const sections: SecuritySection[] = [
     icon: <LanguageIcon style={{ fontSize: 20 }} />,
     accent: accentNavy,
     categoryPill: 'GLOBAL SFU',
-    status: 'activo',
     title: 'Disponibilidad del servicio',
     description:
       'La plataforma garantiza disponibilidad del 99.95% para usuarios activos, apoyada en la infraestructura global de Twilio Video. En caso de degradación, el sistema ajusta adaptativamente la calidad del video para mantener la continuidad del servicio.',
@@ -383,28 +375,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#353535',
     lineHeight: 1.5,
   },
-  // Status pill (honesty: shown only for en-desarrollo sections)
-  statusRow: {
-    marginTop: theme.spacing(2),
-    paddingTop: theme.spacing(1.75),
-    borderTop: '1px solid #e2ecf9',
-  },
-  pillEnDesarrollo: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    borderRadius: 12,
-    padding: '2px 10px',
-    backgroundColor: '#fff8e1',
-    color: '#d97706',
-    fontFamily: 'Inter, sans-serif',
-  },
-  pillIconEnDesarrollo: {
-    fontSize: '0.9rem',
-    color: '#d97706',
-  },
   // Footer note
   footerWrapper: {
     marginTop: theme.spacing(3),
@@ -479,14 +449,6 @@ function SecurityCard({ section }: { section: SecuritySection }) {
             <BulletItem key={bullet} text={bullet} bulletBg={accent.bulletBg} iconColor={accent.iconColor} />
           ))}
         </div>
-        {section.status === 'en-desarrollo' && (
-          <div className={classes.statusRow}>
-            <span className={classes.pillEnDesarrollo}>
-              <ScheduleIcon className={classes.pillIconEnDesarrollo} />
-              En desarrollo
-            </span>
-          </div>
-        )}
       </div>
     </Paper>
   );
