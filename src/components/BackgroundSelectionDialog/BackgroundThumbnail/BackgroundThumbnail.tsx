@@ -4,8 +4,7 @@ import BlurIcon from '@material-ui/icons/BlurOnOutlined';
 import { makeStyles, Theme, createStyles } from '@material-ui/core/styles';
 import NoneIcon from '@material-ui/icons/NotInterestedOutlined';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
-
-export type Thumbnail = 'none' | 'blur' | 'image';
+import { Thumbnail } from '../../VideoProvider/useBackgroundSettings/backgroundSettingsTypes';
 
 interface BackgroundThumbnailProps {
   thumbnail: Thumbnail;
@@ -13,6 +12,13 @@ interface BackgroundThumbnailProps {
   name?: string;
   index?: number;
 }
+
+// Static icon map — no local state, so it lives at module scope instead of being rebuilt each render.
+const icons = {
+  none: NoneIcon,
+  blur: BlurIcon,
+  image: null,
+};
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -102,22 +108,21 @@ export default function BackgroundThumbnail({ thumbnail, imagePath, name, index 
   const thumbnailSelected = isImage
     ? backgroundSettings.index === index && backgroundSettings.type === 'image'
     : backgroundSettings.type === thumbnail;
-  const icons = {
-    none: NoneIcon,
-    blur: BlurIcon,
-    image: null,
-  };
   const ThumbnailIcon = icons[thumbnail];
+  const selectBackground = () => setBackgroundSettings({ type: thumbnail, index });
 
   return (
     <div
       className={classes.thumbContainer}
-      onClick={() =>
-        setBackgroundSettings({
-          type: thumbnail,
-          index: index,
-        })
-      }
+      role="button"
+      tabIndex={0}
+      onClick={selectBackground}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          selectBackground();
+        }
+      }}
     >
       {ThumbnailIcon ? (
         <div className={clsx(classes.thumbIconContainer, { selected: thumbnailSelected })}>

@@ -1,6 +1,6 @@
 import React from 'react';
 import LocalVideoPreview from './LocalVideoPreview';
-import { IVideoContext } from '../../../VideoProvider';
+import { IVideoContext } from '../../../VideoProvider/videoContext';
 import { shallow } from 'enzyme';
 import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
 

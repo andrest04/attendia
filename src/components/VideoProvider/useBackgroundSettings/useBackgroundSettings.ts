@@ -43,13 +43,8 @@ import Plant from '../../../images/Plant.jpg';
 import PlantThumb from '../../../images/thumb/Plant.jpg';
 import SanFrancisco from '../../../images/SanFrancisco.jpg';
 import SanFranciscoThumb from '../../../images/thumb/SanFrancisco.jpg';
-import { Thumbnail } from '../../BackgroundSelectionDialog/BackgroundThumbnail/BackgroundThumbnail';
 import { useLocalStorageState } from '../../../hooks/useLocalStorageState/useLocalStorageState';
-
-export interface BackgroundSettings {
-  type: Thumbnail;
-  index?: number;
-}
+import { BackgroundSettings } from './backgroundSettingsTypes';
 
 const imageNames: string[] = [
   'Abstract',

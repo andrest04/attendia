@@ -13,7 +13,7 @@ import { isTeacherIdentity } from '../classSessionTypes';
 import AttentionConsentModal from '../AttentionConsentModal';
 import LocalVideoPreview from './LocalVideoPreview/LocalVideoPreview';
 import SettingsMenu from './SettingsMenu/SettingsMenu';
-import { Steps } from '../PreJoinScreens';
+import { Steps } from '../steps';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
 import { useAppState } from '../../../state';
@@ -356,14 +356,16 @@ interface DeviceSelectionScreenProps {
   setStep: (step: Steps) => void;
 }
 
+// Static bar heights for the signal glyph — module scope so it isn't rebuilt on every render.
+const CONNECTION_BAR_HEIGHTS = [6, 10, 14];
+
 // Signal-style connection bars. Active bars take the quality color; inactive
 // bars stay light gray so all three are always visible.
 function ConnectionBars({ quality, color }: { quality: ConnectionQuality; color: string }) {
   const activeBars = quality === 'good' ? 3 : quality === 'medium' ? 2 : quality === 'poor' ? 1 : 0;
-  const heights = [6, 10, 14];
   return (
     <svg width="20" height="14" viewBox="0 0 20 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      {heights.map((height, index) => (
+      {CONNECTION_BAR_HEIGHTS.map((height, index) => (
         <rect
           key={height}
           x={index * 7}
@@ -606,6 +608,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
             </div>
           </div>
           <button
+            type="button"
             className={classes.lightingBannerClose}
             aria-label="Cerrar aviso"
             onClick={() => setLightingDismissed(true)}
@@ -734,7 +737,13 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
 
             {/* CTA + cancel */}
             <div className={classes.enterBlock}>
-              <button className={classes.ctaButton} data-cy-join-now onClick={handleJoin} disabled={disableButtons}>
+              <button
+                type="button"
+                className={classes.ctaButton}
+                data-cy-join-now
+                onClick={handleJoin}
+                disabled={disableButtons}
+              >
                 Entrar a la sala →
               </button>
               <Button
