@@ -22,6 +22,13 @@ const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUpdateRecordingRules = jest.fn();
 const mockSetIsGalleryViewActive = jest.fn();
 
+// View, record and proctoring now live behind the "more options" kebab, so most
+// assertions need the menu opened first.
+function openMore(wrapper: ReturnType<typeof shallow>) {
+  wrapper.find('[data-testid="professor-toolbar-more"]').simulate('click');
+  wrapper.update();
+}
+
 describe('ProfessorToolbar', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -41,15 +48,66 @@ describe('ProfessorToolbar', () => {
     }));
   });
 
-  it('renders teacher controls including record, proctoring and end call', () => {
+  it('renders primary controls in the bar and secondary controls behind the kebab', () => {
     const wrapper = shallow(<ProfessorToolbar />);
+    // Primary bar: mic, camera, chat, more, leave.
     expect(wrapper.find('ToggleAudioButton').exists()).toBe(true);
     expect(wrapper.find('ToggleVideoButton').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-toolbar-proctoring"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-toolbar-chat"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-toolbar-more"]').exists()).toBe(true);
     expect(wrapper.find('EndCallButton').exists()).toBe(true);
+    // Secondary controls stay hidden until the kebab is opened.
+    expect(wrapper.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="professor-toolbar-proctoring"]').exists()).toBe(false);
     // Teachers do not get the student-only raise-hand control.
     expect(wrapper.find('RaiseHandButton').exists()).toBe(false);
+  });
+
+  it('reveals attention, view, record and proctoring inside the kebab menu', () => {
+    const wrapper = shallow(<ProfessorToolbar />);
+    openMore(wrapper);
+    expect(wrapper.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-toolbar-attention"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-toolbar-view"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-toolbar-proctoring"]').exists()).toBe(true);
+  });
+
+  describe('rail toggles', () => {
+    it('toggles the Participantes rail through its callback and reflects open state', () => {
+      const onParticipantsToggle = jest.fn();
+      const wrapper = shallow(
+        <ProfessorToolbar participantsOpen={false} onParticipantsToggle={onParticipantsToggle} />
+      );
+      const button = wrapper.find('[data-testid="professor-toolbar-participants"]');
+      expect(button.prop('aria-pressed')).toBe(false);
+
+      button.simulate('click');
+      expect(onParticipantsToggle).toHaveBeenCalled();
+    });
+
+    it('marks the Participantes button pressed while the rail is open', () => {
+      const wrapper = shallow(<ProfessorToolbar participantsOpen />);
+      expect(wrapper.find('[data-testid="professor-toolbar-participants"]').prop('aria-pressed')).toBe(true);
+    });
+
+    it('toggles the attention panel from the kebab and advertises the target action', () => {
+      const onAttentionToggle = jest.fn();
+      const wrapper = shallow(<ProfessorToolbar attentionOpen={false} onAttentionToggle={onAttentionToggle} />);
+      openMore(wrapper);
+      const item = wrapper.find('[data-testid="professor-toolbar-attention"]');
+      expect(item.text()).toContain('Panel de atención');
+
+      item.simulate('click');
+      expect(onAttentionToggle).toHaveBeenCalled();
+    });
+
+    it('offers to hide the attention panel while it is open', () => {
+      const wrapper = shallow(<ProfessorToolbar attentionOpen onAttentionToggle={jest.fn()} />);
+      openMore(wrapper);
+      expect(wrapper.find('[data-testid="professor-toolbar-attention"]').text()).toContain('Ocultar atención');
+    });
   });
 
   describe('screen-share button', () => {
@@ -76,32 +134,35 @@ describe('ProfessorToolbar', () => {
     const onProctoringChange = jest.fn();
     const wrapper = shallow(<ProfessorToolbar proctoringEnabled={false} onProctoringChange={onProctoringChange} />);
 
+    openMore(wrapper);
     wrapper.find('[data-testid="professor-toolbar-proctoring"]').simulate('click');
     expect(onProctoringChange).toHaveBeenCalledWith(true);
   });
 
-  describe('record chip', () => {
+  describe('record menu item', () => {
     it('starts a real recording through recording rules when idle', () => {
       const wrapper = shallow(<ProfessorToolbar />);
-      const chip = wrapper.find('[data-testid="professor-toolbar-record"]');
-      expect(chip.text()).toContain('Grabar');
+      openMore(wrapper);
+      const item = wrapper.find('[data-testid="professor-toolbar-record"]');
+      expect(item.text()).toContain('Grabar');
 
-      chip.simulate('click');
+      item.simulate('click');
       expect(mockUpdateRecordingRules).toHaveBeenCalledWith('RM123', [{ type: 'include', all: true }]);
     });
 
     it('stops the recording through recording rules while recording', () => {
       mockUseIsRecording.mockImplementation(() => true);
       const wrapper = shallow(<ProfessorToolbar />);
-      const chip = wrapper.find('[data-testid="professor-toolbar-record"]');
-      expect(chip.text()).toContain('Detener REC');
+      openMore(wrapper);
+      const item = wrapper.find('[data-testid="professor-toolbar-record"]');
+      expect(item.text()).toContain('Detener grabación');
 
-      chip.simulate('click');
+      item.simulate('click');
       expect(mockUpdateRecordingRules).toHaveBeenCalledWith('RM123', [{ type: 'exclude', all: true }]);
     });
 
-    it('hides the record chip in rooms without recording support', () => {
-      mockUseAppState.mockImplementationOnce(() => ({
+    it('hides the record item in rooms without recording support', () => {
+      mockUseAppState.mockImplementation(() => ({
         updateRecordingRules: mockUpdateRecordingRules,
         isFetching: false,
         roomType: 'go',
@@ -109,11 +170,12 @@ describe('ProfessorToolbar', () => {
         setIsGalleryViewActive: mockSetIsGalleryViewActive,
       }));
       const wrapper = shallow(<ProfessorToolbar />);
+      openMore(wrapper);
       expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
     });
 
-    it('disables the record chip while a recording request is in flight', () => {
-      mockUseAppState.mockImplementationOnce(() => ({
+    it('disables the record item while a recording request is in flight', () => {
+      mockUseAppState.mockImplementation(() => ({
         updateRecordingRules: mockUpdateRecordingRules,
         isFetching: true,
         roomType: 'group',
@@ -121,17 +183,19 @@ describe('ProfessorToolbar', () => {
         setIsGalleryViewActive: mockSetIsGalleryViewActive,
       }));
       const wrapper = shallow(<ProfessorToolbar />);
+      openMore(wrapper);
       expect(wrapper.find('[data-testid="professor-toolbar-record"]').prop('disabled')).toBe(true);
     });
   });
 
-  describe('view toggle chip', () => {
+  describe('view toggle menu item', () => {
     it('offers speaker view while gallery view is active and toggles on click', () => {
       const wrapper = shallow(<ProfessorToolbar />);
-      const chip = wrapper.find('[data-testid="professor-toolbar-view"]');
-      expect(chip.text()).toContain('Vista de orador');
+      openMore(wrapper);
+      const item = wrapper.find('[data-testid="professor-toolbar-view"]');
+      expect(item.text()).toContain('Vista de orador');
 
-      chip.simulate('click');
+      item.simulate('click');
       // The setter is localStorage-backed, so the functional updater form matters.
       expect(mockSetIsGalleryViewActive).toHaveBeenCalledWith(expect.any(Function));
       const updater = mockSetIsGalleryViewActive.mock.calls[0][0];
@@ -140,7 +204,7 @@ describe('ProfessorToolbar', () => {
     });
 
     it('offers gallery view while speaker view is active', () => {
-      mockUseAppState.mockImplementationOnce(() => ({
+      mockUseAppState.mockImplementation(() => ({
         updateRecordingRules: mockUpdateRecordingRules,
         isFetching: false,
         roomType: 'group',
@@ -148,6 +212,7 @@ describe('ProfessorToolbar', () => {
         setIsGalleryViewActive: mockSetIsGalleryViewActive,
       }));
       const wrapper = shallow(<ProfessorToolbar />);
+      openMore(wrapper);
       expect(wrapper.find('[data-testid="professor-toolbar-view"]').text()).toContain('Vista de galería');
     });
   });

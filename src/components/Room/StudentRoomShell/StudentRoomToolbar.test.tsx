@@ -40,4 +40,28 @@ describe('StudentRoomToolbar', () => {
       expect(wrapper.find('ToggleScreenShareButton').exists()).toBe(true);
     });
   });
+
+  describe('rail toggles', () => {
+    it('toggles the Participantes rail through its callback and reflects open state', () => {
+      const onParticipantsToggle = jest.fn();
+      const wrapper = shallow(
+        <StudentRoomToolbar participantsOpen={false} onParticipantsToggle={onParticipantsToggle} />
+      );
+      const button = wrapper.find('[data-testid="student-toolbar-participants"]');
+      expect(button.prop('aria-pressed')).toBe(false);
+
+      button.simulate('click');
+      expect(onParticipantsToggle).toHaveBeenCalled();
+    });
+
+    it('toggles the Chat rail through its callback and reflects open state', () => {
+      const onChatToggle = jest.fn();
+      const wrapper = shallow(<StudentRoomToolbar chatOpen onChatToggle={onChatToggle} />);
+      const button = wrapper.find('[data-testid="student-toolbar-chat"]');
+      expect(button.prop('aria-pressed')).toBe(true);
+
+      button.simulate('click');
+      expect(onChatToggle).toHaveBeenCalled();
+    });
+  });
 });

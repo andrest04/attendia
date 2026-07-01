@@ -79,6 +79,53 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-participant-count"]').text()).toContain('12');
   });
 
+  describe('collapsible rails (Meet-style entry)', () => {
+    // Rails stay mounted (collapsed to a 0px column) so they can animate open/closed;
+    // aria-hidden reflects the visible state.
+    it('marks both rails hidden when leftOpen and rightOpen are false', () => {
+      const wrapper = mount(
+        <ProfessorRoomShell stage={<div>stage</div>} participantCount={3} leftOpen={false} rightOpen={false} />
+      );
+      expect(wrapper.find('aside[data-testid="professor-room-shell-left-rail"]').prop('aria-hidden')).toBe(true);
+      expect(wrapper.find('aside[data-testid="professor-room-shell-right-rail"]').prop('aria-hidden')).toBe(true);
+      // The stage/toolbar always stay put.
+      expect(wrapper.find('[data-testid="professor-room-shell-center-stage"]').exists()).toBe(true);
+    });
+
+    it('marks only the left rail visible when just leftOpen is true', () => {
+      const wrapper = mount(
+        <ProfessorRoomShell stage={<div>stage</div>} participantCount={3} leftOpen rightOpen={false} />
+      );
+      expect(wrapper.find('aside[data-testid="professor-room-shell-left-rail"]').prop('aria-hidden')).toBe(false);
+      expect(wrapper.find('aside[data-testid="professor-room-shell-right-rail"]').prop('aria-hidden')).toBe(true);
+    });
+
+    it('fires the close callbacks from each rail × button', () => {
+      const onCloseLeft = jest.fn();
+      const onCloseRight = jest.fn();
+      const wrapper = mount(
+        <ProfessorRoomShell
+          stage={<div>stage</div>}
+          participantCount={3}
+          leftOpen
+          rightOpen
+          onCloseLeft={onCloseLeft}
+          onCloseRight={onCloseRight}
+        />
+      );
+      wrapper
+        .find('[data-testid="professor-room-shell-close-left"]')
+        .first()
+        .simulate('click');
+      expect(onCloseLeft).toHaveBeenCalled();
+      wrapper
+        .find('[data-testid="professor-room-shell-close-right"]')
+        .first()
+        .simulate('click');
+      expect(onCloseRight).toHaveBeenCalled();
+    });
+  });
+
   it('shows the notifications feed: empty state by default, student activity when present', () => {
     const empty = mount(<ProfessorRoomShell stage={<div>stage</div>} participantCount={1} />);
     expect(empty.find('[data-testid="professor-room-shell-notifications"]').exists()).toBe(true);

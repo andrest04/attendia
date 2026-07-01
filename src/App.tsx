@@ -8,9 +8,11 @@ import PreJoinScreens from './components/PreJoinScreens/PreJoinScreens';
 import ReconnectingNotification from './components/ReconnectingNotification/ReconnectingNotification';
 import RecordingNotifications from './components/RecordingNotifications/RecordingNotifications';
 import Room from './components/Room/Room';
+import SessionEndedScreen from './components/SessionEndedScreen/SessionEndedScreen';
 
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
+import { useAppState } from './state';
 
 const Container = styled('div')({
   display: 'grid',
@@ -29,6 +31,7 @@ const Main = styled('main')(({ theme }: { theme: Theme }) => ({
 
 export default function App() {
   const roomState = useRoomState();
+  const { sessionEndedByProfessor } = useAppState();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -41,7 +44,9 @@ export default function App() {
 
   return (
     <Container style={{ height }}>
-      {roomState === 'disconnected' ? (
+      {sessionEndedByProfessor ? (
+        <SessionEndedScreen />
+      ) : roomState === 'disconnected' ? (
         <PreJoinScreens />
       ) : (
         <Main>

@@ -3,9 +3,11 @@ import App from './App';
 import MenuBar from './components/MenuBar/MenuBar';
 import PreJoinScreens from './components/PreJoinScreens/PreJoinScreens';
 import Room from './components/Room/Room';
+import SessionEndedScreen from './components/SessionEndedScreen/SessionEndedScreen';
 import { shallow } from 'enzyme';
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
+import { useAppState } from './state';
 import { useMediaQuery } from '@material-ui/core';
 
 jest.mock('swiper/react', () => ({
@@ -19,6 +21,7 @@ jest.mock('swiper', () => ({
 
 jest.mock('./hooks/useRoomState/useRoomState');
 jest.mock('./hooks/useHeight/useHeight');
+jest.mock('./state');
 jest.mock('@material-ui/core', () => {
   const actual = jest.requireActual('@material-ui/core');
   return { ...actual, useMediaQuery: jest.fn() };
@@ -26,12 +29,24 @@ jest.mock('@material-ui/core', () => {
 
 const mockUseRoomState = useRoomState as jest.Mock<any>;
 const mockUseHeight = useHeight as jest.Mock<any>;
+const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseMediaQuery = useMediaQuery as jest.Mock<any>;
 
 mockUseHeight.mockImplementation(() => '500px');
 mockUseMediaQuery.mockImplementation(() => false);
+mockUseAppState.mockImplementation(() => ({ sessionEndedByProfessor: false }));
 
 describe('the App component', () => {
+  it('shows the session-ended screen once the teacher ends the session for everyone', () => {
+    mockUseRoomState.mockImplementation(() => 'disconnected');
+    mockUseAppState.mockImplementationOnce(() => ({ sessionEndedByProfessor: true }));
+    const wrapper = shallow(<App />);
+
+    expect(wrapper.find(SessionEndedScreen).exists()).toBe(true);
+    expect(wrapper.find(PreJoinScreens).exists()).toBe(false);
+    expect(wrapper.find(Room).exists()).toBe(false);
+  });
+
   it('should render correctly when disconnected from a room', () => {
     mockUseRoomState.mockImplementation(() => 'disconnected');
     const wrapper = shallow(<App />);

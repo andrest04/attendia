@@ -27,6 +27,7 @@ import useNotificationToasts from '../../hooks/useNotificationToasts/useNotifica
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
 import useModeration from '../../hooks/useModeration/useModeration';
 import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctoringWarnings';
+import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
@@ -112,9 +113,16 @@ export default function Room() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const screenShareParticipant = useScreenShareParticipant();
   const [professorTab, setProfessorTab] = useState<ProfessorRightTab>('grupo');
+  // Meet-style clean entry: both side rails start collapsed and the professor opens
+  // them from the toolbar (Participantes / Chat / Panel de atención).
+  const [leftOpen, setLeftOpen] = useState(false);
+  const [rightOpen, setRightOpen] = useState(false);
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
   const { muteParticipant, mutedByProfessorCount } = useModeration();
   const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
+  // Singleton (one DataTrack) like useRaiseHand: drives the teacher's "end for everyone"
+  // and the student-side "session ended" screen. Must be called once here.
+  const { endSessionForAll } = useSessionEnd();
   const isRecording = useIsRecording();
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
   // Re-open trigger for the onboarding tour: the professor's "Ayuda" button bumps this
@@ -201,10 +209,33 @@ export default function Room() {
                 <ProfessorToolbar
                   proctoringEnabled={proctoringEnabled}
                   onProctoringChange={setProctoringEnabled}
-                  chatOpen={professorTab === 'chat'}
-                  onChatToggle={() => setProfessorTab(t => (t === 'chat' ? 'grupo' : 'chat'))}
+                  participantsOpen={leftOpen}
+                  onParticipantsToggle={() => setLeftOpen(o => !o)}
+                  chatOpen={rightOpen && professorTab === 'chat'}
+                  onChatToggle={() => {
+                    if (rightOpen && professorTab === 'chat') {
+                      setRightOpen(false);
+                    } else {
+                      setProfessorTab('chat');
+                      setRightOpen(true);
+                    }
+                  }}
+                  attentionOpen={rightOpen && professorTab !== 'chat'}
+                  onAttentionToggle={() => {
+                    if (rightOpen && professorTab !== 'chat') {
+                      setRightOpen(false);
+                    } else {
+                      setProfessorTab('grupo');
+                      setRightOpen(true);
+                    }
+                  }}
+                  onEndForAll={endSessionForAll}
                 />
               }
+              leftOpen={leftOpen}
+              rightOpen={rightOpen}
+              onCloseLeft={() => setLeftOpen(false)}
+              onCloseRight={() => setRightOpen(false)}
               rightTab={professorTab}
               onRightTabChange={setProfessorTab}
               rightPanel={professorTab === 'chat' ? <ChatWindow embedded isVisible /> : undefined}
@@ -226,13 +257,26 @@ export default function Room() {
           ) : (
             <StudentRoomShell
               stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
-              toolbarSlot={<StudentRoomToolbar handRaised={isHandRaised} onHandRaisedChange={setHandRaised} />}
+              toolbarSlot={
+                <StudentRoomToolbar
+                  handRaised={isHandRaised}
+                  onHandRaisedChange={setHandRaised}
+                  participantsOpen={leftOpen}
+                  onParticipantsToggle={() => setLeftOpen(o => !o)}
+                  chatOpen={rightOpen}
+                  onChatToggle={() => setRightOpen(o => !o)}
+                />
+              }
               activeSpeakerLabel={activeSpeakerLabel}
               sessionLabel={sessionLabel}
               participantCount={participantCount}
               isConnectivityDegraded={isConnectivityDegraded}
               networkQualityLevel={localParticipantNetworkQuality}
               rightPanel={<ChatWindow embedded isVisible />}
+              leftOpen={leftOpen}
+              rightOpen={rightOpen}
+              onCloseLeft={() => setLeftOpen(false)}
+              onCloseRight={() => setRightOpen(false)}
               participants={[
                 ...participants.map(p => ({ identity: p.identity, isOnline: true })),
                 { identity: room?.localParticipant?.identity || '', isOnline: true, isLocal: true },

@@ -3,8 +3,11 @@ import clsx from 'clsx';
 import { Button, createStyles, Hidden, makeStyles, Theme } from '@material-ui/core';
 import CallEndIcon from '@material-ui/icons/CallEnd';
 import CollaborationViewIcon from '@material-ui/icons/AccountBox';
+import DonutLargeIcon from '@material-ui/icons/DonutLarge';
 import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
 import GridViewIcon from '@material-ui/icons/Apps';
+import MoreVertIcon from '@material-ui/icons/MoreVert';
+import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import ChatIcon from '../../../icons/ChatIcon';
 import { isMobile } from '../../../utils';
@@ -88,6 +91,86 @@ const useStyles = makeStyles((theme: Theme) =>
         backgroundColor: '#152356',
       },
     },
+
+    // ── Overflow ("more options") menu ──
+    // Hand-rolled (not MUI Menu) to stay portal-free and trivially testable, mirroring
+    // the roster moderation kebab in ProfessorRoomShell.
+    moreWrap: {
+      position: 'relative',
+      display: 'flex',
+    },
+    moreMenuBackdrop: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 15,
+    },
+    // Entry animation for the overflow menu: fade + subtle rise/scale from the
+    // bottom-right corner (where the kebab sits), so opening feels smooth, not abrupt.
+    '@keyframes moreMenuIn': {
+      from: {
+        opacity: 0,
+        transform: 'translateY(6px) scale(0.96)',
+      },
+      to: {
+        opacity: 1,
+        transform: 'translateY(0) scale(1)',
+      },
+    },
+    moreMenu: {
+      position: 'absolute',
+      // Toolbar sits at the bottom of the stage, so the menu opens upward.
+      bottom: '100%',
+      right: 0,
+      marginBottom: 8,
+      zIndex: 16,
+      minWidth: 210,
+      backgroundColor: '#16255c',
+      borderRadius: 10,
+      border: '1px solid rgba(255,255,255,0.12)',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+      overflow: 'hidden',
+      padding: '6px 0',
+      transformOrigin: 'bottom right',
+      animation: '$moreMenuIn 150ms cubic-bezier(0.2, 0, 0.15, 1)',
+      // Respect users who ask the OS to minimize motion.
+      '@media (prefers-reduced-motion: reduce)': {
+        animation: 'none',
+      },
+    },
+    moreMenuItem: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      width: '100%',
+      padding: '10px 14px',
+      background: 'none',
+      border: 'none',
+      textAlign: 'left' as const,
+      cursor: 'pointer',
+      fontFamily: 'Inter, sans-serif',
+      fontSize: 13,
+      fontWeight: 500,
+      color: 'rgba(255,255,255,0.85)',
+      '&:hover': {
+        backgroundColor: 'rgba(255,255,255,0.08)',
+      },
+      '&:disabled': {
+        opacity: 0.5,
+        cursor: 'default',
+      },
+    },
+    // Active tint for stateful items (recording on / proctoring on).
+    moreMenuItemRecActive: {
+      color: '#ef4444',
+    },
+    moreMenuItemProctoringActive: {
+      color: '#69a9ff',
+    },
+    moreMenuDivider: {
+      height: 1,
+      margin: '6px 0',
+      backgroundColor: 'rgba(255,255,255,0.1)',
+    },
   })
 );
 
@@ -98,6 +181,14 @@ interface ProfessorToolbarProps {
   /** Whether the chat tab is active in the right rail. Driven by Room.tsx. */
   chatOpen?: boolean;
   onChatToggle?: () => void;
+  /** Whether the left (Participantes) rail is open. Driven by Room.tsx. */
+  participantsOpen?: boolean;
+  onParticipantsToggle?: () => void;
+  /** Whether the right rail is open on an analytics tab (grupo/individual). Driven by Room.tsx. */
+  attentionOpen?: boolean;
+  onAttentionToggle?: () => void;
+  /** Teacher-only: end the session for everyone (completes the room). Opens a confirm dialog. */
+  onEndForAll?: () => void;
 }
 
 export default function ProfessorToolbar({
@@ -105,6 +196,11 @@ export default function ProfessorToolbar({
   onProctoringChange,
   chatOpen = false,
   onChatToggle,
+  participantsOpen = false,
+  onParticipantsToggle,
+  attentionOpen = false,
+  onAttentionToggle,
+  onEndForAll,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
   const { room } = useVideoContext();
@@ -117,11 +213,25 @@ export default function ProfessorToolbar({
   const supportsRecording = roomType !== 'peer-to-peer' && roomType !== 'go';
   const chip = clsx(classes.chipLayout, classes.chipDark);
 
+  // Secondary controls (view, record, proctoring) live behind a "more options" kebab
+  // so the primary bar stays Meet-like: mic, camera, screen share, chat, leave.
+  const [isMoreOpen, setIsMoreOpen] = React.useState(false);
+  const closeMore = () => setIsMoreOpen(false);
+
   return (
     <div className={classes.controlsRow} data-testid="professor-toolbar">
       <ToggleAudioButton disabled={isReconnecting} className={chip} />
       <ToggleVideoButton disabled={isReconnecting} className={chip} />
       {!isMobile && <ToggleScreenShareButton disabled={isReconnecting} className={chip} />}
+      <Button
+        onClick={() => onParticipantsToggle?.()}
+        startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
+        className={chip}
+        data-testid="professor-toolbar-participants"
+        aria-pressed={participantsOpen}
+      >
+        Participantes
+      </Button>
       {/* ChatIcon paints with currentColor, so the active tint lives on the wrapper div. */}
       <Button
         onClick={() => onChatToggle?.()}
@@ -138,42 +248,99 @@ export default function ProfessorToolbar({
       >
         Chat
       </Button>
-      {supportsRecording && (
+
+      {/* ── "More options" kebab: view, record, proctoring ── */}
+      <div className={classes.moreWrap}>
         <Button
-          onClick={() => updateRecordingRules(room!.sid, [{ type: isRecording ? 'exclude' : 'include', all: true }])}
-          disabled={isFetching || !room}
-          startIcon={<FiberManualRecordIcon style={{ color: isRecording ? '#ef4444' : 'rgba(255,255,255,0.5)' }} />}
-          className={clsx(classes.chipLayout, isRecording ? classes.chipRecActive : classes.chipDark)}
-          data-testid="professor-toolbar-record"
-          aria-pressed={isRecording}
+          onClick={() => setIsMoreOpen(open => !open)}
+          startIcon={<MoreVertIcon style={{ color: isMoreOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
+          className={chip}
+          data-testid="professor-toolbar-more"
+          aria-haspopup="true"
+          aria-expanded={isMoreOpen}
         >
-          {isRecording ? 'Detener REC' : 'Grabar'}
+          Más
         </Button>
-      )}
-      <Button
-        onClick={() => onProctoringChange?.(!proctoringEnabled)}
-        startIcon={<VisibilityIcon style={{ color: proctoringEnabled ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
-        className={chip}
-        data-testid="professor-toolbar-proctoring"
-        aria-pressed={proctoringEnabled}
-      >
-        Proctoring
-      </Button>
-      {/* Label and icon advertise the view this chip switches TO, mirroring the legacy menu. */}
-      <Button
-        onClick={() => setIsGalleryViewActive(isGallery => !isGallery)}
-        startIcon={
-          isGalleryViewActive ? (
-            <CollaborationViewIcon style={{ color: 'rgba(255,255,255,0.5)' }} />
-          ) : (
-            <GridViewIcon style={{ color: 'rgba(255,255,255,0.5)' }} />
-          )
-        }
-        className={chip}
-        data-testid="professor-toolbar-view"
-      >
-        {isGalleryViewActive ? 'Vista de orador' : 'Vista de galería'}
-      </Button>
+        {isMoreOpen && (
+          <>
+            <div className={classes.moreMenuBackdrop} onClick={closeMore} />
+            <div className={classes.moreMenu} data-testid="professor-toolbar-more-menu" role="menu">
+              {/* Opens the analytics rail (Grupo/Individual) — the attention cockpit. */}
+              <button
+                type="button"
+                className={clsx(classes.moreMenuItem, { [classes.moreMenuItemProctoringActive]: attentionOpen })}
+                data-testid="professor-toolbar-attention"
+                role="menuitemcheckbox"
+                onClick={() => {
+                  onAttentionToggle?.();
+                  closeMore();
+                }}
+                aria-checked={attentionOpen}
+              >
+                <DonutLargeIcon style={{ fontSize: 18 }} />
+                {attentionOpen ? 'Ocultar atención' : 'Panel de atención'}
+              </button>
+
+              <div className={classes.moreMenuDivider} />
+
+              {/* Label and icon advertise the view this switches TO, mirroring the legacy menu. */}
+              <button
+                type="button"
+                className={classes.moreMenuItem}
+                data-testid="professor-toolbar-view"
+                role="menuitem"
+                onClick={() => {
+                  setIsGalleryViewActive(isGallery => !isGallery);
+                  closeMore();
+                }}
+              >
+                {isGalleryViewActive ? (
+                  <CollaborationViewIcon style={{ fontSize: 18 }} />
+                ) : (
+                  <GridViewIcon style={{ fontSize: 18 }} />
+                )}
+                {isGalleryViewActive ? 'Vista de orador' : 'Vista de galería'}
+              </button>
+
+              {supportsRecording && (
+                <button
+                  type="button"
+                  className={clsx(classes.moreMenuItem, { [classes.moreMenuItemRecActive]: isRecording })}
+                  data-testid="professor-toolbar-record"
+                  role="menuitemcheckbox"
+                  disabled={isFetching || !room}
+                  onClick={() => {
+                    updateRecordingRules(room!.sid, [{ type: isRecording ? 'exclude' : 'include', all: true }]);
+                    closeMore();
+                  }}
+                  aria-checked={isRecording}
+                >
+                  <FiberManualRecordIcon style={{ fontSize: 18 }} />
+                  {isRecording ? 'Detener grabación' : 'Grabar'}
+                </button>
+              )}
+
+              <div className={classes.moreMenuDivider} />
+
+              <button
+                type="button"
+                className={clsx(classes.moreMenuItem, { [classes.moreMenuItemProctoringActive]: proctoringEnabled })}
+                data-testid="professor-toolbar-proctoring"
+                role="menuitemcheckbox"
+                onClick={() => {
+                  onProctoringChange?.(!proctoringEnabled);
+                  closeMore();
+                }}
+                aria-checked={proctoringEnabled}
+              >
+                <VisibilityIcon style={{ fontSize: 18 }} />
+                {proctoringEnabled ? 'Proctoring activo' : 'Proctoring'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       <Hidden smDown>
         <span className={classes.divider} />
         <EndCallButton
@@ -181,6 +348,7 @@ export default function ProfessorToolbar({
           startIcon={<CallEndIcon />}
           label="Terminar sesión"
           className={clsx(classes.chipLayout, classes.endCallChip)}
+          onEndForAll={onEndForAll}
         />
       </Hidden>
     </div>

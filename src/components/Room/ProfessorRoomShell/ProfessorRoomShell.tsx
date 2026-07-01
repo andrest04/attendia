@@ -75,14 +75,40 @@ const useStyles = makeStyles((theme: Theme) => ({
     flex: 1,
     minHeight: 0,
     display: 'grid',
-    gridTemplateColumns: '228px 1fr 280px',
     gridTemplateRows: '1fr',
     overflow: 'hidden',
-    // Narrow the fixed rails on tight desktop widths (960-1280) so the video stage
-    // keeps a usable width instead of being crushed by two full-size rails.
-    [theme.breakpoints.down('md')]: {
-      gridTemplateColumns: 'minmax(180px, 200px) minmax(0, 1fr) minmax(220px, 240px)',
+    // Smoothly animate the rails opening/closing. The grid always keeps THREE
+    // tracks (closed rails collapse to 0px, not removed) so the column widths are
+    // interpolable — a changing track count would snap instead of transition.
+    transition: 'grid-template-columns 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+    '@media (prefers-reduced-motion: reduce)': {
+      transition: 'none',
     },
+  },
+  // Column templates keyed by which rails are open. Both rails collapse on entry
+  // (Meet-style clean stage); the professor opens them from the toolbar, so the
+  // video stage owns the full width until then. The down('md') variants narrow the
+  // fixed rails on tight desktop widths (960-1280) so the stage stays usable.
+  bodyBoth: {
+    gridTemplateColumns: '228px 1fr 280px',
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: '200px 1fr 240px',
+    },
+  },
+  bodyLeftOnly: {
+    gridTemplateColumns: '228px 1fr 0px',
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: '200px 1fr 0px',
+    },
+  },
+  bodyRightOnly: {
+    gridTemplateColumns: '0px 1fr 280px',
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: '0px 1fr 240px',
+    },
+  },
+  bodyNoRails: {
+    gridTemplateColumns: '0px 1fr 0px',
   },
 
   // ── LEFT RAIL ──
@@ -93,6 +119,21 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column',
     minWidth: 0,
     overflowY: 'auto',
+    // Fade + micro-scale the content in as the column widens. The grid handles the
+    // spatial reveal (width 0→228px); this GPU-cheap fade hides the frame-by-frame
+    // reflow so opening reads smooth instead of a hard clip.
+    transition: 'opacity 0.24s ease, transform 0.24s ease, border-color 0.2s linear',
+    '@media (prefers-reduced-motion: reduce)': {
+      transition: 'none',
+    },
+  },
+  // Applied to a rail whose column has collapsed to 0px: drop the seam border, fade
+  // out the content, and block interaction with the clipped content while it is hidden.
+  railCollapsed: {
+    borderColor: 'transparent',
+    opacity: 0,
+    transform: 'scale(0.98)',
+    pointerEvents: 'none',
   },
   leftHeader: {
     padding: '16px 18px 17px',
@@ -101,6 +142,27 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     flexShrink: 0,
+  },
+  leftHeaderActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  // Shared "close this rail" affordance (× button) in the rail headers, so the
+  // professor can dismiss a panel from within it (mirrors Meet's panel close).
+  railClose: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#94a3b8',
+    padding: '2px 6px',
+    borderRadius: 4,
+    fontSize: 18,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    flexShrink: 0,
+    '&:hover': { color: '#1d2f6f', backgroundColor: '#f0f5ff' },
   },
   leftHeading: {
     fontFamily: 'Poppins, Inter, sans-serif',
@@ -419,7 +481,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   center: {
     minWidth: 0,
     display: 'grid',
-    gridTemplateRows: '1fr auto',
+    gridTemplateRows: '1fr',
     overflow: 'hidden',
     backgroundColor: '#121C2D',
   },
@@ -428,7 +490,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     overflow: 'hidden',
     position: 'relative',
   },
+  // Full-width footer spanning the whole shell, so the controls stay centered on
+  // screen regardless of which rails are open (Meet-style control bar).
   toolbar: {
+    flexShrink: 0,
     backgroundColor: '#0f1e45',
     borderTop: '1px solid rgba(255,255,255,0.06)',
     padding: theme.spacing(1.25, 2),
@@ -442,6 +507,12 @@ const useStyles = makeStyles((theme: Theme) => ({
     gridTemplateRows: 'auto 1fr',
     minWidth: 0,
     overflow: 'hidden',
+    // Matches leftRail: fade + micro-scale the content in as the column widens so the
+    // reveal feels smooth, not a hard clip (see leftRail for the full rationale).
+    transition: 'opacity 0.24s ease, transform 0.24s ease, border-color 0.2s linear',
+    '@media (prefers-reduced-motion: reduce)': {
+      transition: 'none',
+    },
   },
   rightTabs: {
     display: 'flex',
@@ -791,6 +862,14 @@ interface Props {
   proctoringEnabled?: boolean;
   /** Short, persistent log of students joining/leaving — rendered in the left-rail Notificaciones feed. */
   notifications?: ShellNotification[];
+  /** Whether the left (Participantes) rail is open. Collapses on entry, Meet-style. Defaults open for legacy callers/tests. */
+  leftOpen?: boolean;
+  /** Whether the right (analytics/chat) rail is open. Collapses on entry. Defaults open for legacy callers/tests. */
+  rightOpen?: boolean;
+  /** Dismiss the left rail from its header × button. */
+  onCloseLeft?: () => void;
+  /** Dismiss the right rail from its tabs × button. */
+  onCloseRight?: () => void;
 }
 
 /** Emoji cue for a notification pill, derived from the event copy. */
@@ -828,6 +907,10 @@ export default function ProfessorRoomShell({
   onSendWarning,
   proctoringEnabled = false,
   notifications = [],
+  leftOpen = true,
+  rightOpen = true,
+  onCloseLeft,
+  onCloseRight,
 }: Props) {
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
@@ -904,14 +987,38 @@ export default function ProfessorRoomShell({
         studentCount={Math.max(0, participantCount - 1)}
         recording={recording}
       />
-      <div className={classes.body}>
-        {/* ── LEFT RAIL ── */}
-        <aside className={classes.leftRail} data-testid="professor-room-shell-left-rail">
+      <div
+        className={clsx(classes.body, {
+          [classes.bodyBoth]: leftOpen && rightOpen,
+          [classes.bodyLeftOnly]: leftOpen && !rightOpen,
+          [classes.bodyRightOnly]: !leftOpen && rightOpen,
+          [classes.bodyNoRails]: !leftOpen && !rightOpen,
+        })}
+      >
+        {/* ── LEFT RAIL ── (always mounted so it can animate open/closed) */}
+        <aside
+          className={clsx(classes.leftRail, { [classes.railCollapsed]: !leftOpen })}
+          data-testid="professor-room-shell-left-rail"
+          aria-hidden={!leftOpen}
+        >
           <div className={classes.leftHeader}>
             <span className={classes.leftHeading}>Participantes</span>
-            <span className={classes.participantCountBadge} data-testid="professor-room-shell-participant-count">
-              {participantCount}
-            </span>
+            <div className={classes.leftHeaderActions}>
+              <span className={classes.participantCountBadge} data-testid="professor-room-shell-participant-count">
+                {participantCount}
+              </span>
+              {onCloseLeft && (
+                <button
+                  type="button"
+                  className={classes.railClose}
+                  onClick={onCloseLeft}
+                  aria-label="Cerrar participantes"
+                  data-testid="professor-room-shell-close-left"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
 
           {handsRaised.length > 0 && (
@@ -1095,13 +1202,14 @@ export default function ProfessorRoomShell({
         {/* ── CENTER STAGE ── */}
         <div className={classes.center} data-testid="professor-room-shell-center-stage">
           <div className={classes.stageContent}>{stage}</div>
-          <div className={classes.toolbar} data-testid="professor-room-shell-toolbar-slot">
-            {toolbarSlot}
-          </div>
         </div>
 
-        {/* ── RIGHT RAIL ── */}
-        <aside className={classes.rightRail} data-testid="professor-room-shell-right-rail">
+        {/* ── RIGHT RAIL ── (always mounted so it can animate open/closed) */}
+        <aside
+          className={clsx(classes.rightRail, { [classes.railCollapsed]: !rightOpen })}
+          data-testid="professor-room-shell-right-rail"
+          aria-hidden={!rightOpen}
+        >
           <div className={classes.rightTabs} data-testid="professor-room-shell-right-tabs">
             <button
               type="button"
@@ -1130,6 +1238,17 @@ export default function ProfessorRoomShell({
             >
               Chat
             </button>
+            {onCloseRight && (
+              <button
+                type="button"
+                className={classes.railClose}
+                onClick={onCloseRight}
+                aria-label="Cerrar panel"
+                data-testid="professor-room-shell-close-right"
+              >
+                ×
+              </button>
+            )}
           </div>
 
           <div className={clsx(classes.rightContent, { [classes.rightContentChat]: rightTab === 'chat' })}>
@@ -1161,36 +1280,40 @@ export default function ProfessorRoomShell({
                 <div data-testid="professor-room-shell-timeline-section">
                   <div className={classes.chartTitle}>Evolución temporal</div>
                   <div style={{ height: 120 }} data-testid="professor-room-shell-timeline">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={timeline} margin={{ top: 4, right: 4, left: -24, bottom: 4 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2ecf9" />
-                        <XAxis
-                          dataKey="time"
-                          tick={{ fontSize: 8, fill: '#94a3b8' }}
-                          minTickGap={40}
-                          interval="preserveStartEnd"
-                        />
-                        <YAxis domain={[0, 100]} tick={{ fontSize: 8, fill: '#94a3b8' }} />
-                        <Tooltip contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2ecf9' }} />
-                        <ReferenceLine
-                          y={attentionThreshold}
-                          stroke="#ffb800"
-                          strokeDasharray="4 4"
-                          strokeWidth={1}
-                          strokeOpacity={0.5}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="value"
-                          stroke="#1d6eed"
-                          strokeWidth={2}
-                          fill="#1d6eed"
-                          fillOpacity={0.1}
-                          dot={false}
-                          isAnimationActive={false}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    {/* Skip the chart while the rail is collapsed to 0px: recharts'
+                        ResponsiveContainer warns when it measures a 0-width parent. */}
+                    {rightOpen && (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={timeline} margin={{ top: 4, right: 4, left: -24, bottom: 4 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2ecf9" />
+                          <XAxis
+                            dataKey="time"
+                            tick={{ fontSize: 8, fill: '#94a3b8' }}
+                            minTickGap={40}
+                            interval="preserveStartEnd"
+                          />
+                          <YAxis domain={[0, 100]} tick={{ fontSize: 8, fill: '#94a3b8' }} />
+                          <Tooltip contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2ecf9' }} />
+                          <ReferenceLine
+                            y={attentionThreshold}
+                            stroke="#ffb800"
+                            strokeDasharray="4 4"
+                            strokeWidth={1}
+                            strokeOpacity={0.5}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#1d6eed"
+                            strokeWidth={2}
+                            fill="#1d6eed"
+                            fillOpacity={0.1}
+                            dot={false}
+                            isAnimationActive={false}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </div>
 
@@ -1279,6 +1402,11 @@ export default function ProfessorRoomShell({
             )}
           </div>
         </aside>
+      </div>
+
+      {/* ── TOOLBAR (full-width footer, always screen-centered) ── */}
+      <div className={classes.toolbar} data-testid="professor-room-shell-toolbar-slot">
+        {toolbarSlot}
       </div>
 
       {/* ── PROCTORING MODAL ── */}

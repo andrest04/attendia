@@ -1,8 +1,10 @@
 import React from 'react';
 import clsx from 'clsx';
-import { createStyles, makeStyles, Theme } from '@material-ui/core';
+import { Button, createStyles, makeStyles, Theme } from '@material-ui/core';
+import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import { isMobile } from '../../../utils';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
+import ChatIcon from '../../../icons/ChatIcon';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
 import ToggleScreenShareButton from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
@@ -15,9 +17,13 @@ const useStyles = makeStyles((theme: Theme) =>
     controlsRow: {
       display: 'flex',
       flexWrap: 'wrap',
-      alignItems: 'center',
+      // stretch (not center) so every chip matches the tallest one's height — the round
+      // icon buttons are taller than the text chips, so centering left them uneven.
+      // Mirrors ProfessorToolbar so both shells share the same toolbar look.
+      alignItems: 'stretch',
       justifyContent: 'center',
       gap: theme.spacing(1),
+      width: '100%',
     },
     // Vertical "chip" layout on a dark surface — identical to ProfessorToolbar so
     // both shells share the same toolbar look (icon stacked over a small caption).
@@ -57,9 +63,22 @@ const useStyles = makeStyles((theme: Theme) =>
 interface StudentRoomToolbarProps {
   handRaised?: boolean;
   onHandRaisedChange?: (next: boolean) => void;
+  /** Whether the left (Participantes) rail is open. Driven by Room.tsx. */
+  participantsOpen?: boolean;
+  onParticipantsToggle?: () => void;
+  /** Whether the right (chat) rail is open. Driven by Room.tsx. */
+  chatOpen?: boolean;
+  onChatToggle?: () => void;
 }
 
-export default function StudentRoomToolbar({ handRaised, onHandRaisedChange }: StudentRoomToolbarProps = {}) {
+export default function StudentRoomToolbar({
+  handRaised,
+  onHandRaisedChange,
+  participantsOpen = false,
+  onParticipantsToggle,
+  chatOpen = false,
+  onChatToggle,
+}: StudentRoomToolbarProps = {}) {
   const classes = useStyles();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
@@ -70,6 +89,29 @@ export default function StudentRoomToolbar({ handRaised, onHandRaisedChange }: S
       <ToggleAudioButton disabled={isReconnecting} className={chip} />
       <ToggleVideoButton disabled={isReconnecting} className={chip} />
       {!isMobile && <ToggleScreenShareButton disabled={isReconnecting} className={chip} />}
+      <Button
+        onClick={() => onParticipantsToggle?.()}
+        startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
+        className={chip}
+        data-testid="student-toolbar-participants"
+        aria-pressed={participantsOpen}
+      >
+        Participantes
+      </Button>
+      {/* ChatIcon paints with currentColor, so the active tint lives on the wrapper div. */}
+      <Button
+        onClick={() => onChatToggle?.()}
+        startIcon={
+          <div style={{ display: 'flex', color: chatOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }}>
+            <ChatIcon />
+          </div>
+        }
+        className={chip}
+        data-testid="student-toolbar-chat"
+        aria-pressed={chatOpen}
+      >
+        Chat
+      </Button>
       <ToggleViewButton disabled={isReconnecting} className={chip} />
       <RaiseHandButton handRaised={handRaised} onHandRaisedChange={onHandRaisedChange} className={chip} />
       <div className={classes.divider} />

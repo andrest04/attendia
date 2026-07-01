@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import clsx from 'clsx';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
-import { Button } from '@material-ui/core';
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@material-ui/core';
 import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import { clearRejoinSession } from '../../PreJoinScreens/rejoinSession';
@@ -38,6 +38,11 @@ const useStyles = makeStyles((theme: Theme) =>
         background: '#0E1316',
       },
     },
+    // Dialog action buttons.
+    endForAll: {
+      color: '#ef4444',
+      fontWeight: 700,
+    },
   })
 );
 
@@ -48,30 +53,74 @@ interface EndCallButtonProps {
   startIcon?: React.ReactNode;
   /** Use the neutral dark surface instead of the navy surface (toolbar chip style). */
   dark?: boolean;
+  /**
+   * Teacher-only. When provided, clicking opens a confirm dialog offering "end the
+   * session for everyone" (completes the Twilio room) alongside a plain "leave". Absent
+   * (students) → clicking leaves directly, keeping the room alive for the rest of the class.
+   */
+  onEndForAll?: () => void;
 }
 
 export default function EndCallButton(props: EndCallButtonProps = {}) {
   const classes = useStyles();
   const { room } = useVideoContext();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Leaving on purpose must not auto-rejoin on the next refresh, so drop the saved
   // session here. A page refresh disconnects via 'beforeunload' instead, which does
   // not run this handler — that path keeps the session and reconnects.
-  const handleEndCall = () => {
+  const handleLeave = () => {
     clearRejoinSession();
     // Optional-chain: a refresh ('beforeunload') or a double-click race can have
     // already disconnected and nulled the room — calling disconnect() then throws.
     room?.disconnect();
   };
 
+  const handleClick = () => {
+    // Teachers get the choice (leave vs end for everyone); students just leave.
+    if (props.onEndForAll) {
+      setIsDialogOpen(true);
+    } else {
+      handleLeave();
+    }
+  };
+
+  const handleEndForAll = () => {
+    setIsDialogOpen(false);
+    props.onEndForAll?.();
+  };
+
   return (
-    <Button
-      onClick={handleEndCall}
-      startIcon={props.startIcon ?? <ExitToAppIcon />}
-      className={clsx(props.dark ? classes.dark : classes.button, props.className)}
-      data-cy-disconnect
-    >
-      {props.label ?? 'Salir'}
-    </Button>
+    <>
+      <Button
+        onClick={handleClick}
+        startIcon={props.startIcon ?? <ExitToAppIcon />}
+        className={clsx(props.dark ? classes.dark : classes.button, props.className)}
+        data-cy-disconnect
+      >
+        {props.label ?? 'Salir'}
+      </Button>
+
+      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} data-testid="end-call-dialog">
+        <DialogTitle>¿Terminar la sesión?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Podés salir vos solo y dejar la clase abierta para que los estudiantes sigan, o terminar la sesión para
+            todos y cerrar la sala.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsDialogOpen(false)} data-testid="end-call-cancel">
+            Cancelar
+          </Button>
+          <Button onClick={handleLeave} data-testid="end-call-leave">
+            Salir sin cerrar
+          </Button>
+          <Button onClick={handleEndForAll} className={classes.endForAll} data-testid="end-call-end-for-all">
+            Terminar para todos
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
