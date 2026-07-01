@@ -13,7 +13,9 @@
 // from the full Twilio types and trivially mockable in tests.
 export interface RoomFetchingClient {
   video: {
-    rooms(roomName: string): { fetch(): Promise<unknown> };
+    // Address the versioned resource (v1) directly. The un-versioned `video.rooms`
+    // shortcut still works but logs a deprecation warning in twilio-node v5.
+    v1: { rooms(roomName: string): { fetch(): Promise<unknown> } };
   };
 }
 
@@ -22,7 +24,7 @@ export type RoomExistenceChecker = (roomName: string) => Promise<boolean>;
 export function createRoomExists(twilioClient: RoomFetchingClient): RoomExistenceChecker {
   return async (roomName: string): Promise<boolean> => {
     try {
-      await twilioClient.video.rooms(roomName).fetch();
+      await twilioClient.video.v1.rooms(roomName).fetch();
       return true;
     } catch (err: any) {
       if (err && err.status === 404) {
