@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import { SELECTED_BACKGROUND_SETTINGS_KEY } from '../../../constants';
-import useBackgroundSettings, { BackgroundSettings } from './useBackgroundSettings';
+import useBackgroundSettings from './useBackgroundSettings';
+import { BackgroundSettings } from './backgroundSettingsTypes';
 
 const mockLoadModel = jest.fn();
 let mockIsSupported = true;

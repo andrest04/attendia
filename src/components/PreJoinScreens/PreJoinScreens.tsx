@@ -20,11 +20,7 @@ import {
   stripTeacherSuffix,
   toClassSessionDisplayName,
 } from './classSessionTypes';
-
-export enum Steps {
-  roomNameStep,
-  deviceSelectionStep,
-}
+import { Steps } from './steps';
 
 export default function PreJoinScreens() {
   const { user } = useAppState();
@@ -53,9 +49,9 @@ export default function PreJoinScreens() {
   const [name, setName] = useState<string>(() =>
     resumable ? stripTeacherSuffix(resumable.identity) : user?.displayName || ''
   );
-  const [teacherDisplayName, setTeacherDisplayName] = useState<string>(
-    toClassSessionDisplayName(user?.displayName || '', 'teacher')
-  );
+  // teacherDisplayName is purely derived from `name` (the [Profesor] suffix is appended for the
+  // teacher card preview), so compute it during render instead of mirroring it into state.
+  const teacherDisplayName = toClassSessionDisplayName(name, 'teacher');
   const [roomName, setRoomName] = useState<string>('');
   const [studentJoinCode, setStudentJoinCode] = useState<string>('');
   const [classSessionDraft, setClassSessionDraft] = useState<ClassSessionDraft>(() => ({
@@ -86,7 +82,6 @@ export default function PreJoinScreens() {
 
   useEffect(() => {
     setClassSessionDraft(prev => ({ ...prev, displayName: name }));
-    setTeacherDisplayName(toClassSessionDisplayName(name, 'teacher'));
   }, [name]);
 
   // Editing the join code invalidates a previous "room closed" verdict.

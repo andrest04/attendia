@@ -3,7 +3,7 @@ import DeviceSelectionScreen from './DeviceSelectionScreen';
 import CircularProgress from '@material-ui/core/CircularProgress';
 import Button from '@material-ui/core/Button';
 import { shallow } from 'enzyme';
-import { Steps } from '../PreJoinScreens';
+import { Steps } from '../steps';
 import { useAppState } from '../../../state';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
