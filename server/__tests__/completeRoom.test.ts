@@ -11,7 +11,7 @@ const makeRes = () => {
 // as configured, and records the name/props it was called with.
 const makeClient = (update: jest.Mock) => {
   const rooms = jest.fn((_name: string) => ({ update }));
-  const client: RoomCompletingClient = { video: { rooms } };
+  const client: RoomCompletingClient = { video: { v1: { rooms } } };
   return { client, rooms };
 };
 

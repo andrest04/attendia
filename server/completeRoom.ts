@@ -26,7 +26,9 @@ import { isTeacherIdentity } from './roomAccessGuard';
 // decoupled from the full Twilio types and trivially mockable in tests.
 export interface RoomCompletingClient {
   video: {
-    rooms(roomName: string): { update(props: { status: 'completed' }): Promise<unknown> };
+    // Address the versioned resource (v1) directly. The un-versioned `video.rooms`
+    // shortcut still works but logs a deprecation warning in twilio-node v5.
+    v1: { rooms(roomName: string): { update(props: { status: 'completed' }): Promise<unknown> } };
   };
 }
 
@@ -54,7 +56,7 @@ export function createCompleteRoomHandler(twilioClient: RoomCompletingClient): R
     }
 
     try {
-      await twilioClient.video.rooms(room_name).update({ status: 'completed' });
+      await twilioClient.video.v1.rooms(room_name).update({ status: 'completed' });
       res.json({ completed: true });
     } catch (err: any) {
       // 404 = the room was already completed or never existed; the class is closed

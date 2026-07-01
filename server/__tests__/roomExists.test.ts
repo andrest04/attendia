@@ -1,7 +1,7 @@
 import { createRoomExists } from '../roomExists';
 
 const makeClient = (fetchImpl: () => Promise<unknown>, rooms = jest.fn(() => ({ fetch: fetchImpl }))) =>
-  ({ video: { rooms } } as any);
+  ({ video: { v1: { rooms } } } as any);
 
 describe('createRoomExists', () => {
   it('returns true when the room can be fetched (in-progress room exists)', async () => {
