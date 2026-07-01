@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import { isTeacherIdentity } from '../../PreJoinScreens/classSessionTypes';
@@ -18,41 +18,92 @@ import RoleBadge from '../../RoleBadge/RoleBadge';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
-    display: 'grid',
-    gridTemplateColumns: '236px 1fr 300px',
-    // Single row: the rails span the full height; the toolbar lives inside the
-    // center column (mirrors ProfessorRoomShell) so it never spans the rails.
-    gridTemplateRows: '1fr',
+    display: 'flex',
+    flexDirection: 'column',
     width: '100%',
     height: '100%',
     backgroundColor: theme.palette.background.default,
-    // Narrow the left rail on tight desktop widths so the video stage keeps room.
+  },
+  // The rails + stage live in a grid that fills the height above the toolbar; the
+  // toolbar is a full-width footer (sibling), so controls stay centered on screen
+  // regardless of which rails are open (Meet-style). Rails collapse on entry.
+  body: {
+    flex: 1,
+    minHeight: 0,
+    display: 'grid',
+    gridTemplateRows: '1fr',
+    overflow: 'hidden',
+    // Smoothly animate the rails opening/closing. The grid always keeps THREE
+    // tracks (closed rails collapse to 0px, not removed) so the column widths are
+    // interpolable — a changing track count would snap instead of transition.
+    transition: 'grid-template-columns 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+    '@media (prefers-reduced-motion: reduce)': {
+      transition: 'none',
+    },
+  },
+  bodyBoth: {
+    gridTemplateColumns: '236px 1fr 300px',
     [theme.breakpoints.down('md')]: {
       gridTemplateColumns: '200px 1fr 264px',
     },
   },
-  // When the student collapses the chat, the right rail shrinks to a thin strip
-  // that still shows the toggle button — the panel is never hidden without a way back.
-  rootChatCollapsed: {
-    gridTemplateColumns: '236px 1fr 56px',
+  bodyLeftOnly: {
+    gridTemplateColumns: '236px 1fr 0px',
     [theme.breakpoints.down('md')]: {
-      gridTemplateColumns: '200px 1fr 56px',
+      gridTemplateColumns: '200px 1fr 0px',
     },
+  },
+  bodyRightOnly: {
+    gridTemplateColumns: '0px 1fr 300px',
+    [theme.breakpoints.down('md')]: {
+      gridTemplateColumns: '0px 1fr 264px',
+    },
+  },
+  bodyNoRails: {
+    gridTemplateColumns: '0px 1fr 0px',
   },
   // ── Left rail ──────────────────────────────────────────────────────────────
   leftRail: {
-    gridColumn: '1',
-    gridRow: '1',
     borderRight: '1px solid #e2ecf9',
     display: 'flex',
     flexDirection: 'column',
     backgroundColor: theme.palette.background.paper,
     overflow: 'hidden',
+    // Fade + micro-scale the content in as the column widens. The grid handles the
+    // spatial reveal; this GPU-cheap fade hides the frame-by-frame reflow so opening
+    // reads smooth instead of a hard clip.
+    transition: 'opacity 0.24s ease, transform 0.24s ease, border-color 0.2s linear',
+    '@media (prefers-reduced-motion: reduce)': {
+      transition: 'none',
+    },
+  },
+  // Applied to a rail whose column has collapsed to 0px: drop the seam border, fade
+  // out the content, and block interaction with the clipped content while it is hidden.
+  railCollapsed: {
+    borderColor: 'transparent',
+    opacity: 0,
+    transform: 'scale(0.98)',
+    pointerEvents: 'none',
   },
   leftHeader: {
     borderBottom: '1px solid #e2ecf9',
     padding: '16px 18px 13px',
     flexShrink: 0,
+  },
+  // Shared "close this rail" × affordance in the rail headers.
+  railClose: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    color: '#94a3b8',
+    padding: '2px 6px',
+    borderRadius: 4,
+    fontSize: 18,
+    lineHeight: 1,
+    display: 'flex',
+    alignItems: 'center',
+    flexShrink: 0,
+    '&:hover': { color: '#1d2f6f', backgroundColor: '#f0f5ff' },
   },
   logoArea: {
     height: 22,
@@ -162,8 +213,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   // ── Center stage ───────────────────────────────────────────────────────────
   center: {
-    gridColumn: '2',
-    gridRow: '1',
+    minWidth: 0,
     backgroundColor: '#0f1e45',
     position: 'relative',
     overflow: 'hidden',
@@ -233,18 +283,25 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   // ── Right rail ─────────────────────────────────────────────────────────────
   rightRail: {
-    gridColumn: '3',
-    gridRow: '1',
     borderLeft: '1px solid #e2ecf9',
     display: 'grid',
     gridTemplateRows: 'auto 1fr',
     minWidth: 0,
     backgroundColor: theme.palette.background.paper,
+    overflow: 'hidden',
+    // Matches leftRail: fade + micro-scale the content in as the column widens so the
+    // reveal feels smooth, not a hard clip (see leftRail for the full rationale).
+    transition: 'opacity 0.24s ease, transform 0.24s ease, border-color 0.2s linear',
+    '@media (prefers-reduced-motion: reduce)': {
+      transition: 'none',
+    },
   },
   rightTabs: {
     display: 'flex',
+    alignItems: 'center',
     borderBottom: '1px solid #e2ecf9',
     flexShrink: 0,
+    paddingRight: 8,
   },
   tab: {
     flex: 1,
@@ -281,8 +338,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column' as const,
   },
   // ── Bottom toolbar ─────────────────────────────────────────────────────────
-  // Dark navy surface matching ProfessorRoomShell; sits inside the center column
-  // so it only spans the video stage width, not the full-width rails.
+  // Dark navy surface matching ProfessorRoomShell; a full-width footer so the
+  // controls stay centered on screen no matter which rails are open.
   toolbar: {
     flexShrink: 0,
     backgroundColor: '#0f1e45',
@@ -356,20 +413,6 @@ function ChatIcon({ className }: { className?: string }) {
   );
 }
 
-function Caret({ direction, className }: { direction: 'left' | 'right'; className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d={direction === 'right' ? 'M5 2l5 5-5 5' : 'M9 2L4 7l5 5'}
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 // ── Props ─────────────────────────────────────────────────────────────────────
 // Maps a Twilio network quality level (0–5, 5 = best; null/undefined = no data
 // yet) to the connection pill's label and dot color. The <=2 "Débil" cut mirrors
@@ -395,6 +438,14 @@ interface Props {
   networkQualityLevel?: number | null;
   /** Optional rich roster; when provided, renders avatar list instead of plain count */
   participants?: RosterParticipant[];
+  /** Whether the left (Participantes) rail is open. Collapses on entry, Meet-style. Defaults open for legacy callers/tests. */
+  leftOpen?: boolean;
+  /** Whether the right (chat) rail is open. Collapses on entry. Defaults open for legacy callers/tests. */
+  rightOpen?: boolean;
+  /** Dismiss the left rail from its header × button. */
+  onCloseLeft?: () => void;
+  /** Dismiss the right rail from its header × button. */
+  onCloseRight?: () => void;
 }
 
 export default function StudentRoomShell({
@@ -407,96 +458,125 @@ export default function StudentRoomShell({
   isConnectivityDegraded = false,
   networkQualityLevel,
   participants,
+  leftOpen = true,
+  rightOpen = true,
+  onCloseLeft,
+  onCloseRight,
 }: Props) {
   const classes = useStyles();
   const connection = connectionQuality(networkQualityLevel);
-  // Local UI state: lets the student collapse the chat rail to give video more room.
-  // The toggle button always stays visible, so the panel is never hidden without a way back.
-  const [chatCollapsed, setChatCollapsed] = useState(false);
 
   return (
-    <section
-      className={clsx(classes.root, chatCollapsed && classes.rootChatCollapsed)}
-      data-testid="student-room-shell-root"
-    >
-      {/* ── LEFT RAIL ────────────────────────────────────────────────────── */}
-      <aside className={classes.leftRail} data-testid="student-room-shell-left-rail">
-        {/* Logo + Participants heading */}
-        <div className={classes.leftHeader}>
-          <div className={classes.logoArea}>
-            <AttendiaLogo variant="full" size={22} />
-          </div>
-          <div className={classes.participantsRow}>
-            <span className={classes.participantsLabel}>Participantes</span>
-            <span className={classes.participantsBadge}>{participants ? participants.length : participantCount}</span>
-          </div>
-        </div>
-
-        {/* Roster — either rich list or plain "N en sala" */}
-        <div className={classes.rosterList}>
-          {participants ? (
-            participants.map(p => <RosterItem key={p.identity} participant={p} classes={classes} />)
-          ) : (
-            <div className={classes.rosterItem} data-testid="student-room-shell-participant-count">
-              <span className={classes.countText}>{participantCount} en sala</span>
+    <section className={classes.root} data-testid="student-room-shell-root">
+      <div
+        className={clsx(classes.body, {
+          [classes.bodyBoth]: leftOpen && rightOpen,
+          [classes.bodyLeftOnly]: leftOpen && !rightOpen,
+          [classes.bodyRightOnly]: !leftOpen && rightOpen,
+          [classes.bodyNoRails]: !leftOpen && !rightOpen,
+        })}
+      >
+        {/* ── LEFT RAIL ── (always mounted so it can animate open/closed) */}
+        <aside
+          className={clsx(classes.leftRail, { [classes.railCollapsed]: !leftOpen })}
+          data-testid="student-room-shell-left-rail"
+          aria-hidden={!leftOpen}
+        >
+          {/* Logo + Participants heading */}
+          <div className={classes.leftHeader}>
+            <div className={classes.logoArea}>
+              <AttendiaLogo variant="full" size={22} />
             </div>
-          )}
-        </div>
-      </aside>
-
-      {/* ── CENTER STAGE ─────────────────────────────────────────────────── */}
-      <div className={classes.center} data-testid="student-room-shell-center-stage">
-        {/* Video region — overlays anchor here so the toolbar below stays clear. */}
-        <div className={classes.stageContent}>
-          {/* Connection quality pill */}
-          <div className={classes.connectionPill} data-testid="student-connection-pill">
-            <div className={classes.connectionDot} style={{ backgroundColor: connection.color }} />
-            <span className={classes.connectionLabel}>{connection.label}</span>
+            <div className={classes.participantsRow}>
+              <span className={classes.participantsLabel}>Participantes</span>
+              <div className={classes.participantsRow} style={{ gap: 8 }}>
+                <span className={classes.participantsBadge}>
+                  {participants ? participants.length : participantCount}
+                </span>
+                {onCloseLeft && (
+                  <button
+                    type="button"
+                    className={classes.railClose}
+                    onClick={onCloseLeft}
+                    aria-label="Cerrar participantes"
+                    data-testid="student-room-shell-close-left"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Stage (GalleryView / MainParticipant). The student sees their own tile here
-              as a regular cell, exactly like the professor — no separate PiP self-view. */}
-          {stage}
+          {/* Roster — either rich list or plain "N en sala" */}
+          <div className={classes.rosterList}>
+            {participants ? (
+              participants.map(p => <RosterItem key={p.identity} participant={p} classes={classes} />)
+            ) : (
+              <div className={classes.rosterItem} data-testid="student-room-shell-participant-count">
+                <span className={classes.countText}>{participantCount} en sala</span>
+              </div>
+            )}
+          </div>
+        </aside>
 
-          {/* "Twilio Video · WebRTC SFU" watermark */}
-          <div className={classes.stageBadge}>Twilio Video · WebRTC SFU</div>
-
-          {/* Connectivity banner */}
-          {isConnectivityDegraded && (
-            <div className={classes.connectivityBanner} data-testid="student-room-shell-connectivity-banner">
-              Resolución reducida por baja conectividad
+        {/* ── CENTER STAGE ─────────────────────────────────────────────────── */}
+        <div className={classes.center} data-testid="student-room-shell-center-stage">
+          {/* Video region — overlays anchor here so the toolbar below stays clear. */}
+          <div className={classes.stageContent}>
+            {/* Connection quality pill */}
+            <div className={classes.connectionPill} data-testid="student-connection-pill">
+              <div className={classes.connectionDot} style={{ backgroundColor: connection.color }} />
+              <span className={classes.connectionLabel}>{connection.label}</span>
             </div>
-          )}
+
+            {/* Stage (GalleryView / MainParticipant). The student sees their own tile here
+                as a regular cell, exactly like the professor — no separate PiP self-view. */}
+            {stage}
+
+            {/* "Twilio Video · WebRTC SFU" watermark */}
+            <div className={classes.stageBadge}>Twilio Video · WebRTC SFU</div>
+
+            {/* Connectivity banner */}
+            {isConnectivityDegraded && (
+              <div className={classes.connectivityBanner} data-testid="student-room-shell-connectivity-banner">
+                Resolución reducida por baja conectividad
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ── BOTTOM TOOLBAR ─────────────────────────────────────────────── */}
-        <div className={classes.toolbar} data-testid="student-room-shell-toolbar-slot">
-          {toolbarSlot}
-        </div>
+        {/* ── RIGHT RAIL ── (always mounted so it can animate open/closed) */}
+        <aside
+          className={clsx(classes.rightRail, { [classes.railCollapsed]: !rightOpen })}
+          data-testid="student-room-shell-right-rail"
+          aria-hidden={!rightOpen}
+        >
+          <div className={classes.rightTabs} data-testid="student-room-shell-right-tabs">
+            <span className={clsx(classes.tab, classes.tabActive)} data-testid="student-room-shell-tab-chat">
+              <ChatIcon className={classes.tabIcon} />
+              Chat
+            </span>
+            {onCloseRight && (
+              <button
+                type="button"
+                className={classes.railClose}
+                onClick={onCloseRight}
+                aria-label="Cerrar chat"
+                data-testid="student-room-shell-close-right"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <div className={classes.rightContent}>{rightPanel}</div>
+        </aside>
       </div>
 
-      {/* ── RIGHT RAIL ───────────────────────────────────────────────────── */}
-      <aside className={classes.rightRail} data-testid="student-room-shell-right-rail">
-        {/* Tabs — the Chat tab now collapses/expands the panel (real toggle, was inert) */}
-        <div className={classes.rightTabs} data-testid="student-room-shell-right-tabs">
-          <button
-            type="button"
-            className={clsx(classes.tab, !chatCollapsed && classes.tabActive)}
-            data-testid="student-room-shell-tab-chat"
-            aria-pressed={!chatCollapsed}
-            aria-label={chatCollapsed ? 'Mostrar chat' : 'Ocultar chat'}
-            title={chatCollapsed ? 'Mostrar chat' : 'Ocultar chat'}
-            onClick={() => setChatCollapsed(c => !c)}
-          >
-            <ChatIcon className={classes.tabIcon} />
-            {!chatCollapsed && 'Chat'}
-            <Caret direction={chatCollapsed ? 'left' : 'right'} className={classes.tabIcon} />
-          </button>
-        </div>
-
-        {/* Panel content — hidden when collapsed; the tab above stays as the way back */}
-        {!chatCollapsed && <div className={classes.rightContent}>{rightPanel}</div>}
-      </aside>
+      {/* ── TOOLBAR (full-width footer, always screen-centered) ── */}
+      <div className={classes.toolbar} data-testid="student-room-shell-toolbar-slot">
+        {toolbarSlot}
+      </div>
 
       {/* Legacy stage header kept for test compatibility */}
       <div data-testid="student-room-shell-stage-header" style={{ display: 'none' }} aria-hidden="true" />

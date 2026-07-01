@@ -23,6 +23,88 @@ index 7c383a6..64d13d6 100644
    ]);
  
    return allAssets;
+diff --git a/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/completeRoom.js b/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/completeRoom.js
+new file mode 100644
+index 0000000..a55a998
+--- /dev/null
++++ b/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/completeRoom.js
+@@ -0,0 +1,76 @@
++/* global Twilio Runtime */
++'use strict';
++
++/*
++ * Teacher-only "end the session for everyone", ported to the serverless deploy path
++ * from server/completeRoom.ts (the Express endpoint only runs for `npm start`, NOT for
++ * `deploy:twilio-cli`). Completing the room disconnects every participant and frees the
++ * unique name, which is exactly the "class is closed" signal the room-access guard relies
++ * on — so a later join / auto-rejoin gets a 404 → 403 instead of re-creating the room.
++ *
++ * The suffix check mirrors TEACHER_DISPLAY_SUFFIX / isTeacherIdentity in
++ * src/components/PreJoinScreens/classSessionTypes.ts, server/roomAccessGuard.ts, and the
++ * token.js patch. Keep all in sync. This is a UX guardrail, NOT a security boundary: the
++ * role is the client-set identity suffix and is trivially spoofable.
++ */
++module.exports.handler = async (context, event, callback) => {
++  const authHandler = require(Runtime.getAssets()['/auth-handler.js'].path);
++  authHandler(context, event, callback);
++
++  const { user_identity, room_name } = event;
++
++  let response = new Twilio.Response();
++  response.appendHeader('Content-Type', 'application/json');
++
++  if (!room_name) {
++    response.setStatusCode(400);
++    response.setBody({
++      error: { message: 'missing room_name', explanation: 'The room_name parameter is missing.' },
++    });
++    return callback(null, response);
++  }
++
++  const isTeacherIdentity =
++    typeof user_identity === 'string' &&
++    user_identity
++      .trim()
++      .toLowerCase()
++      .endsWith('[profesor]');
++
++  if (!isTeacherIdentity) {
++    response.setStatusCode(403);
++    response.setBody({
++      error: {
++        message: 'not allowed',
++        explanation: 'Solo el docente puede terminar la sesión para todos.',
++      },
++    });
++    return callback(null, response);
++  }
++
++  const client = context.getTwilioClient();
++
++  try {
++    await client.video.rooms(room_name).update({ status: 'completed' });
++    response.setStatusCode(200);
++    response.setBody({ completed: true });
++    return callback(null, response);
++  } catch (e) {
++    // 404 = the room was already completed or never existed; the class is closed either
++    // way, so report success and keep the endpoint idempotent. Any other error fails closed.
++    if (e && e.status === 404) {
++      response.setStatusCode(200);
++      response.setBody({ completed: true });
++      return callback(null, response);
++    }
++    console.error('Error completing room:', e);
++    response.setStatusCode(503);
++    response.setBody({
++      error: {
++        message: 'room completion failed',
++        explanation: 'No pudimos terminar la sesión. Intentá de nuevo en unos segundos.',
++      },
++    });
++    return callback(null, response);
++  }
++};
 diff --git a/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js b/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js
 index 00935b1..952eb52 100644
 --- a/node_modules/@twilio-labs/plugin-rtc/src/serverless/functions/token.js

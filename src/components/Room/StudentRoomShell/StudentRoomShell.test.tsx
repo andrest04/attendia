@@ -65,24 +65,57 @@ describe('StudentRoomShell', () => {
 
     expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="student-room-shell-tab-attention"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').prop('aria-pressed')).toBe(true);
   });
 
-  it('collapses and reopens the chat panel via the chat tab, keeping the toggle always visible', () => {
-    const wrapper = shallow(
-      <StudentRoomShell stage={<div>stage</div>} rightPanel={<div data-testid="right-panel-content">panel</div>} />
-    );
+  describe('collapsible rails (Meet-style entry)', () => {
+    // Rails stay mounted (collapsed to a 0px column) so they can animate open/closed;
+    // aria-hidden reflects the visible state.
+    it('marks both rails hidden when leftOpen and rightOpen are false', () => {
+      const wrapper = shallow(
+        <StudentRoomShell
+          stage={<div>stage</div>}
+          rightPanel={<div data-testid="right-panel-content">panel</div>}
+          leftOpen={false}
+          rightOpen={false}
+        />
+      );
+      expect(wrapper.find('[data-testid="student-room-shell-left-rail"]').prop('aria-hidden')).toBe(true);
+      expect(wrapper.find('[data-testid="student-room-shell-right-rail"]').prop('aria-hidden')).toBe(true);
+      // The stage and toolbar always stay put.
+      expect(wrapper.find('[data-testid="student-room-shell-center-stage"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="student-room-shell-toolbar-slot"]').exists()).toBe(true);
+    });
 
-    expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(true);
+    it('marks only the right rail visible when just rightOpen is true', () => {
+      const wrapper = shallow(
+        <StudentRoomShell
+          stage={<div>stage</div>}
+          rightPanel={<div data-testid="right-panel-content">panel</div>}
+          leftOpen={false}
+          rightOpen
+        />
+      );
+      expect(wrapper.find('[data-testid="student-room-shell-left-rail"]').prop('aria-hidden')).toBe(true);
+      expect(wrapper.find('[data-testid="student-room-shell-right-rail"]').prop('aria-hidden')).toBe(false);
+      expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(true);
+    });
 
-    // Collapse: panel content hidden, but the toggle button stays so it can be reopened.
-    wrapper.find('[data-testid="student-room-shell-tab-chat"]').simulate('click');
-    expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').prop('aria-pressed')).toBe(false);
-
-    // Reopen.
-    wrapper.find('[data-testid="student-room-shell-tab-chat"]').simulate('click');
-    expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(true);
+    it('fires the close callbacks from each rail × button', () => {
+      const onCloseLeft = jest.fn();
+      const onCloseRight = jest.fn();
+      const wrapper = shallow(
+        <StudentRoomShell
+          stage={<div>stage</div>}
+          leftOpen
+          rightOpen
+          onCloseLeft={onCloseLeft}
+          onCloseRight={onCloseRight}
+        />
+      );
+      wrapper.find('[data-testid="student-room-shell-close-left"]').simulate('click');
+      expect(onCloseLeft).toHaveBeenCalled();
+      wrapper.find('[data-testid="student-room-shell-close-right"]').simulate('click');
+      expect(onCloseRight).toHaveBeenCalled();
+    });
   });
 });

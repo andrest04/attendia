@@ -33,6 +33,11 @@ export interface StateContextType {
   setIsKrispInstalled: React.Dispatch<React.SetStateAction<boolean>>;
   isCaptionsEnabled: boolean;
   setIsCaptionsEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  // True once the teacher has ended the session for everyone. Lives here (above Room,
+  // which unmounts on disconnect) so App can show the "session ended" screen instead of
+  // bouncing back to the prejoin lobby. See useSessionEnd + SessionEndedScreen.
+  sessionEndedByProfessor: boolean;
+  setSessionEndedByProfessor: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const StateContext = createContext<StateContextType>(null!);
@@ -61,6 +66,7 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
   const [isKrispEnabled, setIsKrispEnabled] = useState(false);
   const [isKrispInstalled, setIsKrispInstalled] = useState(false);
   const [isCaptionsEnabled, setIsCaptionsEnabled] = useLocalStorageState('captions-enabled-key', false);
+  const [sessionEndedByProfessor, setSessionEndedByProfessor] = useState(false);
 
   let contextValue = {
     error,
@@ -81,6 +87,8 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
     setIsKrispInstalled,
     isCaptionsEnabled,
     setIsCaptionsEnabled,
+    sessionEndedByProfessor,
+    setSessionEndedByProfessor,
   } as StateContextType;
 
   if (process.env.REACT_APP_SET_AUTH === 'firebase') {

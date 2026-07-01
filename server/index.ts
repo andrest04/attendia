@@ -3,6 +3,7 @@ import { createExpressHandler, twilioClient } from './createExpressHandler';
 import { createRoomAccessGuard } from './roomAccessGuard';
 import { createRoomExists } from './roomExists';
 import { createRoomOpenHandler } from './roomOpen';
+import { createCompleteRoomHandler } from './completeRoom';
 import express, { RequestHandler } from 'express';
 import path from 'path';
 import { ServerlessFunction } from './types';
@@ -32,6 +33,11 @@ const roomExists = createRoomExists(twilioClient);
 
 app.all('/token', authMiddleware, createRoomAccessGuard(roomExists), tokenEndpoint);
 app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
+
+// Teacher-only "end the session for everyone": completes the Twilio room so all
+// participants are disconnected and the class can no longer be rejoined. Guarded by
+// the (guardrail-only) teacher-identity check inside the handler. See completeRoom.ts.
+app.post('/completeRoom', authMiddleware, createCompleteRoomHandler(twilioClient));
 
 // Read-only probe so the student prejoin can warn "the class isn't open yet" BEFORE the
 // device-selection waiting room, instead of only when POST /token blocks them. This never
