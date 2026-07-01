@@ -21,7 +21,7 @@ import TranscriptionsOverlay from '../TranscriptionsOverlay/TranscriptionsOverla
 import StudentRoomShell from './StudentRoomShell';
 import { StudentRoomToolbar } from './StudentRoomShell';
 import ProfessorRoomShell, { ProfessorToolbar } from './ProfessorRoomShell';
-import { ProfessorRightTab } from './ProfessorRoomShell/ProfessorRoomShell';
+import { ProfessorRightTab } from './ProfessorRoomShell/professorShellHelpers';
 import useShellNotifications from './StudentRoomShell/useShellNotifications';
 import useNotificationToasts from '../../hooks/useNotificationToasts/useNotificationToasts';
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
