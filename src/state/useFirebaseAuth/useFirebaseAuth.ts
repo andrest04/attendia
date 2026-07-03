@@ -8,6 +8,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
+  EmailAuthProvider,
+  linkWithCredential,
 } from 'firebase/auth';
 import { ClassSessionRole } from '../../components/PreJoinScreens/classSessionTypes';
 
@@ -242,6 +244,22 @@ export default function useFirebaseAuth() {
     [user, applyProfile]
   );
 
+  // Links an email/password credential to the current (Google-only) account, so the
+  // user can afterwards sign in with either provider — same uid, same Firestore profile.
+  const createPassword = useCallback(
+    async (password: string) => {
+      if (!user || !user.email) {
+        throw new Error('Cannot create a password without an authenticated user with an email');
+      }
+
+      const result = await linkWithCredential(user, EmailAuthProvider.credential(user.email, password));
+      // Expose the updated user so consumers observe the new 'password' entry in
+      // providerData. The Firestore profile is untouched by the credential link.
+      setUser(result.user);
+    },
+    [user]
+  );
+
   const signOut = useCallback(() => {
     return getAuth()
       .signOut()
@@ -258,6 +276,7 @@ export default function useFirebaseAuth() {
     signInWithEmail,
     register,
     completeProfile,
+    createPassword,
     signOut,
     isAuthReady,
     getToken,

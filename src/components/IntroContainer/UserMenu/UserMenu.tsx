@@ -5,6 +5,7 @@ import { useAppState } from '../../../state';
 import UserAvatar from './UserAvatar/UserAvatar';
 import Menu from '@material-ui/core/Menu';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
+import CreatePasswordDialog from './CreatePasswordDialog/CreatePasswordDialog';
 
 // Flows inline inside the IntroContainer header (light background) — it must not
 // position itself; the header's flex layout places it after the info chips.
@@ -38,12 +39,19 @@ const UserMenu: React.FC = () => {
   const { localTracks } = useVideoContext();
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const [createPasswordOpen, setCreatePasswordOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
 
   const handleSignOut = useCallback(() => {
     localTracks.forEach(track => track.stop());
     signOut?.();
   }, [localTracks, signOut]);
+
+  // Only Firebase users carry email/providerData; guard defensively because the
+  // passcode-mode user object (and test mocks) have neither.
+  const firebaseUser = user as { email?: string | null; providerData?: ({ providerId: string } | null)[] } | null;
+  const hasPasswordProvider = Boolean(firebaseUser?.providerData?.some(p => p?.providerId === 'password'));
+  const canCreatePassword = Boolean(firebaseUser?.email) && !hasPasswordProvider;
 
   if (process.env.REACT_APP_SET_AUTH === 'passcode') {
     return (
@@ -77,10 +85,21 @@ const UserMenu: React.FC = () => {
             horizontal: 'center',
           }}
         >
+          {canCreatePassword && (
+            <MenuItem
+              onClick={() => {
+                setMenuOpen(false);
+                setCreatePasswordOpen(true);
+              }}
+            >
+              <Typography variant="body1">Crear contraseña</Typography>
+            </MenuItem>
+          )}
           <MenuItem onClick={handleSignOut}>
             <Typography variant="body1">Cerrar sesión</Typography>
           </MenuItem>
         </Menu>
+        <CreatePasswordDialog open={createPasswordOpen} onClose={() => setCreatePasswordOpen(false)} />
       </div>
     );
   }
