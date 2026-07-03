@@ -42,9 +42,16 @@ app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 if (process.env.REACT_APP_SET_AUTH === 'firebase') {
   const { firestore, serverTimestamp } = require('./firebaseAdmin');
   const { createGetProfileHandler, createPostProfileHandler } = require('./userProfiles');
+  const { createGetReportsHandler, createPostReportHandler } = require('./attentionReports');
 
   app.get('/profile', authMiddleware, createGetProfileHandler(firestore));
   app.post('/profile', authMiddleware, createPostProfileHandler(firestore, serverTimestamp));
+
+  // Per-class attention reports (users/{uid}/reports/{roomSid}), written when the
+  // professor ends or leaves a class and listed by the "Historial de clases" page.
+  // Teacher-only: both handlers re-resolve the role from Firestore server-side.
+  app.get('/reports', authMiddleware, createGetReportsHandler(firestore));
+  app.post('/reports', authMiddleware, createPostReportHandler(firestore, serverTimestamp));
 }
 
 // Teacher-only "end the session for everyone": completes the Twilio room so all
