@@ -12,6 +12,7 @@ import {
   linkWithCredential,
 } from 'firebase/auth';
 import { ClassSessionRole } from '../../components/PreJoinScreens/classSessionTypes';
+import { AttentionReport, StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -30,6 +31,17 @@ export interface UserProfile {
   role: ClassSessionRole;
 }
 
+// Shared non-OK handling for the /profile and /reports requests: surface the
+// server's reason, preferring the localized Spanish explanation. No-op on OK
+// responses (the body is left unconsumed for the caller).
+async function throwOnErrorResponse(response: Response): Promise<void> {
+  if (response.ok) {
+    return;
+  }
+  const body = await response.json().catch(() => ({}));
+  throw new Error(body.error?.explanation || body.error?.message || response.statusText);
+}
+
 // GET /profile for the signed-in user. Resolves null on 404, meaning "no profile yet"
 // (a first-time Google user who still needs to pick a role). Throws on other failures.
 async function fetchProfileRequest(user: User): Promise<UserProfile | null> {
@@ -43,10 +55,7 @@ async function fetchProfileRequest(user: User): Promise<UserProfile | null> {
     return null;
   }
 
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error?.explanation || body.error?.message || response.statusText);
-  }
+  await throwOnErrorResponse(response);
 
   return response.json();
 }
@@ -62,13 +71,36 @@ async function postProfileRequest(user: User, displayName: string, role: ClassSe
     body: JSON.stringify({ displayName, role }),
   });
 
-  const body = await response.json().catch(() => ({}));
+  await throwOnErrorResponse(response);
 
-  if (!response.ok) {
-    throw new Error(body.error?.explanation || body.error?.message || response.statusText);
-  }
+  return response.json();
+}
 
-  return body;
+// POST /reports. The server enforces role=teacher (403) and overwrites the doc keyed
+// by roomSid. Rejects on any non-OK response, preferring the Spanish explanation.
+async function postReportRequest(user: User, report: AttentionReport): Promise<void> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch('/reports', {
+    method: 'POST',
+    headers: { Authorization: idToken, 'content-type': 'application/json' },
+    body: JSON.stringify(report),
+  });
+
+  await throwOnErrorResponse(response);
+}
+
+// GET /reports — the signed-in teacher's stored class reports, newest first.
+async function fetchReportsRequest(user: User): Promise<StoredAttentionReport[]> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch('/reports', {
+    headers: { Authorization: idToken },
+  });
+
+  await throwOnErrorResponse(response);
+
+  return response.json();
 }
 
 export default function useFirebaseAuth() {
@@ -260,6 +292,25 @@ export default function useFirebaseAuth() {
     [user]
   );
 
+  // Best-effort persistence of a class attention report. Callers own the error
+  // policy (the in-room saver swallows failures so leaving is never blocked).
+  const saveAttentionReport = useCallback(
+    (report: AttentionReport) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot save an attention report without an authenticated user'));
+      }
+      return postReportRequest(user, report);
+    },
+    [user]
+  );
+
+  const fetchAttentionReports = useCallback(() => {
+    if (!user) {
+      return Promise.reject(new Error('Cannot fetch attention reports without an authenticated user'));
+    }
+    return fetchReportsRequest(user);
+  }, [user]);
+
   const signOut = useCallback(() => {
     return getAuth()
       .signOut()
@@ -281,5 +332,7 @@ export default function useFirebaseAuth() {
     isAuthReady,
     getToken,
     updateRecordingRules,
+    saveAttentionReport,
+    fetchAttentionReports,
   };
 }
