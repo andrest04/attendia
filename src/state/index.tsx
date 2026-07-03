@@ -25,6 +25,7 @@ export interface StateContextType {
   signInWithEmail?(email: string, password: string): Promise<void>;
   register?(name: string, email: string, password: string, role: ClassSessionRole): Promise<void>;
   completeProfile?(role: ClassSessionRole): Promise<void>;
+  createPassword?(password: string): Promise<void>;
   isFetching: boolean;
   activeSinkId: string;
   setActiveSinkId(sinkId: string): void;

@@ -1,6 +1,12 @@
 import useFirebaseAuth from './useFirebaseAuth';
 import { act, renderHook } from '@testing-library/react-hooks';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+  EmailAuthProvider,
+  linkWithCredential,
+} from 'firebase/auth';
 
 const mockUser: any = {
   displayName: 'Test User',
@@ -29,6 +35,8 @@ jest.mock('firebase/auth', () => {
     signInWithEmailAndPassword: jest.fn(() => Promise.resolve({ user: mockUser })),
     createUserWithEmailAndPassword: jest.fn(() => Promise.resolve({ user: mockUser })),
     updateProfile: jest.fn(() => Promise.resolve()),
+    EmailAuthProvider: { credential: jest.fn(() => 'mockEmailCredential') },
+    linkWithCredential: jest.fn(() => Promise.resolve({ user: mockUser })),
   };
 });
 
@@ -203,6 +211,42 @@ describe('the useFirebaseAuth hook', () => {
       body: JSON.stringify({ displayName: 'Test User', role: 'student' }),
     });
     expect(result.current.profile).toEqual(createdProfile);
+  });
+
+  it('should link an email/password credential built from the current user email on createPassword', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+
+    const linkedUser: any = { ...mockUser, providerData: [{ providerId: 'password' }] };
+    (linkWithCredential as jest.Mock).mockResolvedValueOnce({ user: linkedUser });
+
+    await act(async () => {
+      await result.current.createPassword('newPassword1');
+    });
+
+    expect(EmailAuthProvider.credential).toHaveBeenCalledWith('test@example.com', 'newPassword1');
+    expect(linkWithCredential).toHaveBeenCalledWith(mockUser, 'mockEmailCredential');
+    expect(result.current.user).toBe(linkedUser);
+    // The Firestore profile is untouched by the credential link.
+    expect(result.current.profile).toEqual(mockProfile);
+  });
+
+  it('should reject createPassword when there is no signed-in user', async () => {
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(null);
+    });
+
+    await act(async () => {
+      await expect(result.current.createPassword('newPassword1')).rejects.toEqual(
+        new Error('Cannot create a password without an authenticated user with an email')
+      );
+    });
+
+    expect(linkWithCredential).not.toHaveBeenCalled();
   });
 
   it('should clear the user and profile on signOut', async () => {
