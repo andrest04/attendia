@@ -72,6 +72,22 @@ describe('End Call button', () => {
       expect(onEndForAll).not.toHaveBeenCalled();
     });
 
+    it('"Salir sin cerrar" delegates to onLeave when provided (professor report snapshot path)', () => {
+      const onEndForAll = jest.fn();
+      const onLeave = jest.fn();
+      const wrapper = shallow(<EndCallButton onEndForAll={onEndForAll} onLeave={onLeave} />);
+      mainButton(wrapper).simulate('click');
+
+      wrapper.find('[data-testid="end-call-leave"]').simulate('click');
+
+      expect(onLeave).toHaveBeenCalledTimes(1);
+      // The delegate owns the whole leave (clear rejoin + disconnect) — the
+      // default body must not also run.
+      expect(mockClearRejoinSession).not.toHaveBeenCalled();
+      expect(mockVideoContext.room!.disconnect).not.toHaveBeenCalled();
+      expect(onEndForAll).not.toHaveBeenCalled();
+    });
+
     it('"Terminar para todos" invokes the end-for-all callback', () => {
       const onEndForAll = jest.fn();
       const wrapper = shallow(<EndCallButton onEndForAll={onEndForAll} />);

@@ -28,6 +28,7 @@ import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
 import useModeration from '../../hooks/useModeration/useModeration';
 import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctoringWarnings';
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
+import useAttentionReportSaver from '../../hooks/useAttentionReportSaver/useAttentionReportSaver';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
@@ -120,9 +121,12 @@ export default function Room() {
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
   const { muteParticipant, mutedByProfessorCount } = useModeration();
   const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
+  // Snapshots the attention report to Firestore on both professor exit paths; a
+  // silent no-op for students and in non-firebase modes.
+  const { saveReport } = useAttentionReportSaver();
   // Singleton (one DataTrack) like useRaiseHand: drives the teacher's "end for everyone"
   // and the student-side "session ended" screen. Must be called once here.
-  const { endSessionForAll } = useSessionEnd();
+  const { endSessionForAll, leaveWithoutEnding } = useSessionEnd({ onProfessorEnd: saveReport });
   const isRecording = useIsRecording();
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
   // Re-open trigger for the onboarding tour: the professor's "Ayuda" button bumps this
@@ -230,6 +234,7 @@ export default function Room() {
                     }
                   }}
                   onEndForAll={endSessionForAll}
+                  onLeave={leaveWithoutEnding}
                 />
               }
               leftOpen={leftOpen}

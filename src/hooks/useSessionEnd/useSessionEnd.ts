@@ -4,6 +4,7 @@ import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import { useAppState } from '../../state';
 import { getPasscode } from '../../state/usePasscodeAuth/usePasscodeAuth';
 import { clearRejoinSession } from '../../components/PreJoinScreens/rejoinSession';
+import { ReportEndReason } from '../../components/AttentionProvider/reportTypes';
 
 /**
  * "End the session for everyone" signaling for the classroom flow.
@@ -32,18 +33,33 @@ interface SessionEndedMessage {
   type: 'session-ended';
 }
 
+export interface SessionEndOptions {
+  /**
+   * Professor-only pre-leave hook, invoked on BOTH exit paths ('ended-for-all'
+   * and 'left') BEFORE room.disconnect() so callers can snapshot state that dies
+   * with the room (the attention report). NOT invoked on the student-side
+   * session-ended message path. Kept in a ref (like sendRef) so a new callback
+   * identity never re-wires the hook.
+   */
+  onProfessorEnd?: (reason: ReportEndReason) => Promise<void>;
+}
+
 export interface SessionEndApi {
   /** Teacher action: broadcast the end, complete the room server-side, then leave. */
   endSessionForAll: () => Promise<void>;
+  /** Teacher action: leave alone, keeping the class open for the students. */
+  leaveWithoutEnding: () => void;
   /** True while the /completeRoom request is in flight. */
   isEnding: boolean;
 }
 
-export default function useSessionEnd(): SessionEndApi {
+export default function useSessionEnd(options: SessionEndOptions = {}): SessionEndApi {
   const { room } = useVideoContext();
   const { setSessionEndedByProfessor } = useAppState();
   const [isEnding, setIsEnding] = useState(false);
   const sendRef = useRef<(message: SessionEndedMessage) => void>(() => undefined);
+  const onProfessorEndRef = useRef<SessionEndOptions['onProfessorEnd']>(undefined);
+  onProfessorEndRef.current = options.onProfessorEnd;
 
   const leaveAsEnded = useCallback(() => {
     clearRejoinSession();
@@ -67,6 +83,10 @@ export default function useSessionEnd(): SessionEndApi {
     // Announce first so students see the ended screen even before completion disconnects them.
     sendRef.current({ type: 'session-ended' });
     try {
+      // Snapshot before anything can tear the room down: the attention report's
+      // source data is cleared by the provider the moment the room disconnects.
+      // The saver never rejects, so this cannot skip the completion request.
+      await onProfessorEndRef.current?.('ended-for-all');
       if (roomName && identity) {
         const endpoint = process.env.REACT_APP_COMPLETE_ROOM_ENDPOINT || '/completeRoom';
         // Include the passcode when present so the request passes the serverless
@@ -90,5 +110,15 @@ export default function useSessionEnd(): SessionEndApi {
     }
   }, [room, leaveAsEnded]);
 
-  return { endSessionForAll, isEnding };
+  // "Salir sin cerrar": the professor leaves alone and the class stays open, so no
+  // broadcast, no /completeRoom, and no session-ended screen. The report snapshot is
+  // fire-and-forget — the synchronous part of saveReport captures the data before
+  // disconnect() runs, and the in-flight POST survives it (the SPA never unloads).
+  const leaveWithoutEnding = useCallback(() => {
+    void onProfessorEndRef.current?.('left');
+    clearRejoinSession();
+    room?.disconnect();
+  }, [room]);
+
+  return { endSessionForAll, leaveWithoutEnding, isEnding };
 }
