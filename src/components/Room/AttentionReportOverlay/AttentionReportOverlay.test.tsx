@@ -1,6 +1,7 @@
 import React from 'react';
 import { mount } from 'enzyme';
-import AttentionReportOverlay, { averageOverTime, percentTimeAboveThreshold } from './AttentionReportOverlay';
+import AttentionReportOverlay from './AttentionReportOverlay';
+import { averageOverTime, percentTimeAboveThreshold } from '../../AttentionReport/reportMath';
 import { useAttention } from '../../AttentionProvider';
 
 jest.mock('../../AttentionProvider');
