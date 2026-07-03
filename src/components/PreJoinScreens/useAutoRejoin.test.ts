@@ -25,6 +25,8 @@ describe('the useAutoRejoin hook', () => {
   let videoConnect: jest.Mock;
   let chatConnect: jest.Mock;
   let getAudioAndVideoTracks: jest.Mock;
+  let removeLocalAudioTrack: jest.Mock;
+  let removeLocalVideoTrack: jest.Mock;
 
   const flush = () => act(async () => {});
 
@@ -35,9 +37,16 @@ describe('the useAutoRejoin hook', () => {
     videoConnect = jest.fn(() => Promise.resolve());
     chatConnect = jest.fn(() => Promise.resolve());
     getAudioAndVideoTracks = jest.fn(() => Promise.resolve());
+    removeLocalAudioTrack = jest.fn();
+    removeLocalVideoTrack = jest.fn();
 
     mockUseAppState.mockImplementation(() => ({ getToken, error: null, setError }));
-    mockUseVideoContext.mockImplementation(() => ({ connect: videoConnect, getAudioAndVideoTracks }));
+    mockUseVideoContext.mockImplementation(() => ({
+      connect: videoConnect,
+      getAudioAndVideoTracks,
+      removeLocalAudioTrack,
+      removeLocalVideoTrack,
+    }));
     mockUseChatContext.mockImplementation(() => ({ connect: chatConnect }));
     delete process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS;
   });
@@ -89,6 +98,20 @@ describe('the useAutoRejoin hook', () => {
     expect(mockClearRejoinSession).toHaveBeenCalledTimes(1);
     expect(result.current).toBe(false);
     expect(videoConnect).not.toHaveBeenCalled();
+  });
+
+  it('releases the acquired media when falling back to the lobby on a token rejection', async () => {
+    mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: 'Ana Lopez' });
+    getToken.mockRejectedValue(new Error('room closed'));
+
+    renderHook(() => useAutoRejoin('prueba'));
+    await flush();
+
+    // Media was acquired before the token request; the lobby renders no media UI, so the
+    // tracks must be released or the camera/mic "in use" indicator stays on forever.
+    expect(getAudioAndVideoTracks).toHaveBeenCalledTimes(1);
+    expect(removeLocalAudioTrack).toHaveBeenCalled();
+    expect(removeLocalVideoTrack).toHaveBeenCalled();
   });
 
   it('preserves the error dialog when getToken rejects (does not auto-dismiss it)', async () => {
@@ -150,6 +173,9 @@ describe('the useAutoRejoin hook', () => {
       expect(getToken).toHaveBeenCalledTimes(2);
       expect(videoConnect).toHaveBeenCalledTimes(2);
       expect(mockClearRejoinSession).not.toHaveBeenCalled();
+      // The retry is still using the acquired media — it must NOT be released mid-flight.
+      expect(removeLocalAudioTrack).not.toHaveBeenCalled();
+      expect(removeLocalVideoTrack).not.toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }
@@ -183,6 +209,9 @@ describe('the useAutoRejoin hook', () => {
 
       expect(result.current).toBe(false);
       expect(mockClearRejoinSession).not.toHaveBeenCalled();
+      // Giving up releases the media so the lobby doesn't hold the camera/mic.
+      expect(removeLocalAudioTrack).toHaveBeenCalled();
+      expect(removeLocalVideoTrack).toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }

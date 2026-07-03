@@ -28,7 +28,12 @@ const RETRY_DELAY_MS = 2000;
 
 export default function useAutoRejoin(urlRoomName: string | undefined): boolean {
   const { getToken, error, setError } = useAppState();
-  const { connect: videoConnect, getAudioAndVideoTracks } = useVideoContext();
+  const {
+    connect: videoConnect,
+    getAudioAndVideoTracks,
+    removeLocalAudioTrack,
+    removeLocalVideoTrack,
+  } = useVideoContext();
   const { connect: chatConnect } = useChatContext();
 
   // Seed the spinner synchronously on first render so the lobby never flashes.
@@ -46,10 +51,19 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
   // The retry runs after a delay, so it must call the CURRENT connect/token functions
   // (videoConnect closes over the freshly acquired localTracks). A ref kept up to date each
   // render avoids the delayed retry firing with a stale closure.
-  const connectorsRef = useRef({ getToken, videoConnect, chatConnect });
+  const connectorsRef = useRef({ getToken, videoConnect, chatConnect, removeLocalAudioTrack, removeLocalVideoTrack });
   useEffect(() => {
-    connectorsRef.current = { getToken, videoConnect, chatConnect };
+    connectorsRef.current = { getToken, videoConnect, chatConnect, removeLocalAudioTrack, removeLocalVideoTrack };
   });
+
+  // Media is acquired BEFORE the token request, so every path that gives up and falls back
+  // to the lobby must release it — the lobby's first step renders no media UI, and leaked
+  // tracks keep the camera/mic "in use" indicator on. DeviceSelectionScreen re-acquires
+  // when the user joins manually again.
+  const releaseLocalTracks = () => {
+    connectorsRef.current.removeLocalAudioTrack();
+    connectorsRef.current.removeLocalVideoTrack();
+  };
 
   // The token/video/chat connect sequence. Callable more than once (the retry reuses it).
   // Media acquisition runs only once, before the first attempt, so it is NOT in here.
@@ -87,6 +101,7 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
             console.warn('Auto-rejoin: retry token request failed.', retryError);
             tokenRejectedRef.current = true;
             clearRejoinSession();
+            releaseLocalTracks();
             setIsRejoining(false);
           });
         }
@@ -96,6 +111,7 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
 
     // Second failure → give up, drop to the lobby, but DO NOT clear the session (Bug 2).
     console.warn('Auto-rejoin: connect failed again, falling back to lobby.', error);
+    releaseLocalTracks();
     setIsRejoining(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [error]);
@@ -129,6 +145,7 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
         console.warn('Auto-rejoin: token request failed, falling back to lobby.', connectError);
         tokenRejectedRef.current = true;
         clearRejoinSession();
+        releaseLocalTracks();
         setIsRejoining(false);
       }
     })();
