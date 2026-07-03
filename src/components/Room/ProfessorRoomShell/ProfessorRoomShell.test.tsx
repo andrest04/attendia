@@ -1,5 +1,6 @@
 import React from 'react';
 import { mount } from 'enzyme';
+import { act } from 'react-dom/test-utils';
 
 import ProfessorRoomShell from './ProfessorRoomShell';
 import { useAttention } from '../../AttentionProvider';
@@ -549,22 +550,31 @@ describe('ProfessorRoomShell', () => {
     );
   });
 
-  it('opens the in-room report overlay from the "Ver reporte" button', () => {
+  // The report overlay is code-split (React.lazy) — flush the dynamic import's
+  // microtask so the lazy component resolves before asserting on its content.
+  const flushLazy = async (wrapper: ReturnType<typeof mount>) => {
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    wrapper.update();
+  };
+
+  it('opens the in-room report overlay from the "Ver reporte" button', async () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
 
     // The report overlay is closed until the toolbar button is clicked.
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
 
     wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
-    wrapper.update();
+    await flushLazy(wrapper);
 
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
   });
 
-  it('closes the report overlay from its Cerrar button', () => {
+  it('closes the report overlay from its Cerrar button', async () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
     wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
-    wrapper.update();
+    await flushLazy(wrapper);
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
 
     wrapper

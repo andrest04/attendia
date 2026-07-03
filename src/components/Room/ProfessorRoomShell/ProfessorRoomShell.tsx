@@ -7,11 +7,16 @@ import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { ShellNotification } from '../StudentRoomShell/useShellNotifications';
 import SessionStatusBar from './SessionStatusBar';
-import AttentionReportOverlay from '../AttentionReportOverlay/AttentionReportOverlay';
 import ProfessorLeftRail from './ProfessorLeftRail';
 import ProfessorRightRail from './ProfessorRightRail';
 import ProctoringAlertModal from './ProctoringAlertModal';
 import { ProfessorRightTab } from './professorShellHelpers';
+
+// The report overlay pulls recharts (via AttentionReportView), which is heavy and
+// only needed when the professor explicitly opens the report — so it is code-split
+// and loaded on demand. The `isReportOpen` guard below means the chunk is not even
+// requested until the first "Ver reporte" click.
+const AttentionReportOverlay = React.lazy(() => import('../AttentionReportOverlay/AttentionReportOverlay'));
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -276,12 +281,16 @@ export default function ProfessorRoomShell({
         />
       )}
 
-      <AttentionReportOverlay
-        isOpen={isReportOpen}
-        onClose={() => setIsReportOpen(false)}
-        sessionName={sessionName}
-        studentCount={studentCount}
-      />
+      {isReportOpen && (
+        <React.Suspense fallback={null}>
+          <AttentionReportOverlay
+            isOpen={isReportOpen}
+            onClose={() => setIsReportOpen(false)}
+            sessionName={sessionName}
+            studentCount={studentCount}
+          />
+        </React.Suspense>
+      )}
     </section>
   );
 }
