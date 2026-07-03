@@ -8,6 +8,7 @@ import { useLocalStorageState } from '../hooks/useLocalStorageState/useLocalStor
 import usePasscodeAuth from './usePasscodeAuth/usePasscodeAuth';
 import { User } from 'firebase/auth';
 import { ClassSessionRole } from '../components/PreJoinScreens/classSessionTypes';
+import { AttentionReport, StoredAttentionReport } from '../components/AttentionProvider/reportTypes';
 
 export interface StateContextType {
   error: TwilioError | Error | null;
@@ -26,6 +27,11 @@ export interface StateContextType {
   register?(name: string, email: string, password: string, role: ClassSessionRole): Promise<void>;
   completeProfile?(role: ClassSessionRole): Promise<void>;
   createPassword?(password: string): Promise<void>;
+  // Firebase-mode only: persistence of per-class attention reports (teacher-only,
+  // enforced server-side). Undefined in the other auth modes, so consumers gate on
+  // presence and the feature is silently absent — same contract as /profile.
+  saveAttentionReport?(report: AttentionReport): Promise<void>;
+  fetchAttentionReports?(): Promise<StoredAttentionReport[]>;
   isFetching: boolean;
   activeSinkId: string;
   setActiveSinkId(sinkId: string): void;
