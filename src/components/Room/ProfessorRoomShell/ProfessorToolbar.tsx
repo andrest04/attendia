@@ -8,6 +8,8 @@ import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
 import GridViewIcon from '@material-ui/icons/Apps';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
+import ScreenShareIcon from '@material-ui/icons/ScreenShare';
+import StopScreenShareIcon from '@material-ui/icons/StopScreenShare';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import ChatIcon from '../../../icons/ChatIcon';
 import { isMobile } from '../../../utils';
@@ -15,10 +17,14 @@ import { useAppState } from '../../../state';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
 import useIsRecording from '../../../hooks/useIsRecording/useIsRecording';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
+import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
-import ToggleScreenShareButton from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
+import {
+  SCREEN_SHARE_TEXT,
+  STOP_SCREEN_SHARE_TEXT,
+} from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -203,7 +209,8 @@ export default function ProfessorToolbar({
   onEndForAll,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
-  const { room } = useVideoContext();
+  const { room, toggleScreenShare, isSharingScreen } = useVideoContext();
+  const screenShareParticipant = useScreenShareParticipant();
   const { conversation, hasUnreadMessages } = useChatContext();
   const { updateRecordingRules, isFetching, roomType, isGalleryViewActive, setIsGalleryViewActive } = useAppState();
   const isRecording = useIsRecording();
@@ -211,10 +218,13 @@ export default function ProfessorToolbar({
   const isReconnecting = roomState === 'reconnecting';
   // Recording rules only exist for group rooms (same gate as the legacy menu).
   const supportsRecording = roomType !== 'peer-to-peer' && roomType !== 'go';
+  // Same gating as ToggleScreenShareButton: only someone ELSE's share blocks the control.
+  const disableScreenShare = Boolean(screenShareParticipant) && !isSharingScreen;
+  const isScreenShareSupported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
   const chip = clsx(classes.chipLayout, classes.chipDark);
 
-  // Secondary controls (view, record, proctoring) live behind a "more options" kebab
-  // so the primary bar stays Meet-like: mic, camera, screen share, chat, leave.
+  // Secondary controls (screen share, view, record, proctoring) live behind a "more options"
+  // kebab so the primary bar stays lean: mic, camera, participants, chat, leave.
   const [isMoreOpen, setIsMoreOpen] = React.useState(false);
   const closeMore = () => setIsMoreOpen(false);
 
@@ -222,7 +232,6 @@ export default function ProfessorToolbar({
     <div className={classes.controlsRow} data-testid="professor-toolbar">
       <ToggleAudioButton disabled={isReconnecting} className={chip} />
       <ToggleVideoButton disabled={isReconnecting} className={chip} />
-      {!isMobile && <ToggleScreenShareButton disabled={isReconnecting} className={chip} />}
       <Button
         onClick={() => onParticipantsToggle?.()}
         startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
@@ -249,7 +258,7 @@ export default function ProfessorToolbar({
         Chat
       </Button>
 
-      {/* ── "More options" kebab: view, record, proctoring ── */}
+      {/* ── "More options" kebab: screen share, view, record, proctoring ── */}
       <div className={classes.moreWrap}>
         <Button
           onClick={() => setIsMoreOpen(open => !open)}
@@ -265,6 +274,33 @@ export default function ProfessorToolbar({
           <>
             <div className={classes.moreMenuBackdrop} onClick={closeMore} />
             <div className={classes.moreMenu} data-testid="professor-toolbar-more-menu" role="menu">
+              {/* Screen share moved out of the primary bar; the kebab is its only entry point. */}
+              {!isMobile && (
+                <>
+                  <button
+                    type="button"
+                    className={clsx(classes.moreMenuItem, { [classes.moreMenuItemProctoringActive]: isSharingScreen })}
+                    data-testid="professor-toolbar-screenshare"
+                    role="menuitemcheckbox"
+                    disabled={isReconnecting || disableScreenShare || !isScreenShareSupported}
+                    onClick={() => {
+                      toggleScreenShare();
+                      closeMore();
+                    }}
+                    aria-checked={isSharingScreen}
+                  >
+                    {isSharingScreen ? (
+                      <StopScreenShareIcon style={{ fontSize: 18 }} />
+                    ) : (
+                      <ScreenShareIcon style={{ fontSize: 18 }} />
+                    )}
+                    {isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT}
+                  </button>
+
+                  <div className={classes.moreMenuDivider} />
+                </>
+              )}
+
               {/* Opens the analytics rail (Grupo/Individual) — the attention cockpit. */}
               <button
                 type="button"
