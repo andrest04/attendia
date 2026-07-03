@@ -35,6 +35,18 @@ const roomExists = createRoomExists(twilioClient);
 app.all('/token', authMiddleware, createRoomAccessGuard(roomExists), tokenEndpoint);
 app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 
+// Firestore-backed user profiles (users/{uid} → { displayName, email, role, createdAt }).
+// Only wired in firebase auth mode: the role is always resolved server-side from the
+// verified uid, so these endpoints are meaningless (and firebase-admin unavailable)
+// in the other auth modes. Both sit behind the auth middleware. See userProfiles.ts.
+if (process.env.REACT_APP_SET_AUTH === 'firebase') {
+  const { firestore, serverTimestamp } = require('./firebaseAdmin');
+  const { createGetProfileHandler, createPostProfileHandler } = require('./userProfiles');
+
+  app.get('/profile', authMiddleware, createGetProfileHandler(firestore));
+  app.post('/profile', authMiddleware, createPostProfileHandler(firestore, serverTimestamp));
+}
+
 // Teacher-only "end the session for everyone": completes the Twilio room so all
 // participants are disconnected and the class can no longer be rejoined. Guarded by
 // the (guardrail-only) teacher-identity check inside the handler. See completeRoom.ts.

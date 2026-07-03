@@ -366,7 +366,7 @@ export default function RoomNameScreen({
   onContinueAsStudent,
 }: RoomNameScreenProps) {
   const classes = useStyles();
-  const { user } = useAppState();
+  const { user, profile } = useAppState();
   const [copied, setCopied] = useState(false);
 
   // Active role is tracked locally and seeded from the draft role supplied by the parent.
@@ -651,27 +651,31 @@ export default function RoomNameScreen({
       )}
 
       {/* ── Role-switch link ─────────────────────────────────────────────────────── */}
-      <div className={classes.roleSwitchRow}>
-        {activeRole === 'teacher' ? (
-          <button
-            type="button"
-            className={classes.roleSwitchLink}
-            onClick={() => handleSwitchRole('student')}
-            data-testid="switch-to-student"
-          >
-            Unirse como estudiante
-          </button>
-        ) : (
-          <button
-            type="button"
-            className={classes.roleSwitchLink}
-            onClick={() => handleSwitchRole('teacher')}
-            data-testid="switch-to-teacher"
-          >
-            Volver a crear sesión
-          </button>
-        )}
-      </div>
+      {/* Hidden when a verified Firestore profile exists (firebase auth mode): the
+          role comes from the profile and is not chosen in the prejoin flow anymore. */}
+      {!profile && (
+        <div className={classes.roleSwitchRow}>
+          {activeRole === 'teacher' ? (
+            <button
+              type="button"
+              className={classes.roleSwitchLink}
+              onClick={() => handleSwitchRole('student')}
+              data-testid="switch-to-student"
+            >
+              Unirse como estudiante
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={classes.roleSwitchLink}
+              onClick={() => handleSwitchRole('teacher')}
+              data-testid="switch-to-teacher"
+            >
+              Volver a crear sesión
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

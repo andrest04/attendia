@@ -3,10 +3,11 @@ import { RecordingRules, RoomType } from '../types';
 import { TwilioError } from 'twilio-video';
 import { settingsReducer, initialSettings, Settings, SettingsAction } from './settings/settingsReducer';
 import useActiveSinkId from './useActiveSinkId/useActiveSinkId';
-import useFirebaseAuth from './useFirebaseAuth/useFirebaseAuth';
+import useFirebaseAuth, { UserProfile } from './useFirebaseAuth/useFirebaseAuth';
 import { useLocalStorageState } from '../hooks/useLocalStorageState/useLocalStorageState';
 import usePasscodeAuth from './usePasscodeAuth/usePasscodeAuth';
 import { User } from 'firebase/auth';
+import { ClassSessionRole } from '../components/PreJoinScreens/classSessionTypes';
 
 export interface StateContextType {
   error: TwilioError | Error | null;
@@ -16,6 +17,14 @@ export interface StateContextType {
   signIn?(passcode?: string): Promise<void>;
   signOut?(): Promise<void>;
   isAuthReady?: boolean;
+  // Firebase-mode only (undefined in the other auth modes): the Firestore-backed
+  // user profile and the email/registration flows. The profile role is what the
+  // prejoin flow uses to preselect teacher/student; the server re-resolves it from
+  // Firestore on every request, so it is UX state, not an authorization boundary.
+  profile?: UserProfile | null;
+  signInWithEmail?(email: string, password: string): Promise<void>;
+  register?(name: string, email: string, password: string, role: ClassSessionRole): Promise<void>;
+  completeProfile?(role: ClassSessionRole): Promise<void>;
   isFetching: boolean;
   activeSinkId: string;
   setActiveSinkId(sinkId: string): void;

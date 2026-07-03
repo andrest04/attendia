@@ -119,6 +119,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     lineHeight: '18px',
     marginBottom: 6,
   },
+  fieldBlock: {
+    marginBottom: 16,
+  },
   textInput: {
     '& .MuiOutlinedInput-root': {
       borderRadius: 10,
@@ -197,6 +200,47 @@ const useStyles = makeStyles((theme: Theme) => ({
       color: '#94a3b8',
     },
   },
+  // ── Divider between the email form and the Google button ─────────────────────
+  divider: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    margin: '20px 0 16px',
+    '&::before, &::after': {
+      content: '""',
+      flex: 1,
+      height: 1.5,
+      backgroundColor: '#e2ecf9',
+    },
+  },
+  dividerText: {
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  // ── Login/register view switch link ──────────────────────────────────────────
+  switchRow: {
+    marginTop: 24,
+    textAlign: 'center',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 12,
+    color: '#64748b',
+  },
+  switchLink: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    marginLeft: 4,
+    color: '#1d6eed',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 12,
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    '&:hover': {
+      color: '#1040a0',
+    },
+  },
   securityLink: {
     display: 'block',
     marginTop: '2em',
@@ -211,17 +255,105 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+// Maps Firebase auth error codes to friendly Spanish messages. Anything unknown
+// (including profile-endpoint failures) falls back to a generic Spanish message.
+export function getFirebaseAuthErrorMessage(error: any): string {
+  switch (error?.code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Correo o contraseña incorrectos. Revisa tus datos e intenta de nuevo.';
+    case 'auth/email-already-in-use':
+      return 'Ya existe una cuenta con este correo. Inicia sesión para continuar.';
+    case 'auth/weak-password':
+      return 'La contraseña es demasiado débil. Usa al menos 6 caracteres.';
+    case 'auth/invalid-email':
+      return 'El correo electrónico no es válido.';
+    case 'auth/too-many-requests':
+      return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
+    default:
+      return 'No pudimos completar la operación. Intenta de nuevo en unos segundos.';
+  }
+}
+
+// Two-option role selector shared by the register view and the completion step.
+// This choice only preselects the classroom flow; the server stores it once and
+// re-reads it from Firestore on every request.
+function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role: PreJoinRole) => void }) {
+  const classes = useStyles();
+
+  const options: { role: PreJoinRole; label: string; caption: string; testId: string }[] = [
+    {
+      role: 'student',
+      label: 'Soy estudiante',
+      caption: 'Unirme a clases existentes',
+      testId: 'role-option-estudiante',
+    },
+    { role: 'teacher', label: 'Soy profesor', caption: 'Crear y dirigir clases', testId: 'role-option-profesor' },
+  ];
+
+  return (
+    <div className={classes.roleCards} style={{ marginBottom: 16 }}>
+      {options.map(option => (
+        <div
+          key={option.role}
+          data-testid={option.testId}
+          className={`${classes.roleCard} ${value === option.role ? classes.roleCardSelected : ''}`}
+          onClick={() => onChange(option.role)}
+          role="button"
+          tabIndex={0}
+          aria-pressed={value === option.role}
+          onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onChange(option.role);
+            }
+          }}
+        >
+          <div
+            className={`${classes.roleAvatar} ${
+              option.role === 'teacher' ? classes.roleAvatarProfesor : classes.roleAvatarEstudiante
+            }`}
+          >
+            {option.role === 'teacher' ? (
+              <MenuBookIcon style={{ fontSize: 18, color: '#1d6eed' }} />
+            ) : (
+              <PersonIcon style={{ fontSize: 18, color: '#d97706' }} />
+            )}
+          </div>
+          <div>
+            <div className={classes.roleLabel}>{option.label}</div>
+            <div className={classes.roleCaption}>{option.caption}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const classes = useStyles();
-  const { signIn, user, isAuthReady } = useAppState();
+  const { signIn, signInWithEmail, register, completeProfile, user, profile, isAuthReady } = useAppState();
   const history = useHistory();
   const location = useLocation<{ from: Location }>();
   const [passcode, setPasscode] = useState('');
   const [authError, setAuthError] = useState<Error | null>(null);
   const [selectedRole, setSelectedRole] = useState<PreJoinRole>('teacher');
 
-  const isAuthEnabled = Boolean(process.env.REACT_APP_SET_AUTH);
+  // Firebase-mode form state.
+  const [view, setView] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [registerRole, setRegisterRole] = useState<PreJoinRole>('student');
+  const [completionRole, setCompletionRole] = useState<PreJoinRole>('student');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isAuthEnabled = Boolean(process.env.REACT_APP_SET_AUTH);
+  const isFirebaseAuth = process.env.REACT_APP_SET_AUTH === 'firebase';
+
+  // Passcode-mode sign-in. The selected role card travels to the prejoin flow via
+  // location state (there is no profile in passcode mode).
   const login = () => {
     setAuthError(null);
     signIn?.(passcode)
@@ -251,77 +383,281 @@ export default function LoginPage() {
     login();
   };
 
-  if (user || !isAuthEnabled) {
+  const runFirebaseAction = (action: Promise<void> | undefined) => {
+    setAuthError(null);
+    setIsSubmitting(true);
+    (action || Promise.resolve())
+      .catch(err => setAuthError(new Error(getFirebaseAuthErrorMessage(err))))
+      .finally(() => setIsSubmitting(false));
+  };
+
+  const handleEmailLogin = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    runFirebaseAction(signInWithEmail?.(email, password));
+  };
+
+  const handleRegister = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    runFirebaseAction(register?.(fullName, email, password, registerRole));
+  };
+
+  const handleGoogleSignIn = () => {
+    runFirebaseAction(signIn?.());
+  };
+
+  const handleCompleteProfile = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    runFirebaseAction(completeProfile?.(completionRole));
+  };
+
+  const switchView = (nextView: 'login' | 'register') => {
+    setAuthError(null);
+    setView(nextView);
+  };
+
+  if (!isAuthEnabled) {
     history.replace('/');
+  } else if (user && (!isFirebaseAuth || profile)) {
+    // In firebase mode the redirect waits for the profile: an authenticated user
+    // without one must stay here to complete the role step first. Unlike the
+    // passcode login above, no preJoinRole is merged into the destination state —
+    // the prejoin resolves the role from the verified profile instead.
+    const from = location?.state?.from;
+    history.replace(from ? from : '/');
   }
 
   if (!isAuthReady) {
     return null;
   }
 
+  // First-time Google users arrive authenticated but without a profile: only the
+  // role is missing, so show the completion step instead of the auth forms.
+  const showCompletionStep = isFirebaseAuth && Boolean(user) && !profile;
+
   return (
     <IntroContainer>
       <div className={classes.formBody}>
-        <div className={classes.roleCards}>
-          <div
-            data-testid="role-card-profesor"
-            className={`${classes.roleCard} ${selectedRole === 'teacher' ? classes.roleCardSelected : ''}`}
-            onClick={() => setSelectedRole('teacher')}
-            role="button"
-            tabIndex={0}
-            aria-pressed={selectedRole === 'teacher'}
-            onKeyDown={event => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                setSelectedRole('teacher');
-              }
-            }}
-          >
-            <div className={`${classes.roleAvatar} ${classes.roleAvatarProfesor}`}>
-              <MenuBookIcon style={{ fontSize: 18, color: '#1d6eed' }} />
-            </div>
-            <div>
-              <div className={classes.roleLabel}>Profesor</div>
-              <div className={classes.roleCaption}>Crear nueva sala de clase</div>
-            </div>
-          </div>
+        {!isFirebaseAuth && (
+          <>
+            <div className={classes.roleCards}>
+              <div
+                data-testid="role-card-profesor"
+                className={`${classes.roleCard} ${selectedRole === 'teacher' ? classes.roleCardSelected : ''}`}
+                onClick={() => setSelectedRole('teacher')}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedRole === 'teacher'}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedRole('teacher');
+                  }
+                }}
+              >
+                <div className={`${classes.roleAvatar} ${classes.roleAvatarProfesor}`}>
+                  <MenuBookIcon style={{ fontSize: 18, color: '#1d6eed' }} />
+                </div>
+                <div>
+                  <div className={classes.roleLabel}>Profesor</div>
+                  <div className={classes.roleCaption}>Crear nueva sala de clase</div>
+                </div>
+              </div>
 
-          <div
-            data-testid="role-card-estudiante"
-            className={`${classes.roleCard} ${selectedRole === 'student' ? classes.roleCardSelected : ''}`}
-            onClick={() => setSelectedRole('student')}
-            role="button"
-            tabIndex={0}
-            aria-pressed={selectedRole === 'student'}
-            onKeyDown={event => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                setSelectedRole('student');
-              }
-            }}
-          >
-            <div className={`${classes.roleAvatar} ${classes.roleAvatarEstudiante}`}>
-              <PersonIcon style={{ fontSize: 18, color: '#d97706' }} />
+              <div
+                data-testid="role-card-estudiante"
+                className={`${classes.roleCard} ${selectedRole === 'student' ? classes.roleCardSelected : ''}`}
+                onClick={() => setSelectedRole('student')}
+                role="button"
+                tabIndex={0}
+                aria-pressed={selectedRole === 'student'}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setSelectedRole('student');
+                  }
+                }}
+              >
+                <div className={`${classes.roleAvatar} ${classes.roleAvatarEstudiante}`}>
+                  <PersonIcon style={{ fontSize: 18, color: '#d97706' }} />
+                </div>
+                <div>
+                  <div className={classes.roleLabel}>Estudiante</div>
+                  <div className={classes.roleCaption}>Unirme a sala existente</div>
+                </div>
+              </div>
             </div>
-            <div>
-              <div className={classes.roleLabel}>Estudiante</div>
-              <div className={classes.roleCaption}>Unirme a sala existente</div>
-            </div>
-          </div>
-        </div>
-        <Typography variant="caption" className={classes.roleHint}>
-          Elige tu rol para iniciar el flujo correspondiente.
-        </Typography>
+            <Typography variant="caption" className={classes.roleHint}>
+              Elige tu rol para iniciar el flujo correspondiente.
+            </Typography>
+          </>
+        )}
 
-        {process.env.REACT_APP_SET_AUTH === 'firebase' && (
+        {isFirebaseAuth && showCompletionStep && (
           <>
             <Typography variant="h5" className={classes.formTitle}>
-              Iniciar sesión para unirte
+              ¿Cómo vas a usar Attendia?
             </Typography>
-            <Typography className={classes.formSubtitle}>Inicia sesión con tu cuenta Google de Twilio.</Typography>
-            <Button variant="contained" className={classes.googleButton} onClick={login} startIcon={<GoogleLogo />}>
-              Iniciar sesión con Google
+            <Typography className={classes.formSubtitle}>
+              Selecciona tu rol para terminar de configurar tu cuenta.
+            </Typography>
+            <form onSubmit={handleCompleteProfile}>
+              <RoleSelector value={completionRole} onChange={setCompletionRole} />
+              {authError && (
+                <Typography variant="caption" className={classes.errorMessage}>
+                  <ErrorOutlineIcon />
+                  {authError.message}
+                </Typography>
+              )}
+              <Button variant="contained" type="submit" disabled={isSubmitting} className={classes.primaryButton}>
+                Confirmar y continuar
+              </Button>
+            </form>
+          </>
+        )}
+
+        {isFirebaseAuth && !showCompletionStep && view === 'login' && (
+          <>
+            <Typography variant="h5" className={classes.formTitle}>
+              Iniciar sesión
+            </Typography>
+            <Typography className={classes.formSubtitle}>Accede con tu cuenta para entrar a tus clases.</Typography>
+            <form onSubmit={handleEmailLogin}>
+              <div className={classes.fieldBlock}>
+                <label htmlFor="input-email" className={classes.fieldLabel}>
+                  Correo electrónico
+                </label>
+                <TextField
+                  id="input-email"
+                  fullWidth
+                  type="email"
+                  value={email}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                  variant="outlined"
+                  className={classes.textInput}
+                />
+              </div>
+              <div className={classes.fieldBlock}>
+                <label htmlFor="input-password" className={classes.fieldLabel}>
+                  Contraseña
+                </label>
+                <TextField
+                  id="input-password"
+                  fullWidth
+                  type="password"
+                  value={password}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                  variant="outlined"
+                  className={classes.textInput}
+                />
+              </div>
+              {authError && (
+                <Typography variant="caption" className={classes.errorMessage}>
+                  <ErrorOutlineIcon />
+                  {authError.message}
+                </Typography>
+              )}
+              <Button
+                variant="contained"
+                type="submit"
+                disabled={!email.length || !password.length || isSubmitting}
+                className={classes.primaryButton}
+              >
+                Iniciar sesión
+              </Button>
+            </form>
+            <div className={classes.divider}>
+              <span className={classes.dividerText}>o</span>
+            </div>
+            <Button
+              variant="contained"
+              className={classes.googleButton}
+              onClick={handleGoogleSignIn}
+              disabled={isSubmitting}
+              startIcon={<GoogleLogo />}
+            >
+              Continuar con Google
             </Button>
+            <div className={classes.switchRow}>
+              ¿No tienes cuenta?
+              <button type="button" className={classes.switchLink} onClick={() => switchView('register')}>
+                Crear cuenta
+              </button>
+            </div>
+          </>
+        )}
+
+        {isFirebaseAuth && !showCompletionStep && view === 'register' && (
+          <>
+            <Typography variant="h5" className={classes.formTitle}>
+              Crear cuenta
+            </Typography>
+            <Typography className={classes.formSubtitle}>
+              Regístrate para crear o unirte a clases en Attendia.
+            </Typography>
+            <form onSubmit={handleRegister}>
+              <div className={classes.fieldBlock}>
+                <label htmlFor="input-name" className={classes.fieldLabel}>
+                  Nombre completo
+                </label>
+                <TextField
+                  id="input-name"
+                  fullWidth
+                  value={fullName}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
+                  variant="outlined"
+                  className={classes.textInput}
+                />
+              </div>
+              <div className={classes.fieldBlock}>
+                <label htmlFor="input-register-email" className={classes.fieldLabel}>
+                  Correo electrónico
+                </label>
+                <TextField
+                  id="input-register-email"
+                  fullWidth
+                  type="email"
+                  value={email}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                  variant="outlined"
+                  className={classes.textInput}
+                />
+              </div>
+              <div className={classes.fieldBlock}>
+                <label htmlFor="input-register-password" className={classes.fieldLabel}>
+                  Contraseña
+                </label>
+                <TextField
+                  id="input-register-password"
+                  fullWidth
+                  type="password"
+                  value={password}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                  variant="outlined"
+                  className={classes.textInput}
+                />
+              </div>
+              <RoleSelector value={registerRole} onChange={setRegisterRole} />
+              {authError && (
+                <Typography variant="caption" className={classes.errorMessage}>
+                  <ErrorOutlineIcon />
+                  {authError.message}
+                </Typography>
+              )}
+              <Button
+                variant="contained"
+                type="submit"
+                disabled={!fullName.trim().length || !email.length || !password.length || isSubmitting}
+                className={classes.primaryButton}
+              >
+                Crear cuenta
+              </Button>
+            </form>
+            <div className={classes.switchRow}>
+              ¿Ya tienes cuenta?
+              <button type="button" className={classes.switchLink} onClick={() => switchView('login')}>
+                Iniciar sesión
+              </button>
+            </div>
           </>
         )}
 
