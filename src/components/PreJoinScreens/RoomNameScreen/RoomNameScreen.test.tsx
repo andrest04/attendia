@@ -114,6 +114,28 @@ describe('the RoomNameScreen component', () => {
     expect(onSelectRole).toHaveBeenCalledWith('teacher');
   });
 
+  it('hides the role-switch link when a verified profile exists (teacher view)', () => {
+    mockUseAppState.mockImplementationOnce(() => ({
+      user: { displayName: 'Teacher Name' },
+      profile: { displayName: 'Teacher Name', email: 't@example.com', role: 'teacher' },
+    }));
+    const wrapper = shallow(<RoomNameScreen {...baseProps} />);
+
+    expect(wrapper.find('[data-testid="switch-to-student"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="switch-to-teacher"]').exists()).toBe(false);
+  });
+
+  it('hides the role-switch link when a verified profile exists (student view)', () => {
+    mockUseAppState.mockImplementationOnce(() => ({
+      user: { displayName: 'Ana' },
+      profile: { displayName: 'Ana', email: 'a@example.com', role: 'student' },
+    }));
+    const wrapper = shallow(<RoomNameScreen {...baseProps} classSessionDraft={baseStudentDraft} />);
+
+    expect(wrapper.find('[data-testid="switch-to-student"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="switch-to-teacher"]').exists()).toBe(false);
+  });
+
   // ── Teacher card field counts ──────────────────────────────────────────────────
 
   it('should render correctly when there is no logged in user (teacher view)', () => {

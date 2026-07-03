@@ -23,7 +23,7 @@ import {
 import { Steps } from './steps';
 
 export default function PreJoinScreens() {
-  const { user } = useAppState();
+  const { user, profile } = useAppState();
   const { getAudioAndVideoTracks } = useVideoContext();
   const { URLRoomName } = useParams<{ URLRoomName?: string }>();
   const isRejoining = useAutoRejoin(URLRoomName);
@@ -33,7 +33,13 @@ export default function PreJoinScreens() {
   // room, its identity encodes the correct role (teacher carries the [Profesor] suffix). Read it
   // synchronously so the fallback lobby shows the RIGHT role/name instead of defaulting to student.
   const resumable = getResumableSession(URLRoomName);
-  const initialRole: 'teacher' | 'student' = resumable
+  // When a verified Firestore profile exists (firebase auth mode), its role wins over
+  // EVERYTHING: a teacher opening a student deep-link stays teacher, and a student can
+  // never become teacher by omitting the link. Without a profile (anonymous/passcode
+  // modes), the legacy priority chain applies unchanged.
+  const initialRole: 'teacher' | 'student' = profile
+    ? profile.role
+    : resumable
     ? isTeacherIdentity(resumable.identity)
       ? 'teacher'
       : 'student'
@@ -45,9 +51,10 @@ export default function PreJoinScreens() {
   const [step, setStep] = useState(Steps.roomNameStep);
 
   // Prefill the editable name field from the persisted identity on a manual rejoin (teacher
-  // suffix stripped — the teacher join flow re-appends it). Falls back to the user displayName.
+  // suffix stripped — the teacher join flow re-appends it). Falls back to the verified
+  // profile displayName (firebase mode), then to the auth user displayName.
   const [name, setName] = useState<string>(() =>
-    resumable ? stripTeacherSuffix(resumable.identity) : user?.displayName || ''
+    resumable ? stripTeacherSuffix(resumable.identity) : profile?.displayName || user?.displayName || ''
   );
   // teacherDisplayName is purely derived from `name` (the [Profesor] suffix is appended for the
   // teacher card preview), so compute it during render instead of mirroring it into state.
@@ -55,7 +62,7 @@ export default function PreJoinScreens() {
   const [roomName, setRoomName] = useState<string>('');
   const [studentJoinCode, setStudentJoinCode] = useState<string>('');
   const [classSessionDraft, setClassSessionDraft] = useState<ClassSessionDraft>(() => ({
-    ...createDefaultClassSessionDraft(user?.displayName || ''),
+    ...createDefaultClassSessionDraft(profile?.displayName || user?.displayName || ''),
     role: initialRole,
   }));
   const [classSessionAccess, setClassSessionAccess] = useState<ClassSessionAccess | null>(null);
@@ -68,17 +75,22 @@ export default function PreJoinScreens() {
 
   const [mediaError, setMediaError] = useState<Error>();
 
+  // Depend on the scalar role (not the profile object) so an unstable profile
+  // reference can never re-trigger this effect into a render loop.
+  const profileRole = profile ? profile.role : undefined;
+
   useEffect(() => {
     if (URLRoomName) {
       setRoomName(URLRoomName);
       setStudentJoinCode(URLRoomName);
-      // Derive the role from the persisted identity (teacher suffix) instead of hardcoding
+      // The verified profile role (firebase mode) wins over the deep link. Otherwise,
+      // derive the role from the persisted identity (teacher suffix) instead of hardcoding
       // 'student' — otherwise a teacher who refreshes lands on the student card (Bug 1).
       const session = getResumableSession(URLRoomName);
-      const role = session && isTeacherIdentity(session.identity) ? 'teacher' : 'student';
+      const role = profileRole || (session && isTeacherIdentity(session.identity) ? 'teacher' : 'student');
       setClassSessionDraft(prev => ({ ...prev, role }));
     }
-  }, [URLRoomName]);
+  }, [URLRoomName, profileRole]);
 
   useEffect(() => {
     setClassSessionDraft(prev => ({ ...prev, displayName: name }));

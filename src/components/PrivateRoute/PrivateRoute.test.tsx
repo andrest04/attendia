@@ -28,8 +28,42 @@ describe('the PrivateRoute component', () => {
         expect(wrapper.exists(MockComponent)).toBe(false);
       });
 
-      it('should render children when there is a user', () => {
+      it('should render children when there is a user with a profile', () => {
         process.env.REACT_APP_SET_AUTH = 'firebase';
+        mockUseAppState.mockImplementation(() => ({
+          user: {},
+          profile: { displayName: 'Test', email: 'test@example.com', role: 'teacher' },
+          isAuthReady: true,
+        }));
+        const wrapper = mount(
+          <MemoryRouter initialEntries={['/']}>
+            <PrivateRoute exact path="/">
+              <MockComponent />
+            </PrivateRoute>
+          </MemoryRouter>
+        );
+        const history = wrapper.find('Router').prop('history') as any;
+        expect(history.location.pathname).toEqual('/');
+        expect(wrapper.exists(MockComponent)).toBe(true);
+      });
+
+      it('should redirect to /login when the user has no profile', () => {
+        process.env.REACT_APP_SET_AUTH = 'firebase';
+        mockUseAppState.mockImplementation(() => ({ user: {}, profile: null, isAuthReady: true }));
+        const wrapper = mount(
+          <MemoryRouter initialEntries={['/']}>
+            <PrivateRoute exact path="/">
+              <MockComponent />
+            </PrivateRoute>
+          </MemoryRouter>
+        );
+        const history = wrapper.find('Router').prop('history') as any;
+        expect(history.location.pathname).toEqual('/login');
+        expect(wrapper.exists(MockComponent)).toBe(false);
+      });
+
+      it('should render children when passcode auth is active and there is no profile', () => {
+        process.env.REACT_APP_SET_AUTH = 'passcode';
         mockUseAppState.mockImplementation(() => ({ user: {}, isAuthReady: true }));
         const wrapper = mount(
           <MemoryRouter initialEntries={['/']}>

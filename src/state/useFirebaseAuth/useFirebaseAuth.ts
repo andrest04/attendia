@@ -1,6 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, User, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import {
+  getAuth,
+  User,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+} from 'firebase/auth';
+import { ClassSessionRole } from '../../components/PreJoinScreens/classSessionTypes';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -10,9 +19,85 @@ const firebaseConfig = {
   messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
 };
 
+// Mirror of the users/{uid} Firestore document served by GET/POST /profile. The role
+// here only drives client UX (prejoin role preselection); the server re-resolves the
+// role from Firestore on every request — the browser is never trusted at request time.
+export interface UserProfile {
+  displayName: string;
+  email: string;
+  role: ClassSessionRole;
+}
+
+// GET /profile for the signed-in user. Resolves null on 404, meaning "no profile yet"
+// (a first-time Google user who still needs to pick a role). Throws on other failures.
+async function fetchProfileRequest(user: User): Promise<UserProfile | null> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch('/profile', {
+    headers: { Authorization: idToken },
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error?.explanation || body.error?.message || response.statusText);
+  }
+
+  return response.json();
+}
+
+// POST /profile. The server creates the profile if missing (201) or echoes the existing
+// one untouched (200) — role is write-once there. Rejects on any other non-OK response.
+async function postProfileRequest(user: User, displayName: string, role: ClassSessionRole): Promise<UserProfile> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch('/profile', {
+    method: 'POST',
+    headers: { Authorization: idToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ displayName, role }),
+  });
+
+  const body = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(body.error?.explanation || body.error?.message || response.statusText);
+  }
+
+  return body;
+}
+
 export default function useFirebaseAuth() {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
+
+  // Monotonic id guarding profile updates: a slow GET /profile must never clobber the
+  // profile a later register()/completeProfile() POST just established.
+  const profileRequestIdRef = useRef(0);
+
+  const applyProfile = useCallback((newProfile: UserProfile | null) => {
+    profileRequestIdRef.current++;
+    setProfile(newProfile);
+  }, []);
+
+  const refreshProfile = useCallback(async (currentUser: User) => {
+    const requestId = ++profileRequestIdRef.current;
+
+    // A profile-fetch failure must not block an otherwise successful sign-in: the user
+    // just lands on the role-completion step, and completing it repairs the state.
+    const fetchedProfile = await fetchProfileRequest(currentUser).catch(err => {
+      console.error('Error fetching the user profile:', err);
+      return null;
+    });
+
+    if (requestId === profileRequestIdRef.current) {
+      setProfile(fetchedProfile);
+    }
+    return fetchedProfile;
+  }, []);
 
   const getToken = useCallback(
     async (user_identity: string, room_name: string) => {
@@ -75,30 +160,107 @@ export default function useFirebaseAuth() {
     [user]
   );
 
+  // The auth-state listener only settles the INITIAL state (page load) and reacts to
+  // external sign-outs. Interactive flows (signIn/signInWithEmail/register/signOut)
+  // own their own user+profile transitions; letting the listener also react to their
+  // intermediate auth events would expose `user` before the profile settles and flash
+  // the wrong view (e.g. the role-completion step mid-registration).
+  const hasHandledInitialAuthRef = useRef(false);
+
   useEffect(() => {
     initializeApp(firebaseConfig);
-    getAuth().onAuthStateChanged(newUser => {
-      setUser(newUser);
-      setIsAuthReady(true);
+    getAuth().onAuthStateChanged(async newUser => {
+      if (!hasHandledInitialAuthRef.current) {
+        hasHandledInitialAuthRef.current = true;
+        if (newUser) {
+          // Resolve the profile BEFORE exposing the user, so consumers (PrivateRoute,
+          // PreJoinScreens) never observe an authenticated user with an unsettled
+          // profile on page load — the app must not flash wrong routes or roles.
+          await refreshProfile(newUser);
+        }
+        setUser(newUser);
+        setIsAuthReady(true);
+        return;
+      }
+
+      if (!newUser) {
+        applyProfile(null);
+        setUser(null);
+      }
     });
-  }, []);
+  }, [refreshProfile, applyProfile]);
 
   const signIn = useCallback(() => {
     const provider = new GoogleAuthProvider();
     provider.addScope('https://www.googleapis.com/auth/plus.login');
 
-    return signInWithPopup(getAuth(), provider).then(newUser => {
+    return signInWithPopup(getAuth(), provider).then(async newUser => {
+      // Profile first, user second — see the auth-state listener note above.
+      await refreshProfile(newUser.user);
       setUser(newUser.user);
     });
-  }, []);
+  }, [refreshProfile]);
+
+  const signInWithEmail = useCallback(
+    async (email: string, password: string) => {
+      const credential = await signInWithEmailAndPassword(getAuth(), email, password);
+      await refreshProfile(credential.user);
+      setUser(credential.user);
+    },
+    [refreshProfile]
+  );
+
+  const register = useCallback(
+    async (name: string, email: string, password: string, role: ClassSessionRole) => {
+      const credential = await createUserWithEmailAndPassword(getAuth(), email, password);
+      await updateProfile(credential.user, { displayName: name });
+
+      try {
+        const createdProfile = await postProfileRequest(credential.user, name, role);
+        applyProfile(createdProfile);
+      } finally {
+        // Expose the user even if the profile write failed: the Firebase account
+        // exists either way, and the role-completion step can retry the write.
+        setUser(credential.user);
+      }
+    },
+    [applyProfile]
+  );
+
+  // Completes a first-time Google sign-in: the user is authenticated but has no
+  // profile yet (GET /profile returned 404), so only the role is missing.
+  const completeProfile = useCallback(
+    async (role: ClassSessionRole) => {
+      if (!user) {
+        throw new Error('Cannot complete a profile without an authenticated user');
+      }
+
+      const displayName = user.displayName || user.email || '';
+      const createdProfile = await postProfileRequest(user, displayName, role);
+      applyProfile(createdProfile);
+    },
+    [user, applyProfile]
+  );
 
   const signOut = useCallback(() => {
     return getAuth()
       .signOut()
       .then(() => {
         setUser(null);
+        applyProfile(null);
       });
-  }, []);
+  }, [applyProfile]);
 
-  return { user, signIn, signOut, isAuthReady, getToken, updateRecordingRules };
+  return {
+    user,
+    profile,
+    signIn,
+    signInWithEmail,
+    register,
+    completeProfile,
+    signOut,
+    isAuthReady,
+    getToken,
+    updateRecordingRules,
+  };
 }

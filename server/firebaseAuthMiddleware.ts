@@ -1,20 +1,17 @@
 import { RequestHandler } from 'express';
-import firebaseAdmin from 'firebase-admin';
+import { auth } from './firebaseAdmin';
+import { VerifiedFirebaseUser } from './userProfiles';
 
-firebaseAdmin.initializeApp({
-  credential: firebaseAdmin.credential.cert(require('./serviceAccountKey.json')),
-  databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL,
-});
-
-const db = firebaseAdmin.firestore();
-let allowedEmails: string[] = [];
-
-const docRef = db.collection('config').doc('allowedEmails');
-docRef.onSnapshot((snapshot) => {
-  const data = snapshot.data();
-  allowedEmails = data?.emails || [];
-});
-
+/*
+ * Authentication-only middleware: verifies the Firebase ID token from the
+ * Authorization header and attaches the decoded identity (uid, email) to
+ * res.locals.firebaseUser for downstream handlers (e.g. the profile endpoints).
+ *
+ * Registration is open, so there is deliberately NO allowlist gate here anymore
+ * (the old @twilio.com / Firestore config/allowedEmails check is gone).
+ * Authorization decisions — like the user's role — are resolved later by reading
+ * the Firestore profile for the VERIFIED uid, never from anything the browser sends.
+ */
 const firebaseAuthMiddleware: RequestHandler = async (req, res, next) => {
   const authHeader = req.get('authorization');
 
@@ -23,18 +20,10 @@ const firebaseAuthMiddleware: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    // Here we authenticate users by verifying the ID token that was sent
-    const token = await firebaseAdmin.auth().verifyIdToken(authHeader);
-
-    // Here we authorize users to use this application only if they have a
-    // Twilio email address or the Firestore allowlist contains their email.
-    // The logic in this if statement can be changed if you would like to
-    // authorize your users in a different manner.
-    if (token.email && (/@twilio\.com$/.test(token.email) || allowedEmails.includes(token.email))) {
-      next();
-    } else {
-      res.status(401).send();
-    }
+    const token = await auth.verifyIdToken(authHeader);
+    const firebaseUser: VerifiedFirebaseUser = { uid: token.uid, email: token.email };
+    res.locals.firebaseUser = firebaseUser;
+    next();
   } catch {
     res.status(401).send();
   }

@@ -349,6 +349,60 @@ describe('the PreJoinScreens component', () => {
     expect(wrapper.find(RoomNameScreen).prop('roomName')).toBe('linked-room');
   });
 
+  // ── Verified profile role (firebase mode) ────────────────────────────────────────
+  // When a Firestore-backed profile exists, its role wins over EVERYTHING: deep links,
+  // login-selected roles and resumable sessions. Without a profile the legacy chain
+  // (covered by the tests above) applies byte-for-byte.
+
+  it('keeps a profile teacher as teacher even on a student deep link', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: 'linked-room' }));
+    mockUseAppState.mockImplementation(() => ({
+      user: { displayName: 'Profe' },
+      profile: { displayName: 'Profe', email: 'profe@example.com', role: 'teacher' },
+    }));
+    const wrapper = mount(<PreJoinScreens />);
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('teacher');
+    expect(wrapper.find(RoomNameScreen).prop('roomName')).toBe('linked-room');
+  });
+
+  it('keeps a profile student as student even when login state says teacher', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    mockUseLocation.mockImplementation(() => ({ state: { preJoinRole: 'teacher' } }));
+    mockUseAppState.mockImplementation(() => ({
+      user: { displayName: 'Ana' },
+      profile: { displayName: 'Ana', email: 'ana@example.com', role: 'student' },
+    }));
+    const wrapper = mount(<PreJoinScreens />);
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('student');
+  });
+
+  it('prioritizes the profile role over a resumable session identity', () => {
+    mockUseAutoRejoin.mockReturnValue(false);
+    mockUseParams.mockImplementation(() => ({ URLRoomName: 'prueba' }));
+    mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: 'Ana Lopez' });
+    mockUseAppState.mockImplementation(() => ({
+      user: { displayName: 'Profe' },
+      profile: { displayName: 'Profe', email: 'profe@example.com', role: 'teacher' },
+    }));
+    const wrapper = mount(<PreJoinScreens />);
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('teacher');
+  });
+
+  it('prefills the editable name from the profile displayName over the auth user displayName', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    mockUseAppState.mockImplementation(() => ({
+      user: { displayName: 'Auth Name' },
+      profile: { displayName: 'Profile Name', email: 'profile@example.com', role: 'teacher' },
+    }));
+    const wrapper = mount(<PreJoinScreens />);
+
+    expect(wrapper.find(RoomNameScreen).prop('name')).toBe('Profile Name');
+    expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').displayName).toBe('Profile Name');
+  });
+
   it('resolves teacher visible identity with suffix after creating class session', () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
     const wrapper = shallow(<PreJoinScreens />);
