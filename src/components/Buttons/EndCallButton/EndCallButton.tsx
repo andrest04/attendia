@@ -59,6 +59,13 @@ interface EndCallButtonProps {
    * (students) → clicking leaves directly, keeping the room alive for the rest of the class.
    */
   onEndForAll?: () => void;
+  /**
+   * Teacher-only. Replaces the default plain-leave behavior (clear rejoin +
+   * disconnect) so the professor shell can snapshot the attention report before
+   * disconnecting (useSessionEnd's leaveWithoutEnding). Absent (students) → the
+   * default leave runs unchanged.
+   */
+  onLeave?: () => void;
 }
 
 export default function EndCallButton(props: EndCallButtonProps = {}) {
@@ -69,12 +76,14 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
   // Leaving on purpose must not auto-rejoin on the next refresh, so drop the saved
   // session here. A page refresh disconnects via 'beforeunload' instead, which does
   // not run this handler — that path keeps the session and reconnects.
-  const handleLeave = () => {
+  const defaultLeave = () => {
     clearRejoinSession();
     // Optional-chain: a refresh ('beforeunload') or a double-click race can have
     // already disconnected and nulled the room — calling disconnect() then throws.
     room?.disconnect();
   };
+
+  const handleLeave = props.onLeave ?? defaultLeave;
 
   const handleClick = () => {
     // Teachers get the choice (leave vs end for everyone); students just leave.

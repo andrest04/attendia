@@ -97,4 +97,56 @@ describe('useSessionEnd', () => {
     expect(mockDisconnect).not.toHaveBeenCalled();
     expect(mockSetEnded).not.toHaveBeenCalled();
   });
+
+  describe('the onProfessorEnd option', () => {
+    it('endSessionForAll awaits onProfessorEnd("ended-for-all") before disconnecting', async () => {
+      const onProfessorEnd = jest.fn(() => Promise.resolve());
+      const { result } = renderHook(() => useSessionEnd({ onProfessorEnd }));
+
+      await act(async () => {
+        await result.current.endSessionForAll();
+      });
+
+      expect(onProfessorEnd).toHaveBeenCalledTimes(1);
+      expect(onProfessorEnd).toHaveBeenCalledWith('ended-for-all');
+      // The snapshot must run before the room is torn down — the attention
+      // provider clears its history on disconnect.
+      expect(onProfessorEnd.mock.invocationCallOrder[0]).toBeLessThan(mockDisconnect.mock.invocationCallOrder[0]);
+      expect(mockDisconnect).toHaveBeenCalled();
+    });
+
+    it('leaveWithoutEnding fires onProfessorEnd("left"), clears the rejoin session, and disconnects', () => {
+      const onProfessorEnd = jest.fn(() => Promise.resolve());
+      const { result } = renderHook(() => useSessionEnd({ onProfessorEnd }));
+
+      act(() => result.current.leaveWithoutEnding());
+
+      expect(onProfessorEnd).toHaveBeenCalledWith('left');
+      expect(mockClearRejoin).toHaveBeenCalled();
+      expect(mockDisconnect).toHaveBeenCalled();
+      // Leaving alone keeps the class open: no broadcast, no room completion, and
+      // no "session ended" screen for anyone.
+      expect(mockSend).not.toHaveBeenCalled();
+      expect((global as any).fetch).not.toHaveBeenCalled();
+      expect(mockSetEnded).not.toHaveBeenCalled();
+    });
+
+    it('leaveWithoutEnding does not throw when the room is already gone', () => {
+      mockedVideoContext.mockImplementation(() => ({ room: null }));
+      const { result } = renderHook(() => useSessionEnd({ onProfessorEnd: jest.fn(() => Promise.resolve()) }));
+
+      expect(() => act(() => result.current.leaveWithoutEnding())).not.toThrow();
+      expect(mockClearRejoin).toHaveBeenCalled();
+    });
+
+    it('is NOT invoked on the student session-ended message path', () => {
+      const onProfessorEnd = jest.fn(() => Promise.resolve());
+      renderHook(() => useSessionEnd({ onProfessorEnd }));
+
+      act(() => capturedOnMessage({ type: 'session-ended' }));
+
+      expect(onProfessorEnd).not.toHaveBeenCalled();
+      expect(mockDisconnect).toHaveBeenCalled();
+    });
+  });
 });

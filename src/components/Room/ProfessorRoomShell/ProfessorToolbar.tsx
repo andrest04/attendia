@@ -195,6 +195,8 @@ interface ProfessorToolbarProps {
   onAttentionToggle?: () => void;
   /** Teacher-only: end the session for everyone (completes the room). Opens a confirm dialog. */
   onEndForAll?: () => void;
+  /** Teacher-only: leave without closing the class (snapshots the attention report first). */
+  onLeave?: () => void;
 }
 
 export default function ProfessorToolbar({
@@ -207,6 +209,7 @@ export default function ProfessorToolbar({
   attentionOpen = false,
   onAttentionToggle,
   onEndForAll,
+  onLeave,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
   const { room, toggleScreenShare, isSharingScreen } = useVideoContext();
@@ -385,6 +388,7 @@ export default function ProfessorToolbar({
           label="Terminar sesión"
           className={clsx(classes.chipLayout, classes.endCallChip)}
           onEndForAll={onEndForAll}
+          onLeave={onLeave}
         />
       </Hidden>
     </div>
