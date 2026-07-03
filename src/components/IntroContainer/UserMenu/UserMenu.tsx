@@ -6,22 +6,29 @@ import UserAvatar from './UserAvatar/UserAvatar';
 import Menu from '@material-ui/core/Menu';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
+// Flows inline inside the IntroContainer header (light background) — it must not
+// position itself; the header's flex layout places it after the info chips.
 const useStyles = makeStyles({
   userContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    margin: '1em',
     display: 'flex',
     alignItems: 'center',
   },
   userButton: {
-    color: 'white',
+    color: '#1d2f6f',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 500,
+    fontSize: 14,
+    textTransform: 'none',
+    whiteSpace: 'nowrap',
   },
   logoutLink: {
-    color: 'white',
+    color: '#1d6eed',
     cursor: 'pointer',
     padding: '10px 20px',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 500,
+    fontSize: 14,
+    whiteSpace: 'nowrap',
   },
 });
 
@@ -42,7 +49,7 @@ const UserMenu: React.FC = () => {
     return (
       <div className={classes.userContainer}>
         <Link onClick={handleSignOut} className={classes.logoutLink}>
-          Logout
+          Cerrar sesión
         </Link>
       </div>
     );
@@ -71,7 +78,7 @@ const UserMenu: React.FC = () => {
           }}
         >
           <MenuItem onClick={handleSignOut}>
-            <Typography variant="body1">Logout</Typography>
+            <Typography variant="body1">Cerrar sesión</Typography>
           </MenuItem>
         </Menu>
       </div>
