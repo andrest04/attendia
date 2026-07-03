@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { makeStyles, Typography, Button, MenuItem, Link } from '@material-ui/core';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import { useHistory } from 'react-router-dom';
 import { useAppState } from '../../../state';
 import UserAvatar from './UserAvatar/UserAvatar';
 import Menu from '@material-ui/core/Menu';
@@ -35,8 +36,9 @@ const useStyles = makeStyles({
 
 const UserMenu: React.FC = () => {
   const classes = useStyles();
-  const { user, signOut } = useAppState();
+  const { user, profile, signOut } = useAppState();
   const { localTracks } = useVideoContext();
+  const history = useHistory();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [createPasswordOpen, setCreatePasswordOpen] = useState(false);
@@ -93,6 +95,16 @@ const UserMenu: React.FC = () => {
               }}
             >
               <Typography variant="body1">Crear contraseña</Typography>
+            </MenuItem>
+          )}
+          {profile?.role === 'teacher' && (
+            <MenuItem
+              onClick={() => {
+                setMenuOpen(false);
+                history.push('/history');
+              }}
+            >
+              <Typography variant="body1">Historial de clases</Typography>
             </MenuItem>
           )}
           <MenuItem onClick={handleSignOut}>

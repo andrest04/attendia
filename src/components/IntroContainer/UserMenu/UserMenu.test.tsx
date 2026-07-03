@@ -9,6 +9,11 @@ import CreatePasswordDialog from './CreatePasswordDialog/CreatePasswordDialog';
 jest.mock('../../../state');
 jest.mock('../../../hooks/useVideoContext/useVideoContext');
 
+const mockHistoryPush = jest.fn();
+jest.mock('react-router-dom', () => ({
+  useHistory: () => ({ push: mockHistoryPush }),
+}));
+
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 
@@ -105,6 +110,72 @@ describe('the UserMenu component', () => {
         expect(wrapper.find(Menu).prop('open')).toBe(false);
         expect(wrapper.find(CreatePasswordDialog).prop('open')).toBe(true);
       });
+    });
+  });
+
+  describe('the "Historial de clases" menu item', () => {
+    const menuItemLabels = (wrapper: any) =>
+      wrapper.find(MenuItem).map((item: any) => item.find(Typography).prop('children'));
+
+    beforeAll(() => {
+      process.env.REACT_APP_SET_AUTH = 'firebase';
+    });
+
+    beforeEach(() => {
+      mockHistoryPush.mockClear();
+    });
+
+    afterEach(() => {
+      // Restore the describe-level user so the other tests keep their mock.
+      mockUseAppState.mockImplementation(() => ({
+        user: { displayName: 'Test User' },
+        signOut: mockSignOut,
+      }));
+    });
+
+    it('should render for a teacher profile', () => {
+      mockUseAppState.mockImplementation(() => ({
+        user: { displayName: 'Test User' },
+        profile: { displayName: 'Test User', email: 'test@example.com', role: 'teacher' },
+        signOut: mockSignOut,
+      }));
+
+      const wrapper = shallow(<UserMenu />);
+      expect(menuItemLabels(wrapper)).toEqual(['Historial de clases', 'Cerrar sesión']);
+    });
+
+    it('should not render for a student profile', () => {
+      mockUseAppState.mockImplementation(() => ({
+        user: { displayName: 'Test User' },
+        profile: { displayName: 'Test User', email: 'test@example.com', role: 'student' },
+        signOut: mockSignOut,
+      }));
+
+      const wrapper = shallow(<UserMenu />);
+      expect(menuItemLabels(wrapper)).toEqual(['Cerrar sesión']);
+    });
+
+    it('should not render when there is no profile at all', () => {
+      const wrapper = shallow(<UserMenu />);
+      expect(menuItemLabels(wrapper)).toEqual(['Cerrar sesión']);
+    });
+
+    it('should close the menu and navigate to /history when clicked', () => {
+      mockUseAppState.mockImplementation(() => ({
+        user: { displayName: 'Test User' },
+        profile: { displayName: 'Test User', email: 'test@example.com', role: 'teacher' },
+        signOut: mockSignOut,
+      }));
+
+      const wrapper = shallow(<UserMenu />);
+      wrapper.find(Button).simulate('click');
+      wrapper
+        .find(MenuItem)
+        .first()
+        .simulate('click');
+
+      expect(wrapper.find(Menu).prop('open')).toBe(false);
+      expect(mockHistoryPush).toHaveBeenCalledWith('/history');
     });
   });
 
