@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom';
 
 import { CssBaseline } from '@material-ui/core';
@@ -8,20 +8,24 @@ import App from './App';
 import AppStateProvider, { useAppState } from './state';
 import { BrowserRouter as Router, Redirect, Route, Switch } from 'react-router-dom';
 import ErrorDialog from './components/ErrorDialog/ErrorDialog';
-import LoginPage from './components/LoginPage/LoginPage';
 import PrivateRoute from './components/PrivateRoute/PrivateRoute';
 import theme from './theme';
 import './types';
 import { SnackbarProvider } from 'notistack';
 import { ChatProvider } from './components/ChatProvider';
 import { AttentionProvider } from './components/AttentionProvider';
-import SecurityPage from './components/SecurityPage/SecurityPage';
-import ClassHistoryPage from './components/ClassHistoryPage/ClassHistoryPage';
-import ManualPage from './components/ManualPage/ManualPage';
 import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
 import useConnectionOptions from './utils/useConnectionOptions/useConnectionOptions';
 import UnsupportedBrowserWarning from './components/UnsupportedBrowserWarning/UnsupportedBrowserWarning';
+
+// Standalone pages (outside the room) are code-split so their weight — recharts,
+// page-only UI — stays out of the main bundle. VideoApp stays eager: it is the
+// core path and must never wait on a network round-trip.
+const LoginPage = lazy(() => import('./components/LoginPage/LoginPage'));
+const SecurityPage = lazy(() => import('./components/SecurityPage/SecurityPage'));
+const ClassHistoryPage = lazy(() => import('./components/ClassHistoryPage/ClassHistoryPage'));
+const ManualPage = lazy(() => import('./components/ManualPage/ManualPage'));
 
 const VideoApp = () => {
   const { error, setError } = useAppState();
@@ -56,30 +60,35 @@ export const ReactApp = () => (
     <UnsupportedBrowserWarning>
       <Router>
         <AppStateProvider>
-          <Switch>
-            <PrivateRoute exact path="/">
-              <VideoApp />
-            </PrivateRoute>
-            <PrivateRoute path="/room/:URLRoomName">
-              <VideoApp />
-            </PrivateRoute>
-            <Route path="/login">
-              <LoginPage />
-            </Route>
-            <Route path="/security">
-              <SecurityPage />
-            </Route>
-            {/* Full user manual — plain route, opened in a new tab from the in-room tutorial. */}
-            <Route path="/manual">
-              <ManualPage />
-            </Route>
-            {/* Teacher class history — needs auth (PrivateRoute) but NOT the SDK
+          {/* Single boundary for the lazy standalone pages. The fallback is
+              intentionally empty: these pages own the full viewport, so there is
+              no surrounding layout to jank while the chunk loads. */}
+          <Suspense fallback={null}>
+            <Switch>
+              <PrivateRoute exact path="/">
+                <VideoApp />
+              </PrivateRoute>
+              <PrivateRoute path="/room/:URLRoomName">
+                <VideoApp />
+              </PrivateRoute>
+              <Route path="/login">
+                <LoginPage />
+              </Route>
+              <Route path="/security">
+                <SecurityPage />
+              </Route>
+              {/* Full user manual — plain route, opened in a new tab from the in-room tutorial. */}
+              <Route path="/manual">
+                <ManualPage />
+              </Route>
+              {/* Teacher class history — needs auth (PrivateRoute) but NOT the SDK
                 providers, which live inside VideoApp, so this stays lightweight. */}
-            <PrivateRoute path="/history">
-              <ClassHistoryPage />
-            </PrivateRoute>
-            <Redirect to="/" />
-          </Switch>
+              <PrivateRoute path="/history">
+                <ClassHistoryPage />
+              </PrivateRoute>
+              <Redirect to="/" />
+            </Switch>
+          </Suspense>
         </AppStateProvider>
       </Router>
     </UnsupportedBrowserWarning>

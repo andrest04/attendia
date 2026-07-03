@@ -6,11 +6,15 @@ import WarningIcon from '@material-ui/icons/Warning';
 import VideocamOffIcon from '@material-ui/icons/VideocamOff';
 import SmartphoneIcon from '@material-ui/icons/Smartphone';
 import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
-import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Tooltip } from 'recharts';
 import { AttentionLevel, AttentionTimelinePoint, ParticipantAttention } from '../../AttentionProvider/types';
 import { levelColor } from '../../AttentionProvider/attentionLabels';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import { ProfessorRightTab } from './professorShellHelpers';
+
+// Code-split the timeline chart: it is the only recharts consumer on the professor
+// room path, so lazy-loading it keeps recharts out of the main bundle. The chunk is
+// requested the first time the rail renders with `open` true (rails start collapsed).
+const AttentionTimelineChart = React.lazy(() => import('./AttentionTimelineChart'));
 
 const useStyles = makeStyles((theme: Theme) => ({
   rightRail: {
@@ -324,38 +328,13 @@ export default function ProfessorRightRail({
               <div className={classes.chartTitle}>Evolución temporal</div>
               <div style={{ height: 120 }} data-testid="professor-room-shell-timeline">
                 {/* Skip the chart while the rail is collapsed to 0px: recharts'
-                    ResponsiveContainer warns when it measures a 0-width parent. */}
+                    ResponsiveContainer warns when it measures a 0-width parent.
+                    The fixed-height wrapper above keeps the layout stable while the
+                    lazy chunk loads (fallback renders nothing inside it). */}
                 {open && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={timeline} margin={{ top: 4, right: 4, left: -24, bottom: 4 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2ecf9" />
-                      <XAxis
-                        dataKey="time"
-                        tick={{ fontSize: 8, fill: '#94a3b8' }}
-                        minTickGap={40}
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 8, fill: '#94a3b8' }} />
-                      <Tooltip contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2ecf9' }} />
-                      <ReferenceLine
-                        y={attentionThreshold}
-                        stroke="#ffb800"
-                        strokeDasharray="4 4"
-                        strokeWidth={1}
-                        strokeOpacity={0.5}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#1d6eed"
-                        strokeWidth={2}
-                        fill="#1d6eed"
-                        fillOpacity={0.1}
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <React.Suspense fallback={null}>
+                    <AttentionTimelineChart timeline={timeline} attentionThreshold={attentionThreshold} />
+                  </React.Suspense>
                 )}
               </div>
             </div>
