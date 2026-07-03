@@ -4,23 +4,27 @@ import ProfessorToolbar from './ProfessorToolbar';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
 import useIsRecording from '../../../hooks/useIsRecording/useIsRecording';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
+import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import { useAppState } from '../../../state';
 
 jest.mock('../../../hooks/useChatContext/useChatContext');
 jest.mock('../../../hooks/useIsRecording/useIsRecording');
 jest.mock('../../../hooks/useRoomState/useRoomState');
+jest.mock('../../../hooks/useScreenShareParticipant/useScreenShareParticipant');
 jest.mock('../../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../../state');
 
 const mockUseChatContext = useChatContext as jest.Mock<any>;
 const mockUseIsRecording = useIsRecording as jest.Mock<any>;
 const mockUseRoomState = useRoomState as jest.Mock<any>;
+const mockUseScreenShareParticipant = useScreenShareParticipant as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 const mockUseAppState = useAppState as jest.Mock<any>;
 
 const mockUpdateRecordingRules = jest.fn();
 const mockSetIsGalleryViewActive = jest.fn();
+const mockToggleScreenShare = jest.fn();
 
 // View, record and proctoring now live behind the "more options" kebab, so most
 // assertions need the menu opened first.
@@ -38,7 +42,17 @@ describe('ProfessorToolbar', () => {
     }));
     mockUseIsRecording.mockImplementation(() => false);
     mockUseRoomState.mockImplementation(() => 'connected');
-    mockUseVideoContext.mockImplementation(() => ({ isSharingScreen: false, room: { sid: 'RM123' } }));
+    mockUseScreenShareParticipant.mockImplementation(() => undefined);
+    mockUseVideoContext.mockImplementation(() => ({
+      isSharingScreen: false,
+      toggleScreenShare: mockToggleScreenShare,
+      room: { sid: 'RM123' },
+    }));
+    // jsdom has no mediaDevices; the kebab's screen-share item needs getDisplayMedia to exist.
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getDisplayMedia: () => Promise.resolve() },
+    });
     mockUseAppState.mockImplementation(() => ({
       updateRecordingRules: mockUpdateRecordingRules,
       isFetching: false,
@@ -64,10 +78,11 @@ describe('ProfessorToolbar', () => {
     expect(wrapper.find('RaiseHandButton').exists()).toBe(false);
   });
 
-  it('reveals attention, view, record and proctoring inside the kebab menu', () => {
+  it('reveals screen share, attention, view, record and proctoring inside the kebab menu', () => {
     const wrapper = shallow(<ProfessorToolbar />);
     openMore(wrapper);
     expect(wrapper.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="professor-toolbar-screenshare"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-toolbar-attention"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-toolbar-view"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(true);
@@ -110,16 +125,50 @@ describe('ProfessorToolbar', () => {
     });
   });
 
-  describe('screen-share button', () => {
-    it('renders the screen-share button when not sharing', () => {
+  describe('screen-share menu item', () => {
+    it('does not render the screen-share chip in the primary bar', () => {
       const wrapper = shallow(<ProfessorToolbar />);
-      expect(wrapper.find('ToggleScreenShareButton').exists()).toBe(true);
+      expect(wrapper.find('ToggleScreenShareButton').exists()).toBe(false);
     });
 
-    it('still renders the screen-share button while the professor is sharing their screen', () => {
-      mockUseVideoContext.mockImplementationOnce(() => ({ isSharingScreen: true, room: { sid: 'RM123' } }));
+    it('toggles screen share from the kebab and closes the menu', () => {
       const wrapper = shallow(<ProfessorToolbar />);
-      expect(wrapper.find('ToggleScreenShareButton').exists()).toBe(true);
+      openMore(wrapper);
+      const item = wrapper.find('[data-testid="professor-toolbar-screenshare"]');
+      expect(item.text()).toContain('Compartir pantalla');
+      expect(item.prop('disabled')).toBe(false);
+
+      item.simulate('click');
+      expect(mockToggleScreenShare).toHaveBeenCalled();
+      wrapper.update();
+      expect(wrapper.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(false);
+    });
+
+    it('offers to stop sharing while the professor is sharing their screen', () => {
+      mockUseVideoContext.mockImplementation(() => ({
+        isSharingScreen: true,
+        toggleScreenShare: mockToggleScreenShare,
+        room: { sid: 'RM123' },
+      }));
+      const wrapper = shallow(<ProfessorToolbar />);
+      openMore(wrapper);
+      const item = wrapper.find('[data-testid="professor-toolbar-screenshare"]');
+      expect(item.text()).toContain('Dejar de compartir');
+      expect(item.prop('disabled')).toBe(false);
+    });
+
+    it('disables the item while someone else is sharing their screen', () => {
+      mockUseScreenShareParticipant.mockImplementation(() => ({ identity: 'student' }));
+      const wrapper = shallow(<ProfessorToolbar />);
+      openMore(wrapper);
+      expect(wrapper.find('[data-testid="professor-toolbar-screenshare"]').prop('disabled')).toBe(true);
+    });
+
+    it('disables the item when the browser does not support screen sharing', () => {
+      Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined });
+      const wrapper = shallow(<ProfessorToolbar />);
+      openMore(wrapper);
+      expect(wrapper.find('[data-testid="professor-toolbar-screenshare"]').prop('disabled')).toBe(true);
     });
   });
 
