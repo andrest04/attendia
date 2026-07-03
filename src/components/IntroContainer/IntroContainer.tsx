@@ -73,6 +73,37 @@ const useStyles = makeStyles((theme: Theme) => ({
     pointerEvents: 'none',
   },
 
+  // ── Student (warm) page variant ──────────────────────────────────────────────
+  // The lobby is tinted by role: teacher keeps the default blue palette; the
+  // student flow swaps the page background and decorative circles to amber so the
+  // two entry points read differently at a glance. In-room UI is not affected.
+  // These overrides are defined after the base classes so they win in JSS order.
+  rootStudent: {
+    backgroundColor: '#fffaec',
+  },
+  bgCircle1Student: {
+    background: 'rgba(255,184,0,0.10)',
+  },
+  bgCircle2Student: {
+    background: 'rgba(255,184,0,0.06)',
+  },
+  bgCircle3Student: {
+    background: 'rgba(29,110,237,0.05)',
+  },
+  bgCircle4Student: {
+    background: 'rgba(255,184,0,0.07)',
+  },
+  heroBadgeStudent: {
+    backgroundColor: '#fdf3d7',
+    border: '1px solid rgba(217,119,6,0.25)',
+  },
+  heroBadgeDotStudent: {
+    backgroundColor: '#d97706',
+  },
+  heroBadgeTextStudent: {
+    color: '#b45309',
+  },
+
   // ── Header ──────────────────────────────────────────────────────────────────
   header: {
     backgroundColor: 'rgba(255,255,255,0.85)',
@@ -399,6 +430,7 @@ const IntroContainer = (props: IntroContainerProps) => {
   const location = useLocation();
   const history = useHistory();
   const rootRef = React.useRef<HTMLDivElement>(null);
+  const isStudent = props.homeRole === 'student';
 
   // The header logo doubles as a "go home" control: it returns to the lobby (root) for the
   // current role. Navigating to '/' remounts PreJoinScreens at the room-name step, and the
@@ -418,13 +450,13 @@ const IntroContainer = (props: IntroContainerProps) => {
   }, [props.noHero, location.pathname]);
 
   return (
-    <div className={classes.root} ref={rootRef}>
+    <div className={`${classes.root}${isStudent ? ` ${classes.rootStudent}` : ''}`} ref={rootRef}>
       {/* Decorative background blobs (clipped so they never create scroll) */}
       <div className={classes.bgDecor} aria-hidden="true">
-        <div className={classes.bgCircle1} />
-        <div className={classes.bgCircle2} />
-        <div className={classes.bgCircle3} />
-        <div className={classes.bgCircle4} />
+        <div className={`${classes.bgCircle1}${isStudent ? ` ${classes.bgCircle1Student}` : ''}`} />
+        <div className={`${classes.bgCircle2}${isStudent ? ` ${classes.bgCircle2Student}` : ''}`} />
+        <div className={`${classes.bgCircle3}${isStudent ? ` ${classes.bgCircle3Student}` : ''}`} />
+        <div className={`${classes.bgCircle4}${isStudent ? ` ${classes.bgCircle4Student}` : ''}`} />
       </div>
 
       {/* Header */}
@@ -478,9 +510,11 @@ const IntroContainer = (props: IntroContainerProps) => {
             <div className={classes.heroLogo}>
               <AttendiaLogo variant="icon" size={46} />
             </div>
-            <div className={classes.heroBadge}>
-              <div className={classes.heroBadgeDot} />
-              <span className={classes.heroBadgeText}>Plataforma de Videoconferencia</span>
+            <div className={`${classes.heroBadge}${isStudent ? ` ${classes.heroBadgeStudent}` : ''}`}>
+              <div className={`${classes.heroBadgeDot}${isStudent ? ` ${classes.heroBadgeDotStudent}` : ''}`} />
+              <span className={`${classes.heroBadgeText}${isStudent ? ` ${classes.heroBadgeTextStudent}` : ''}`}>
+                Plataforma de Videoconferencia
+              </span>
             </div>
             <Typography component="h1" className={classes.heroTitle}>
               Bienvenido a <span className={classes.heroTitleAccent}>attendia</span>
