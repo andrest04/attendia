@@ -14,6 +14,7 @@ export interface IVideoContext {
   onError: ErrorCallback;
   getLocalVideoTrack: (newOptions?: CreateLocalTrackOptions) => Promise<LocalVideoTrack>;
   isAcquiringLocalTracks: boolean;
+  removeLocalAudioTrack: () => void;
   removeLocalVideoTrack: () => void;
   isSharingScreen: boolean;
   toggleScreenShare: () => void;
