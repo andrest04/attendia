@@ -16,6 +16,7 @@ import { SnackbarProvider } from 'notistack';
 import { ChatProvider } from './components/ChatProvider';
 import { AttentionProvider } from './components/AttentionProvider';
 import SecurityPage from './components/SecurityPage/SecurityPage';
+import ClassHistoryPage from './components/ClassHistoryPage/ClassHistoryPage';
 import ManualPage from './components/ManualPage/ManualPage';
 import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
@@ -72,6 +73,11 @@ export const ReactApp = () => (
             <Route path="/manual">
               <ManualPage />
             </Route>
+            {/* Teacher class history — needs auth (PrivateRoute) but NOT the SDK
+                providers, which live inside VideoApp, so this stays lightweight. */}
+            <PrivateRoute path="/history">
+              <ClassHistoryPage />
+            </PrivateRoute>
             <Redirect to="/" />
           </Switch>
         </AppStateProvider>
