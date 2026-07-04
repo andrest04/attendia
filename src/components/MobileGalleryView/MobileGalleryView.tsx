@@ -74,43 +74,39 @@ export function MobileGalleryView() {
     }
   }
 
-  const portraitParticipantVideoStyles: CSSProperties = {
-    width: remoteParticipantCount < 3 ? '100%' : '50%',
-    // The height of each participant's video is determined by the number of participants on the gallery view
-    // page. Here the array indices represent a remoteParticipantCount. If the count is 4 or greater,
-    // the height will be 33.33%
-    height: ['100%', '50%', '33.33%', '50%', '33.33%'][Math.min(remoteParticipantCount, 4)],
-    padding: '0.2em',
-    boxSizing: 'border-box',
-  };
-
-  const landscapeParticipantVideoStyles: CSSProperties = {
-    height: remoteParticipantCount < 3 ? '100%' : '50%',
-    width: ['100%', '50%', '33.33%', '50%', '33.33%'][Math.min(remoteParticipantCount, 4)],
-    padding: '0.2em 0.1em',
-    boxSizing: 'border-box',
-  };
+  // The size of each tile is driven by how many participants share THIS page, not the
+  // grand total across every swipe page — otherwise a trailing page (e.g. the 7th
+  // participant alone on page 2) renders at the tiny multi-tile size instead of filling
+  // the screen. `count` mirrors the original remoteParticipantCount steps by treating the
+  // page as "1 anchor tile + count more", which holds whether or not that anchor is the
+  // local participant (only present on page 0).
+  function getParticipantVideoStyles(pageParticipantCount: number, isLandscape: boolean): CSSProperties {
+    const count = Math.max(0, pageParticipantCount - 1);
+    const sizeStep = ['100%', '50%', '33.33%', '50%', '33.33%'][Math.min(count, 4)];
+    return isLandscape
+      ? { height: count < 3 ? '100%' : '50%', width: sizeStep, padding: '0.2em 0.1em', boxSizing: 'border-box' }
+      : { width: count < 3 ? '100%' : '50%', height: sizeStep, padding: '0.2em', boxSizing: 'border-box' };
+  }
 
   return (
     <div className={clsx(classes.participantContainer, { [classes.isPaginationActive]: remoteParticipantCount > 5 })}>
       <Swiper pagination={true} modules={[Pagination]} className="mySwiper">
-        {pages.map((page, i) => (
-          <SwiperSlide key={i} className={classes.swiperSlide}>
-            {page.map(participant => (
-              <div
-                data-test-id="participantContainer"
-                style={isMobileLandscape ? landscapeParticipantVideoStyles : portraitParticipantVideoStyles}
-                key={participant.sid}
-              >
-                <Participant
-                  participant={participant}
-                  isLocalParticipant={room!.localParticipant === participant}
-                  isDominantSpeaker={dominantSpeaker === participant}
-                />
-              </div>
-            ))}
-          </SwiperSlide>
-        ))}
+        {pages.map((page, i) => {
+          const participantVideoStyles = getParticipantVideoStyles(page.length, isMobileLandscape);
+          return (
+            <SwiperSlide key={i} className={classes.swiperSlide}>
+              {page.map(participant => (
+                <div data-test-id="participantContainer" style={participantVideoStyles} key={participant.sid}>
+                  <Participant
+                    participant={participant}
+                    isLocalParticipant={room!.localParticipant === participant}
+                    isDominantSpeaker={dominantSpeaker === participant}
+                  />
+                </div>
+              ))}
+            </SwiperSlide>
+          );
+        })}
       </Swiper>
     </div>
   );
