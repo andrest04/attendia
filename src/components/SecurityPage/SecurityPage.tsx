@@ -11,6 +11,7 @@ import SecurityIcon from '@material-ui/icons/Security';
 import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import DoneIcon from '@material-ui/icons/Done';
 import AttendiaLogo from '../Brand/AttendiaLogo';
+import goBackFromStandalonePage from '../../utils/goBackFromStandalonePage';
 
 interface CardAccent {
   topBar: string;
@@ -458,12 +459,7 @@ export default function SecurityPage() {
   const classes = useStyles();
 
   const handleGoBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-
-    window.location.assign('/login');
+    goBackFromStandalonePage();
   };
 
   return (
