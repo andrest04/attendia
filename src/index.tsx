@@ -26,6 +26,7 @@ const LoginPage = lazy(() => import('./components/LoginPage/LoginPage'));
 const SecurityPage = lazy(() => import('./components/SecurityPage/SecurityPage'));
 const ClassHistoryPage = lazy(() => import('./components/ClassHistoryPage/ClassHistoryPage'));
 const ManualPage = lazy(() => import('./components/ManualPage/ManualPage'));
+const ReportPage = lazy(() => import('./components/ReportPage/ReportPage'));
 
 const VideoApp = () => {
   const { error, setError } = useAppState();
@@ -80,6 +81,11 @@ export const ReactApp = () => (
               {/* Full user manual — plain route, opened in a new tab from the in-room tutorial. */}
               <Route path="/manual">
                 <ManualPage />
+              </Route>
+              {/* Attention report — plain route, opened in a new tab from the in-room
+                "Ver reporte" action; renders a localStorage snapshot, no SDK providers. */}
+              <Route path="/report">
+                <ReportPage />
               </Route>
               {/* Teacher class history — needs auth (PrivateRoute) but NOT the SDK
                 providers, which live inside VideoApp, so this stays lightweight. */}

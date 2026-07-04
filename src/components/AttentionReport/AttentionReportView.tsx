@@ -10,10 +10,10 @@ import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/typ
 import { levelColor, levelLabel } from '../AttentionProvider/attentionLabels';
 
 /*
- * Presentational core of the attention report, extracted from AttentionReportOverlay
- * so the same light-themed report body can render both in-room (overlay, live
- * useAttention() data) and on the /history page (stored Firestore reports). It is
- * data-via-props only: no context reads, no SDK dependencies.
+ * Presentational core of the attention report so the same light-themed report body
+ * can render on the /report page (new-tab snapshot of live useAttention() data) and
+ * on the /history page (stored Firestore reports). It is data-via-props only: no
+ * context reads, no SDK dependencies.
  */
 
 export const MOCK_DISCLOSURE = 'Datos simulados — pipeline CV pendiente';
@@ -147,6 +147,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     boxShadow: '0px 2px 12px 0px rgba(29,110,237,0.08), 0px 1px 3px 0px rgba(0,0,0,0.04)',
     padding: '23px 25px',
     overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
   },
   kpiLabel: {
     fontFamily: 'Poppins, Inter, sans-serif',
@@ -157,6 +159,14 @@ const useStyles = makeStyles((theme: Theme) => ({
     textTransform: 'uppercase',
     color: '#94a3b8',
     marginBottom: 10,
+    // Reserve two lines so labels of differing length (one- vs two-line) never
+    // push their value row to a different height — all KPI values stay aligned.
+    minHeight: 33,
+  },
+  // Pin the value row to the bottom of the card so every KPI number sits on the
+  // same baseline regardless of label height.
+  kpiValueWrap: {
+    marginTop: 'auto',
   },
   kpiValueRow: {
     display: 'flex',
@@ -516,11 +526,13 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
         {kpiCards.map(card => (
           <div key={card.label} className={classes.kpiCard}>
             <p className={classes.kpiLabel}>{card.label}</p>
-            <div className={classes.kpiValueRow}>
-              <span className={classes.kpiValue} style={{ color: card.color }}>
-                {card.value}
-              </span>
-              <span className={classes.kpiSub}>{card.sub}</span>
+            <div className={classes.kpiValueWrap}>
+              <div className={classes.kpiValueRow}>
+                <span className={classes.kpiValue} style={{ color: card.color }}>
+                  {card.value}
+                </span>
+                <span className={classes.kpiSub}>{card.sub}</span>
+              </div>
             </div>
           </div>
         ))}
