@@ -207,16 +207,21 @@ export default function PreJoinScreens() {
   }
 
   return (
-    <IntroContainer
-      // 1004 = the previous 940 of content + the screenWrapper side padding (2 × 32),
-      // so the preview/panel columns keep their original widths.
-      maxWidth={step === Steps.deviceSelectionStep ? 1004 : undefined}
-      noHero={step === Steps.deviceSelectionStep}
-      headerRoomName={step === Steps.deviceSelectionStep ? roomName : undefined}
-      homeRole={classSessionDraft.role}
-    >
+    <>
+      {/* Rendered OUTSIDE IntroContainer: MUI v4's Snackbar is an inline `position: fixed`
+          element (no Portal), so nesting it inside IntroContainer's <main> (z-index 1)
+          trapped it below the header (z-index 10), which clipped the headline. As a
+          top-level sibling it floats above everything, like the in-room snackbars. */}
       <MediaErrorSnackbar error={mediaError} />
-      {step === Steps.roomNameStep && (
+      <IntroContainer
+        // 1004 = the previous 940 of content + the screenWrapper side padding (2 × 32),
+        // so the preview/panel columns keep their original widths.
+        maxWidth={step === Steps.deviceSelectionStep ? 1004 : undefined}
+        noHero={step === Steps.deviceSelectionStep}
+        headerRoomName={step === Steps.deviceSelectionStep ? roomName : undefined}
+        homeRole={classSessionDraft.role}
+      >
+        {step === Steps.roomNameStep && (
         <RoomNameScreen
           name={name}
           roomName={roomName}
@@ -236,9 +241,10 @@ export default function PreJoinScreens() {
         />
       )}
 
-      {step === Steps.deviceSelectionStep && (
-        <DeviceSelectionScreen name={name} roomName={roomName} setStep={setStep} />
-      )}
-    </IntroContainer>
+        {step === Steps.deviceSelectionStep && (
+          <DeviceSelectionScreen name={name} roomName={roomName} setStep={setStep} />
+        )}
+      </IntroContainer>
+    </>
   );
 }
