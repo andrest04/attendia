@@ -112,6 +112,11 @@ export default function Room() {
   const { isGalleryViewActive, setIsGalleryViewActive } = useAppState();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  // Between 600-960px the desktop shells still render (isMobile only flips below 600),
+  // but their rails are fixed-width — with BOTH open at once the stage can shrink to a
+  // sliver. On that range, opening one rail auto-closes the other so the stage always
+  // keeps its narrowed-but-usable width (see ProfessorRoomShell/StudentRoomShell down('md') rail widths).
+  const isNarrowDesktop = useMediaQuery(theme.breakpoints.down('md'));
   const screenShareParticipant = useScreenShareParticipant();
   const [professorTab, setProfessorTab] = useState<ProfessorRightTab>('grupo');
   // Meet-style clean entry: both side rails start collapsed and the professor opens
@@ -141,6 +146,18 @@ export default function Room() {
   const isConnectivityDegraded =
     typeof localParticipantNetworkQuality === 'number' ? localParticipantNetworkQuality <= 2 : false;
   const notifications = useShellNotifications(participants);
+
+  const toggleLeftRail = useCallback(() => {
+    setLeftOpen(open => {
+      const next = !open;
+      if (next && isNarrowDesktop) setRightOpen(false);
+      return next;
+    });
+  }, [isNarrowDesktop]);
+  const openRightRail = useCallback(() => {
+    if (isNarrowDesktop) setLeftOpen(false);
+    setRightOpen(true);
+  }, [isNarrowDesktop]);
 
   // Transient, role-curated toasts (join/leave, raise-hand, turn, recording).
   useNotificationToasts({
@@ -214,14 +231,14 @@ export default function Room() {
                   proctoringEnabled={proctoringEnabled}
                   onProctoringChange={setProctoringEnabled}
                   participantsOpen={leftOpen}
-                  onParticipantsToggle={() => setLeftOpen(o => !o)}
+                  onParticipantsToggle={toggleLeftRail}
                   chatOpen={rightOpen && professorTab === 'chat'}
                   onChatToggle={() => {
                     if (rightOpen && professorTab === 'chat') {
                       setRightOpen(false);
                     } else {
                       setProfessorTab('chat');
-                      setRightOpen(true);
+                      openRightRail();
                     }
                   }}
                   attentionOpen={rightOpen && professorTab !== 'chat'}
@@ -230,7 +247,7 @@ export default function Room() {
                       setRightOpen(false);
                     } else {
                       setProfessorTab('grupo');
-                      setRightOpen(true);
+                      openRightRail();
                     }
                   }}
                   onEndForAll={endSessionForAll}
@@ -267,9 +284,9 @@ export default function Room() {
                   handRaised={isHandRaised}
                   onHandRaisedChange={setHandRaised}
                   participantsOpen={leftOpen}
-                  onParticipantsToggle={() => setLeftOpen(o => !o)}
+                  onParticipantsToggle={toggleLeftRail}
                   chatOpen={rightOpen}
-                  onChatToggle={() => setRightOpen(o => !o)}
+                  onChatToggle={() => (rightOpen ? setRightOpen(false) : openRightRail())}
                 />
               }
               activeSpeakerLabel={activeSpeakerLabel}

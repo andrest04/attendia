@@ -17,6 +17,9 @@ import { AttentionContext } from '../AttentionProvider';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 
 const CONTAINER_GUTTER = '50px';
+// On a narrow desktop/tablet window the fixed 50px gutter eats a disproportionate
+// share of the stage on all four sides — shrink it below the md breakpoint.
+const CONTAINER_GUTTER_NARROW = '24px';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -42,6 +45,12 @@ const useStyles = makeStyles((theme: Theme) =>
       alignContent: 'center',
       flexWrap: 'wrap',
       justifyContent: 'center',
+      [theme.breakpoints.down('md')]: {
+        top: CONTAINER_GUTTER_NARROW,
+        right: CONTAINER_GUTTER_NARROW,
+        bottom: CONTAINER_GUTTER_NARROW,
+        left: CONTAINER_GUTTER_NARROW,
+      },
     },
     buttonContainer: {
       position: 'absolute',
@@ -55,10 +64,16 @@ const useStyles = makeStyles((theme: Theme) =>
     buttonContainerLeft: {
       right: `calc(100% - ${CONTAINER_GUTTER})`,
       left: 0,
+      [theme.breakpoints.down('md')]: {
+        right: `calc(100% - ${CONTAINER_GUTTER_NARROW})`,
+      },
     },
     buttonContainerRight: {
       right: 0,
       left: `calc(100% - ${CONTAINER_GUTTER})`,
+      [theme.breakpoints.down('md')]: {
+        left: `calc(100% - ${CONTAINER_GUTTER_NARROW})`,
+      },
     },
     pagination: {
       '& .MuiPaginationItem-root': {

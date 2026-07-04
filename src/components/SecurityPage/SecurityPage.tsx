@@ -169,8 +169,12 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderBottom: '1px solid #e2ecf9',
     display: 'flex',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: theme.spacing(2),
     padding: theme.spacing(1.75, 4.5),
+    [theme.breakpoints.down('sm')]: {
+      padding: theme.spacing(1, 2),
+    },
   },
   navLogo: {
     display: 'flex',

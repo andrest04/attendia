@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { Button, createStyles, Hidden, makeStyles, Theme } from '@material-ui/core';
+import { Button, createStyles, makeStyles, Theme } from '@material-ui/core';
 import CallEndIcon from '@material-ui/icons/CallEnd';
 import DonutLargeIcon from '@material-ui/icons/DonutLarge';
 import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
@@ -389,18 +389,16 @@ export default function ProfessorToolbar({
         )}
       </div>
 
-      <Hidden smDown>
-        <span className={classes.divider} />
-        <EndCallButton
-          dark
-          startIcon={<CallEndIcon />}
-          label="Terminar sesión"
-          iconOnly
-          className={clsx(classes.chipLayout, classes.endCallChip)}
-          onEndForAll={onEndForAll}
-          onLeave={onLeave}
-        />
-      </Hidden>
+      <span className={classes.divider} />
+      <EndCallButton
+        dark
+        startIcon={<CallEndIcon />}
+        label="Terminar sesión"
+        iconOnly
+        className={clsx(classes.chipLayout, classes.endCallChip)}
+        onEndForAll={onEndForAll}
+        onLeave={onLeave}
+      />
     </div>
   );
 }
