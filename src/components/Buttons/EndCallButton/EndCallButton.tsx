@@ -114,7 +114,7 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
         <DialogTitle>¿Terminar la sesión?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Podés salir vos solo y dejar la clase abierta para que los estudiantes sigan, o terminar la sesión para
+            Puedes salir tú solo y dejar la clase abierta para que los estudiantes continúen, o terminar la sesión para
             todos y cerrar la sala.
           </DialogContentText>
         </DialogContent>

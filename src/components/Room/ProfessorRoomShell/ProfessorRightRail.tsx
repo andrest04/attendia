@@ -313,7 +313,7 @@ export default function ProfessorRightRail({
             {!groupDataAvailable && (
               <div className={classes.bannerInfo} data-testid="professor-room-shell-group-nodata-banner">
                 <WarningIcon className={classes.bannerInfoIcon} />
-                <span>Sin datos de atención — verificá la conexión de los estudiantes.</span>
+                <span>Sin datos de atención — verifica la conexión de los estudiantes.</span>
               </div>
             )}
 
