@@ -86,6 +86,13 @@ const useStyles = makeStyles((theme: Theme) =>
       alignItems: 'center',
       gap: 1,
     },
+    // Groups the participants + chat chips so the onboarding tour can spotlight
+    // both panel-opening controls as one zone. Layout-neutral: same gap as the row.
+    panelsGroup: {
+      display: 'flex',
+      alignItems: 'stretch',
+      gap: theme.spacing(1),
+    },
     chatIconContainer: {
       position: 'relative',
       display: 'flex',
@@ -254,29 +261,34 @@ export default function ProfessorToolbar({
         <ToggleVideoButton disabled={isReconnecting} className={chip} iconOnly plain />
         <ToolbarDeviceMenu kind="video" disabled={isReconnecting} data-testid="professor-toolbar-video-devices" />
       </div>
-      <Button
-        onClick={() => onParticipantsToggle?.()}
-        startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
-        className={chip}
-        aria-label="Participantes"
-        data-testid="professor-toolbar-participants"
-        aria-pressed={participantsOpen}
-      />
-      {/* ChatIcon paints with currentColor, so the active tint lives on the wrapper div. */}
-      <Button
-        onClick={() => onChatToggle?.()}
-        disabled={!conversation}
-        startIcon={
-          <div className={classes.chatIconContainer} style={{ color: chatOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }}>
-            <ChatIcon />
-            {hasUnreadMessages && <span className={classes.unreadDot} data-testid="professor-toolbar-chat-unread" />}
-          </div>
-        }
-        className={chip}
-        aria-label="Chat"
-        data-testid="professor-toolbar-chat"
-        aria-pressed={chatOpen}
-      />
+      <div className={classes.panelsGroup} data-testid="professor-toolbar-panels">
+        <Button
+          onClick={() => onParticipantsToggle?.()}
+          startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
+          className={chip}
+          aria-label="Participantes"
+          data-testid="professor-toolbar-participants"
+          aria-pressed={participantsOpen}
+        />
+        {/* ChatIcon paints with currentColor, so the active tint lives on the wrapper div. */}
+        <Button
+          onClick={() => onChatToggle?.()}
+          disabled={!conversation}
+          startIcon={
+            <div
+              className={classes.chatIconContainer}
+              style={{ color: chatOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }}
+            >
+              <ChatIcon />
+              {hasUnreadMessages && <span className={classes.unreadDot} data-testid="professor-toolbar-chat-unread" />}
+            </div>
+          }
+          className={chip}
+          aria-label="Chat"
+          data-testid="professor-toolbar-chat"
+          aria-pressed={chatOpen}
+        />
+      </div>
 
       {/* ── "More options" kebab: screen share, record, proctoring ── */}
       <div className={classes.moreWrap}>

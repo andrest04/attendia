@@ -72,10 +72,14 @@ const STEPS: StepDef[] = [
     accentColor: '#10b981', // success green
     icon: <MenuBookIcon style={{ fontSize: 20 }} />,
     title: 'Chat y participantes',
-    body: 'Usa el panel derecho para comunicarte por el chat y ver la lista de participantes de la sesión.',
-    callout: 'El ícono de mano levantada te permite solicitar turno para hablar.',
+    body:
+      'Abre el panel derecho con estos botones de la barra de herramientas para ver la lista de participantes y comunicarte por el chat.',
+    callout: 'Los botones resaltados abren los paneles de participantes y de chat.',
     calloutIcon: MenuBookIcon,
-    anchorTestId: 'professor-room-shell-right-rail',
+    // Anchors to the toolbar buttons that OPEN the panel (not the panel itself):
+    // the side rails start collapsed, so the rail element is not in the DOM when
+    // the tour first runs.
+    anchorTestId: 'professor-toolbar-panels',
   },
   {
     accentColor: '#ffb800', // warning amber
@@ -421,20 +425,29 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
       aria-label="Tutorial de bienvenida"
       data-testid="onboarding-backdrop"
     >
-      {anchorRect && (
-        <div
-          className={classes.spotlight}
-          data-testid="onboarding-spotlight"
-          style={{
-            top: anchorRect.top - 8,
-            left: anchorRect.left - 8,
-            width: anchorRect.width + 16,
-            height: anchorRect.height + 16,
-            borderColor: current.accentColor,
-            boxShadow: `0 0 0 4px ${current.accentColor}33, 0 0 28px 6px ${current.accentColor}55`,
-          }}
-        />
-      )}
+      {anchorRect &&
+        (() => {
+          // Clamp the 8px inset box to the viewport so an anchor near a screen edge
+          // (common on narrow phones) never renders the spotlight partially off-screen.
+          const top = Math.max(0, anchorRect.top - 8);
+          const left = Math.max(0, anchorRect.left - 8);
+          const right = Math.min(window.innerWidth, anchorRect.left + anchorRect.width + 8);
+          const bottom = Math.min(window.innerHeight, anchorRect.top + anchorRect.height + 8);
+          return (
+            <div
+              className={classes.spotlight}
+              data-testid="onboarding-spotlight"
+              style={{
+                top,
+                left,
+                width: Math.max(0, right - left),
+                height: Math.max(0, bottom - top),
+                borderColor: current.accentColor,
+                boxShadow: `0 0 0 4px ${current.accentColor}33, 0 0 28px 6px ${current.accentColor}55`,
+              }}
+            />
+          );
+        })()}
       <div className={classes.modal} data-testid="onboarding-modal">
         {/* Colored left border accent */}
         <div
