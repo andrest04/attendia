@@ -11,12 +11,8 @@ import ProfessorLeftRail from './ProfessorLeftRail';
 import ProfessorRightRail from './ProfessorRightRail';
 import ProctoringAlertModal from './ProctoringAlertModal';
 import { ProfessorRightTab } from './professorShellHelpers';
-
-// The report overlay pulls recharts (via AttentionReportView), which is heavy and
-// only needed when the professor explicitly opens the report — so it is code-split
-// and loaded on demand. The `isReportOpen` guard below means the chunk is not even
-// requested until the first "Ver reporte" click.
-const AttentionReportOverlay = React.lazy(() => import('../AttentionReportOverlay/AttentionReportOverlay'));
+import { buildReportViewData } from '../../AttentionReport/buildReportViewData';
+import { saveReportSnapshot } from '../../AttentionReport/reportSnapshot';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -182,7 +178,28 @@ export default function ProfessorRoomShell({
   const attentionByIdentity = new Map(attentionParticipants.map(p => [p.identity, p]));
   const studentCount = Math.max(0, participantCount - 1);
 
-  const [isReportOpen, setIsReportOpen] = React.useState(false);
+  // "Ver reporte" snapshots the current attention data and opens the report in a
+  // new tab. A new tab is a separate document with no access to the live
+  // useAttention() context or the Twilio room, so the report page reads this
+  // point-in-time snapshot from localStorage instead (see reportSnapshot.ts).
+  const handleOpenReport = () => {
+    saveReportSnapshot(
+      buildReportViewData({
+        sessionName,
+        studentCount,
+        source,
+        groupAttention,
+        groupDataAvailable,
+        attentionThreshold,
+        timeline,
+        participants: attentionParticipants,
+        proctoringAlerts,
+        attentionLevel,
+        reportDate: new Date(),
+      })
+    );
+    window.open('/report', '_blank', 'noopener');
+  };
 
   // Proctoring modal local state
   const [proctoringModalAlert, setProctoringModalAlert] = React.useState<ProctoringAlert | null>(null);
@@ -261,7 +278,7 @@ export default function ProfessorRoomShell({
           timeline={timeline}
           attentionLevel={attentionLevel}
           sortedParticipants={sortedParticipants}
-          onOpenReport={() => setIsReportOpen(true)}
+          onOpenReport={handleOpenReport}
           rightPanel={rightPanel}
         />
       </div>
@@ -279,17 +296,6 @@ export default function ProfessorRoomShell({
           onMarkLegitimate={handleMarkLegitimate}
           onSendWarning={handleSendWarning}
         />
-      )}
-
-      {isReportOpen && (
-        <React.Suspense fallback={null}>
-          <AttentionReportOverlay
-            isOpen={isReportOpen}
-            onClose={() => setIsReportOpen(false)}
-            sessionName={sessionName}
-            studentCount={studentCount}
-          />
-        </React.Suspense>
       )}
     </section>
   );

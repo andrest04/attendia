@@ -1,6 +1,5 @@
 import React from 'react';
 import { mount } from 'enzyme';
-import { act } from 'react-dom/test-utils';
 
 import ProfessorRoomShell from './ProfessorRoomShell';
 import { useAttention } from '../../AttentionProvider';
@@ -550,39 +549,22 @@ describe('ProfessorRoomShell', () => {
     );
   });
 
-  // The report overlay is code-split (React.lazy) — flush the dynamic import's
-  // microtask so the lazy component resolves before asserting on its content.
-  const flushLazy = async (wrapper: ReturnType<typeof mount>) => {
-    await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 0));
-    });
-    wrapper.update();
-  };
-
-  it('opens the in-room report overlay from the "Ver reporte" button', async () => {
+  it('opens the report in a new tab and snapshots the data from "Ver reporte"', () => {
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+    localStorage.clear();
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
 
-    // The report overlay is closed until the toolbar button is clicked.
+    wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
+
+    // The report opens in a new tab; the old in-room overlay is gone entirely.
+    expect(openSpy).toHaveBeenCalledWith('/report', '_blank', 'noopener');
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
 
-    wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
-    await flushLazy(wrapper);
+    // …and the snapshot the new tab will read was written to localStorage.
+    const snapshot = localStorage.getItem('attendia-report-snapshot');
+    expect(snapshot).toBeTruthy();
+    expect(JSON.parse(snapshot as string)).toMatchObject({ sessionName: expect.any(String) });
 
-    expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
-  });
-
-  it('closes the report overlay from its Cerrar button', async () => {
-    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
-    wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
-    await flushLazy(wrapper);
-    expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(true);
-
-    wrapper
-      .find('[data-testid="attention-report-close"]')
-      .first()
-      .simulate('click');
-    wrapper.update();
-
-    expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
+    openSpy.mockRestore();
   });
 });

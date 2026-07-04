@@ -29,7 +29,7 @@
  *   When posture becomes a measured signal, Layer 4b can replace -1 with the
  *   real value and computeLabAttentionIndex will incorporate it.
  *
- * Consumers (ProfessorRoomShell, AttentionReportOverlay, GalleryView):
+ * Consumers (ProfessorRoomShell, GalleryView):
  *   All read exclusively through useAttention() and the AttentionContextValue
  *   shape.  The source === 'mock' "Datos simulados" disclosure tag disappears
  *   automatically when the pipeline is live.
