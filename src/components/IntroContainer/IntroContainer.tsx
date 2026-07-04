@@ -10,6 +10,9 @@ const useStyles = makeStyles((theme: Theme) => ({
   root: {
     minHeight: '100%',
     backgroundColor: '#f0f5ff',
+    // Role tint (blue <-> amber) animates instead of snapping when the user
+    // switches role cards on the login/lobby screens.
+    transition: 'background-color 0.5s ease',
     display: 'flex',
     flexDirection: 'column',
     position: 'relative',
@@ -41,6 +44,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     top: -80,
     left: -80,
     pointerEvents: 'none',
+    transition: 'background 0.5s ease',
   },
   bgCircle2: {
     position: 'absolute',
@@ -51,6 +55,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     top: 60,
     right: -40,
     pointerEvents: 'none',
+    transition: 'background 0.5s ease',
   },
   bgCircle3: {
     position: 'absolute',
@@ -61,6 +66,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     bottom: 60,
     right: 80,
     pointerEvents: 'none',
+    transition: 'background 0.5s ease',
   },
   bgCircle4: {
     position: 'absolute',
@@ -71,6 +77,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     bottom: -40,
     left: 120,
     pointerEvents: 'none',
+    transition: 'background 0.5s ease',
   },
 
   // ── Student (warm) page variant ──────────────────────────────────────────────
@@ -245,6 +252,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 20,
     padding: '7px 17px',
     marginBottom: 'clamp(6px, 1.2vh, 14px)',
+    transition: 'background-color 0.5s ease, border-color 0.5s ease',
   },
   heroBadgeDot: {
     width: 7,
@@ -252,8 +260,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: '50%',
     backgroundColor: '#1d6eed',
     flexShrink: 0,
+    transition: 'background-color 0.5s ease',
   },
   heroBadgeText: {
+    transition: 'color 0.5s ease',
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 600,
     fontSize: 12,

@@ -434,8 +434,19 @@ export default function LoginPage() {
   // role is missing, so show the completion step instead of the auth forms.
   const showCompletionStep = isFirebaseAuth && Boolean(user) && !profile;
 
+  // Role currently highlighted on screen — drives IntroContainer's page tint
+  // (blue for teacher, amber for student). The login view has no role cards, so
+  // it keeps the default teacher palette.
+  const activeRole: PreJoinRole = !isFirebaseAuth
+    ? selectedRole
+    : showCompletionStep
+    ? completionRole
+    : view === 'register'
+    ? registerRole
+    : 'teacher';
+
   return (
-    <IntroContainer>
+    <IntroContainer homeRole={activeRole}>
       <div className={classes.formBody}>
         {!isFirebaseAuth && (
           <>
