@@ -42,7 +42,7 @@ describe('the ErrorDialog component', () => {
     const error = { message, code: 20101 } as TwilioError;
     const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
     expect(wrapper.find(DialogContentText).text()).toBe(
-      message + '. Please make sure you are using the correct credentials.'
+      'No se pudo validar la sesión. Verifica que las credenciales sean correctas.'
     );
     expect(wrapper.find('code').text()).toBe(`Error Code: ${20101}`);
   });
@@ -51,7 +51,31 @@ describe('the ErrorDialog component', () => {
     const error = { message: 'Permission denied by system', code: 0 } as TwilioError;
     const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
     expect(wrapper.find(DialogContentText).text()).toBe(
-      'Unable to share your screen. Please make sure that your operating system has the correct permissions enabled for screen sharing.'
+      'No se puede compartir la pantalla. Verifica que el sistema operativo tenga habilitados los permisos para compartir pantalla.'
+    );
+  });
+
+  it('should display a Spanish actionable message when the camera is in use (NotReadableError)', () => {
+    const error = { message: 'Failed to allocate videosource', name: 'NotReadableError' } as TwilioError;
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
+    expect(wrapper.find(DialogContentText).text()).toBe(
+      'No se pudo iniciar la cámara. Cierra otras apps o pestañas que la estén usando y vuelve a intentar.'
+    );
+  });
+
+  it('should display a Spanish actionable message when permission is denied (NotAllowedError)', () => {
+    const error = { message: 'Permission denied', name: 'NotAllowedError' } as TwilioError;
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
+    expect(wrapper.find(DialogContentText).text()).toBe(
+      'El navegador bloqueó el acceso a la cámara o el micrófono. Haz clic en el ícono de la cámara (a la izquierda de la barra de direcciones), permite el acceso y vuelve a intentar.'
+    );
+  });
+
+  it('should display a Spanish actionable message when no device is found (NotFoundError)', () => {
+    const error = { message: 'Requested device not found', name: 'NotFoundError' } as TwilioError;
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
+    expect(wrapper.find(DialogContentText).text()).toBe(
+      'No se encontró una cámara o un micrófono. Conecta un dispositivo y vuelve a intentar.'
     );
   });
 

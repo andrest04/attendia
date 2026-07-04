@@ -14,8 +14,8 @@ interface ErrorDialogProps {
 }
 
 function ErrorDialog({ dismissError, error }: PropsWithChildren<ErrorDialogProps>) {
-  const { message, code } = error || {};
-  const enhancedMessage = enhanceMessage(message, code);
+  const { message, code, name } = error || {};
+  const enhancedMessage = enhanceMessage(message, code, name);
 
   return (
     <Dialog open={error !== null} onClose={() => dismissError()} fullWidth={true} maxWidth="xs">
