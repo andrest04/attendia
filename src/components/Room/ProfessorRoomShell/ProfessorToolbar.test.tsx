@@ -23,7 +23,6 @@ const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 const mockUseAppState = useAppState as jest.Mock<any>;
 
 const mockUpdateRecordingRules = jest.fn();
-const mockSetIsGalleryViewActive = jest.fn();
 const mockToggleScreenShare = jest.fn();
 
 // View, record and proctoring now live behind the "more options" kebab, so most
@@ -57,8 +56,6 @@ describe('ProfessorToolbar', () => {
       updateRecordingRules: mockUpdateRecordingRules,
       isFetching: false,
       roomType: 'group',
-      isGalleryViewActive: true,
-      setIsGalleryViewActive: mockSetIsGalleryViewActive,
     }));
   });
 
@@ -78,13 +75,12 @@ describe('ProfessorToolbar', () => {
     expect(wrapper.find('RaiseHandButton').exists()).toBe(false);
   });
 
-  it('reveals screen share, attention, view, record and proctoring inside the kebab menu', () => {
+  it('reveals screen share, attention, record and proctoring inside the kebab menu', () => {
     const wrapper = shallow(<ProfessorToolbar />);
     openMore(wrapper);
     expect(wrapper.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-toolbar-screenshare"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-toolbar-attention"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-toolbar-view"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-toolbar-proctoring"]').exists()).toBe(true);
   });
@@ -215,8 +211,6 @@ describe('ProfessorToolbar', () => {
         updateRecordingRules: mockUpdateRecordingRules,
         isFetching: false,
         roomType: 'go',
-        isGalleryViewActive: true,
-        setIsGalleryViewActive: mockSetIsGalleryViewActive,
       }));
       const wrapper = shallow(<ProfessorToolbar />);
       openMore(wrapper);
@@ -228,41 +222,10 @@ describe('ProfessorToolbar', () => {
         updateRecordingRules: mockUpdateRecordingRules,
         isFetching: true,
         roomType: 'group',
-        isGalleryViewActive: true,
-        setIsGalleryViewActive: mockSetIsGalleryViewActive,
       }));
       const wrapper = shallow(<ProfessorToolbar />);
       openMore(wrapper);
       expect(wrapper.find('[data-testid="professor-toolbar-record"]').prop('disabled')).toBe(true);
-    });
-  });
-
-  describe('view toggle menu item', () => {
-    it('offers speaker view while gallery view is active and toggles on click', () => {
-      const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      const item = wrapper.find('[data-testid="professor-toolbar-view"]');
-      expect(item.text()).toContain('Vista de orador');
-
-      item.simulate('click');
-      // The setter is localStorage-backed, so the functional updater form matters.
-      expect(mockSetIsGalleryViewActive).toHaveBeenCalledWith(expect.any(Function));
-      const updater = mockSetIsGalleryViewActive.mock.calls[0][0];
-      expect(updater(true)).toBe(false);
-      expect(updater(false)).toBe(true);
-    });
-
-    it('offers gallery view while speaker view is active', () => {
-      mockUseAppState.mockImplementation(() => ({
-        updateRecordingRules: mockUpdateRecordingRules,
-        isFetching: false,
-        roomType: 'group',
-        isGalleryViewActive: false,
-        setIsGalleryViewActive: mockSetIsGalleryViewActive,
-      }));
-      const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="professor-toolbar-view"]').text()).toContain('Vista de galería');
     });
   });
 

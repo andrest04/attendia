@@ -2,8 +2,8 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import { isTeacherIdentity } from '../../PreJoinScreens/classSessionTypes';
-import AttendiaLogo from '../../Brand/AttendiaLogo';
 import RoleBadge from '../../RoleBadge/RoleBadge';
+import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';
 
 // ─── Design tokens (from theme + Figma) ─────────────────────────────────────
 // Primary blue:  #1d6eed
@@ -104,20 +104,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     flexShrink: 0,
     '&:hover': { color: '#1d2f6f', backgroundColor: '#f0f5ff' },
-  },
-  logoArea: {
-    height: 22,
-    marginBottom: 14,
-  },
-  logoText: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 700,
-    fontSize: 16,
-    color: theme.palette.secondary.main,
-    letterSpacing: '-0.3px',
-  },
-  logoAccent: {
-    color: theme.palette.primary.main,
   },
   participantsRow: {
     display: 'flex',
@@ -432,7 +418,11 @@ interface Props {
   rightPanel?: React.ReactNode;
   activeSpeakerLabel?: string;
   sessionLabel?: string;
+  /** Human-facing session/room name shown in the top status bar. */
+  sessionName?: string;
   participantCount?: number;
+  /** REC indicator state, mirrored from the professor's recording toggle. */
+  recording?: boolean;
   isConnectivityDegraded?: boolean;
   /** Twilio network quality level (0–5) of the local participant; null/undefined = unknown. */
   networkQualityLevel?: number | null;
@@ -454,7 +444,9 @@ export default function StudentRoomShell({
   rightPanel = null,
   activeSpeakerLabel = 'Sin participante activo',
   sessionLabel = 'Sesión Twilio en vivo',
+  sessionName = 'Sesión Twilio en vivo',
   participantCount = 0,
+  recording = false,
   isConnectivityDegraded = false,
   networkQualityLevel,
   participants,
@@ -465,9 +457,16 @@ export default function StudentRoomShell({
 }: Props) {
   const classes = useStyles();
   const connection = connectionQuality(networkQualityLevel);
+  const studentCount = Math.max(0, participantCount - 1);
 
   return (
     <section className={classes.root} data-testid="student-room-shell-root">
+      <SessionStatusBar
+        sessionName={sessionName}
+        studentCount={studentCount}
+        recording={recording}
+        showHelpButton={false}
+      />
       <div
         className={clsx(classes.body, {
           [classes.bodyBoth]: leftOpen && rightOpen,
@@ -482,11 +481,8 @@ export default function StudentRoomShell({
           data-testid="student-room-shell-left-rail"
           aria-hidden={!leftOpen}
         >
-          {/* Logo + Participants heading */}
+          {/* Participants heading — logo now lives in the top SessionStatusBar */}
           <div className={classes.leftHeader}>
-            <div className={classes.logoArea}>
-              <AttendiaLogo variant="full" size={22} />
-            </div>
             <div className={classes.participantsRow}>
               <span className={classes.participantsLabel}>Participantes</span>
               <div className={classes.participantsRow} style={{ gap: 8 }}>

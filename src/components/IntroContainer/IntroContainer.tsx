@@ -149,37 +149,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     letterSpacing: '-0.5px',
     lineHeight: 1,
   },
-  headerChips: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    [theme.breakpoints.down('xs')]: {
-      display: 'none',
-    },
-  },
-  headerChip: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 7,
-    padding: '10.5px 19.5px',
-    border: '1.5px solid #e2ecf9',
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    fontSize: 13,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 500,
-    color: '#64748b',
-    whiteSpace: 'nowrap',
-  },
-  headerChipIcon: {
-    width: 14,
-    height: 14,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#64748b',
-    flexShrink: 0,
-  },
   headerRight: {
     display: 'flex',
     alignItems: 'center',
@@ -389,26 +358,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
-// Simple SVG lock icon
-function LockIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2.5" y="6" width="9" height="6.5" rx="1.5" stroke="#64748b" strokeWidth="1.3" />
-      <path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" stroke="#64748b" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-// Simple SVG monitor icon
-function MonitorIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="1" y="1.5" width="12" height="8.5" rx="1.5" stroke="#64748b" strokeWidth="1.3" />
-      <path d="M5 12.5h4M7 10v2.5" stroke="#64748b" strokeWidth="1.3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 interface IntroContainerProps {
   children: React.ReactNode;
   // When true, suppresses the hero section (used for device-check step and other inner screens).
@@ -478,22 +427,7 @@ const IntroContainer = (props: IntroContainerProps) => {
               <span className={classes.presessionDot} />
               Pre-sesión
             </div>
-          ) : (
-            <div className={classes.headerChips}>
-              <div className={classes.headerChip}>
-                <span className={classes.headerChipIcon}>
-                  <LockIcon />
-                </span>
-                Acceso seguro por token
-              </div>
-              <div className={classes.headerChip}>
-                <span className={classes.headerChipIcon}>
-                  <MonitorIcon />
-                </span>
-                Usar desde navegador
-              </div>
-            </div>
-          )}
+          ) : null}
 
           {user && location.pathname !== '/login' && (
             <div className={classes.userMenuWrapper}>

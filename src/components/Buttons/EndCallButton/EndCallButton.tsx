@@ -31,6 +31,11 @@ const useStyles = makeStyles((theme: Theme) =>
         },
       },
     },
+    iconOnly: {
+      '& .MuiButton-startIcon': {
+        margin: 0,
+      },
+    },
     dark: {
       background: '#1B2126',
       color: '#ffffff',
@@ -53,6 +58,8 @@ interface EndCallButtonProps {
   startIcon?: React.ReactNode;
   /** Use the neutral dark surface instead of the navy surface (toolbar chip style). */
   dark?: boolean;
+  /** Hide the visible label, keeping it as an aria-label — icon-only toolbar chip. */
+  iconOnly?: boolean;
   /**
    * Teacher-only. When provided, clicking opens a confirm dialog offering "end the
    * session for everyone" (completes the Twilio room) alongside a plain "leave". Absent
@@ -104,10 +111,15 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
       <Button
         onClick={handleClick}
         startIcon={props.startIcon ?? <ExitToAppIcon />}
-        className={clsx(props.dark ? classes.dark : classes.button, props.className)}
+        className={clsx(
+          props.dark ? classes.dark : classes.button,
+          { [classes.iconOnly]: props.iconOnly },
+          props.className
+        )}
+        aria-label={props.iconOnly ? props.label ?? 'Salir' : undefined}
         data-cy-disconnect
       >
-        {props.label ?? 'Salir'}
+        {props.iconOnly ? null : props.label ?? 'Salir'}
       </Button>
 
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} data-testid="end-call-dialog">

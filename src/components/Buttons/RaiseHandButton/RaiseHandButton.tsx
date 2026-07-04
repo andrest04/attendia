@@ -15,12 +15,17 @@ interface RaiseHandButtonProps {
   handRaised?: boolean;
   onHandRaisedChange?: (next: boolean) => void;
   className?: string;
+  iconOnly?: boolean;
+  /** Renders as a bare icon (no inner circle) so a circular wrapping chip is the only shape. */
+  plain?: boolean;
 }
 
 export default function RaiseHandButton({
   handRaised: controlledHandRaised,
   onHandRaisedChange,
   className,
+  iconOnly,
+  plain,
 }: RaiseHandButtonProps = {}) {
   const [uncontrolledHandRaised, setUncontrolledHandRaised] = useState(false);
   const handRaised = controlledHandRaised ?? uncontrolledHandRaised;
@@ -42,9 +47,17 @@ export default function RaiseHandButton({
       aria-label={handRaised ? 'Bajar la mano' : 'Levantar la mano'}
       aria-pressed={handRaised}
       data-testid="raise-hand-button"
-      className={clsx(classes.toolbarButton, { [classes.toolbarButtonActive]: handRaised }, className)}
+      className={clsx(
+        classes.toolbarButton,
+        plain && classes.chipIcon,
+        {
+          [classes.toolbarButtonActive]: !plain && handRaised,
+          [classes.chipIconActive]: plain && handRaised,
+        },
+        className
+      )}
     >
-      {handRaised ? 'Bajar mano' : 'Levantar mano'}
+      {iconOnly ? null : handRaised ? 'Bajar mano' : 'Levantar mano'}
     </Button>
   );
 }

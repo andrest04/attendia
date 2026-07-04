@@ -7,25 +7,38 @@ import { useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useLocalAudioToggle from '../../../hooks/useLocalAudioToggle/useLocalAudioToggle';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
-export default function ToggleAudioButton(props: { disabled?: boolean; className?: string }) {
+export default function ToggleAudioButton(props: {
+  disabled?: boolean;
+  className?: string;
+  iconOnly?: boolean;
+  /** Renders as a bare icon (no inner circle) so a circular wrapping chip is the only shape. */
+  plain?: boolean;
+}) {
   const [isAudioEnabled, toggleAudioEnabled] = useLocalAudioToggle();
   const { localTracks } = useVideoContext();
   const hasAudioTrack = localTracks.some(track => track.kind === 'audio');
   const classes = useToolbarButtonStyles();
+  const label = !hasAudioTrack ? 'Sin audio' : isAudioEnabled ? 'Silenciar' : 'Activar';
+  const isActive = hasAudioTrack && isAudioEnabled;
 
   return (
     <Button
       className={clsx(
         classes.toolbarButton,
-        { [classes.toolbarButtonActive]: hasAudioTrack && isAudioEnabled },
+        props.plain && classes.chipIcon,
+        {
+          [classes.toolbarButtonActive]: !props.plain && isActive,
+          [classes.chipIconActive]: props.plain && isActive,
+        },
         props.className
       )}
       onClick={toggleAudioEnabled}
       disabled={!hasAudioTrack || props.disabled}
       startIcon={isAudioEnabled ? <MicIcon /> : <MicOffIcon />}
+      aria-label={props.iconOnly ? label : undefined}
       data-cy-audio-toggle
     >
-      {!hasAudioTrack ? 'Sin audio' : isAudioEnabled ? 'Silenciar' : 'Activar'}
+      {props.iconOnly ? null : label}
     </Button>
   );
 }

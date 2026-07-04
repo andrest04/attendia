@@ -134,13 +134,21 @@ interface Props {
   studentCount?: number;
   /** REC indicator state, mirrored from the toolbar toggle (US12). */
   recording?: boolean;
+  /** Whether to render the Ayuda (tour) button — professor only. */
+  showHelpButton?: boolean;
 }
 
 /**
- * Top status bar for the professor session: attendia logo, REC indicator,
- * session name + student count + elapsed clock, infra chip, Help button.
+ * Top status bar shared by both room shells: attendia logo, REC indicator,
+ * session name + student count + elapsed clock, infra chip, and (professor only)
+ * the Ayuda button.
  */
-export default function SessionStatusBar({ sessionName = 'Sesión', studentCount = 0, recording = false }: Props) {
+export default function SessionStatusBar({
+  sessionName = 'Sesión',
+  studentCount = 0,
+  recording = false,
+  showHelpButton = true,
+}: Props) {
   const classes = useStyles();
   const elapsed = useSessionElapsed();
   const { openTour } = useOnboarding();
@@ -171,14 +179,16 @@ export default function SessionStatusBar({ sessionName = 'Sesión', studentCount
         <span className={classes.infraText}>Twilio Video · WebRTC SFU</span>
       </div>
 
-      <button
-        type="button"
-        className={classes.helpButton}
-        onClick={openTour}
-        data-testid="professor-room-shell-help-button"
-      >
-        Ayuda
-      </button>
+      {showHelpButton && (
+        <button
+          type="button"
+          className={classes.helpButton}
+          onClick={openTour}
+          data-testid="professor-room-shell-help-button"
+        >
+          Ayuda
+        </button>
+      )}
     </div>
   );
 }
