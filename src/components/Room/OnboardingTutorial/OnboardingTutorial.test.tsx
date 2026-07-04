@@ -368,7 +368,7 @@ describe('OnboardingTutorial component', () => {
     it('draws no spotlight on the last step, which has no anchor', () => {
       // Provide every anchor so only the missing anchorTestId can explain the absence.
       addAnchor('professor-room-shell-toolbar-slot');
-      addAnchor('professor-room-shell-right-rail');
+      addAnchor('professor-toolbar-panels');
       addAnchor('professor-room-shell-group-gauge');
       const wrapper = mount(<OnboardingTutorial openSignal={1} />);
       for (let i = 0; i < 3; i++) {
