@@ -26,7 +26,7 @@ const useStyles = makeStyles((theme: Theme) =>
   })
 );
 
-export default function ToggleScreenShareButton(props: { disabled?: boolean; className?: string }) {
+export default function ToggleScreenShareButton(props: { disabled?: boolean; className?: string; iconOnly?: boolean }) {
   const classes = useStyles();
   const toolbarClasses = useToolbarButtonStyles();
   const screenShareParticipant = useScreenShareParticipant();
@@ -66,9 +66,10 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
           onClick={toggleScreenShare}
           disabled={isDisabled}
           startIcon={<ScreenShareIcon />}
+          aria-label={props.iconOnly ? (isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir') : undefined}
           data-cy-share-screen
         >
-          {isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir'}
+          {props.iconOnly ? null : isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir'}
         </Button>
       </span>
     </Tooltip>

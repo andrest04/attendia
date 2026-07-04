@@ -274,7 +274,9 @@ export default function Room() {
               }
               activeSpeakerLabel={activeSpeakerLabel}
               sessionLabel={sessionLabel}
+              sessionName={room?.name || sessionLabel}
               participantCount={participantCount}
+              recording={isRecording}
               isConnectivityDegraded={isConnectivityDegraded}
               networkQualityLevel={localParticipantNetworkQuality}
               rightPanel={<ChatWindow embedded isVisible />}

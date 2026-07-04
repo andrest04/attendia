@@ -1,8 +1,23 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import StudentRoomShell from './StudentRoomShell';
+import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';
 
 describe('StudentRoomShell', () => {
+  it('renders the top session status bar without the Ayuda button', () => {
+    const wrapper = shallow(
+      <StudentRoomShell stage={<div>stage</div>} sessionName="Matemáticas — Grupo A" participantCount={5} recording />
+    );
+
+    const bar = wrapper.find(SessionStatusBar);
+    expect(bar.exists()).toBe(true);
+    expect(bar.prop('sessionName')).toBe('Matemáticas — Grupo A');
+    // 5 in the room minus the professor → 4 students.
+    expect(bar.prop('studentCount')).toBe(4);
+    expect(bar.prop('recording')).toBe(true);
+    expect(bar.prop('showHelpButton')).toBe(false);
+  });
+
   it('renders shell primitives and the plain participant count', () => {
     const wrapper = shallow(
       <StudentRoomShell

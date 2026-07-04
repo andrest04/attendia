@@ -2,10 +2,8 @@ import React from 'react';
 import clsx from 'clsx';
 import { Button, createStyles, Hidden, makeStyles, Theme } from '@material-ui/core';
 import CallEndIcon from '@material-ui/icons/CallEnd';
-import CollaborationViewIcon from '@material-ui/icons/AccountBox';
 import DonutLargeIcon from '@material-ui/icons/DonutLarge';
 import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
-import GridViewIcon from '@material-ui/icons/Apps';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import ScreenShareIcon from '@material-ui/icons/ScreenShare';
@@ -21,6 +19,7 @@ import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
+import ToolbarDeviceMenu from '../../Buttons/ToolbarDeviceMenu/ToolbarDeviceMenu';
 import {
   SCREEN_SHARE_TEXT,
   STOP_SCREEN_SHARE_TEXT,
@@ -37,22 +36,26 @@ const useStyles = makeStyles((theme: Theme) =>
       gap: theme.spacing(1),
       width: '100%',
     },
-    // Vertical "chip" layout: icon stacked on top of a small caption, matching the wireframe.
+    // Circular icon-only chip — Google Meet-style: one uniform circle per control, icon
+    // centred, no separate inner shape. `endCallChip` below widens this into a pill.
     chipLayout: {
-      minWidth: 78,
-      padding: theme.spacing(0.75, 1.25),
-      borderRadius: 8,
+      width: 44,
+      height: 44,
+      minWidth: 44,
+      padding: 0,
+      borderRadius: '50%',
+      flexShrink: 0,
       '& .MuiButton-label': {
-        flexDirection: 'column',
-        gap: 4,
-        fontSize: 11,
-        fontFamily: 'Poppins, Inter, sans-serif',
-        fontWeight: 600,
-        lineHeight: 1.2,
-        textTransform: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       },
       '& .MuiButton-startIcon': {
         margin: 0,
+      },
+      '& svg': {
+        width: 20,
+        height: 20,
       },
     },
     chipDark: {
@@ -76,6 +79,13 @@ const useStyles = makeStyles((theme: Theme) =>
       margin: theme.spacing(0.5),
       backgroundColor: 'rgba(255,255,255,0.12)',
     },
+    // Groups a toggle (mic/camera) with its device-picker caret so the caret reads as
+    // attached to the button, Google Meet-style, while the row gap separates groups.
+    deviceGroup: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 1,
+    },
     chatIconContainer: {
       position: 'relative',
       display: 'flex',
@@ -90,7 +100,10 @@ const useStyles = makeStyles((theme: Theme) =>
       right: -4,
     },
     endCallChip: {
+      width: 'auto',
       minWidth: 110,
+      padding: '0 20px',
+      borderRadius: 22,
       backgroundColor: '#1d2f6f',
       color: '#ffffff',
       '&:hover': {
@@ -215,7 +228,7 @@ export default function ProfessorToolbar({
   const { room, toggleScreenShare, isSharingScreen } = useVideoContext();
   const screenShareParticipant = useScreenShareParticipant();
   const { conversation, hasUnreadMessages } = useChatContext();
-  const { updateRecordingRules, isFetching, roomType, isGalleryViewActive, setIsGalleryViewActive } = useAppState();
+  const { updateRecordingRules, isFetching, roomType } = useAppState();
   const isRecording = useIsRecording();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
@@ -226,24 +239,29 @@ export default function ProfessorToolbar({
   const isScreenShareSupported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
   const chip = clsx(classes.chipLayout, classes.chipDark);
 
-  // Secondary controls (screen share, view, record, proctoring) live behind a "more options"
+  // Secondary controls (screen share, record, proctoring) live behind a "more options"
   // kebab so the primary bar stays lean: mic, camera, participants, chat, leave.
   const [isMoreOpen, setIsMoreOpen] = React.useState(false);
   const closeMore = () => setIsMoreOpen(false);
 
   return (
     <div className={classes.controlsRow} data-testid="professor-toolbar">
-      <ToggleAudioButton disabled={isReconnecting} className={chip} />
-      <ToggleVideoButton disabled={isReconnecting} className={chip} />
+      <div className={classes.deviceGroup}>
+        <ToggleAudioButton disabled={isReconnecting} className={chip} iconOnly plain />
+        <ToolbarDeviceMenu kind="audio" disabled={isReconnecting} data-testid="professor-toolbar-audio-devices" />
+      </div>
+      <div className={classes.deviceGroup}>
+        <ToggleVideoButton disabled={isReconnecting} className={chip} iconOnly plain />
+        <ToolbarDeviceMenu kind="video" disabled={isReconnecting} data-testid="professor-toolbar-video-devices" />
+      </div>
       <Button
         onClick={() => onParticipantsToggle?.()}
         startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
         className={chip}
+        aria-label="Participantes"
         data-testid="professor-toolbar-participants"
         aria-pressed={participantsOpen}
-      >
-        Participantes
-      </Button>
+      />
       {/* ChatIcon paints with currentColor, so the active tint lives on the wrapper div. */}
       <Button
         onClick={() => onChatToggle?.()}
@@ -255,24 +273,22 @@ export default function ProfessorToolbar({
           </div>
         }
         className={chip}
+        aria-label="Chat"
         data-testid="professor-toolbar-chat"
         aria-pressed={chatOpen}
-      >
-        Chat
-      </Button>
+      />
 
-      {/* ── "More options" kebab: screen share, view, record, proctoring ── */}
+      {/* ── "More options" kebab: screen share, record, proctoring ── */}
       <div className={classes.moreWrap}>
         <Button
           onClick={() => setIsMoreOpen(open => !open)}
           startIcon={<MoreVertIcon style={{ color: isMoreOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
           className={chip}
+          aria-label="Más"
           data-testid="professor-toolbar-more"
           aria-haspopup="true"
           aria-expanded={isMoreOpen}
-        >
-          Más
-        </Button>
+        />
         {isMoreOpen && (
           <>
             <div className={classes.moreMenuBackdrop} onClick={closeMore} />
@@ -322,25 +338,6 @@ export default function ProfessorToolbar({
 
               <div className={classes.moreMenuDivider} />
 
-              {/* Label and icon advertise the view this switches TO, mirroring the legacy menu. */}
-              <button
-                type="button"
-                className={classes.moreMenuItem}
-                data-testid="professor-toolbar-view"
-                role="menuitem"
-                onClick={() => {
-                  setIsGalleryViewActive(isGallery => !isGallery);
-                  closeMore();
-                }}
-              >
-                {isGalleryViewActive ? (
-                  <CollaborationViewIcon style={{ fontSize: 18 }} />
-                ) : (
-                  <GridViewIcon style={{ fontSize: 18 }} />
-                )}
-                {isGalleryViewActive ? 'Vista de orador' : 'Vista de galería'}
-              </button>
-
               {supportsRecording && (
                 <button
                   type="button"
@@ -386,6 +383,7 @@ export default function ProfessorToolbar({
           dark
           startIcon={<CallEndIcon />}
           label="Terminar sesión"
+          iconOnly
           className={clsx(classes.chipLayout, classes.endCallChip)}
           onEndForAll={onEndForAll}
           onLeave={onLeave}

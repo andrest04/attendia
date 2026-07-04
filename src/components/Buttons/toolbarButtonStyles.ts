@@ -94,5 +94,46 @@ export const useToolbarButtonStyles = makeStyles((theme: Theme) =>
         fontWeight: 600,
       },
     },
+
+    // Applied instead of `toolbarButton`'s own circular icon container when the button
+    // sits inside a dark, already-circular toolbar chip (ProfessorToolbar/StudentRoomToolbar) —
+    // strips the inner white circle/border so the outer chip is the ONLY circle, and re-tints
+    // the icon to match that chip's neutral/active palette (mirrors the plain chip buttons —
+    // participants, chat, more — in the same toolbars). `!important` throughout: `toolbarButton`
+    // and the toolbar's own chip classes come from two different makeStyles hooks, so which one
+    // wins a same-specificity tie depends on module-load order — that was observed to flip
+    // between the professor/student shells (identical markup, different result). `!important`
+    // removes that non-determinism instead of hoping insertion order cooperates.
+    chipIcon: {
+      backgroundColor: 'rgba(255, 255, 255, 0.08) !important',
+      '&:hover': {
+        backgroundColor: 'rgba(255, 255, 255, 0.14) !important',
+      },
+      '& .MuiButton-startIcon': {
+        width: 'auto !important',
+        height: 'auto !important',
+        border: 'none !important',
+        backgroundColor: 'transparent !important',
+        '& svg': {
+          width: 20,
+          height: 20,
+          color: 'rgba(255, 255, 255, 0.5) !important',
+          fill: 'rgba(255, 255, 255, 0.5) !important',
+        },
+      },
+      '&.Mui-disabled': {
+        backgroundColor: 'rgba(255, 255, 255, 0.08) !important',
+        '& .MuiButton-startIcon svg': {
+          color: 'rgba(255, 255, 255, 0.25) !important',
+          fill: 'rgba(255, 255, 255, 0.25) !important',
+        },
+      },
+    },
+    chipIconActive: {
+      '& .MuiButton-startIcon svg': {
+        color: '#1d6eed !important',
+        fill: '#1d6eed !important',
+      },
+    },
   })
 );
