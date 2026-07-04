@@ -476,7 +476,7 @@ export default function RoomNameScreen({
                 </Typography>
               </div>
               <Typography variant="body2" className={classes.createdHint}>
-                Compartí el código o el link con tus estudiantes.
+                Comparte el código o el link con tus estudiantes.
               </Typography>
 
               <div className={classes.createdRow}>
