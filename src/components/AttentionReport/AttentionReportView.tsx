@@ -191,6 +191,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 20,
     boxShadow: '0px 2px 12px 0px rgba(29,110,237,0.08), 0px 1px 3px 0px rgba(0,0,0,0.04)',
     padding: '29px 33px',
+    [theme.breakpoints.down('xs')]: {
+      padding: '18px 16px',
+    },
   },
   chartHead: {
     display: 'flex',
@@ -249,6 +252,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 20,
     boxShadow: '0px 2px 12px 0px rgba(29,110,237,0.08), 0px 1px 3px 0px rgba(0,0,0,0.04)',
     padding: '29px 33px',
+    [theme.breakpoints.down('xs')]: {
+      padding: '18px 16px',
+    },
   },
   tableTitle: {
     fontFamily: 'Poppins, Inter, sans-serif',
