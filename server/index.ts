@@ -41,8 +41,9 @@ app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 // in the other auth modes. Both sit behind the auth middleware. See userProfiles.ts.
 if (process.env.REACT_APP_SET_AUTH === 'firebase') {
   const { firestore, serverTimestamp } = require('./firebaseAdmin');
-  const { createGetProfileHandler, createPostProfileHandler } = require('./userProfiles');
-  const { createGetReportsHandler, createPostReportHandler } = require('./attentionReports');
+  const { createGetProfileHandler, createPostProfileHandler, createPatchProfileHandler } = require('./userProfiles');
+  const { createClientOperationalEventHandler } = require('./operationalEvents');
+  const { createGetReportHandler, createGetReportsHandler, createPostReportHandler } = require('./attentionReports');
   const {
     createGetResourcesHandler,
     createUploadResourceHandler,
@@ -50,15 +51,23 @@ if (process.env.REACT_APP_SET_AUTH === 'firebase') {
     createDeleteResourceHandler,
     MAX_FILE_SIZE_BYTES,
   } = require('./resources');
-  const { createGetClassesHandler, createCreateClassHandler, createDeleteClassHandler } = require('./classes');
+  const {
+    createGetClassesHandler,
+    createCreateClassHandler,
+    createDeleteClassHandler,
+    createStartClassHandler,
+  } = require('./classes');
 
   app.get('/profile', authMiddleware, createGetProfileHandler(firestore));
   app.post('/profile', authMiddleware, createPostProfileHandler(firestore, serverTimestamp));
+  app.patch('/profile', authMiddleware, createPatchProfileHandler(firestore));
+  app.post('/operational-events', authMiddleware, createClientOperationalEventHandler());
 
   // Per-class attention reports (users/{uid}/reports/{roomSid}), written when the
   // professor ends or leaves a class and listed by the "Historial de clases" page.
   // Teacher-only: both handlers re-resolve the role from Firestore server-side.
   app.get('/reports', authMiddleware, createGetReportsHandler(firestore));
+  app.get('/reports/:roomSid', authMiddleware, createGetReportHandler(firestore));
   app.post('/reports', authMiddleware, createPostReportHandler(firestore, serverTimestamp));
 
   // Teacher-only "Recursos" tab: users/{uid}/resources/{fileId} in Firestore, with the
@@ -69,7 +78,12 @@ if (process.env.REACT_APP_SET_AUTH === 'firebase') {
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE_BYTES } });
 
   app.get('/resources', authMiddleware, createGetResourcesHandler(firestore));
-  app.post('/resources', authMiddleware, upload.single('file'), createUploadResourceHandler(firestore, serverTimestamp));
+  app.post(
+    '/resources',
+    authMiddleware,
+    upload.single('file'),
+    createUploadResourceHandler(firestore, serverTimestamp)
+  );
   app.get('/resources/:id/download', authMiddleware, createDownloadResourceHandler(firestore));
   app.delete('/resources/:id', authMiddleware, createDeleteResourceHandler(firestore));
 
@@ -78,6 +92,7 @@ if (process.env.REACT_APP_SET_AUTH === 'firebase') {
   // role checks and the server-side title-to-roomName slugify.
   app.get('/classes', authMiddleware, createGetClassesHandler(firestore));
   app.post('/classes', authMiddleware, createCreateClassHandler(firestore, serverTimestamp));
+  app.post('/classes/:id/start', authMiddleware, createStartClassHandler(firestore, serverTimestamp));
   app.delete('/classes/:id', authMiddleware, createDeleteClassHandler(firestore));
 }
 
