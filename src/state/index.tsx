@@ -37,7 +37,7 @@ export interface StateContextType {
   // presence, same contract as saveAttentionReport/fetchAttentionReports.
   fetchResources?(): Promise<ResourceRecord[]>;
   uploadResource?(file: File, roomLabel: string): Promise<ResourceRecord>;
-  fetchResourceDownloadUrl?(id: string): Promise<string>;
+  fetchResourceDownloadUrl?(id: string): Promise<{ content: string; contentType: string; name: string }>;
   deleteResource?(id: string): Promise<void>;
   // Firebase-mode only: real persistence for the "Clases" tab (scheduled upcoming
   // sessions). Undefined in the other auth modes — ClassesTab's caller gates on

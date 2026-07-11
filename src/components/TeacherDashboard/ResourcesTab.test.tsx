@@ -141,9 +141,11 @@ describe('the ResourcesTab component', () => {
     expect(wrapper.text()).toContain('Indicá a qué clase pertenece el archivo');
   });
 
-  it('opens the signed download url in a new tab', async () => {
+  it('decodes the base64 content into a Blob and opens an object URL in a new tab', async () => {
     const fetchResources = jest.fn(() => Promise.resolve([fileA]));
-    const fetchResourceDownloadUrl = jest.fn(() => Promise.resolve('https://storage.example.com/signed'));
+    const fetchResourceDownloadUrl = jest.fn(() =>
+      Promise.resolve({ content: btoa('contenido'), contentType: 'application/pdf', name: 'guia.pdf' })
+    );
     mockUseAppState.mockImplementation(() => ({
       fetchResources,
       uploadResource: jest.fn(),
@@ -151,6 +153,12 @@ describe('the ResourcesTab component', () => {
       deleteResource: jest.fn(),
     }));
     const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+    const createObjectURL = jest.fn(() => 'blob:mock-url');
+    const revokeObjectURL = jest.fn();
+    // @ts-ignore jsdom does not implement these by default
+    global.URL.createObjectURL = createObjectURL;
+    // @ts-ignore
+    global.URL.revokeObjectURL = revokeObjectURL;
 
     const wrapper = mount(<ResourcesTab />);
     await flushPromises();
@@ -164,7 +172,8 @@ describe('the ResourcesTab component', () => {
     });
 
     expect(fetchResourceDownloadUrl).toHaveBeenCalledWith('file-a');
-    expect(openSpy).toHaveBeenCalledWith('https://storage.example.com/signed', '_blank', 'noopener');
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(openSpy).toHaveBeenCalledWith('blob:mock-url', '_blank', 'noopener');
     openSpy.mockRestore();
   });
 

@@ -150,8 +150,13 @@ async function uploadResourceRequest(user: User, file: File, roomLabel: string):
   return response.json();
 }
 
-// GET /resources/:id/download — resolves a short-lived signed Storage URL.
-async function fetchResourceDownloadUrlRequest(user: User, id: string): Promise<string> {
+// GET /resources/:id/download — resolves the base64-encoded file content stored
+// directly in the Firestore document, plus enough metadata to reconstruct it
+// client-side (contentType, name).
+async function fetchResourceDownloadRequest(
+  user: User,
+  id: string
+): Promise<{ content: string; contentType: string; name: string }> {
   const idToken = await user.getIdToken();
 
   const response = await fetch(`/resources/${encodeURIComponent(id)}/download`, {
@@ -160,8 +165,7 @@ async function fetchResourceDownloadUrlRequest(user: User, id: string): Promise<
 
   await throwOnErrorResponse(response);
 
-  const { url } = await response.json();
-  return url;
+  return response.json();
 }
 
 // DELETE /resources/:id
@@ -460,7 +464,7 @@ export default function useFirebaseAuth() {
       if (!user) {
         return Promise.reject(new Error('Cannot download a resource without an authenticated user'));
       }
-      return fetchResourceDownloadUrlRequest(user, id);
+      return fetchResourceDownloadRequest(user, id);
     },
     [user]
   );

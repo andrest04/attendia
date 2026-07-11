@@ -359,16 +359,17 @@ describe('the useFirebaseAuth hook', () => {
       );
     });
 
-    it('resolves the signed download url with the idToken', async () => {
+    it('resolves the base64 content, contentType and name with the idToken', async () => {
       const result = await signIn();
-      mockFetch.mockResolvedValueOnce(profileResponse(200, { url: 'https://storage.example.com/signed' }));
+      const downloadBody = { content: 'YmFzZTY0...', contentType: 'application/pdf', name: 'guia.pdf' };
+      mockFetch.mockResolvedValueOnce(profileResponse(200, downloadBody));
 
-      const url = await result.current.fetchResourceDownloadUrl('res-1');
+      const download = await result.current.fetchResourceDownloadUrl('res-1');
 
       expect(mockFetch).toHaveBeenLastCalledWith('/resources/res-1/download', {
         headers: { Authorization: 'idToken' },
       });
-      expect(url).toBe('https://storage.example.com/signed');
+      expect(download).toEqual(downloadBody);
     });
 
     it('rejects fetchResourceDownloadUrl when there is no signed-in user', async () => {

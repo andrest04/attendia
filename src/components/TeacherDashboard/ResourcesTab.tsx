@@ -280,7 +280,16 @@ export default function ResourcesTab() {
 
   const handleDownload = (resource: ResourceRecord) => {
     fetchResourceDownloadUrl(resource.id)
-      .then(url => window.open(url, '_blank', 'noopener'))
+      .then(({ content, contentType }) => {
+        const binary = atob(content);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        const objectUrl = URL.createObjectURL(new Blob([bytes], { type: contentType }));
+        window.open(objectUrl, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      })
       .catch(err => setErrorMessage(err.message));
   };
 
