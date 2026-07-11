@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "attendia-fe7e6"
+  },
   "targets": {},
   "etags": {}
 }
