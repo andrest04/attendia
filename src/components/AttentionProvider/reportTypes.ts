@@ -38,6 +38,8 @@ export interface AttentionReport {
   /** Twilio room SID — dedup key: a final save overwrites a partial "left" save. */
   roomSid: string;
   roomName: string;
+  /** Optional for unplanned and historical sessions; associations require this real id. */
+  classId?: string;
   endReason: ReportEndReason;
   source: 'mock' | 'live';
   /** Remote participants connected at snapshot time (professor excluded). */
@@ -55,6 +57,12 @@ export interface AttentionReport {
   proctoringAlerts: AttentionReportAlert[];
   /** Client clock at snapshot time — display fallback when endedAtMs is null. */
   endedAtIso: string;
+  /** Client clock when this connected-room view first observed the session. */
+  startedAtIso: string;
+  /** Elapsed time between the observed start and the final snapshot. */
+  durationMs: number;
+  /** Twilio exposed recording as active when the final snapshot was taken. */
+  recordingWasActiveAtEnd: boolean;
 }
 
 /** A report as returned by GET /reports (Firestore serverTimestamp resolved to millis). */

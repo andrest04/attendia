@@ -15,7 +15,10 @@ function makeReport(overrides: Partial<StoredAttentionReport> = {}): StoredAtten
     timeline: [],
     participants: [],
     proctoringAlerts: [],
+    startedAtIso: '2026-07-08T09:00:00.000Z',
     endedAtIso: '2026-07-08T10:00:00.000Z',
+    durationMs: 3600000,
+    recordingWasActiveAtEnd: false,
     endedAtMs: new Date(2026, 6, 8, 10, 0, 0).getTime(),
     ...overrides,
   };

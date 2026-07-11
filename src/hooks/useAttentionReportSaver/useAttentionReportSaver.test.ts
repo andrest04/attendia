@@ -5,6 +5,8 @@ import { AttentionContext } from '../../components/AttentionProvider';
 import { useAppState } from '../../state';
 import useParticipants from '../useParticipants/useParticipants';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import { getPendingAttentionReports } from '../../components/AttentionReport/pendingAttentionReports';
+import { saveScheduledClassSession } from '../../components/TeacherDashboard/classSessionContext';
 
 jest.mock('../../state');
 jest.mock('../useParticipants/useParticipants');
@@ -61,11 +63,12 @@ describe('useAttentionReportSaver', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    window.sessionStorage.clear();
     mockSave = jest.fn(() => Promise.resolve());
     mockUseAppState.mockImplementation(() => ({ saveAttentionReport: mockSave }));
     mockUseParticipants.mockImplementation(() => [{ identity: 'Ana García' }, { identity: 'Beto Díaz' }]);
     mockUseVideoContext.mockImplementation(() => ({
-      room: { sid: 'RM00000000000000000000000000000abc', name: 'matematicas-2a' },
+      room: { sid: 'RM00000000000000000000000000000abc', name: 'matematicas-2a', isRecording: true },
     }));
   });
 
@@ -114,6 +117,22 @@ describe('useAttentionReportSaver', () => {
       { identity: 'Beto Díaz', kind: 'away', detectedAt: '10:05' },
     ]);
     expect(typeof report.endedAtIso).toBe('string');
+    expect(typeof report.startedAtIso).toBe('string');
+    expect(report.durationMs).toBeGreaterThanOrEqual(0);
+    expect(report.recordingWasActiveAtEnd).toBe(true);
+  });
+
+  it('adds classId only from the persisted matching scheduled-class context', async () => {
+    saveScheduledClassSession({ classId: 'class-42', roomName: 'matematicas-2a' });
+    const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(baseAttention) });
+
+    await act(async () => {
+      await result.current.saveReport('ended-for-all');
+    });
+
+    expect(mockSave.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ classId: 'class-42', roomName: 'matematicas-2a' })
+    );
   });
 
   it('passes the "left" end reason through', async () => {
@@ -182,9 +201,10 @@ describe('useAttentionReportSaver', () => {
     expect(mockSave).not.toHaveBeenCalled();
   });
 
-  it('never throws: a rejected save is swallowed with a console.error', async () => {
+  it('queues a failed save for the signed-in teacher and never blocks leave', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockSave.mockRejectedValue(new Error('403 teacher only'));
+    mockUseAppState.mockImplementation(() => ({ saveAttentionReport: mockSave, user: { uid: 'teacher-1' } }));
     const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(baseAttention) });
 
     await act(async () => {
@@ -192,6 +212,9 @@ describe('useAttentionReportSaver', () => {
     });
 
     expect(consoleError).toHaveBeenCalled();
+    expect(getPendingAttentionReports('teacher-1')).toEqual([
+      expect.objectContaining({ roomSid: 'RM00000000000000000000000000000abc' }),
+    ]);
     consoleError.mockRestore();
   });
 

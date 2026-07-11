@@ -39,6 +39,7 @@ export interface StateContextType {
   // presence and the feature is silently absent — same contract as /profile.
   saveAttentionReport?(report: AttentionReport): Promise<void>;
   fetchAttentionReports?(): Promise<StoredAttentionReport[]>;
+  fetchAttentionReport?(roomSid: string): Promise<StoredAttentionReport>;
   // Firebase-mode only: real persistence for the "Recursos" tab (teacher-uploaded
   // class materials). Undefined in the other auth modes — ResourcesTab gates on
   // presence, same contract as saveAttentionReport/fetchAttentionReports.

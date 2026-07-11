@@ -1,4 +1,5 @@
 import { RequestHandler } from 'express';
+import { logOperationalFailure } from './operationalEvents';
 
 /*
  * Firestore-backed per-class attention reports:
@@ -58,6 +59,14 @@ export interface ReportsQuery {
 
 export interface ReportDocumentReference {
   set(data: { [key: string]: any }): Promise<unknown>;
+  get(): Promise<ReportDocumentSnapshot>;
+  update(data: { [key: string]: any }): Promise<unknown>;
+}
+
+export interface ReportTransaction {
+  get(reference: ReportDocumentReference): Promise<ReportDocumentSnapshot>;
+  set(reference: ReportDocumentReference, data: { [key: string]: any }): ReportTransaction;
+  update(reference: ReportDocumentReference, data: { [key: string]: any }): ReportTransaction;
 }
 
 export interface ReportsCollection {
@@ -77,6 +86,7 @@ export interface UserDocumentReference {
 
 export interface ReportsDatabase {
   collection(name: string): { doc(id: string): UserDocumentReference };
+  runTransaction<T>(updateFunction: (transaction: ReportTransaction) => Promise<T>): Promise<T>;
 }
 
 function getVerifiedUser(res: Parameters<RequestHandler>[1]): VerifiedFirebaseUser | undefined {
@@ -118,6 +128,10 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function isValidIsoDate(value: unknown): value is string {
+  return typeof value === 'string' && !isNaN(new Date(value).getTime());
+}
+
 /**
  * Validates and sanitizes the incoming report body. Returns the whitelisted
  * payload ready for Firestore, or an error message pair. Only known fields are
@@ -157,17 +171,30 @@ function sanitizeReportBody(body: {
 
   // Light guards on the numeric summary fields — a malformed payload becomes a 400
   // instead of a NaN-poisoned document.
-  const numericFields = ['studentCount', 'attentionThreshold', 'groupAverage', 'percentAboveThreshold'];
+  const numericFields = ['studentCount', 'attentionThreshold', 'groupAverage', 'percentAboveThreshold', 'durationMs'];
   for (const field of numericFields) {
     if (!isFiniteNumber(body[field])) {
       return { error: { message: `invalid ${field}`, explanation: 'Las métricas del reporte no son válidas.' } };
     }
+  }
+  if (body.durationMs < 0) {
+    return { error: { message: 'invalid durationMs', explanation: 'La duración del reporte no es válida.' } };
+  }
+  if (!isValidIsoDate(body.startedAtIso) || !isValidIsoDate(body.endedAtIso)) {
+    return { error: { message: 'invalid session time', explanation: 'Las fechas de la sesión no son válidas.' } };
+  }
+  if (new Date(body.startedAtIso).getTime() > new Date(body.endedAtIso).getTime()) {
+    return { error: { message: 'invalid session time', explanation: 'Las fechas de la sesión no son válidas.' } };
+  }
+  if (body.classId !== undefined && (typeof body.classId !== 'string' || body.classId.trim().length === 0)) {
+    return { error: { message: 'invalid classId', explanation: 'La clase asociada no es válida.' } };
   }
 
   return {
     report: {
       roomSid,
       roomName,
+      classId: typeof body.classId === 'string' ? body.classId.trim() : undefined,
       endReason: body.endReason,
       source: body.source === 'live' ? 'live' : 'mock',
       studentCount: body.studentCount,
@@ -178,7 +205,10 @@ function sanitizeReportBody(body: {
       timeline,
       participants,
       proctoringAlerts,
-      endedAtIso: typeof body.endedAtIso === 'string' ? body.endedAtIso : '',
+      endedAtIso: body.endedAtIso,
+      startedAtIso: body.startedAtIso,
+      durationMs: body.durationMs,
+      recordingWasActiveAtEnd: body.recordingWasActiveAtEnd === true,
     },
   };
 }
@@ -204,18 +234,42 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
         return;
       }
 
-      // Plain overwrite on the roomSid doc: a partial "left" save is replaced
-      // wholesale by the final "ended-for-all" save for the same class.
-      await db
+      const reportRef = db
         .collection('users')
         .doc(firebaseUser.uid)
         .collection('reports')
-        .doc(report.roomSid)
-        .set({ ...report, endedAt: serverTimestamp() });
+        .doc(report.roomSid);
+      const classRef = report.classId
+        ? db
+          .collection('users')
+          .doc(firebaseUser.uid)
+          .collection('classes')
+          .doc(report.classId)
+        : undefined;
+
+      // The report document id is the room SID. Replaying this request therefore
+      // converges on one report while the class state changes in the same commit.
+      await db.runTransaction(async transaction => {
+        if (classRef) {
+          const classSnapshot = await transaction.get(classRef);
+          const classData = classSnapshot.data();
+          if (!classData || classData.roomName !== report.roomName) {
+            const relationError: any = new Error('class relation mismatch');
+            relationError.code = 'class relation mismatch';
+            throw relationError;
+          }
+          transaction.update(classRef, { status: 'completed', completedAt: serverTimestamp() });
+        }
+        transaction.set(reportRef, { ...report, endedAt: serverTimestamp() });
+      });
 
       res.status(201).json({ saved: true, roomSid: report.roomSid });
     } catch (err) {
-      console.error('attentionReports: could not save the report', err);
+      if ((err as any).code === 'class relation mismatch') {
+        sendBadRequest(res, 'class relation mismatch', 'La clase asociada no corresponde a la sala de la sesión.');
+        return;
+      }
+      logOperationalFailure({ event: 'report_save_failed', operation: 'POST /reports', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'report save failed',
@@ -263,11 +317,61 @@ export function createGetReportsHandler(db: ReportsDatabase): RequestHandler {
 
       res.status(200).json(reports);
     } catch (err) {
-      console.error('attentionReports: could not list the reports', err);
+      logOperationalFailure({ event: 'report_lookup_failed', operation: 'GET /reports', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'report lookup failed',
           explanation: 'No pudimos consultar el historial de clases. Intenta de nuevo en unos segundos.',
+        },
+      });
+    }
+  };
+}
+
+/** Fetches one report only from the verified teacher's own subcollection. */
+export function createGetReportHandler(db: ReportsDatabase): RequestHandler {
+  return async (req, res) => {
+    const firebaseUser = getVerifiedUser(res);
+    if (!firebaseUser) {
+      res.status(401).send();
+      return;
+    }
+
+    const roomSid = req.params.roomSid;
+    if (typeof roomSid !== 'string' || !ROOM_SID_PATTERN.test(roomSid)) {
+      sendBadRequest(res, 'invalid roomSid', 'El identificador de la sala no es válido.');
+      return;
+    }
+
+    try {
+      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
+        sendTeacherOnly(res);
+        return;
+      }
+
+      const snapshot = await db
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .collection('reports')
+        .doc(roomSid)
+        .get();
+      if (!snapshot.data()) {
+        res.status(404).json({ error: { message: 'report not found', explanation: 'No encontramos ese reporte.' } });
+        return;
+      }
+
+      const { endedAt, ...data } = snapshot.data() || {};
+      res.status(200).json({
+        ...data,
+        roomSid: snapshot.id,
+        endedAtMs: endedAt && typeof endedAt.toMillis === 'function' ? endedAt.toMillis() : null,
+      });
+    } catch (err) {
+      logOperationalFailure({ event: 'report_read_failed', operation: 'GET /reports/:roomSid', uid: firebaseUser.uid, roomSid, error: err });
+      res.status(503).json({
+        error: {
+          message: 'report lookup failed',
+          explanation: 'No pudimos consultar el reporte de la clase. Intenta de nuevo en unos segundos.',
         },
       });
     }
