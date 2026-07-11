@@ -1,9 +1,19 @@
 import { RequestHandler } from 'express';
 
 /*
- * Firestore + Storage-backed teacher "Recursos" (class materials):
+ * Firestore-only teacher "Recursos" (class materials):
  * users/{uid}/resources/{fileId} = { name, kind, roomLabel, sizeBytes, contentType,
- * storagePath, createdAt }, with the actual bytes in Storage at storagePath.
+ * content, createdAt }, with the actual file bytes stored base64-encoded directly in
+ * the `content` field of the Firestore document.
+ *
+ * Why not Cloud Storage: Firebase Storage requires the project to be on the paid
+ * Blaze billing plan, which this project deliberately avoids. Firestore is on the
+ * free Spark plan, so the bytes are embedded in the document instead.
+ *
+ * This is why MAX_FILE_SIZE_BYTES is small: Firestore caps a document at 1 MiB, and
+ * base64 inflates raw bytes by ~4/3. 700 KB of raw bytes becomes ~933 KB of base64,
+ * leaving headroom in the 1 MiB budget for the document's other fields (name, kind,
+ * roomLabel, contentType, sizeBytes, createdAt).
  *
  * Teacher enforcement happens HERE, server-side, same as attentionReports.ts: every
  * handler re-resolves role from users/{uid} (written by userProfiles.ts) using the
@@ -18,8 +28,9 @@ import { RequestHandler } from 'express';
 export type ResourceKind = 'pdf' | 'presentation' | 'video';
 
 // Enforced again here even though multer is configured with the same limit in
-// index.ts — this module must not trust its wiring.
-export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+// index.ts — this module must not trust its wiring. Kept small: see the file header
+// comment for why (Firestore's 1 MiB document limit plus base64 inflation).
+export const MAX_FILE_SIZE_BYTES = 700 * 1024;
 
 const MAX_NAME_LENGTH = 200;
 const MAX_ROOM_LABEL_LENGTH = 120;
@@ -90,19 +101,6 @@ export interface UserDocumentReference {
 
 export interface ResourcesDatabase {
   collection(name: string): { doc(id: string): UserDocumentReference };
-}
-
-// ─── Structural Storage slice ──────────────────────────────────────────────────
-// Satisfied structurally by a real @google-cloud/storage Bucket/File.
-
-export interface ResourceStorageFile {
-  save(buffer: Buffer, options: { metadata: { contentType: string } }): Promise<unknown>;
-  delete(): Promise<unknown>;
-  getSignedUrl(options: { action: 'read'; expires: number }): Promise<[string]>;
-}
-
-export interface ResourcesBucket {
-  file(path: string): ResourceStorageFile;
 }
 
 // multer's req.file shape — declared locally to avoid an @types/multer dependency
@@ -208,7 +206,6 @@ export function createGetResourcesHandler(db: ResourcesDatabase): RequestHandler
 
 export function createUploadResourceHandler(
   db: ResourcesDatabase,
-  bucket: ResourcesBucket,
   serverTimestamp: () => unknown
 ): RequestHandler {
   return async (req, res) => {
@@ -232,7 +229,7 @@ export function createUploadResourceHandler(
       }
 
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (50 MB).');
+        sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (700 KB).');
         return;
       }
 
@@ -260,9 +257,6 @@ export function createUploadResourceHandler(
         .doc(firebaseUser.uid)
         .collection('resources')
         .doc();
-      const storagePath = `resources/${firebaseUser.uid}/${docRef.id}-${name}`;
-
-      await bucket.file(storagePath).save(file.buffer, { metadata: { contentType: file.mimetype } });
 
       await docRef.set({
         name,
@@ -270,7 +264,7 @@ export function createUploadResourceHandler(
         roomLabel,
         sizeBytes: file.size,
         contentType: file.mimetype,
-        storagePath,
+        content: file.buffer.toString('base64'),
         createdAt: serverTimestamp(),
       });
 
@@ -287,7 +281,7 @@ export function createUploadResourceHandler(
   };
 }
 
-export function createDownloadResourceHandler(db: ResourcesDatabase, bucket: ResourcesBucket): RequestHandler {
+export function createDownloadResourceHandler(db: ResourcesDatabase): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
 
@@ -317,22 +311,21 @@ export function createDownloadResourceHandler(db: ResourcesDatabase, bucket: Res
       }
 
       const data = snapshot.data() || {};
-      const [url] = await bucket.file(data.storagePath).getSignedUrl({ action: 'read', expires: Date.now() + 5 * 60 * 1000 });
 
-      res.status(200).json({ url });
+      res.status(200).json({ content: data.content, contentType: data.contentType, name: data.name });
     } catch (err) {
-      console.error('resources: could not generate a download url', err);
+      console.error('resources: could not prepare the download', err);
       res.status(503).json({
         error: {
           message: 'resource download failed',
-          explanation: 'No pudimos generar el enlace de descarga. Intenta de nuevo en unos segundos.',
+          explanation: 'No pudimos preparar la descarga. Intenta de nuevo en unos segundos.',
         },
       });
     }
   };
 }
 
-export function createDeleteResourceHandler(db: ResourcesDatabase, bucket: ResourcesBucket): RequestHandler {
+export function createDeleteResourceHandler(db: ResourcesDatabase): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
 
@@ -360,16 +353,6 @@ export function createDeleteResourceHandler(db: ResourcesDatabase, bucket: Resou
         });
         return;
       }
-
-      const data = snapshot.data() || {};
-
-      // Best-effort: the Firestore doc is the source of truth for listing, so a
-      // dangling Storage object (e.g. already removed out-of-band) must not block
-      // the doc delete from succeeding.
-      await bucket
-        .file(data.storagePath)
-        .delete()
-        .catch(err => console.error('resources: could not delete storage object', err));
 
       await docRef.delete();
 

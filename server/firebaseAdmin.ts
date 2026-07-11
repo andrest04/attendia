@@ -21,8 +21,6 @@ firebaseAdmin.initializeApp({
 export const firebaseApp = firebaseAdmin;
 export const auth = firebaseAdmin.auth();
 export const firestore = firebaseAdmin.firestore();
-// Default bucket for the "Recursos" tab (teacher-uploaded class materials/recordings).
-export const storageBucket = firebaseAdmin.storage().bucket();
 
 // Injected into the profile handlers so they stay decoupled from firebase-admin
 // (and trivially mockable in tests, mirroring the createCompleteRoomHandler style).
