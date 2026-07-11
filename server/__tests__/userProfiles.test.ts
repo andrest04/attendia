@@ -110,37 +110,36 @@ describe('createClientOperationalEventHandler', () => {
 describe('createPostProfileHandler', () => {
   afterEach(jest.clearAllMocks);
 
-  it('creates the profile with the token email and a server timestamp, returning 201', async () => {
+  it('creates only a student profile with the token email and a server timestamp, returning 201', async () => {
     const { db, doc, get, set } = makeDb();
     get.mockResolvedValue({ exists: false, data: () => undefined });
     const handler = createPostProfileHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler({ body: { displayName: 'Ana García', role: 'teacher' } } as any, res, jest.fn());
+    await handler({ body: { displayName: 'Ana García', role: 'student' } } as any, res, jest.fn());
 
     expect(doc).toHaveBeenCalledWith('uid-1');
     expect(set).toHaveBeenCalledWith({
       displayName: 'Ana García',
       email: 'ana@example.com',
-      role: 'teacher',
+      role: 'student',
       createdAt: 'server-timestamp',
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({
       displayName: 'Ana García',
       email: 'ana@example.com',
-      role: 'teacher',
+      role: 'student',
     });
   });
 
-  it('does not modify an existing profile (role is write-once) and returns it with 200', async () => {
+  it('does not modify an existing profile when the request remains a student registration', async () => {
     const { db, get, set } = makeDb();
     get.mockResolvedValue({ exists: true, data: () => storedProfile });
     const handler = createPostProfileHandler(db, serverTimestamp);
     const res = makeRes();
 
-    // The caller tries to flip their role to teacher — the stored profile must win.
-    await handler({ body: { displayName: 'Other Name', role: 'teacher' } } as any, res, jest.fn());
+    await handler({ body: { displayName: 'Other Name', role: 'student' } } as any, res, jest.fn());
 
     expect(set).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
@@ -151,18 +150,18 @@ describe('createPostProfileHandler', () => {
     });
   });
 
-  it('rejects an invalid role with 400', async () => {
+  it('rejects teacher self-provisioning with 400 before reading or writing', async () => {
     const { db, get, set } = makeDb();
     const handler = createPostProfileHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler({ body: { displayName: 'Ana', role: 'admin' } } as any, res, jest.fn());
+    await handler({ body: { displayName: 'Ana', role: 'teacher' } } as any, res, jest.fn());
 
     expect(get).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.objectContaining({ message: 'invalid role' }) })
+      expect.objectContaining({ error: expect.objectContaining({ message: 'teacher provisioning required' }) })
     );
   });
 

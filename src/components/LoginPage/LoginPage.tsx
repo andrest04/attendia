@@ -16,6 +16,15 @@ import { useLocation, useHistory, Link } from 'react-router-dom';
 
 type PreJoinRole = 'teacher' | 'student';
 
+const SELF_REGISTER_ROLE_OPTIONS: { role: PreJoinRole; label: string; caption: string; testId: string }[] = [
+  {
+    role: 'student',
+    label: 'Soy estudiante',
+    caption: 'Unirme a clases existentes',
+    testId: 'role-option-estudiante',
+  },
+];
+
 const useStyles = makeStyles((theme: Theme) => ({
   // Inner padded wrapper. IntroContainer's contentCard is a flush, overflow:hidden
   // shell — every other consumer (RoomNameScreen, DeviceSelectionScreen) wraps its
@@ -276,25 +285,15 @@ export function getFirebaseAuthErrorMessage(error: any): string {
   }
 }
 
-// Two-option role selector shared by the register view and the completion step.
-// This choice only preselects the classroom flow; the server stores it once and
-// re-reads it from Firestore on every request.
+// Firebase self-registration creates student profiles only. Teacher access is
+// provisioned administratively; keeping that option out of this form prevents a
+// misleading client-side elevation path.
 function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role: PreJoinRole) => void }) {
   const classes = useStyles();
 
-  const options: { role: PreJoinRole; label: string; caption: string; testId: string }[] = [
-    {
-      role: 'student',
-      label: 'Soy estudiante',
-      caption: 'Unirme a clases existentes',
-      testId: 'role-option-estudiante',
-    },
-    { role: 'teacher', label: 'Soy profesor', caption: 'Crear y dirigir clases', testId: 'role-option-profesor' },
-  ];
-
   return (
     <div className={classes.roleCards} style={{ marginBottom: 16 }}>
-      {options.map(option => (
+      {SELF_REGISTER_ROLE_OPTIONS.map(option => (
         <div
           key={option.role}
           data-testid={option.testId}

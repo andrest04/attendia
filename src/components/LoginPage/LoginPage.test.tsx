@@ -162,7 +162,7 @@ describe('the LoginPage component', () => {
         expect(getByLabelText('Correo electrónico')).toBeTruthy();
         expect(getByLabelText('Contraseña')).toBeTruthy();
         expect(getByTestId('role-option-estudiante').getAttribute('aria-pressed')).toBe('true');
-        expect(getByTestId('role-option-profesor').getAttribute('aria-pressed')).toBe('false');
+        expect(() => getByTestId('role-option-profesor')).toThrow();
       });
 
       it('should call register with the entered data and the default student role', done => {
@@ -190,30 +190,11 @@ describe('the LoginPage component', () => {
         });
       });
 
-      it('should call register with the teacher role when "Soy profesor" is selected', done => {
-        const mockRegister = jest.fn(() => Promise.resolve());
-        mockUseAppState.mockImplementation(() => ({
-          user: null,
-          profile: null,
-          isAuthReady: true,
-          register: mockRegister,
-        }));
-        const { getByLabelText, getByTestId } = openRegisterView();
+      it('does not expose a teacher self-provisioning option', () => {
+        mockUseAppState.mockImplementation(() => ({ user: null, profile: null, isAuthReady: true }));
+        const { queryByTestId } = openRegisterView();
 
-        act(() => {
-          fireEvent.click(getByTestId('role-option-profesor'));
-          fireEvent.change(getByLabelText('Nombre completo'), { target: { value: 'Profe' } });
-          fireEvent.change(getByLabelText('Correo electrónico'), { target: { value: 'profe@example.com' } });
-          fireEvent.change(getByLabelText('Contraseña'), { target: { value: 'password1' } });
-        });
-        act(() => {
-          fireEvent.submit(getByLabelText('Contraseña').closest('form')!);
-        });
-
-        setImmediate(() => {
-          expect(mockRegister).toHaveBeenCalledWith('Profe', 'profe@example.com', 'password1', 'teacher');
-          done();
-        });
+        expect(queryByTestId('role-option-profesor')).toBeNull();
       });
 
       it('should map auth/email-already-in-use to a friendly Spanish message', async () => {
@@ -297,7 +278,7 @@ describe('the LoginPage component', () => {
         expect(queryByLabelText('Contraseña')).toBeNull();
       });
 
-      it('should call completeProfile with the selected role', done => {
+      it('should call completeProfile only with the student role', done => {
         const mockCompleteProfile = jest.fn(() => Promise.resolve());
         mockUseAppState.mockImplementation(() => ({
           user: { displayName: 'Test User' },
@@ -305,17 +286,13 @@ describe('the LoginPage component', () => {
           isAuthReady: true,
           completeProfile: mockCompleteProfile,
         }));
-        const { getByText, getByTestId } = render(<LoginPage />);
-
-        act(() => {
-          fireEvent.click(getByTestId('role-option-profesor'));
-        });
+        const { getByText } = render(<LoginPage />);
         act(() => {
           fireEvent.submit(getByText('Confirmar y continuar').closest('form')!);
         });
 
         setImmediate(() => {
-          expect(mockCompleteProfile).toHaveBeenCalledWith('teacher');
+          expect(mockCompleteProfile).toHaveBeenCalledWith('student');
           done();
         });
       });
