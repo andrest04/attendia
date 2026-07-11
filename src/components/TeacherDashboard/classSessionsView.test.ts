@@ -1,4 +1,4 @@
-import { buildUpcomingSessions } from './classSessionsView';
+import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
 const NOW_MS = new Date(2026, 6, 8, 10, 0, 0).getTime();
@@ -129,5 +129,43 @@ describe('buildUpcomingSessions', () => {
 
     expect(session.dayLabel).toBe(expectedLabel);
     expect(session.relativeLabel).toBe(expectedLabel);
+  });
+});
+
+describe('findExpiredClasses', () => {
+  it('returns an empty array for an empty input', () => {
+    expect(findExpiredClasses([], NOW_MS)).toEqual([]);
+  });
+
+  it('excludes a scheduled class within the 15 minute grace period', () => {
+    const withinGrace = makeClass({ id: 'within-grace', scheduledAtMs: NOW_MS - 10 * 60 * 1000 });
+
+    expect(findExpiredClasses([withinGrace], NOW_MS)).toEqual([]);
+  });
+
+  it('includes a scheduled class past the 15 minute grace period', () => {
+    const tooOld = makeClass({ id: 'too-old', scheduledAtMs: NOW_MS - 20 * 60 * 1000 });
+
+    const result = findExpiredClasses([tooOld], NOW_MS);
+
+    expect(result.map(c => c.id)).toEqual(['too-old']);
+  });
+
+  it('excludes a started class even past the grace period', () => {
+    const started = makeClass({ id: 'started', scheduledAtMs: NOW_MS - 20 * 60 * 1000, status: 'started' });
+
+    expect(findExpiredClasses([started], NOW_MS)).toEqual([]);
+  });
+
+  it('excludes a completed class even past the grace period', () => {
+    const completed = makeClass({ id: 'completed', scheduledAtMs: NOW_MS - 20 * 60 * 1000, status: 'completed' });
+
+    expect(findExpiredClasses([completed], NOW_MS)).toEqual([]);
+  });
+
+  it('excludes an upcoming class not yet due', () => {
+    const upcoming = makeClass({ id: 'upcoming', scheduledAtMs: NOW_MS + 60 * 60 * 1000 });
+
+    expect(findExpiredClasses([upcoming], NOW_MS)).toEqual([]);
   });
 });

@@ -7,6 +7,7 @@ import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import DeleteIcon from '@material-ui/icons/Delete';
+import EventBusyIcon from '@material-ui/icons/EventBusy';
 import { MuiPickersUtilsProvider, KeyboardDatePicker, KeyboardTimePicker } from '@material-ui/pickers';
 import DateFnsUtils from '@date-io/date-fns';
 import esLocale from 'date-fns/locale/es';
@@ -139,6 +140,31 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontWeight: 600,
     fontSize: '0.8125rem',
     flexShrink: 0,
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    flexShrink: 0,
+  },
+  cancelExpiredButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(1, 2),
+    borderRadius: theme.shape.borderRadius,
+    border: '1px solid #f0c36d',
+    cursor: 'pointer',
+    backgroundColor: '#fff8e6',
+    color: theme.palette.text.primary,
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.8125rem',
+    flexShrink: 0,
+    '&:disabled': {
+      opacity: 0.6,
+      cursor: 'default',
+    },
   },
   sessionsGrid: {
     display: 'grid',
@@ -363,6 +389,12 @@ interface Props {
   cancellingClassId?: string | null;
   cancelError?: string | null;
   onRetryCancel?: () => void;
+  /** Firebase-mode only: count of scheduled classes whose grace period elapsed
+   * without being started — the "Cancelar vencidas" button only renders above 0. */
+  expiredClassesCount?: number;
+  onCancelExpiredClasses?: () => void;
+  isCancellingExpired?: boolean;
+  cancelExpiredError?: string | null;
 }
 
 function createIdempotencyKey(): string {
@@ -386,6 +418,10 @@ export default function ClassesTab({
   cancellingClassId,
   cancelError,
   onRetryCancel,
+  expiredClassesCount = 0,
+  onCancelExpiredClasses,
+  isCancellingExpired,
+  cancelExpiredError,
 }: Props) {
   const classes = useStyles();
 
@@ -454,6 +490,10 @@ export default function ClassesTab({
       setFormError('La fecha y hora indicadas no son válidas.');
       return;
     }
+    if (scheduledAtMs < Date.now()) {
+      setFormError('No podés programar una clase en una fecha u hora pasada.');
+      return;
+    }
 
     setFormError(null);
     setIsSubmitting(true);
@@ -492,15 +532,31 @@ export default function ClassesTab({
           <div className={classes.sectionTitle}>Próximas sesiones</div>
           <div className={classes.sectionSubtitle}>{dateLabel}</div>
         </div>
-        <button
-          type="button"
-          className={classes.newClassButton}
-          onClick={handleNewClassClick}
-          data-testid="dashboard-new-class-button"
-        >
-          <AddIcon style={{ fontSize: 18 }} />
-          Nueva clase
-        </button>
+        <div className={classes.headerActions}>
+          {onCancelExpiredClasses && expiredClassesCount > 0 && (
+            <button
+              type="button"
+              className={classes.cancelExpiredButton}
+              onClick={onCancelExpiredClasses}
+              disabled={isCancellingExpired}
+              data-testid="dashboard-cancel-expired-button"
+            >
+              <EventBusyIcon style={{ fontSize: 18 }} />
+              {isCancellingExpired
+                ? 'Cancelando…'
+                : `Cancelar ${expiredClassesCount === 1 ? 'vencida' : `${expiredClassesCount} vencidas`}`}
+            </button>
+          )}
+          <button
+            type="button"
+            className={classes.newClassButton}
+            onClick={handleNewClassClick}
+            data-testid="dashboard-new-class-button"
+          >
+            <AddIcon style={{ fontSize: 18 }} />
+            Nueva clase
+          </button>
+        </div>
       </div>
 
       {onCreateClass && isFormOpen && (
@@ -534,6 +590,7 @@ export default function ClassesTab({
                   autoOk
                   fullWidth
                   disableToolbar
+                  disablePast
                   variant="inline"
                   inputVariant="outlined"
                   margin="none"
@@ -664,6 +721,11 @@ export default function ClassesTab({
           <button type="button" onClick={onRetryCancel} data-testid="dashboard-retry-cancel-button">
             Reintentar cancelación
           </button>
+        </div>
+      )}
+      {cancelExpiredError && (
+        <div className={classes.newClassError} data-testid="dashboard-cancel-expired-error">
+          {cancelExpiredError}
         </div>
       )}
     </div>
