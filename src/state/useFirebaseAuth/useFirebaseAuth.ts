@@ -147,6 +147,9 @@ export interface ResourceRecord {
   name: string;
   kind: ResourceFileKind;
   roomLabel: string;
+  classId?: string;
+  classTitle?: string;
+  roomName?: string;
   sizeBytes: number;
   contentType: string;
   createdAtMs: number | null;
@@ -167,12 +170,12 @@ async function fetchResourcesRequest(user: User): Promise<ResourceRecord[]> {
 
 // POST /resources (multipart). No content-type header is set — the browser fills
 // in the multipart boundary for us when the body is a FormData.
-async function uploadResourceRequest(user: User, file: File, roomLabel: string): Promise<ResourceRecord> {
+async function uploadResourceRequest(user: User, file: File, classId: string): Promise<ResourceRecord> {
   const idToken = await user.getIdToken();
 
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('roomLabel', roomLabel);
+  formData.append('classId', classId);
 
   const response = await fetch('/resources', {
     method: 'POST',
@@ -583,11 +586,11 @@ export default function useFirebaseAuth() {
   }, [user]);
 
   const uploadResource = useCallback(
-    (file: File, roomLabel: string) => {
+    (file: File, classId: string) => {
       if (!user) {
         return Promise.reject(new Error('Cannot upload a resource without an authenticated user'));
       }
-      return uploadResourceRequest(user, file, roomLabel);
+      return uploadResourceRequest(user, file, classId);
     },
     [user]
   );

@@ -15,6 +15,9 @@ const fileA = {
   name: 'guia.pdf',
   kind: 'pdf' as const,
   roomLabel: 'Cálculo I',
+  classId: 'class-a',
+  classTitle: 'Cálculo I',
+  roomName: 'calculo-i',
   sizeBytes: 2_500_000,
   contentType: 'application/pdf',
   createdAtMs: 1751554800000,
@@ -25,22 +28,43 @@ const fileB = {
   name: 'clase.mp4',
   kind: 'video' as const,
   roomLabel: 'Física II',
+  classId: 'class-b',
+  classTitle: 'Física II',
+  roomName: 'fisica-ii',
   sizeBytes: 500,
   contentType: 'video/mp4',
   createdAtMs: null,
 };
 
 describe('the ResourcesTab component', () => {
+  const scheduledClasses = [
+    {
+      id: 'class-a',
+      title: 'Cálculo I',
+      roomName: 'calculo-i',
+      scheduledAtMs: 1,
+      studentCount: 10,
+      status: 'scheduled' as const,
+    },
+    {
+      id: 'class-b',
+      title: 'Física II',
+      roomName: 'fisica-ii',
+      scheduledAtMs: 2,
+      studentCount: 12,
+      status: 'scheduled' as const,
+    },
+  ];
   afterEach(() => jest.clearAllMocks());
 
   it('shows a fallback message when the real resources API is not available (non-firebase auth modes)', () => {
     mockUseAppState.mockImplementation(() => ({}));
-    const wrapper = mount(<ResourcesTab />);
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
 
     expect(wrapper.text()).toContain('Los recursos reales solo están disponibles');
   });
 
-  it('fetches and groups resources by roomLabel on mount, defaulting to the first group', async () => {
+  it('fetches and groups resources by verified classId on mount, defaulting to the first group', async () => {
     const fetchResources = jest.fn(() => Promise.resolve([fileA, fileB]));
     mockUseAppState.mockImplementation(() => ({
       fetchResources,
@@ -49,13 +73,13 @@ describe('the ResourcesTab component', () => {
       deleteResource: jest.fn(),
     }));
 
-    const wrapper = mount(<ResourcesTab />);
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
 
     expect(fetchResources).toHaveBeenCalled();
-    expect(wrapper.find('[data-testid="dashboard-resources-pill-calculo-i"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="dashboard-resources-pill-fisica-ii"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="dashboard-resources-pill-class-a"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="dashboard-resources-pill-class-b"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="dashboard-resource-file-file-a"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="dashboard-resource-file-file-b"]').exists()).toBe(false);
   });
@@ -69,12 +93,12 @@ describe('the ResourcesTab component', () => {
       deleteResource: jest.fn(),
     }));
 
-    const wrapper = mount(<ResourcesTab />);
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
 
     wrapper
-      .find('[data-testid="dashboard-resources-pill-fisica-ii"]')
+      .find('[data-testid="dashboard-resources-pill-class-b"]')
       .first()
       .simulate('click');
     wrapper.update();
@@ -83,7 +107,7 @@ describe('the ResourcesTab component', () => {
     expect(wrapper.find('[data-testid="dashboard-resource-file-file-a"]').exists()).toBe(false);
   });
 
-  it('uploads the selected file under the typed roomLabel and prepends it to the active group', async () => {
+  it('uploads the selected file under a verified class id and prepends it to the active group', async () => {
     const fetchResources = jest.fn(() => Promise.resolve([]));
     const uploadResource = jest.fn(() => Promise.resolve(fileA));
     mockUseAppState.mockImplementation(() => ({
@@ -93,14 +117,14 @@ describe('the ResourcesTab component', () => {
       deleteResource: jest.fn(),
     }));
 
-    const wrapper = mount(<ResourcesTab />);
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
 
     wrapper
-      .find('[data-testid="dashboard-resources-room-label-input"]')
+      .find('[data-testid="dashboard-resources-class-select"]')
       .first()
-      .simulate('change', { target: { value: 'Cálculo I' } });
+      .simulate('change', { target: { value: 'class-a' } });
 
     const file = new File(['contenido'], 'guia.pdf', { type: 'application/pdf' });
     await act(async () => {
@@ -113,11 +137,11 @@ describe('the ResourcesTab component', () => {
     });
     wrapper.update();
 
-    expect(uploadResource).toHaveBeenCalledWith(file, 'Cálculo I');
+    expect(uploadResource).toHaveBeenCalledWith(file, 'class-a');
     expect(wrapper.find('[data-testid="dashboard-resource-file-file-a"]').exists()).toBe(true);
   });
 
-  it('blocks the upload click and shows an error when no roomLabel was typed', async () => {
+  it('blocks the upload click and shows an error when no class is selected', async () => {
     const fetchResources = jest.fn(() => Promise.resolve([]));
     const uploadResource = jest.fn();
     mockUseAppState.mockImplementation(() => ({
@@ -127,7 +151,7 @@ describe('the ResourcesTab component', () => {
       deleteResource: jest.fn(),
     }));
 
-    const wrapper = mount(<ResourcesTab />);
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
 
@@ -138,7 +162,7 @@ describe('the ResourcesTab component', () => {
     wrapper.update();
 
     expect(uploadResource).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain('Indicá a qué clase pertenece el archivo');
+    expect(wrapper.text()).toContain('Seleccioná una clase programada');
   });
 
   it('decodes the base64 content into a Blob and opens an object URL in a new tab', async () => {
@@ -160,7 +184,7 @@ describe('the ResourcesTab component', () => {
     // @ts-ignore
     global.URL.revokeObjectURL = revokeObjectURL;
 
-    const wrapper = mount(<ResourcesTab />);
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
 
@@ -188,7 +212,7 @@ describe('the ResourcesTab component', () => {
     }));
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
 
-    const wrapper = mount(<ResourcesTab />);
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
 
@@ -216,7 +240,7 @@ describe('the ResourcesTab component', () => {
     }));
     const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
 
-    const wrapper = mount(<ResourcesTab />);
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
 

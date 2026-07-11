@@ -1,67 +1,90 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount } from 'enzyme';
 import HistoryTab from './HistoryTab';
-import { HistoryRow } from './types';
 
-const rows: HistoryRow[] = [
+const reports: any[] = [
   {
-    id: 'row-high',
-    className: 'Matemáticas — Grupo B',
-    date: '2 jul 2026',
-    duration: '1h 02min',
+    roomSid: 'RM00000000000000000000000000000abc',
+    roomName: 'Matemáticas Grupo B',
+    endReason: 'ended-for-all',
+    source: 'live',
     studentCount: 26,
-    attentionPercent: 91,
-    recordingStatus: 'lista',
-    hasDownload: true,
+    attentionThreshold: 60,
+    ranges: { lowMax: 40, mediumMax: 70 },
+    groupAverage: 91,
+    percentAboveThreshold: 80,
+    timeline: [],
+    participants: [],
+    proctoringAlerts: [],
+    startedAtIso: '2026-07-02T09:00:00.000Z',
+    endedAtIso: '2026-07-02T10:02:00.000Z',
+    endedAtMs: 1782986520000,
+    durationMs: 3720000,
+    recordingWasActiveAtEnd: true,
   },
   {
-    id: 'row-medium',
-    className: 'Matemáticas — Grupo A',
-    date: '7 jul 2026',
-    duration: '1h 05min',
-    studentCount: 28,
-    attentionPercent: 65,
-    recordingStatus: 'lista',
-    hasDownload: true,
-  },
-  {
-    id: 'row-low',
-    className: 'Cálculo III',
-    date: '4 jul 2026',
-    duration: '58min',
+    roomSid: 'RM00000000000000000000000000000def',
+    roomName: 'Cálculo III',
+    endReason: 'left',
+    source: 'mock',
     studentCount: 24,
-    attentionPercent: 35,
-    recordingStatus: 'no-disponible',
-    hasDownload: false,
+    attentionThreshold: 60,
+    ranges: { lowMax: 40, mediumMax: 70 },
+    groupAverage: 35,
+    percentAboveThreshold: 20,
+    timeline: [],
+    participants: [],
+    proctoringAlerts: [],
+    startedAtIso: '2026-07-04T09:00:00.000Z',
+    endedAtIso: '2026-07-04T09:58:00.000Z',
+    endedAtMs: 1783159080000,
+    durationMs: 3480000,
+    recordingWasActiveAtEnd: false,
   },
 ];
 
 describe('HistoryTab', () => {
-  it('colors the attention bar green/amber/red by the low(40)/medium(70)/high threshold', () => {
-    const wrapper = shallow(<HistoryTab rows={rows} />);
+  const props = { reports, isLoading: false, error: null, onRetry: jest.fn(), onOpenReport: jest.fn() };
 
-    expect(wrapper.find('[data-testid="dashboard-history-attention-bar-row-high"]').prop('data-level')).toBe('high');
-    expect(wrapper.find('[data-testid="dashboard-history-attention-bar-row-high"]').prop('style')).toMatchObject({
-      backgroundColor: '#10b981',
-    });
+  it('renders persisted duration, disclosed mock attention, and no invented recording download', () => {
+    const wrapper = mount(<HistoryTab {...props} />);
 
-    expect(wrapper.find('[data-testid="dashboard-history-attention-bar-row-medium"]').prop('data-level')).toBe(
-      'medium'
+    expect(wrapper.find('[data-testid="dashboard-history-row-RM00000000000000000000000000000abc"]').text()).toContain(
+      '1h 2min'
     );
-    expect(wrapper.find('[data-testid="dashboard-history-attention-bar-row-medium"]').prop('style')).toMatchObject({
-      backgroundColor: '#ffb800',
-    });
-
-    expect(wrapper.find('[data-testid="dashboard-history-attention-bar-row-low"]').prop('data-level')).toBe('low');
-    expect(wrapper.find('[data-testid="dashboard-history-attention-bar-row-low"]').prop('style')).toMatchObject({
-      backgroundColor: '#ef4444',
-    });
+    expect(wrapper.find('[data-testid="dashboard-history-row-RM00000000000000000000000000000def"]').text()).toContain(
+      'Datos simulados'
+    );
+    expect(wrapper.text()).toContain('Activa al cierre (archivo no disponible)');
+    expect(wrapper.text()).toContain('No disponible');
+    expect(wrapper.find('[data-testid="dashboard-history-download"]').exists()).toBe(false);
   });
 
-  it('shows a download icon only for rows with a recording, and a dash otherwise', () => {
-    const wrapper = shallow(<HistoryTab rows={rows} />);
+  it('filters reports and opens the selected persisted report', () => {
+    const onOpenReport = jest.fn();
+    const wrapper = mount(<HistoryTab {...props} onOpenReport={onOpenReport} />);
 
-    expect(wrapper.find('[data-testid="dashboard-history-row-row-low"]').text()).toContain('—');
-    expect(wrapper.find('[data-testid="dashboard-history-download"]').length).toBe(2);
+    wrapper.find('input[aria-label="Buscar clase"]').simulate('change', { target: { value: 'cálculo' } });
+    expect(wrapper.find('[data-testid="dashboard-history-row-RM00000000000000000000000000000abc"]').exists()).toBe(
+      false
+    );
+    wrapper.find('[data-testid="dashboard-history-report"]').simulate('click');
+    expect(onOpenReport).toHaveBeenCalledWith(reports[1]);
+  });
+
+  it('renders loading, error retry, and empty states', () => {
+    const loading = mount(<HistoryTab {...props} reports={null} isLoading />);
+    expect(loading.find('[data-testid="dashboard-history-loading"]').exists()).toBe(true);
+
+    const onRetry = jest.fn();
+    const error = mount(<HistoryTab {...props} reports={null} error="No disponible" onRetry={onRetry} />);
+    error
+      .find('[data-testid="dashboard-history-retry"]')
+      .first()
+      .simulate('click');
+    expect(onRetry).toHaveBeenCalledTimes(1);
+
+    const empty = mount(<HistoryTab {...props} reports={[]} />);
+    expect(empty.find('[data-testid="dashboard-history-empty"]').exists()).toBe(true);
   });
 });
