@@ -40,9 +40,17 @@ app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 // verified uid, so these endpoints are meaningless (and firebase-admin unavailable)
 // in the other auth modes. Both sit behind the auth middleware. See userProfiles.ts.
 if (process.env.REACT_APP_SET_AUTH === 'firebase') {
-  const { firestore, serverTimestamp } = require('./firebaseAdmin');
+  const { firestore, storageBucket, serverTimestamp } = require('./firebaseAdmin');
   const { createGetProfileHandler, createPostProfileHandler } = require('./userProfiles');
   const { createGetReportsHandler, createPostReportHandler } = require('./attentionReports');
+  const {
+    createGetResourcesHandler,
+    createUploadResourceHandler,
+    createDownloadResourceHandler,
+    createDeleteResourceHandler,
+    MAX_FILE_SIZE_BYTES,
+  } = require('./resources');
+  const { createGetClassesHandler, createCreateClassHandler, createDeleteClassHandler } = require('./classes');
 
   app.get('/profile', authMiddleware, createGetProfileHandler(firestore));
   app.post('/profile', authMiddleware, createPostProfileHandler(firestore, serverTimestamp));
@@ -52,6 +60,24 @@ if (process.env.REACT_APP_SET_AUTH === 'firebase') {
   // Teacher-only: both handlers re-resolve the role from Firestore server-side.
   app.get('/reports', authMiddleware, createGetReportsHandler(firestore));
   app.post('/reports', authMiddleware, createPostReportHandler(firestore, serverTimestamp));
+
+  // Teacher-only "Recursos" tab: users/{uid}/resources/{fileId} metadata in Firestore,
+  // bytes in Storage. Uploads are buffered in memory (multer) then streamed straight to
+  // Storage — no temp files on disk. See resources.ts for the validation/role checks.
+  const multer = require('multer');
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE_BYTES } });
+
+  app.get('/resources', authMiddleware, createGetResourcesHandler(firestore));
+  app.post('/resources', authMiddleware, upload.single('file'), createUploadResourceHandler(firestore, storageBucket, serverTimestamp));
+  app.get('/resources/:id/download', authMiddleware, createDownloadResourceHandler(firestore, storageBucket));
+  app.delete('/resources/:id', authMiddleware, createDeleteResourceHandler(firestore, storageBucket));
+
+  // Teacher-only "Clases" tab: users/{uid}/classes/{classId} scheduled-session
+  // metadata in Firestore, no Storage involved. See classes.ts for the validation/
+  // role checks and the server-side title-to-roomName slugify.
+  app.get('/classes', authMiddleware, createGetClassesHandler(firestore));
+  app.post('/classes', authMiddleware, createCreateClassHandler(firestore, serverTimestamp));
+  app.delete('/classes/:id', authMiddleware, createDeleteClassHandler(firestore));
 }
 
 // Teacher-only "end the session for everyone": completes the Twilio room so all

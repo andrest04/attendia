@@ -15,11 +15,14 @@ import firebaseAdmin from 'firebase-admin';
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert(require('./serviceAccountKey.json')),
   databaseURL: process.env.REACT_APP_FIREBASE_DATABASE_URL,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
 });
 
 export const firebaseApp = firebaseAdmin;
 export const auth = firebaseAdmin.auth();
 export const firestore = firebaseAdmin.firestore();
+// Default bucket for the "Recursos" tab (teacher-uploaded class materials/recordings).
+export const storageBucket = firebaseAdmin.storage().bucket();
 
 // Injected into the profile handlers so they stay decoupled from firebase-admin
 // (and trivially mockable in tests, mirroring the createCompleteRoomHandler style).
