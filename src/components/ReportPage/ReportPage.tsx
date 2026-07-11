@@ -1,19 +1,18 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import CloseIcon from '@material-ui/icons/Close';
 
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import AttentionReportView, { AttentionReportViewData } from '../AttentionReport/AttentionReportView';
-import { loadReportSnapshot } from '../AttentionReport/reportSnapshot';
+import { storedReportToViewData } from '../AttentionReport/storedReportViewData';
+import { useAppState } from '../../state';
+import { useParams } from 'react-router-dom';
 
 /*
  * Standalone "Reporte de Atención" page, opened in a NEW TAB from the in-room
- * "Ver reporte" action. It renders the shared AttentionReportView from a snapshot
- * the room tab wrote to localStorage at click time — a new tab is a separate
- * document with no access to the live useAttention() context or the Twilio room,
- * so a point-in-time snapshot (which is what a report is anyway) is the right shape.
- * Lives OUTSIDE VideoApp/PrivateRoute, so it never mounts any SDK provider.
+ * dashboard history. It loads only the authenticated teacher's persisted report;
+ * the route is protected and the server scopes reads to the verified Firebase uid.
  */
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -71,8 +70,28 @@ const useStyles = makeStyles((theme: Theme) => ({
 
 export default function ReportPage() {
   const classes = useStyles();
-  // Read once on mount — the snapshot is a static, point-in-time copy.
-  const [data] = React.useState<AttentionReportViewData | null>(() => loadReportSnapshot());
+  const { roomSid } = useParams<{ roomSid: string }>();
+  const { fetchAttentionReport } = useAppState();
+  const [data, setData] = useState<AttentionReportViewData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    if (!fetchAttentionReport) {
+      setError('No pudimos validar tu acceso al reporte.');
+      return;
+    }
+    setError(null);
+    fetchAttentionReport(roomSid)
+      .then(report => setData(storedReportToViewData(report)))
+      .catch(err => {
+        console.error('ReportPage: could not fetch the report', { roomSid, error: err });
+        setError(err.message || 'No pudimos consultar el reporte.');
+      });
+  }, [fetchAttentionReport, roomSid]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   return (
     <div className={classes.root} data-testid="report-page">
@@ -82,7 +101,12 @@ export default function ReportPage() {
         <Typography variant="body2" style={{ color: '#64748b' }}>
           Reporte de Atención
         </Typography>
-        <button className={classes.closeButton} onClick={() => window.close()} data-testid="report-page-close">
+        <button
+          type="button"
+          className={classes.closeButton}
+          onClick={() => window.close()}
+          data-testid="report-page-close"
+        >
           <CloseIcon style={{ fontSize: 16 }} />
           Cerrar
         </button>
@@ -92,10 +116,7 @@ export default function ReportPage() {
         <AttentionReportView data={data} />
       ) : (
         <div className={classes.emptyCard} data-testid="report-page-empty">
-          <Typography className={classes.emptyText}>
-            No encontramos un reporte para mostrar. Abrí el reporte desde el botón <strong>"Ver reporte"</strong> dentro
-            de la sesión de clase.
-          </Typography>
+          <Typography className={classes.emptyText}>{error || 'Cargando el reporte...'}</Typography>
         </div>
       )}
     </div>

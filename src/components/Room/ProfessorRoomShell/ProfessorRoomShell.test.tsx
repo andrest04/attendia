@@ -549,22 +549,16 @@ describe('ProfessorRoomShell', () => {
     );
   });
 
-  it('opens the report in a new tab and snapshots the data from "Ver reporte"', () => {
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
-    localStorage.clear();
+  it('directs the teacher to authenticated history instead of persisting a browser snapshot', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
 
     wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
 
-    // The report opens in a new tab; the old in-room overlay is gone entirely.
-    expect(openSpy).toHaveBeenCalledWith('/report', '_blank', 'noopener');
+    expect(
+      mockEnqueue
+    ).toHaveBeenCalledWith('El reporte estará disponible en el historial cuando finalice y se guarde la clase.', {
+      variant: 'info',
+    });
     expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
-
-    // …and the snapshot the new tab will read was written to localStorage.
-    const snapshot = localStorage.getItem('attendia-report-snapshot');
-    expect(snapshot).toBeTruthy();
-    expect(JSON.parse(snapshot as string)).toMatchObject({ sessionName: expect.any(String) });
-
-    openSpy.mockRestore();
   });
 });

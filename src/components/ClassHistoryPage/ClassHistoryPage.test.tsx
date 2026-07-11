@@ -48,6 +48,9 @@ const storedReport = {
   participants: [{ identity: 'Ana García', indexAvg: 83, indexMin: 70, indexMax: 95, level: 'high', alertCount: 1 }],
   proctoringAlerts: [{ identity: 'Ana García', kind: 'multiface', detectedAt: '10:02' }],
   endedAtIso: '2026-07-03T15:00:00.000Z',
+  startedAtIso: '2026-07-03T14:00:00.000Z',
+  durationMs: 3600000,
+  recordingWasActiveAtEnd: false,
   endedAtMs: 1751554800000,
 };
 

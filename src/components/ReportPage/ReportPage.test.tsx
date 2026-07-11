@@ -1,8 +1,8 @@
 import React from 'react';
 import { mount } from 'enzyme';
 import ReportPage from './ReportPage';
-import { saveReportSnapshot } from '../AttentionReport/reportSnapshot';
-import { AttentionReportViewData } from '../AttentionReport/AttentionReportView';
+import { MemoryRouter, Route } from 'react-router-dom';
+import { useAppState } from '../../state';
 
 // recharts' ResponsiveContainer needs a measurable parent; stub it for jsdom.
 jest.mock('recharts', () => {
@@ -20,42 +20,35 @@ jest.mock('recharts', () => {
   };
 });
 
-const sampleData: AttentionReportViewData = {
-  sessionName: 'Matemáticas — Grupo A',
-  studentCount: 3,
-  source: 'live',
-  attentionThreshold: 60,
-  timeline: [{ time: '10:00', value: 70 }],
-  hasGroupData: true,
-  groupAverage: 70,
-  percentAboveThreshold: 100,
-  participants: [{ identity: 'Ana García', indexAvg: 80, level: 'high', alertCount: 0 }],
-  totalAlerts: 0,
-  reportDate: new Date('2026-06-27T16:10:00Z'),
-};
+jest.mock('../../state');
+
+const mockUseAppState = useAppState as jest.Mock<any>;
+const roomSid = 'RM00000000000000000000000000000abc';
 
 describe('ReportPage', () => {
-  beforeEach(() => localStorage.clear());
-
-  it('renders the report from the localStorage snapshot', () => {
-    saveReportSnapshot(sampleData);
-    const wrapper = mount(<ReportPage />);
-    expect(wrapper.find('[data-testid="report-page"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="report-page-empty"]').exists()).toBe(false);
-    expect(wrapper.text()).toContain('Reporte de Atención');
-    expect(wrapper.text()).toContain('Matemáticas — Grupo A');
-    expect(wrapper.text()).toContain('Ana García');
+  beforeEach(() => {
+    mockUseAppState.mockImplementation(() => ({}));
   });
 
-  it('shows the empty state when there is no snapshot', () => {
-    const wrapper = mount(<ReportPage />);
+  const mountPage = () =>
+    mount(
+      <MemoryRouter initialEntries={[`/report/${roomSid}`]}>
+        <Route path="/report/:roomSid">
+          <ReportPage />
+        </Route>
+      </MemoryRouter>
+    );
+
+  it('does not render a report when the authenticated API is unavailable', () => {
+    const wrapper = mountPage();
+    wrapper.update();
     expect(wrapper.find('[data-testid="report-page-empty"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="attention-report-summary"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain('No pudimos validar tu acceso al reporte.');
   });
 
   it('closes the tab from the Cerrar button', () => {
     const closeSpy = jest.spyOn(window, 'close').mockImplementation(() => undefined);
-    const wrapper = mount(<ReportPage />);
+    const wrapper = mountPage();
     wrapper.find('[data-testid="report-page-close"]').simulate('click');
     expect(closeSpy).toHaveBeenCalledTimes(1);
     closeSpy.mockRestore();

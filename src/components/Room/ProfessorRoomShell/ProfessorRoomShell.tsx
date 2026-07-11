@@ -11,8 +11,6 @@ import ProfessorLeftRail from './ProfessorLeftRail';
 import ProfessorRightRail from './ProfessorRightRail';
 import ProctoringAlertModal from './ProctoringAlertModal';
 import { ProfessorRightTab } from './professorShellHelpers';
-import { buildReportViewData } from '../../AttentionReport/buildReportViewData';
-import { saveReportSnapshot } from '../../AttentionReport/reportSnapshot';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -178,27 +176,12 @@ export default function ProfessorRoomShell({
   const attentionByIdentity = new Map(attentionParticipants.map(p => [p.identity, p]));
   const studentCount = Math.max(0, participantCount - 1);
 
-  // "Ver reporte" snapshots the current attention data and opens the report in a
-  // new tab. A new tab is a separate document with no access to the live
-  // useAttention() context or the Twilio room, so the report page reads this
-  // point-in-time snapshot from localStorage instead (see reportSnapshot.ts).
+  // Reports are available only after their authenticated server-side save. Never
+  // copy attention data to browser-global storage just to open another tab.
   const handleOpenReport = () => {
-    saveReportSnapshot(
-      buildReportViewData({
-        sessionName,
-        studentCount,
-        source,
-        groupAttention,
-        groupDataAvailable,
-        attentionThreshold,
-        timeline,
-        participants: attentionParticipants,
-        proctoringAlerts,
-        attentionLevel,
-        reportDate: new Date(),
-      })
-    );
-    window.open('/report', '_blank', 'noopener');
+    enqueueSnackbar('El reporte estará disponible en el historial cuando finalice y se guarde la clase.', {
+      variant: 'info',
+    });
   };
 
   // Proctoring modal local state
