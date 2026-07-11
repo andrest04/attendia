@@ -21,6 +21,10 @@ You must have the following installed:
 - [Node.js v22+](https://nodejs.org/en/download/)
 - NPM v10+ (comes installed with newer Node versions)
 
+### Operational logging
+
+The Firebase profile flows emit structured `operational_failure` events to the application process log, including verified uid, operation, and failure code but never credentials or requested email addresses. Production hosting must collect process logs and configure alerts for `event=operational_failure`; this repository does not provide an alerting service.
+
 You can check which versions of Node.js and NPM you currently have installed with the following commands:
 
     node --version
