@@ -12,6 +12,7 @@ import { useHistory } from 'react-router-dom';
 
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import AttentionReportView, { AttentionReportViewData } from '../AttentionReport/AttentionReportView';
+import { storedReportDate, storedReportToViewData } from '../AttentionReport/storedReportViewData';
 import { StoredAttentionReport } from '../AttentionProvider/reportTypes';
 import { useAppState } from '../../state';
 
@@ -200,12 +201,8 @@ const useStyles = makeStyles((theme: Theme) => ({
 }));
 
 /** Snapshot date: prefer the resolved server timestamp, fall back to the client clock. */
-function reportDate(report: StoredAttentionReport): Date {
-  return report.endedAtMs != null ? new Date(report.endedAtMs) : new Date(report.endedAtIso);
-}
-
 function formatReportDate(report: StoredAttentionReport): string {
-  const date = reportDate(report);
+  const date = storedReportDate(report);
   if (isNaN(date.getTime())) {
     return 'Fecha no disponible';
   }
@@ -216,21 +213,7 @@ function formatReportDate(report: StoredAttentionReport): string {
 
 /** Adapt a stored report to the shared report view's normalized data shape. */
 export function toViewData(report: StoredAttentionReport): AttentionReportViewData {
-  return {
-    sessionName: report.roomName,
-    studentCount: report.studentCount,
-    source: report.source,
-    attentionThreshold: report.attentionThreshold,
-    timeline: report.timeline || [],
-    // The saver skips sessions with genuinely no data, so a stored report always
-    // has honest group metrics.
-    hasGroupData: true,
-    groupAverage: report.groupAverage,
-    percentAboveThreshold: report.percentAboveThreshold,
-    participants: report.participants || [],
-    totalAlerts: (report.proctoringAlerts || []).length,
-    reportDate: reportDate(report),
-  };
+  return storedReportToViewData(report);
 }
 
 export default function ClassHistoryPage() {
@@ -278,7 +261,12 @@ export default function ClassHistoryPage() {
       <nav className={classes.nav}>
         <AttendiaLogo variant="full" size={28} />
         <div className={classes.navDivider} />
-        <button className={classes.backButton} onClick={goBackToLobby} data-testid="class-history-back-to-lobby">
+        <button
+          type="button"
+          className={classes.backButton}
+          onClick={goBackToLobby}
+          data-testid="class-history-back-to-lobby"
+        >
           <ChevronLeftIcon style={{ fontSize: 16 }} />
           Volver
         </button>
@@ -288,6 +276,7 @@ export default function ClassHistoryPage() {
         <>
           <div className={classes.detailBackRow}>
             <button
+              type="button"
               className={classes.backButton}
               onClick={() => setSelected(null)}
               data-testid="class-history-detail-back"
@@ -340,6 +329,7 @@ export default function ClassHistoryPage() {
             <div className={classes.list}>
               {reports.map(report => (
                 <button
+                  type="button"
                   key={report.roomSid}
                   className={classes.reportCard}
                   onClick={() => setSelected(report)}
