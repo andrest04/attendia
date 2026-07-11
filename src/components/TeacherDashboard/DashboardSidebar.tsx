@@ -147,7 +147,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 const TABS: DashboardTabId[] = ['clases', 'historial', 'recursos', 'calendario'];
 
 interface Props {
-  activeTab: DashboardTabId;
+  activeTab?: DashboardTabId;
   onTabChange: (tab: DashboardTabId) => void;
   onStartBlankClass: () => void;
   onSignOut?: () => void;

@@ -7,6 +7,7 @@ import ClassesTab from './ClassesTab';
 import HistoryTab from './HistoryTab';
 import ResourcesTab from './ResourcesTab';
 import CalendarTab from './CalendarTab';
+import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { useAppState } from '../../state';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
 import { mockDashboardData } from './mockDashboardData';
@@ -78,6 +79,17 @@ describe('TeacherDashboard', () => {
     expect(wrapper.find(DashboardHeader).prop('professorPhotoURL')).toBe('https://example.com/photo.jpg');
   });
 
+  it('prefers the saved profile avatar over the Google avatar', () => {
+    mockUseAppState.mockImplementation(() => ({
+      signOut: mockSignOut,
+      user: { displayName: 'Andrés Torres', photoURL: 'https://example.com/google.jpg' },
+      profile: { displayName: 'Andrés Torres', avatarDataUrl: 'data:image/jpeg;base64,AA==' },
+    }));
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+
+    expect(wrapper.find(DashboardHeader).prop('professorPhotoURL')).toBe('data:image/jpeg;base64,AA==');
+  });
+
   it('renders no photo when the signed-in user has none', () => {
     const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
 
@@ -108,20 +120,48 @@ describe('TeacherDashboard', () => {
     expect(wrapper.find(CalendarTab).exists()).toBe(false);
   });
 
-  it('switches tabs when the sidebar reports a tab change', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+  it('renders Perfil inside the dashboard content without adding it to the sidebar', () => {
+    const onReturnToClasses = jest.fn();
+    const wrapper = shallow(
+      <TeacherDashboard
+        onStartClass={jest.fn()}
+        onStartBlankClass={jest.fn()}
+        showProfile
+        onReturnToClasses={onReturnToClasses}
+      />
+    );
+
+    expect(wrapper.find(TeacherProfilePage).prop('onReturnToClasses')).toBe(onReturnToClasses);
+    expect(wrapper.find(ClassesTab).exists()).toBe(false);
+    expect(wrapper.find(DashboardSidebar).prop('activeTab')).toBeUndefined();
+  });
+
+  it('renders the tab that matches the activeTab prop', () => {
+    expect(
+      shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} activeTab="historial" />)
+        .find(HistoryTab)
+        .exists()
+    ).toBe(true);
+    expect(
+      shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} activeTab="recursos" />)
+        .find(ResourcesTab)
+        .exists()
+    ).toBe(true);
+    expect(
+      shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} activeTab="calendario" />)
+        .find(CalendarTab)
+        .exists()
+    ).toBe(true);
+  });
+
+  it("forwards the sidebar's tab change to the onTabChange prop", () => {
+    const onTabChange = jest.fn();
+    const wrapper = shallow(
+      <TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} onTabChange={onTabChange} />
+    );
 
     wrapper.find(DashboardSidebar).prop('onTabChange')('historial');
-    wrapper.update();
-    expect(wrapper.find(HistoryTab).exists()).toBe(true);
-
-    wrapper.find(DashboardSidebar).prop('onTabChange')('recursos');
-    wrapper.update();
-    expect(wrapper.find(ResourcesTab).exists()).toBe(true);
-
-    wrapper.find(DashboardSidebar).prop('onTabChange')('calendario');
-    wrapper.update();
-    expect(wrapper.find(CalendarTab).exists()).toBe(true);
+    expect(onTabChange).toHaveBeenCalledWith('historial');
   });
 
   it('wires the sidebar "Iniciar clase" button to onStartBlankClass', () => {
@@ -132,9 +172,10 @@ describe('TeacherDashboard', () => {
     expect(onStartBlankClass).toHaveBeenCalled();
   });
 
-  it('passes the app state signOut through to the sidebar', () => {
+  it('clears pending reports before delegating sign-out to app state', () => {
     const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
-    expect(wrapper.find(DashboardSidebar).prop('onSignOut')).toBe(mockSignOut);
+    wrapper.find(DashboardSidebar).prop('onSignOut')!();
+    expect(mockSignOut).toHaveBeenCalled();
   });
 });
 
@@ -142,12 +183,14 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
   const mockFetchClasses = jest.fn();
   const mockCreateClass = jest.fn();
   const mockDeleteClass = jest.fn();
+  const mockStartClass = jest.fn();
   const mockFetchAttentionReports = jest.fn();
 
   beforeEach(() => {
     mockFetchClasses.mockReset().mockResolvedValue([]);
     mockCreateClass.mockReset();
     mockDeleteClass.mockReset();
+    mockStartClass.mockReset();
     mockFetchAttentionReports.mockReset().mockResolvedValue([]);
     mockUseAppState.mockImplementation(() => ({
       signOut: mockSignOut,
@@ -155,6 +198,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
       fetchClasses: mockFetchClasses,
       createClass: mockCreateClass,
       deleteClass: mockDeleteClass,
+      startClass: mockStartClass,
       fetchAttentionReports: mockFetchAttentionReports,
     }));
   });
@@ -167,6 +211,27 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
 
     expect(wrapper.find(ClassesTab).prop('onCreateClass')).toBeInstanceOf(Function);
     expect(wrapper.find(ClassesTab).prop('onCancelClass')).toBeInstanceOf(Function);
+  });
+
+  it('calls the real start endpoint before handing a calendar class to prejoin', async () => {
+    const onStartClass = jest.fn();
+    const classRecord = {
+      id: 'class-1',
+      title: 'Álgebra',
+      roomName: 'algebra',
+      scheduledAtMs: 1751554800000,
+      studentCount: 20,
+    };
+    mockStartClass.mockResolvedValue(undefined);
+    const wrapper = shallow(
+      <TeacherDashboard onStartClass={onStartClass} onStartBlankClass={jest.fn()} activeTab="calendario" />
+    );
+
+    wrapper.find(CalendarTab).prop('onStartClass')(classRecord);
+    await Promise.resolve();
+
+    expect(mockStartClass).toHaveBeenCalledWith('class-1', 'algebra');
+    expect(onStartClass).toHaveBeenCalledWith({ roomName: 'algebra', name: 'Andrés Torres', classId: 'class-1' });
   });
 });
 
