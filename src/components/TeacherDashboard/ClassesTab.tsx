@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import clsx from 'clsx';
 import { createTheme, makeStyles, MuiThemeProvider, Theme } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
@@ -348,13 +348,29 @@ interface Props {
   dateLabel: string;
   sessions: UpcomingSession[];
   professorName: string;
-  onStartClass: (session: { roomName: string; name: string }) => void;
+  onStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
   /** Firebase-mode only: creates a real scheduled class. Undefined elsewhere —
    * the "Nueva clase" button then keeps its stub (no-op) appearance. */
-  onCreateClass?: (input: { title: string; scheduledAtMs: number; studentCount: number }) => Promise<void>;
+  onCreateClass?: (input: {
+    title: string;
+    scheduledAtMs: number;
+    studentCount: number;
+    idempotencyKey: string;
+  }) => Promise<void>;
   /** Firebase-mode only: cancels (hard-deletes) a real scheduled class. Undefined
    * elsewhere — the secondary button stays the "Ver detalles" stub. */
   onCancelClass?: (session: UpcomingSession) => void;
+  cancellingClassId?: string | null;
+  cancelError?: string | null;
+  onRetryCancel?: () => void;
+}
+
+function createIdempotencyKey(): string {
+  return `class-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2)}-${Math.random()
+    .toString(36)
+    .slice(2)}`;
 }
 
 /** "Clases" tab: stat cards + the upcoming-sessions grid. The highlighted card's
@@ -367,6 +383,9 @@ export default function ClassesTab({
   onStartClass,
   onCreateClass,
   onCancelClass,
+  cancellingClassId,
+  cancelError,
+  onRetryCancel,
 }: Props) {
   const classes = useStyles();
 
@@ -377,17 +396,22 @@ export default function ClassesTab({
   const [studentCountInput, setStudentCountInput] = useState('0');
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const creationIdempotencyKeyRef = useRef<string | null>(null);
 
   const handleStartClass = (session: UpcomingSession) => {
     onStartClass({
-      roomName: toClassSessionRoomName(session.title),
+      roomName: session.roomName || toClassSessionRoomName(session.title),
       name: toClassSessionDisplayName(professorName, 'teacher'),
+      classId: session.classId,
     });
   };
 
   const handleNewClassClick = () => {
     if (!onCreateClass) return;
-    setIsFormOpen(current => !current);
+    setIsFormOpen(current => {
+      if (!current) creationIdempotencyKeyRef.current = createIdempotencyKey();
+      return !current;
+    });
     setFormError(null);
   };
 
@@ -398,6 +422,7 @@ export default function ClassesTab({
     setStudentCountInput('0');
     setIsFormOpen(false);
     setFormError(null);
+    creationIdempotencyKeyRef.current = null;
   };
 
   const handleSubmitNewClass: React.FormEventHandler = event => {
@@ -432,7 +457,12 @@ export default function ClassesTab({
 
     setFormError(null);
     setIsSubmitting(true);
-    onCreateClass({ title, scheduledAtMs, studentCount })
+    onCreateClass({
+      title,
+      scheduledAtMs,
+      studentCount,
+      idempotencyKey: creationIdempotencyKeyRef.current || createIdempotencyKey(),
+    })
       .then(() => resetForm())
       .catch(err => setFormError(err.message))
       .finally(() => setIsSubmitting(false));
@@ -613,10 +643,11 @@ export default function ClassesTab({
                 type="button"
                 className={classes.secondaryButton}
                 onClick={() => onCancelClass(session)}
+                disabled={cancellingClassId === session.id}
                 data-testid="dashboard-cancel-session-button"
               >
                 <DeleteIcon style={{ fontSize: 16 }} />
-                Cancelar
+                {cancellingClassId === session.id ? 'Cancelando…' : 'Cancelar'}
               </button>
             ) : (
               <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">
@@ -627,6 +658,14 @@ export default function ClassesTab({
           </div>
         ))}
       </div>
+      {cancelError && (
+        <div className={classes.newClassError} data-testid="dashboard-cancel-error">
+          {cancelError}{' '}
+          <button type="button" onClick={onRetryCancel} data-testid="dashboard-retry-cancel-button">
+            Reintentar cancelación
+          </button>
+        </div>
+      )}
     </div>
   );
 }

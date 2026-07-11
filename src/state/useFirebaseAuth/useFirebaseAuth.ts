@@ -222,8 +222,9 @@ export interface ClassRecord {
   id: string;
   title: string;
   roomName: string;
-  scheduledAtMs: number;
+  scheduledAtMs: number | null;
   studentCount: number;
+  status?: 'scheduled' | 'started' | 'completed';
 }
 
 // GET /classes — the signed-in teacher's scheduled classes, soonest first.
@@ -242,7 +243,7 @@ async function fetchClassesRequest(user: User): Promise<ClassRecord[]> {
 // POST /classes
 async function createClassRequest(
   user: User,
-  input: { title: string; scheduledAtMs: number; studentCount: number }
+  input: { title: string; scheduledAtMs: number; studentCount: number; idempotencyKey: string }
 ): Promise<ClassRecord> {
   const idToken = await user.getIdToken();
 
@@ -266,6 +267,16 @@ async function deleteClassRequest(user: User, id: string): Promise<void> {
     headers: { Authorization: idToken },
   });
 
+  await throwOnErrorResponse(response);
+}
+
+async function startClassRequest(user: User, id: string, roomName: string): Promise<void> {
+  const idToken = await user.getIdToken();
+  const response = await fetch(`/classes/${encodeURIComponent(id)}/start`, {
+    method: 'POST',
+    headers: { Authorization: idToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ roomName }),
+  });
   await throwOnErrorResponse(response);
 }
 
@@ -609,7 +620,7 @@ export default function useFirebaseAuth() {
   }, [user]);
 
   const createClass = useCallback(
-    (input: { title: string; scheduledAtMs: number; studentCount: number }) => {
+    (input: { title: string; scheduledAtMs: number; studentCount: number; idempotencyKey: string }) => {
       if (!user) {
         return Promise.reject(new Error('Cannot create a class without an authenticated user'));
       }
@@ -624,6 +635,14 @@ export default function useFirebaseAuth() {
         return Promise.reject(new Error('Cannot delete a class without an authenticated user'));
       }
       return deleteClassRequest(user, id);
+    },
+    [user]
+  );
+
+  const startClass = useCallback(
+    (id: string, roomName: string) => {
+      if (!user) return Promise.reject(new Error('Cannot start a class without an authenticated user'));
+      return startClassRequest(user, id, roomName);
     },
     [user]
   );
@@ -661,5 +680,6 @@ export default function useFirebaseAuth() {
     fetchClasses,
     createClass,
     deleteClass,
+    startClass,
   };
 }

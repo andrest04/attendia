@@ -21,6 +21,9 @@ export interface UpcomingSession {
   relativeLabel: string;
   /** True for the single "start now" card — the only card wired to real navigation. */
   highlighted: boolean;
+  /** Present for Firebase-backed sessions so start preserves the server identity. */
+  roomName?: string;
+  classId?: string;
 }
 
 export type RecordingStatus = 'lista' | 'no-disponible';

@@ -8,6 +8,7 @@ import WifiIcon from '@material-ui/icons/Wifi';
 
 import { LocalVideoTrack } from 'twilio-video';
 import { saveRejoinSession } from '../rejoinSession';
+import { readScheduledClassSession } from '../../TeacherDashboard/classSessionContext';
 import { hasConsent, saveConsent } from '../attentionConsent';
 import { isTeacherIdentity } from '../classSessionTypes';
 import AttentionConsentModal from '../AttentionConsentModal';
@@ -446,7 +447,7 @@ function lightingToCheckState(status: LightingStatus): CheckState {
 
 export default function DeviceSelectionScreen({ name, roomName, setStep }: DeviceSelectionScreenProps) {
   const classes = useStyles();
-  const { getToken, isFetching, isKrispEnabled, isKrispInstalled } = useAppState();
+  const { getToken, isFetching, isKrispEnabled, isKrispInstalled, startClass } = useAppState();
   const { connect: chatConnect } = useChatContext();
   const { connect: videoConnect, isAcquiringLocalTracks, isConnecting, localTracks } = useVideoContext();
   const { toggleKrisp } = useKrispToggle();
@@ -515,7 +516,11 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   /** Executes the actual join sequence after all gates (consent, etc.) have passed. */
   const doJoin = () => {
     getToken(name, roomName)
-      .then(({ token }) => {
+      .then(async ({ token }) => {
+        const scheduledClass = readScheduledClassSession(roomName);
+        if (scheduledClass && startClass) {
+          await startClass(scheduledClass.classId, scheduledClass.roomName);
+        }
         // Persist enough to auto-rejoin after a refresh. The identity carries the role
         // (teacher/student), so reconnecting with it restores the correct room shell.
         saveRejoinSession({ roomName, identity: name });

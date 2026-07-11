@@ -84,6 +84,31 @@ describe('ClassesTab', () => {
     expect(onCancelClass).toHaveBeenCalledWith(nonHighlighted);
   });
 
+  it('shows cancellation progress and a visible retry action after a failed cancellation', () => {
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        onCancelClass={jest.fn()}
+        cancellingClassId={mockDashboardData.upcomingSessions[1].id}
+        cancelError="No pudimos cancelar la clase."
+        onRetryCancel={jest.fn()}
+      />
+    );
+
+    expect(
+      wrapper
+        .find('[data-testid="dashboard-cancel-session-button"]')
+        .at(0)
+        .prop('disabled')
+    ).toBe(true);
+    expect(wrapper.find('[data-testid="dashboard-cancel-error"]').text()).toContain('No pudimos cancelar la clase.');
+    expect(wrapper.find('[data-testid="dashboard-retry-cancel-button"]').exists()).toBe(true);
+  });
+
   it('does nothing when "Nueva clase" is clicked without onCreateClass', () => {
     const wrapper = shallow(
       <ClassesTab
@@ -132,10 +157,13 @@ describe('ClassesTab', () => {
 
     wrapper.find('form').simulate('submit', { preventDefault: jest.fn() });
 
-    expect(onCreateClass).toHaveBeenCalledWith({
-      title: 'Física 101',
-      scheduledAtMs: new Date(2026, 6, 9, 10, 0).getTime(),
-      studentCount: 15,
-    });
+    expect(onCreateClass).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Física 101',
+        scheduledAtMs: new Date(2026, 6, 9, 10, 0).getTime(),
+        studentCount: 15,
+        idempotencyKey: expect.any(String),
+      })
+    );
   });
 });

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { clearDashboardHandoff, readDashboardHandoff, saveDashboardHandoff } from './dashboardHandoffSession';
+import { clearScheduledClassSession, saveScheduledClassSession } from './classSessionContext';
 
-type PendingSession = { roomName: string; name: string } | null;
+type PendingSession = { roomName: string; name: string; classId?: string } | null;
 
 interface DashboardHandoff {
   dashboardActive: boolean;
   pendingSession: PendingSession;
-  handleStartClass: (session: { roomName: string; name: string }) => void;
+  handleStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
   handleStartBlankClass: () => void;
   handleReturnToDashboard: () => void;
 }
@@ -34,16 +35,19 @@ export default function useDashboardHandoff(initialRole: 'teacher' | 'student', 
     persistedHandoff ? persistedHandoff.pendingSession : null
   );
 
-  const handleStartClass = (session: { roomName: string; name: string }) => {
+  const handleStartClass = (session: { roomName: string; name: string; classId?: string }) => {
     setPendingSession(session);
     setDashboardActive(false);
     saveDashboardHandoff(session);
+    if (session.classId) saveScheduledClassSession({ classId: session.classId, roomName: session.roomName });
+    else clearScheduledClassSession();
   };
 
   const handleStartBlankClass = () => {
     setPendingSession(null);
     setDashboardActive(false);
     saveDashboardHandoff(null);
+    clearScheduledClassSession();
   };
 
   // Back affordance for the prejoin lobby ("Volver al panel"): abandons the pending
@@ -52,6 +56,7 @@ export default function useDashboardHandoff(initialRole: 'teacher' | 'student', 
     setPendingSession(null);
     setDashboardActive(true);
     clearDashboardHandoff();
+    clearScheduledClassSession();
   };
 
   const previousRoomStateRef = useRef(roomState);
@@ -61,6 +66,7 @@ export default function useDashboardHandoff(initialRole: 'teacher' | 'student', 
     if (previousRoomState !== 'disconnected' && roomState === 'disconnected') {
       setPendingSession(null);
       clearDashboardHandoff();
+      clearScheduledClassSession();
       if (initialRole === 'teacher') {
         setDashboardActive(true);
       }

@@ -50,8 +50,14 @@ export interface StateContextType {
   // sessions). Undefined in the other auth modes — ClassesTab's caller gates on
   // presence, same contract as fetchResources/uploadResource/deleteResource.
   fetchClasses?(): Promise<ClassRecord[]>;
-  createClass?(input: { title: string; scheduledAtMs: number; studentCount: number }): Promise<ClassRecord>;
+  createClass?(input: {
+    title: string;
+    scheduledAtMs: number;
+    studentCount: number;
+    idempotencyKey: string;
+  }): Promise<ClassRecord>;
   deleteClass?(id: string): Promise<void>;
+  startClass?(id: string, roomName: string): Promise<void>;
   isFetching: boolean;
   activeSinkId: string;
   setActiveSinkId(sinkId: string): void;
