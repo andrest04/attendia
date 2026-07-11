@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { Button, Menu, MenuItem } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import NotificationsNoneIcon from '@material-ui/icons/NotificationsNone';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import { useHistory } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -27,7 +29,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   profile: {
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(1),
+    gap: theme.spacing(2),
     cursor: 'pointer',
   },
   avatar: {
@@ -76,6 +78,13 @@ interface Props {
 /** Top bar shared by every Panel Docente tab: brand, notifications, profile chip. */
 export default function DashboardHeader({ professorName, professorInitials, professorPhotoURL }: Props) {
   const classes = useStyles();
+  const history = useHistory();
+  const [profileMenuAnchor, setProfileMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const openProfile = () => {
+    setProfileMenuAnchor(null);
+    history.push('/profile');
+  };
 
   return (
     <header className={classes.root} data-testid="dashboard-header">
@@ -84,7 +93,15 @@ export default function DashboardHeader({ professorName, professorInitials, prof
         <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
           <NotificationsNoneIcon />
         </span>
-        <div className={classes.profile} data-testid="dashboard-header-profile">
+        <Button
+          className={classes.profile}
+          data-testid="dashboard-header-profile"
+          aria-label="Abrir menú de perfil"
+          aria-controls={profileMenuAnchor ? 'dashboard-profile-menu' : undefined}
+          aria-haspopup="true"
+          aria-expanded={Boolean(profileMenuAnchor)}
+          onClick={event => setProfileMenuAnchor(event.currentTarget)}
+        >
           {professorPhotoURL ? (
             <span
               className={`${classes.avatar} ${classes.avatarPhoto}`}
@@ -98,7 +115,21 @@ export default function DashboardHeader({ professorName, professorInitials, prof
           )}
           <span className={classes.name}>{professorName}</span>
           <ExpandMoreIcon className={classes.chevron} />
-        </div>
+        </Button>
+        <Menu
+          id="dashboard-profile-menu"
+          anchorEl={profileMenuAnchor}
+          keepMounted
+          open={Boolean(profileMenuAnchor)}
+          onClose={() => setProfileMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          getContentAnchorEl={null}
+        >
+          <MenuItem onClick={openProfile} data-testid="dashboard-profile-menu-item">
+            Perfil
+          </MenuItem>
+        </Menu>
       </div>
     </header>
   );

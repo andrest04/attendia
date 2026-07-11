@@ -1,6 +1,7 @@
 import React from 'react';
 import { styled, Theme } from '@material-ui/core/styles';
 import { useMediaQuery, useTheme } from '@material-ui/core';
+import { useHistory, useLocation } from 'react-router-dom';
 
 import MenuBar from './components/MenuBar/MenuBar';
 import MobileTopMenuBar from './components/MobileTopMenuBar/MobileTopMenuBar';
@@ -11,7 +12,10 @@ import Room from './components/Room/Room';
 import SessionEndedScreen from './components/SessionEndedScreen/SessionEndedScreen';
 import TeacherDashboard from './components/TeacherDashboard';
 import useDashboardHandoff from './components/TeacherDashboard/useDashboardHandoff';
+import useDashboardRouteSync from './components/TeacherDashboard/useDashboardRouteSync';
 import useInitialRole from './components/TeacherDashboard/useInitialRole';
+import { dashboardTabPath } from './components/TeacherDashboard/dashboardHelpers';
+import { DashboardTabId } from './components/TeacherDashboard/types';
 
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
@@ -37,6 +41,8 @@ export default function App() {
   const { sessionEndedByProfessor } = useAppState();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const history = useHistory();
+  const location = useLocation();
 
   // Here we would like the height of the main container to be the height of the viewport.
   // On some mobile browsers, 'height: 100vh' sets the height equal to that of the screen,
@@ -57,13 +63,32 @@ export default function App() {
     handleStartBlankClass,
     handleReturnToDashboard,
   } = useDashboardHandoff(initialRole, roomState);
+  useDashboardRouteSync(dashboardActive);
+  const isProfileRoute = location.pathname === '/profile';
+  const activeTabFromRoute = (Object.keys(dashboardTabPath) as DashboardTabId[]).find(
+    tab => dashboardTabPath[tab] === location.pathname
+  );
+  const isDashboardTabRoute = activeTabFromRoute !== undefined;
+  const activeTab: DashboardTabId = activeTabFromRoute ?? 'clases';
+  const returnToDashboardClasses = () => {
+    handleReturnToDashboard();
+    history.push(dashboardTabPath.clases);
+  };
+  const navigateToDashboardTab = (tab: DashboardTabId) => history.push(dashboardTabPath[tab]);
 
   return (
     <Container style={{ height }}>
       {sessionEndedByProfessor ? (
         <SessionEndedScreen />
-      ) : dashboardActive ? (
-        <TeacherDashboard onStartClass={handleStartClass} onStartBlankClass={handleStartBlankClass} />
+      ) : dashboardActive || isProfileRoute || isDashboardTabRoute ? (
+        <TeacherDashboard
+          onStartClass={handleStartClass}
+          onStartBlankClass={handleStartBlankClass}
+          showProfile={isProfileRoute}
+          activeTab={activeTab}
+          onTabChange={navigateToDashboardTab}
+          onReturnToClasses={returnToDashboardClasses}
+        />
       ) : roomState === 'disconnected' ? (
         <PreJoinScreens
           initialClassSession={pendingSession ?? undefined}

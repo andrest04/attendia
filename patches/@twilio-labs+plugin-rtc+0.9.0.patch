@@ -1,8 +1,8 @@
 diff --git a/node_modules/@twilio-labs/plugin-rtc/src/helpers.js b/node_modules/@twilio-labs/plugin-rtc/src/helpers.js
-index 7c383a6..16e347e 100644
+index 7c383a6..d82bace 100644
 --- a/node_modules/@twilio-labs/plugin-rtc/src/helpers.js
 +++ b/node_modules/@twilio-labs/plugin-rtc/src/helpers.js
-@@ -58,6 +58,25 @@ async function getAssets(folder) {
+@@ -58,6 +58,45 @@ async function getAssets(folder) {
        path: '/login',
        name: '/login',
      },
@@ -24,6 +24,26 @@ index 7c383a6..16e347e 100644
 +      ...indexHTML,
 +      path: '/report',
 +      name: '/report',
++    },
++    {
++      ...indexHTML,
++      path: '/dashboard/clases',
++      name: '/dashboard/clases',
++    },
++    {
++      ...indexHTML,
++      path: '/dashboard/historial',
++      name: '/dashboard/historial',
++    },
++    {
++      ...indexHTML,
++      path: '/dashboard/recursos',
++      name: '/dashboard/recursos',
++    },
++    {
++      ...indexHTML,
++      path: '/dashboard/calendario',
++      name: '/dashboard/calendario',
 +    },
    ]);
  

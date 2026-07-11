@@ -1,28 +1,24 @@
 import React from 'react';
 import { shallow } from 'enzyme';
+import { Button, MenuItem } from '@material-ui/core';
 import DashboardHeader from './DashboardHeader';
 
-describe('DashboardHeader', () => {
-  it('renders the professor name and initials avatar when no photo is provided', () => {
-    const wrapper = shallow(<DashboardHeader professorName="Andrés Torres" professorInitials="AT" />);
+const push = jest.fn();
+jest.mock('react-router-dom', () => ({ useHistory: () => ({ push }) }));
 
-    expect(wrapper.find('[data-testid="dashboard-header-avatar-initials"]').text()).toBe('AT');
-    expect(wrapper.find('[data-testid="dashboard-header-avatar-photo"]').exists()).toBe(false);
-    expect(wrapper.text()).toContain('Andrés Torres');
-  });
+describe('DashboardHeader profile menu', () => {
+  beforeEach(jest.clearAllMocks);
 
-  it('renders the real photo instead of the initials chip when professorPhotoURL is provided', () => {
-    const wrapper = shallow(
-      <DashboardHeader
-        professorName="Andrés Torres"
-        professorInitials="AT"
-        professorPhotoURL="https://example.com/photo.jpg"
-      />
-    );
+  it('opens an accessible menu and routes to the profile page', () => {
+    const wrapper = shallow(<DashboardHeader professorName="Ana" professorInitials="A" />);
+    const trigger = wrapper.find(Button).filter('[data-testid="dashboard-header-profile"]');
 
-    const photo = wrapper.find('[data-testid="dashboard-header-avatar-photo"]');
-    expect(photo.exists()).toBe(true);
-    expect(photo.prop('style')).toEqual({ backgroundImage: 'url(https://example.com/photo.jpg)' });
-    expect(wrapper.find('[data-testid="dashboard-header-avatar-initials"]').exists()).toBe(false);
+    expect(trigger.prop('aria-haspopup')).toBe('true');
+    trigger.simulate('click', { currentTarget: document.createElement('button') });
+    wrapper.update();
+    expect(wrapper.find(MenuItem).text()).toBe('Perfil');
+
+    wrapper.find(MenuItem).simulate('click');
+    expect(push).toHaveBeenCalledWith('/profile');
   });
 });

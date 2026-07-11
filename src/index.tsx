@@ -18,6 +18,7 @@ import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
 import useConnectionOptions from './utils/useConnectionOptions/useConnectionOptions';
 import UnsupportedBrowserWarning from './components/UnsupportedBrowserWarning/UnsupportedBrowserWarning';
+import { dashboardTabPath } from './components/TeacherDashboard/dashboardHelpers';
 
 // Standalone pages (outside the room) are code-split so their weight — recharts,
 // page-only UI — stays out of the main bundle. VideoApp stays eager: it is the
@@ -28,7 +29,7 @@ const ClassHistoryPage = lazy(() => import('./components/ClassHistoryPage/ClassH
 const ManualPage = lazy(() => import('./components/ManualPage/ManualPage'));
 const ReportPage = lazy(() => import('./components/ReportPage/ReportPage'));
 
-const VideoApp = () => {
+export const VideoApp = () => {
   const { error, setError } = useAppState();
   const connectionOptions = useConnectionOptions();
 
@@ -55,6 +56,56 @@ const VideoApp = () => {
   );
 };
 
+export const AppRoutes = () => (
+  <Switch>
+    <PrivateRoute exact path="/">
+      <VideoApp />
+    </PrivateRoute>
+    <PrivateRoute path="/room/:URLRoomName">
+      <VideoApp />
+    </PrivateRoute>
+    <Route path="/login">
+      <LoginPage />
+    </Route>
+    <Route path="/security">
+      <SecurityPage />
+    </Route>
+    {/* Full user manual — plain route, opened in a new tab from the in-room tutorial. */}
+    <Route path="/manual">
+      <ManualPage />
+    </Route>
+    {/* A report is loaded from the authenticated teacher's Firestore slice,
+                  never from browser storage shared with later users. */}
+    <PrivateRoute exact path="/report/:roomSid">
+      <ReportPage />
+    </PrivateRoute>
+    {/* Teacher class history — needs auth (PrivateRoute) but NOT the SDK
+                providers, which live inside VideoApp, so this stays lightweight. */}
+    <PrivateRoute path="/history">
+      <ClassHistoryPage />
+    </PrivateRoute>
+    <PrivateRoute exact path="/profile">
+      <VideoApp />
+    </PrivateRoute>
+    {/* Teacher dashboard tabs — real routes so the URL reflects the active tab
+                  (bookmarks, refresh, browser back/forward). Same shape as /profile: all
+                  render VideoApp, and App.tsx derives which tab to show from the pathname. */}
+    <PrivateRoute exact path={dashboardTabPath.clases}>
+      <VideoApp />
+    </PrivateRoute>
+    <PrivateRoute exact path={dashboardTabPath.historial}>
+      <VideoApp />
+    </PrivateRoute>
+    <PrivateRoute exact path={dashboardTabPath.recursos}>
+      <VideoApp />
+    </PrivateRoute>
+    <PrivateRoute exact path={dashboardTabPath.calendario}>
+      <VideoApp />
+    </PrivateRoute>
+    <Redirect to="/" />
+  </Switch>
+);
+
 export const ReactApp = () => (
   <MuiThemeProvider theme={theme}>
     <CssBaseline />
@@ -65,35 +116,7 @@ export const ReactApp = () => (
               intentionally empty: these pages own the full viewport, so there is
               no surrounding layout to jank while the chunk loads. */}
           <Suspense fallback={null}>
-            <Switch>
-              <PrivateRoute exact path="/">
-                <VideoApp />
-              </PrivateRoute>
-              <PrivateRoute path="/room/:URLRoomName">
-                <VideoApp />
-              </PrivateRoute>
-              <Route path="/login">
-                <LoginPage />
-              </Route>
-              <Route path="/security">
-                <SecurityPage />
-              </Route>
-              {/* Full user manual — plain route, opened in a new tab from the in-room tutorial. */}
-              <Route path="/manual">
-                <ManualPage />
-              </Route>
-              {/* Attention report — plain route, opened in a new tab from the in-room
-                "Ver reporte" action; renders a localStorage snapshot, no SDK providers. */}
-              <Route path="/report">
-                <ReportPage />
-              </Route>
-              {/* Teacher class history — needs auth (PrivateRoute) but NOT the SDK
-                providers, which live inside VideoApp, so this stays lightweight. */}
-              <PrivateRoute path="/history">
-                <ClassHistoryPage />
-              </PrivateRoute>
-              <Redirect to="/" />
-            </Switch>
+            <AppRoutes />
           </Suspense>
         </AppStateProvider>
       </Router>
