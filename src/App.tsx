@@ -9,6 +9,9 @@ import ReconnectingNotification from './components/ReconnectingNotification/Reco
 import RecordingNotifications from './components/RecordingNotifications/RecordingNotifications';
 import Room from './components/Room/Room';
 import SessionEndedScreen from './components/SessionEndedScreen/SessionEndedScreen';
+import TeacherDashboard from './components/TeacherDashboard';
+import useDashboardHandoff from './components/TeacherDashboard/useDashboardHandoff';
+import useInitialRole from './components/TeacherDashboard/useInitialRole';
 
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
@@ -42,12 +45,24 @@ export default function App() {
   // will look good on mobile browsers even after the location bar opens or closes.
   const height = useHeight();
 
+  // The teacher landing dashboard ("Panel Docente") is shown before the prejoin lobby, only
+  // for teachers. Picking a class (or the sidebar's blank "Iniciar clase") drops into the
+  // existing prejoin flow; it comes back once that class's room disconnects (see
+  // useDashboardHandoff), so it's a "between classes" landing page, not a one-shot screen.
+  const initialRole = useInitialRole();
+  const { dashboardActive, pendingSession, handleStartClass, handleStartBlankClass } = useDashboardHandoff(
+    initialRole,
+    roomState
+  );
+
   return (
     <Container style={{ height }}>
       {sessionEndedByProfessor ? (
         <SessionEndedScreen />
+      ) : dashboardActive ? (
+        <TeacherDashboard onStartClass={handleStartClass} onStartBlankClass={handleStartBlankClass} />
       ) : roomState === 'disconnected' ? (
-        <PreJoinScreens />
+        <PreJoinScreens initialClassSession={pendingSession ?? undefined} />
       ) : (
         <Main>
           <ReconnectingNotification />
