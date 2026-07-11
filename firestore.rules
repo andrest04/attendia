@@ -1,0 +1,14 @@
+rules_version='2'
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // No collections are defined yet (Firestore isn't used in the app code
+    // as of this writing). Default-deny everything except authenticated
+    // reads, so the database isn't wide open while it's unused.
+    // Replace with per-collection rules as soon as real data model lands.
+    match /{document=**} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}
