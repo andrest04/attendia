@@ -39,20 +39,6 @@ export interface HistoryRow {
 
 export type ResourceFileKind = 'pdf' | 'presentation' | 'video';
 
-export interface ResourceFile {
-  id: string;
-  name: string;
-  kind: ResourceFileKind;
-  sizeLabel: string;
-  dateLabel: string;
-}
-
-export interface ResourceClassGroup {
-  id: string;
-  label: string;
-  files: ResourceFile[];
-}
-
 /** One day of the July 2026 grid. sessionCount 0 renders no dots. */
 export interface CalendarDaySession {
   day: number;
@@ -81,8 +67,6 @@ export interface DashboardData {
   upcomingSessions: UpcomingSession[];
 
   historyRows: HistoryRow[];
-
-  resourceGroups: ResourceClassGroup[];
 
   calendarMonthLabel: string;
   /** Days 1-31 of July 2026, in order. */

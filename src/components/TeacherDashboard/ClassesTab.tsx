@@ -1,14 +1,63 @@
-import React from 'react';
+import React, { useState } from 'react';
 import clsx from 'clsx';
-import { makeStyles, Theme } from '@material-ui/core/styles';
+import { createTheme, makeStyles, MuiThemeProvider, Theme } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import DeleteIcon from '@material-ui/icons/Delete';
+import { MuiPickersUtilsProvider, KeyboardDatePicker, KeyboardTimePicker } from '@material-ui/pickers';
+import DateFnsUtils from '@date-io/date-fns';
+import esLocale from 'date-fns/locale/es';
 import { DashboardStat, UpcomingSession } from './types';
 import { statCardIcon } from './dashboardHelpers';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
+import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
+import { StyleRules } from '@material-ui/core/styles/withStyles';
+import baseTheme from '../../theme';
+
+// @material-ui/pickers ships its overridable class keys separately from core's `Overrides` type;
+// this augmentation is required for `theme.overrides.MuiPickers*` below to type-check.
+// `MuiPickersToolbarText` is missing from the shipped `MuiPickersOverrides` (v3.3.11 typings gap).
+declare module '@material-ui/core/styles/overrides' {
+  interface ComponentNameToClassKey extends MuiPickersOverrides {
+    MuiPickersToolbarText?: Partial<StyleRules<'toolbarTxt' | 'toolbarBtnSelected'>>;
+  }
+}
+
+// Light clock-picker theme scoped to the time field, styled after Google Calendar/Meet's time dialog
+// but using the app's own light palette instead of Meet's dark one.
+// Extends the app's base theme so the picker still carries the app's required custom theme fields.
+const meetTimePickerTheme = createTheme({
+  ...baseTheme,
+  overrides: {
+    ...baseTheme.overrides,
+    MuiDialog: {
+      paper: {
+        borderRadius: 16,
+      },
+    },
+    MuiPickersToolbarText: {
+      toolbarBtnSelected: {
+        backgroundColor: baseTheme.palette.primary.main,
+        padding: '2px 14px',
+        borderRadius: 8,
+        display: 'inline-block',
+      },
+    },
+    MuiPickersClock: {
+      clock: {
+        backgroundColor: '#f0f5ff',
+      },
+    },
+    MuiButton: {
+      textPrimary: {
+        color: baseTheme.palette.primary.main,
+      },
+    },
+  },
+});
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -182,6 +231,116 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontWeight: 600,
     fontSize: '0.875rem',
   },
+  newClassForm: {
+    backgroundColor: theme.palette.background.paper,
+    border: '1px solid #e2ecf9',
+    borderRadius: theme.shape.borderRadius,
+    padding: theme.spacing(3),
+    marginBottom: theme.spacing(2.5),
+  },
+  newClassFormTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 700,
+    fontSize: '0.9375rem',
+    color: theme.palette.text.primary,
+    marginBottom: theme.spacing(0.5),
+  },
+  newClassFormSubtitle: {
+    fontSize: '0.75rem',
+    color: theme.palette.text.secondary,
+    marginBottom: theme.spacing(2.5),
+  },
+  newClassFieldGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap: theme.spacing(2),
+    marginBottom: theme.spacing(2.5),
+    [theme.breakpoints.down('sm')]: {
+      gridTemplateColumns: '1fr',
+    },
+  },
+  newClassField: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.5),
+  },
+  newClassLabel: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.75rem',
+    color: theme.palette.text.primary,
+  },
+  newClassHint: {
+    fontSize: '0.6875rem',
+    color: theme.palette.text.secondary,
+  },
+  newClassInput: {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding: theme.spacing(1, 1.5),
+    borderRadius: theme.shape.borderRadius,
+    border: '1px solid #e2ecf9',
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '0.8125rem',
+    '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': {
+      WebkitAppearance: 'none',
+      margin: 0,
+    },
+    '&[type=number]': {
+      MozAppearance: 'textfield',
+    },
+  },
+  newClassPickerInput: {
+    padding: theme.spacing(1, 1.5),
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '0.8125rem',
+    color: theme.palette.text.primary,
+    '&::placeholder': {
+      color: theme.palette.text.hint,
+      opacity: 1,
+    },
+  },
+  newClassActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1.5),
+  },
+  newClassSubmitButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(1, 2),
+    borderRadius: theme.shape.borderRadius,
+    border: 'none',
+    cursor: 'pointer',
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.8125rem',
+    flexShrink: 0,
+    '&:disabled': {
+      opacity: 0.6,
+      cursor: 'default',
+    },
+  },
+  newClassCancelButton: {
+    padding: theme.spacing(1, 2),
+    borderRadius: theme.shape.borderRadius,
+    border: 'none',
+    background: 'none',
+    cursor: 'pointer',
+    color: theme.palette.text.secondary,
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.8125rem',
+  },
+  newClassError: {
+    marginTop: theme.spacing(1.5),
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '0.8125rem',
+    color: theme.palette.error.main,
+  },
 }));
 
 interface Props {
@@ -190,18 +349,93 @@ interface Props {
   sessions: UpcomingSession[];
   professorName: string;
   onStartClass: (session: { roomName: string; name: string }) => void;
+  /** Firebase-mode only: creates a real scheduled class. Undefined elsewhere —
+   * the "Nueva clase" button then keeps its stub (no-op) appearance. */
+  onCreateClass?: (input: { title: string; scheduledAtMs: number; studentCount: number }) => Promise<void>;
+  /** Firebase-mode only: cancels (hard-deletes) a real scheduled class. Undefined
+   * elsewhere — the secondary button stays the "Ver detalles" stub. */
+  onCancelClass?: (session: UpcomingSession) => void;
 }
 
 /** "Clases" tab: stat cards + the upcoming-sessions grid. The highlighted card's
  * "Iniciar sesión" is the only real CTA in the whole dashboard this pass. */
-export default function ClassesTab({ stats, dateLabel, sessions, professorName, onStartClass }: Props) {
+export default function ClassesTab({
+  stats,
+  dateLabel,
+  sessions,
+  professorName,
+  onStartClass,
+  onCreateClass,
+  onCancelClass,
+}: Props) {
   const classes = useStyles();
+
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [titleInput, setTitleInput] = useState('');
+  const [dateValue, setDateValue] = useState<Date | null>(null);
+  const [timeValue, setTimeValue] = useState<Date | null>(null);
+  const [studentCountInput, setStudentCountInput] = useState('0');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleStartClass = (session: UpcomingSession) => {
     onStartClass({
       roomName: toClassSessionRoomName(session.title),
       name: toClassSessionDisplayName(professorName, 'teacher'),
     });
+  };
+
+  const handleNewClassClick = () => {
+    if (!onCreateClass) return;
+    setIsFormOpen(current => !current);
+    setFormError(null);
+  };
+
+  const resetForm = () => {
+    setTitleInput('');
+    setDateValue(null);
+    setTimeValue(null);
+    setStudentCountInput('0');
+    setIsFormOpen(false);
+    setFormError(null);
+  };
+
+  const handleSubmitNewClass: React.FormEventHandler = event => {
+    event.preventDefault();
+    if (!onCreateClass) return;
+
+    const title = titleInput.trim();
+    if (!title) {
+      setFormError('Indicá un título para la clase.');
+      return;
+    }
+    if (!dateValue || isNaN(dateValue.getTime()) || !timeValue || isNaN(timeValue.getTime())) {
+      setFormError('Indicá la fecha y la hora de la clase.');
+      return;
+    }
+    const studentCount = Number(studentCountInput);
+    if (!Number.isFinite(studentCount) || studentCount < 0) {
+      setFormError('La cantidad de alumnos esperados no es válida.');
+      return;
+    }
+    const scheduledAtMs = new Date(
+      dateValue.getFullYear(),
+      dateValue.getMonth(),
+      dateValue.getDate(),
+      timeValue.getHours(),
+      timeValue.getMinutes()
+    ).getTime();
+    if (!Number.isFinite(scheduledAtMs)) {
+      setFormError('La fecha y hora indicadas no son válidas.');
+      return;
+    }
+
+    setFormError(null);
+    setIsSubmitting(true);
+    onCreateClass({ title, scheduledAtMs, studentCount })
+      .then(() => resetForm())
+      .catch(err => setFormError(err.message))
+      .finally(() => setIsSubmitting(false));
   };
 
   return (
@@ -228,11 +462,118 @@ export default function ClassesTab({ stats, dateLabel, sessions, professorName, 
           <div className={classes.sectionTitle}>Próximas sesiones</div>
           <div className={classes.sectionSubtitle}>{dateLabel}</div>
         </div>
-        <button type="button" className={classes.newClassButton} data-testid="dashboard-new-class-button">
+        <button
+          type="button"
+          className={classes.newClassButton}
+          onClick={handleNewClassClick}
+          data-testid="dashboard-new-class-button"
+        >
           <AddIcon style={{ fontSize: 18 }} />
           Nueva clase
         </button>
       </div>
+
+      {onCreateClass && isFormOpen && (
+        <form className={classes.newClassForm} onSubmit={handleSubmitNewClass}>
+          <div className={classes.newClassFormTitle}>Nueva clase</div>
+          <div className={classes.newClassFormSubtitle}>Completá estos datos para programar la sesión.</div>
+
+          <div className={classes.newClassFieldGrid}>
+            <div className={classes.newClassField}>
+              <label className={classes.newClassLabel} htmlFor="new-class-title">
+                Título de la clase
+              </label>
+              <input
+                id="new-class-title"
+                type="text"
+                className={classes.newClassInput}
+                placeholder="Ej: Matemáticas — Grupo A"
+                value={titleInput}
+                onChange={e => setTitleInput(e.target.value)}
+                data-testid="dashboard-new-class-title-input"
+              />
+            </div>
+
+            <MuiPickersUtilsProvider utils={DateFnsUtils} locale={esLocale}>
+              <div className={classes.newClassField}>
+                <label className={classes.newClassLabel} htmlFor="new-class-date">
+                  Fecha
+                </label>
+                <KeyboardDatePicker
+                  id="new-class-date"
+                  autoOk
+                  fullWidth
+                  disableToolbar
+                  variant="inline"
+                  inputVariant="outlined"
+                  margin="none"
+                  format="dd/MM/yyyy"
+                  placeholder="dd/mm/aaaa"
+                  value={dateValue}
+                  onChange={setDateValue}
+                  InputProps={{ classes: { input: classes.newClassPickerInput } }}
+                  data-testid="dashboard-new-class-date-input"
+                />
+              </div>
+
+              <div className={classes.newClassField}>
+                <label className={classes.newClassLabel} htmlFor="new-class-time">
+                  Hora
+                </label>
+                <MuiThemeProvider theme={meetTimePickerTheme}>
+                  <KeyboardTimePicker
+                    id="new-class-time"
+                    autoOk
+                    fullWidth
+                    ampm
+                    variant="inline"
+                    inputVariant="outlined"
+                    margin="none"
+                    format="hh:mm a"
+                    placeholder="hh:mm a"
+                    value={timeValue}
+                    onChange={setTimeValue}
+                    InputProps={{ classes: { input: classes.newClassPickerInput } }}
+                    keyboardIcon={<AccessTimeIcon style={{ color: '#64748b' }} />}
+                    data-testid="dashboard-new-class-time-input"
+                  />
+                </MuiThemeProvider>
+              </div>
+            </MuiPickersUtilsProvider>
+
+            <div className={classes.newClassField}>
+              <label className={classes.newClassLabel} htmlFor="new-class-student-count">
+                Alumnos esperados
+              </label>
+              <input
+                id="new-class-student-count"
+                type="number"
+                min={0}
+                className={classes.newClassInput}
+                value={studentCountInput}
+                onChange={e => setStudentCountInput(e.target.value)}
+                data-testid="dashboard-new-class-student-count-input"
+              />
+            </div>
+          </div>
+
+          <div className={classes.newClassActions}>
+            <button
+              type="submit"
+              className={classes.newClassSubmitButton}
+              disabled={isSubmitting}
+              data-testid="dashboard-new-class-submit-button"
+            >
+              {isSubmitting ? 'Creando…' : 'Crear clase'}
+            </button>
+            <button type="button" className={classes.newClassCancelButton} onClick={resetForm}>
+              Cancelar
+            </button>
+          </div>
+
+          {formError && <div className={classes.newClassError}>{formError}</div>}
+        </form>
+      )}
 
       <div className={classes.sessionsGrid}>
         {sessions.map(session => (
@@ -266,6 +607,16 @@ export default function ClassesTab({ stats, dateLabel, sessions, professorName, 
               >
                 <PlayArrowIcon style={{ fontSize: 18 }} />
                 Iniciar sesión
+              </button>
+            ) : onCancelClass ? (
+              <button
+                type="button"
+                className={classes.secondaryButton}
+                onClick={() => onCancelClass(session)}
+                data-testid="dashboard-cancel-session-button"
+              >
+                <DeleteIcon style={{ fontSize: 16 }} />
+                Cancelar
               </button>
             ) : (
               <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">

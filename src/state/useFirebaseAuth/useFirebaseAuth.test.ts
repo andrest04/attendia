@@ -294,4 +294,109 @@ describe('the useFirebaseAuth hook', () => {
 
     delete process.env.REACT_APP_TOKEN_ENDPOINT;
   });
+
+  describe('the "Recursos" resource endpoints', () => {
+    const mockResource = {
+      id: 'res-1',
+      name: 'guia.pdf',
+      kind: 'pdf',
+      roomLabel: 'Cálculo I',
+      sizeBytes: 2048,
+      contentType: 'application/pdf',
+      createdAtMs: 1751554800000,
+    };
+
+    async function signIn() {
+      mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+      const { result } = renderHook(() => useFirebaseAuth());
+      await act(async () => {
+        await mockAuthStateCallback(mockUser);
+      });
+      return result;
+    }
+
+    it('fetches the resources list with the idToken', async () => {
+      const result = await signIn();
+      mockFetch.mockResolvedValueOnce(profileResponse(200, [mockResource]));
+
+      const resources = await result.current.fetchResources();
+
+      expect(mockFetch).toHaveBeenLastCalledWith('/resources', { headers: { Authorization: 'idToken' } });
+      expect(resources).toEqual([mockResource]);
+    });
+
+    it('rejects fetchResources when there is no signed-in user', async () => {
+      const { result } = renderHook(() => useFirebaseAuth());
+
+      await expect(result.current.fetchResources()).rejects.toEqual(
+        new Error('Cannot fetch resources without an authenticated user')
+      );
+    });
+
+    it('uploads a file as multipart form data with the idToken and roomLabel', async () => {
+      const result = await signIn();
+      mockFetch.mockResolvedValueOnce(profileResponse(201, mockResource));
+      const file = new File(['contenido'], 'guia.pdf', { type: 'application/pdf' });
+
+      const created = await result.current.uploadResource(file, 'Cálculo I');
+
+      expect(created).toEqual(mockResource);
+      const [url, init] = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
+      expect(url).toBe('/resources');
+      expect(init.method).toBe('POST');
+      expect(init.headers).toEqual({ Authorization: 'idToken' });
+      expect(init.body).toBeInstanceOf(FormData);
+      expect(init.body.get('roomLabel')).toBe('Cálculo I');
+      expect(init.body.get('file')).toBe(file);
+    });
+
+    it('rejects uploadResource when there is no signed-in user', async () => {
+      const { result } = renderHook(() => useFirebaseAuth());
+      const file = new File(['contenido'], 'guia.pdf', { type: 'application/pdf' });
+
+      await expect(result.current.uploadResource(file, 'Cálculo I')).rejects.toEqual(
+        new Error('Cannot upload a resource without an authenticated user')
+      );
+    });
+
+    it('resolves the signed download url with the idToken', async () => {
+      const result = await signIn();
+      mockFetch.mockResolvedValueOnce(profileResponse(200, { url: 'https://storage.example.com/signed' }));
+
+      const url = await result.current.fetchResourceDownloadUrl('res-1');
+
+      expect(mockFetch).toHaveBeenLastCalledWith('/resources/res-1/download', {
+        headers: { Authorization: 'idToken' },
+      });
+      expect(url).toBe('https://storage.example.com/signed');
+    });
+
+    it('rejects fetchResourceDownloadUrl when there is no signed-in user', async () => {
+      const { result } = renderHook(() => useFirebaseAuth());
+
+      await expect(result.current.fetchResourceDownloadUrl('res-1')).rejects.toEqual(
+        new Error('Cannot download a resource without an authenticated user')
+      );
+    });
+
+    it('deletes a resource with the idToken', async () => {
+      const result = await signIn();
+      mockFetch.mockResolvedValueOnce(profileResponse(200, { deleted: true }));
+
+      await result.current.deleteResource('res-1');
+
+      expect(mockFetch).toHaveBeenLastCalledWith('/resources/res-1', {
+        method: 'DELETE',
+        headers: { Authorization: 'idToken' },
+      });
+    });
+
+    it('rejects deleteResource when there is no signed-in user', async () => {
+      const { result } = renderHook(() => useFirebaseAuth());
+
+      await expect(result.current.deleteResource('res-1')).rejects.toEqual(
+        new Error('Cannot delete a resource without an authenticated user')
+      );
+    });
+  });
 });

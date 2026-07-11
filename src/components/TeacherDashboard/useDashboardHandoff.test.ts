@@ -2,6 +2,10 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import useDashboardHandoff from './useDashboardHandoff';
 
 describe('useDashboardHandoff', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
   it('starts with the dashboard active for a teacher and inactive for a student', () => {
     const teacher = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
     expect(teacher.result.current.dashboardActive).toBe(true);
@@ -55,6 +59,38 @@ describe('useDashboardHandoff', () => {
     expect(result.current.pendingSession).toBeNull();
   });
 
+  it('re-activates the dashboard and drops the pending session on handleReturnToDashboard', () => {
+    const { result } = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
+
+    act(() => {
+      result.current.handleStartClass({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
+    });
+    expect(result.current.dashboardActive).toBe(false);
+
+    act(() => {
+      result.current.handleReturnToDashboard();
+    });
+
+    expect(result.current.dashboardActive).toBe(true);
+    expect(result.current.pendingSession).toBeNull();
+  });
+
+  it('returns to the dashboard from a blank prejoin flow on handleReturnToDashboard', () => {
+    const { result } = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
+
+    act(() => {
+      result.current.handleStartBlankClass();
+    });
+    expect(result.current.dashboardActive).toBe(false);
+
+    act(() => {
+      result.current.handleReturnToDashboard();
+    });
+
+    expect(result.current.dashboardActive).toBe(true);
+    expect(result.current.pendingSession).toBeNull();
+  });
+
   it('does not reset on the initial mount, even though roomState starts disconnected', () => {
     const { result } = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
     expect(result.current.dashboardActive).toBe(true);
@@ -71,5 +107,42 @@ describe('useDashboardHandoff', () => {
     rerender();
 
     expect(result.current.dashboardActive).toBe(false);
+  });
+
+  it('survives a refresh: a fresh mount stays on the prejoin flow with the picked class', () => {
+    const first = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
+    act(() => {
+      first.result.current.handleStartClass({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
+    });
+
+    // Simulates a page refresh: App remounts, so this is a brand new hook instance.
+    const afterRefresh = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
+    expect(afterRefresh.result.current.dashboardActive).toBe(false);
+    expect(afterRefresh.result.current.pendingSession).toEqual({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
+  });
+
+  it('survives a refresh on a blank prejoin flow', () => {
+    const first = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
+    act(() => {
+      first.result.current.handleStartBlankClass();
+    });
+
+    const afterRefresh = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
+    expect(afterRefresh.result.current.dashboardActive).toBe(false);
+    expect(afterRefresh.result.current.pendingSession).toBeNull();
+  });
+
+  it('does not resurrect a handoff after handleReturnToDashboard clears it', () => {
+    const first = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
+    act(() => {
+      first.result.current.handleStartClass({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
+    });
+    act(() => {
+      first.result.current.handleReturnToDashboard();
+    });
+
+    const afterRefresh = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
+    expect(afterRefresh.result.current.dashboardActive).toBe(true);
+    expect(afterRefresh.result.current.pendingSession).toBeNull();
   });
 });

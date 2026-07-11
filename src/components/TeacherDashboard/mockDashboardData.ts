@@ -8,8 +8,9 @@ import { DashboardData } from './types';
  * - The one date construction below, `new Date(2026, 6, day)`, is a FIXED calendar
  *   fact (July 2026's weekday alignment) rather than a read of the current time, so
  *   it is still fully deterministic across every run.
- * - Replace this module with real /classes, /history, /resources and /calendar
- *   endpoints when a backend for the dashboard exists.
+ * - Replace this module with real /classes, /history and /calendar endpoints when
+ *   a backend for the rest of the dashboard exists. "Recursos" is no longer mocked
+ *   here — see ResourcesTab, which fetches real data from useAppState().fetchResources.
  */
 
 // Session-count dots shown per day in the Calendario tab grid. Days not listed have 0.
@@ -152,27 +153,6 @@ export const mockDashboardData: DashboardData = {
       recordingStatus: 'lista',
       hasDownload: true,
     },
-  ],
-
-  resourceGroups: [
-    {
-      id: 'mat-a',
-      label: 'Matemáticas — Grupo A',
-      files: [
-        { id: 'file-1', name: 'Guía de práctica — Unidad 3', kind: 'pdf', sizeLabel: '2.4 MB', dateLabel: '5 jul' },
-        { id: 'file-2', name: 'Examen parcial 2026', kind: 'pdf', sizeLabel: '1.1 MB', dateLabel: '1 jul' },
-        {
-          id: 'file-3',
-          name: 'Presentación — Derivadas',
-          kind: 'presentation',
-          sizeLabel: '8.7 MB',
-          dateLabel: '28 jun',
-        },
-        { id: 'file-4', name: 'Grabación Sesión 12', kind: 'video', sizeLabel: '340 MB', dateLabel: '25 jun' },
-      ],
-    },
-    { id: 'alg-l', label: 'Álgebra Lineal', files: [] },
-    { id: 'cal-3', label: 'Cálculo III', files: [] },
   ],
 
   calendarMonthLabel: 'Julio 2026',

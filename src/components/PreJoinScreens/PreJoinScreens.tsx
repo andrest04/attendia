@@ -29,9 +29,14 @@ interface PreJoinScreensProps {
    * lobby's room-name step never renders for this handoff.
    */
   initialClassSession?: { roomName: string; name: string };
+  /**
+   * When set (by App.tsx, only for teachers), the lobby surfaces a "Volver al panel"
+   * back affordance that abandons the prejoin flow and re-activates the TeacherDashboard.
+   */
+  onReturnToDashboard?: () => void;
 }
 
-export default function PreJoinScreens({ initialClassSession }: PreJoinScreensProps = {}) {
+export default function PreJoinScreens({ initialClassSession, onReturnToDashboard }: PreJoinScreensProps = {}) {
   const { user, profile } = useAppState();
   const { getAudioAndVideoTracks } = useVideoContext();
   const { URLRoomName } = useParams<{ URLRoomName?: string }>();
@@ -134,6 +139,30 @@ export default function PreJoinScreens({ initialClassSession }: PreJoinScreensPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Back to the TeacherDashboard. The URL must be reset to '/' first: the dashboard
+  // handoff (and goToDeviceSelection) replaceState'd it to /room/:name, and a refresh
+  // on the dashboard with that deep link still in place would be resolved by
+  // useInitialRole as a student join, bouncing the teacher to the student lobby.
+  const handleReturnToDashboard = () => {
+    // @ts-ignore
+    if (!window.location.origin.includes('twil.io') && !window.STORYBOOK_ENV) {
+      window.history.replaceState(null, '', `/${window.location.search || ''}`);
+    }
+    onReturnToDashboard?.();
+  };
+
+  // When the teacher arrived via the dashboard handoff, the room-name step was skipped
+  // entirely — the device-selection "Cancelar" would otherwise drop them into a lobby
+  // step they never saw. Route that back action to the dashboard instead. Students and
+  // teachers who came through the lobby keep the normal step-back behavior.
+  const handleSetStep = (nextStep: Steps) => {
+    if (nextStep === Steps.roomNameStep && initialClassSession && onReturnToDashboard) {
+      handleReturnToDashboard();
+      return;
+    }
+    setStep(nextStep);
+  };
+
   const goToDeviceSelection = async () => {
     const normalizedStudentRoomName = normalizeStudentJoinInputToRoomName(studentJoinCode);
 
@@ -222,6 +251,10 @@ export default function PreJoinScreens({ initialClassSession }: PreJoinScreensPr
         noHero={step === Steps.deviceSelectionStep}
         headerRoomName={step === Steps.deviceSelectionStep ? roomName : undefined}
         homeRole={classSessionDraft.role}
+        // Only surfaced on the room-name step: the device-selection step's own
+        // "Cancelar" already routes back to the dashboard for this handoff (see
+        // handleSetStep above), so a second identical control there would be redundant.
+        onReturnToDashboard={step === Steps.roomNameStep && onReturnToDashboard ? handleReturnToDashboard : undefined}
       >
         {step === Steps.roomNameStep && (
           <RoomNameScreen
@@ -244,7 +277,7 @@ export default function PreJoinScreens({ initialClassSession }: PreJoinScreensPr
         )}
 
         {step === Steps.deviceSelectionStep && (
-          <DeviceSelectionScreen name={name} roomName={roomName} setStep={setStep} />
+          <DeviceSelectionScreen name={name} roomName={roomName} setStep={handleSetStep} />
         )}
       </IntroContainer>
     </>

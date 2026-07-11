@@ -13,6 +13,7 @@ import {
 } from 'firebase/auth';
 import { ClassSessionRole } from '../../components/PreJoinScreens/classSessionTypes';
 import { AttentionReport, StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
+import { ResourceFileKind } from '../../components/TeacherDashboard/types';
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
@@ -101,6 +102,132 @@ async function fetchReportsRequest(user: User): Promise<StoredAttentionReport[]>
   await throwOnErrorResponse(response);
 
   return response.json();
+}
+
+// Mirror of one users/{uid}/resources/{id} document served by the /resources
+// endpoints. Size/date formatting for display is left to the client — this is the
+// raw wire shape, same convention as StoredAttentionReport's endedAtMs.
+export interface ResourceRecord {
+  id: string;
+  name: string;
+  kind: ResourceFileKind;
+  roomLabel: string;
+  sizeBytes: number;
+  contentType: string;
+  createdAtMs: number | null;
+}
+
+// GET /resources — the signed-in teacher's uploaded class materials, newest first.
+async function fetchResourcesRequest(user: User): Promise<ResourceRecord[]> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch('/resources', {
+    headers: { Authorization: idToken },
+  });
+
+  await throwOnErrorResponse(response);
+
+  return response.json();
+}
+
+// POST /resources (multipart). No content-type header is set — the browser fills
+// in the multipart boundary for us when the body is a FormData.
+async function uploadResourceRequest(user: User, file: File, roomLabel: string): Promise<ResourceRecord> {
+  const idToken = await user.getIdToken();
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('roomLabel', roomLabel);
+
+  const response = await fetch('/resources', {
+    method: 'POST',
+    headers: { Authorization: idToken },
+    body: formData,
+  });
+
+  await throwOnErrorResponse(response);
+
+  return response.json();
+}
+
+// GET /resources/:id/download — resolves a short-lived signed Storage URL.
+async function fetchResourceDownloadUrlRequest(user: User, id: string): Promise<string> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch(`/resources/${encodeURIComponent(id)}/download`, {
+    headers: { Authorization: idToken },
+  });
+
+  await throwOnErrorResponse(response);
+
+  const { url } = await response.json();
+  return url;
+}
+
+// DELETE /resources/:id
+async function deleteResourceRequest(user: User, id: string): Promise<void> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch(`/resources/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: idToken },
+  });
+
+  await throwOnErrorResponse(response);
+}
+
+// Mirror of one users/{uid}/classes/{id} document served by the /classes
+// endpoints. roomName is the server-computed slug — the honest real value, no
+// separate abbreviation field.
+export interface ClassRecord {
+  id: string;
+  title: string;
+  roomName: string;
+  scheduledAtMs: number;
+  studentCount: number;
+}
+
+// GET /classes — the signed-in teacher's scheduled classes, soonest first.
+async function fetchClassesRequest(user: User): Promise<ClassRecord[]> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch('/classes', {
+    headers: { Authorization: idToken },
+  });
+
+  await throwOnErrorResponse(response);
+
+  return response.json();
+}
+
+// POST /classes
+async function createClassRequest(
+  user: User,
+  input: { title: string; scheduledAtMs: number; studentCount: number }
+): Promise<ClassRecord> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch('/classes', {
+    method: 'POST',
+    headers: { Authorization: idToken, 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+
+  await throwOnErrorResponse(response);
+
+  return response.json();
+}
+
+// DELETE /classes/:id
+async function deleteClassRequest(user: User, id: string): Promise<void> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch(`/classes/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Authorization: idToken },
+  });
+
+  await throwOnErrorResponse(response);
 }
 
 export default function useFirebaseAuth() {
@@ -311,6 +438,70 @@ export default function useFirebaseAuth() {
     return fetchReportsRequest(user);
   }, [user]);
 
+  const fetchResources = useCallback(() => {
+    if (!user) {
+      return Promise.reject(new Error('Cannot fetch resources without an authenticated user'));
+    }
+    return fetchResourcesRequest(user);
+  }, [user]);
+
+  const uploadResource = useCallback(
+    (file: File, roomLabel: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot upload a resource without an authenticated user'));
+      }
+      return uploadResourceRequest(user, file, roomLabel);
+    },
+    [user]
+  );
+
+  const fetchResourceDownloadUrl = useCallback(
+    (id: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot download a resource without an authenticated user'));
+      }
+      return fetchResourceDownloadUrlRequest(user, id);
+    },
+    [user]
+  );
+
+  const deleteResource = useCallback(
+    (id: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot delete a resource without an authenticated user'));
+      }
+      return deleteResourceRequest(user, id);
+    },
+    [user]
+  );
+
+  const fetchClasses = useCallback(() => {
+    if (!user) {
+      return Promise.reject(new Error('Cannot fetch classes without an authenticated user'));
+    }
+    return fetchClassesRequest(user);
+  }, [user]);
+
+  const createClass = useCallback(
+    (input: { title: string; scheduledAtMs: number; studentCount: number }) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot create a class without an authenticated user'));
+      }
+      return createClassRequest(user, input);
+    },
+    [user]
+  );
+
+  const deleteClass = useCallback(
+    (id: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot delete a class without an authenticated user'));
+      }
+      return deleteClassRequest(user, id);
+    },
+    [user]
+  );
+
   const signOut = useCallback(() => {
     return getAuth()
       .signOut()
@@ -334,5 +525,12 @@ export default function useFirebaseAuth() {
     updateRecordingRules,
     saveAttentionReport,
     fetchAttentionReports,
+    fetchResources,
+    uploadResource,
+    fetchResourceDownloadUrl,
+    deleteResource,
+    fetchClasses,
+    createClass,
+    deleteClass,
   };
 }
