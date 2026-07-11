@@ -28,7 +28,14 @@ describe('TeacherDashboard', () => {
       fetchClasses: undefined,
       createClass: undefined,
       deleteClass: undefined,
+      fetchAttentionReports: undefined,
     }));
+  });
+
+  it('renders the mocked stat cards when fetchAttentionReports is unavailable', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+
+    expect(wrapper.find(ClassesTab).prop('stats')).toEqual(mockDashboardData.stats);
   });
 
   // ── Real professor identity (header + session name) ──────────────────────────
@@ -135,17 +142,20 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
   const mockFetchClasses = jest.fn();
   const mockCreateClass = jest.fn();
   const mockDeleteClass = jest.fn();
+  const mockFetchAttentionReports = jest.fn();
 
   beforeEach(() => {
     mockFetchClasses.mockReset().mockResolvedValue([]);
     mockCreateClass.mockReset();
     mockDeleteClass.mockReset();
+    mockFetchAttentionReports.mockReset().mockResolvedValue([]);
     mockUseAppState.mockImplementation(() => ({
       signOut: mockSignOut,
       user: { displayName: 'Andrés Torres' },
       fetchClasses: mockFetchClasses,
       createClass: mockCreateClass,
       deleteClass: mockDeleteClass,
+      fetchAttentionReports: mockFetchAttentionReports,
     }));
   });
 
@@ -157,5 +167,32 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
 
     expect(wrapper.find(ClassesTab).prop('onCreateClass')).toBeInstanceOf(Function);
     expect(wrapper.find(ClassesTab).prop('onCancelClass')).toBeInstanceOf(Function);
+  });
+});
+
+describe('TeacherDashboard stat cards (firebase auth mode)', () => {
+  const mockFetchAttentionReports = jest.fn();
+
+  beforeEach(() => {
+    mockFetchAttentionReports.mockReset().mockResolvedValue([]);
+    mockUseAppState.mockImplementation(() => ({
+      signOut: mockSignOut,
+      user: { displayName: 'Andrés Torres' },
+      fetchAttentionReports: mockFetchAttentionReports,
+    }));
+  });
+
+  // Shallow rendering doesn't invoke useEffect, so `reports` stays at its initial
+  // empty state here — this asserts the wiring (real stats path taken, computed
+  // from an empty report list, with hours-taught still copied from the mock)
+  // rather than the fetch-on-mount call itself.
+  it('computes the three real stat values (zeros for an empty report list) and keeps hours-taught mocked', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+
+    const stats = wrapper.find(ClassesTab).prop('stats');
+    expect(stats[0]).toEqual({ ...mockDashboardData.stats[0], value: '0' });
+    expect(stats[1]).toEqual({ ...mockDashboardData.stats[1], value: '0' });
+    expect(stats[2]).toEqual({ ...mockDashboardData.stats[2], value: '0%' });
+    expect(stats[3]).toEqual(mockDashboardData.stats[3]);
   });
 });

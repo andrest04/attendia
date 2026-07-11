@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { useAppState } from '../../state';
-import { DashboardTabId, UpcomingSession } from './types';
+import { DashboardStat, DashboardTabId, UpcomingSession } from './types';
 import { mockDashboardData } from './mockDashboardData';
 import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
@@ -10,7 +10,9 @@ import HistoryTab from './HistoryTab';
 import ResourcesTab from './ResourcesTab';
 import CalendarTab from './CalendarTab';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
 import { buildUpcomingSessions } from './classSessionsView';
+import { buildReportStats } from './reportStats';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -62,10 +64,12 @@ function capitalizeFirst(value: string): string {
 /**
  * "Panel Docente" — the teacher landing dashboard shown before PreJoinScreens.
  * Owns the active-tab state and composes the shared header/sidebar with one of
- * the four tabs. Besides the highlighted "Iniciar sesión" CTA and the sidebar's
- * "Iniciar clase" button, only "Recursos" is real (self-fetching from useAppState,
- * firebase-mode only) — Clases/Historial/Calendario remain visual-only stubs
- * backed by mockDashboardData.
+ * the four tabs. "Recursos" is fully real (self-fetching from useAppState,
+ * firebase-mode only). "Clases" is real for session scheduling (fetch/create/
+ * cancel) and for three of its four stat cards (sessions-week/active-students/
+ * avg-attention, computed from this week's attention reports — see
+ * reportStats.ts); its "hours-taught" card and the Historial/Calendario tabs
+ * remain visual-only stubs backed by mockDashboardData.
  *
  * The professor's identity (header name/initials/photo, and the name fed into
  * onStartClass) is the one exception: it is real, not mocked. It must match the
@@ -74,9 +78,10 @@ function capitalizeFirst(value: string): string {
  */
 export default function TeacherDashboard({ onStartClass, onStartBlankClass }: Props) {
   const classes = useStyles();
-  const { signOut, user, profile, fetchClasses, createClass, deleteClass } = useAppState();
+  const { signOut, user, profile, fetchClasses, createClass, deleteClass, fetchAttentionReports } = useAppState();
   const [activeTab, setActiveTab] = useState<DashboardTabId>('clases');
   const [realClasses, setRealClasses] = useState<ClassRecord[]>([]);
+  const [reports, setReports] = useState<StoredAttentionReport[]>([]);
   const data = mockDashboardData;
   const professorName = profile?.displayName || user?.displayName || data.professorName;
   const professorInitials = getProfessorInitials(professorName);
@@ -97,7 +102,24 @@ export default function TeacherDashboard({ onStartClass, onStartBlankClass }: Pr
     };
   }, [fetchClasses]);
 
+  useEffect(() => {
+    if (!fetchAttentionReports) return;
+    // Same no-loading/error-UI convention as the fetchClasses effect above: a
+    // failed background fetch just leaves the stat cards at their zero-state
+    // instead of blocking render.
+    let isMounted = true;
+    fetchAttentionReports()
+      .then(fetched => {
+        if (isMounted) setReports(fetched);
+      })
+      .catch(err => console.error('TeacherDashboard: could not fetch attention reports', err));
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchAttentionReports]);
+
   const hasRealClasses = Boolean(fetchClasses && createClass && deleteClass);
+  const hasRealStats = Boolean(fetchAttentionReports);
 
   const sessions: UpcomingSession[] = hasRealClasses
     ? buildUpcomingSessions(realClasses, Date.now())
@@ -107,6 +129,19 @@ export default function TeacherDashboard({ onStartClass, onStartBlankClass }: Pr
         new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
       )
     : data.upcomingSessionsDateLabel;
+
+  const stats: DashboardStat[] = hasRealStats
+    ? (() => {
+        const { sessionsThisWeek, activeStudents, avgAttentionPercent } = buildReportStats(reports, Date.now());
+        return [
+          { ...data.stats[0], value: `${sessionsThisWeek}` },
+          { ...data.stats[1], value: `${activeStudents}` },
+          { ...data.stats[2], value: `${avgAttentionPercent}%` },
+          // hours-taught stays mocked verbatim — see the comment on ClassesTab below.
+          data.stats[3],
+        ];
+      })()
+    : data.stats;
 
   const handleCreateClass = hasRealClasses
     ? (input: { title: string; scheduledAtMs: number; studentCount: number }) =>
@@ -141,9 +176,13 @@ export default function TeacherDashboard({ onStartClass, onStartBlankClass }: Pr
         <div className={classes.content}>
           {activeTab === 'clases' && (
             <ClassesTab
-              // Stat cards stay mocked — they need history/attention data this pass
-              // doesn't touch. Deferred, not forgotten.
-              stats={data.stats}
+              // sessions-week/active-students/avg-attention are now real, computed
+              // from this week's attention reports (see reportStats.ts). hours-taught
+              // stays mocked on purpose: there is no session-duration data anywhere in
+              // the app (the attention report schema has no start/duration field, and
+              // the live timeline is a capped rolling window, not total session
+              // length) — this is intentional, not an oversight.
+              stats={stats}
               dateLabel={dateLabel}
               sessions={sessions}
               professorName={professorName}
