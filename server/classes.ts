@@ -1,4 +1,5 @@
 import { RequestHandler } from 'express';
+import { logOperationalFailure } from './operationalEvents';
 
 /*
  * Firestore-backed teacher "Clases" (scheduled sessions):
@@ -24,6 +25,7 @@ const MAX_STUDENT_COUNT = 500;
 const MAX_CLASSES_RETURNED = 200;
 
 const FALLBACK_ROOM_NAME = 'class-session';
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
 function slugifyTitle(title: string): string {
   const asciiValue = title
@@ -59,6 +61,7 @@ export interface ClassDocumentReference {
   id: string;
   get(): Promise<ClassDocumentSnapshot>;
   set(data: { [key: string]: any }): Promise<unknown>;
+  update(data: { [key: string]: any }): Promise<unknown>;
   delete(): Promise<unknown>;
 }
 
@@ -131,7 +134,16 @@ function toClassResponse(id: string, data: { [key: string]: any }, scheduledAtMs
     roomName: data.roomName,
     scheduledAtMs,
     studentCount: data.studentCount,
+    status: data.status === 'completed' ? 'completed' : data.status === 'started' ? 'started' : 'scheduled',
   };
+}
+
+function getOwnedClass(db: ClassesDatabase, uid: string, id: string) {
+  return db
+    .collection('users')
+    .doc(uid)
+    .collection('classes')
+    .doc(id);
 }
 
 export function createGetClassesHandler(db: ClassesDatabase): RequestHandler {
@@ -169,7 +181,7 @@ export function createGetClassesHandler(db: ClassesDatabase): RequestHandler {
 
       res.status(200).json(classes);
     } catch (err) {
-      console.error('classes: could not list classes', err);
+      logOperationalFailure({ event: 'class_lookup_failed', operation: 'GET /classes', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'class lookup failed',
@@ -204,7 +216,11 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
       }
 
       const scheduledAtMs = body.scheduledAtMs;
-      if (typeof scheduledAtMs !== 'number' || !Number.isFinite(scheduledAtMs) || isNaN(new Date(scheduledAtMs).getTime())) {
+      if (
+        typeof scheduledAtMs !== 'number' ||
+        !Number.isFinite(scheduledAtMs) ||
+        isNaN(new Date(scheduledAtMs).getTime())
+      ) {
         sendBadRequest(res, 'invalid scheduledAtMs', 'Debes indicar una fecha y hora válidas para la clase.');
         return;
       }
@@ -223,13 +239,28 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         studentCount = body.studentCount;
       }
 
+      const idempotencyKey = body.idempotencyKey;
+      if (typeof idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+        sendBadRequest(res, 'invalid idempotencyKey', 'La clave de creación no es válida. Reintenta desde el formulario.');
+        return;
+      }
+
       const roomName = slugifyTitle(title);
 
       const docRef = db
         .collection('users')
         .doc(firebaseUser.uid)
         .collection('classes')
-        .doc();
+        .doc(idempotencyKey);
+
+      const existing = await docRef.get();
+      if (existing.exists) {
+        const data = existing.data() || {};
+        const existingScheduledAtMs =
+          data.scheduledAt && typeof data.scheduledAt.toMillis === 'function' ? data.scheduledAt.toMillis() : null;
+        res.status(200).json(toClassResponse(docRef.id, data, existingScheduledAtMs));
+        return;
+      }
 
       await docRef.set({
         title,
@@ -237,12 +268,13 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         scheduledAt: new Date(scheduledAtMs),
         studentCount,
         status: 'scheduled',
+        idempotencyKey,
         createdAt: serverTimestamp(),
       });
 
       res.status(201).json(toClassResponse(docRef.id, { title, roomName, studentCount }, scheduledAtMs));
     } catch (err) {
-      console.error('classes: could not save the class', err);
+      logOperationalFailure({ event: 'class_save_failed', operation: 'POST /classes', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'class save failed',
@@ -268,11 +300,7 @@ export function createDeleteClassHandler(db: ClassesDatabase): RequestHandler {
         return;
       }
 
-      const docRef = db
-        .collection('users')
-        .doc(firebaseUser.uid)
-        .collection('classes')
-        .doc(req.params.id);
+      const docRef = getOwnedClass(db, firebaseUser.uid, req.params.id);
       const snapshot = await docRef.get();
 
       if (!snapshot.exists) {
@@ -286,11 +314,56 @@ export function createDeleteClassHandler(db: ClassesDatabase): RequestHandler {
 
       res.status(200).json({ deleted: true });
     } catch (err) {
-      console.error('classes: could not delete the class', err);
+      logOperationalFailure({
+        event: 'class_delete_failed', operation: 'DELETE /classes/:id', uid: firebaseUser.uid, classId: req.params.id, error: err,
+      });
       res.status(503).json({
         error: {
           message: 'class delete failed',
           explanation: 'No pudimos cancelar la clase. Intenta de nuevo en unos segundos.',
+        },
+      });
+    }
+  };
+}
+
+/** Marks a verified teacher's scheduled class as started after its token was issued. */
+export function createStartClassHandler(db: ClassesDatabase, serverTimestamp: () => unknown): RequestHandler {
+  return async (req, res) => {
+    const firebaseUser = getVerifiedUser(res);
+    if (!firebaseUser) {
+      res.status(401).send();
+      return;
+    }
+
+    try {
+      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
+        sendTeacherOnly(res);
+        return;
+      }
+      const docRef = getOwnedClass(db, firebaseUser.uid, req.params.id);
+      const snapshot = await docRef.get();
+      const data = snapshot.data();
+      if (!snapshot.exists || !data) {
+        res.status(404).json({ error: { message: 'class not found', explanation: 'La clase solicitada no existe.' } });
+        return;
+      }
+      if (typeof req.body?.roomName !== 'string' || req.body.roomName !== data.roomName) {
+        sendBadRequest(res, 'roomName mismatch', 'La sala no corresponde a la clase programada.');
+        return;
+      }
+      if (data.status === 'scheduled') {
+        await docRef.update({ status: 'started', startedAt: serverTimestamp() });
+      }
+      res.status(200).json({ started: true });
+    } catch (err) {
+      logOperationalFailure({
+        event: 'class_start_failed', operation: 'POST /classes/:id/start', uid: firebaseUser.uid, classId: req.params.id, error: err,
+      });
+      res.status(503).json({
+        error: {
+          message: 'class start failed',
+          explanation: 'No pudimos iniciar la clase. Intenta de nuevo en unos segundos.',
         },
       });
     }

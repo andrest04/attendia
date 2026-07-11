@@ -1,4 +1,10 @@
-import { createGetClassesHandler, createCreateClassHandler, createDeleteClassHandler, ClassesDatabase } from '../classes';
+import {
+  createGetClassesHandler,
+  createCreateClassHandler,
+  createDeleteClassHandler,
+  createStartClassHandler,
+  ClassesDatabase,
+} from '../classes';
 
 const makeRes = () => {
   const res: any = { locals: { firebaseUser: { uid: 'uid-1', email: 'ana@example.com' } } };
@@ -12,18 +18,33 @@ const makeRes = () => {
 // its "classes" subcollection with doc()/orderBy().limit().get()).
 const makeDb = () => {
   const userGet = jest.fn();
-  const docGet = jest.fn();
+  const docGet = jest.fn(() => Promise.resolve({ exists: false, data: () => undefined }));
   const set = jest.fn(() => Promise.resolve());
+  const update = jest.fn(() => Promise.resolve());
   const del = jest.fn(() => Promise.resolve());
   const classesGet = jest.fn();
   const limit = jest.fn(() => ({ get: classesGet }));
   const orderBy = jest.fn(() => ({ limit }));
-  const classDoc = jest.fn((id?: string) => ({ id: id || 'auto-id-1', get: docGet, set, delete: del }));
+  const classDoc = jest.fn((id?: string) => ({ id: id || 'auto-id-1', get: docGet, set, update, delete: del }));
   const classesCollection = jest.fn(() => ({ doc: classDoc, orderBy }));
   const userDoc = jest.fn(() => ({ get: userGet, collection: classesCollection }));
   const collection = jest.fn(() => ({ doc: userDoc }));
   const db = ({ collection } as unknown) as ClassesDatabase;
-  return { db, collection, userDoc, userGet, classesCollection, classDoc, docGet, set, del, orderBy, limit, classesGet };
+  return {
+    db,
+    collection,
+    userDoc,
+    userGet,
+    classesCollection,
+    classDoc,
+    docGet,
+    set,
+    update,
+    del,
+    orderBy,
+    limit,
+    classesGet,
+  };
 };
 
 const teacherProfile = { displayName: 'Ana García', email: 'ana@example.com', role: 'teacher' };
@@ -76,6 +97,7 @@ describe('createGetClassesHandler', () => {
         roomName: 'matematicas-grupo-a',
         scheduledAtMs: 1751554800000,
         studentCount: 28,
+        status: 'scheduled',
       },
       {
         id: 'class-2',
@@ -83,6 +105,7 @@ describe('createGetClassesHandler', () => {
         roomName: 'algebra-lineal',
         scheduledAtMs: null,
         studentCount: 32,
+        status: 'scheduled',
       },
     ]);
   });
@@ -134,26 +157,30 @@ describe('createCreateClassHandler', () => {
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
     const handler = createCreateClassHandler(db, serverTimestamp);
     const res = makeRes();
-    const req: any = { body: { title: 'Matemáticas — Grupo A', scheduledAtMs: 1751554800000, studentCount: 28 } };
+    const req: any = {
+      body: { title: 'Matemáticas — Grupo A', scheduledAtMs: 1751554800000, studentCount: 28, idempotencyKey: 'create-class-key-001' },
+    };
 
     await handler(req, res, jest.fn());
 
-    expect(classDoc).toHaveBeenCalledWith();
+    expect(classDoc).toHaveBeenCalledWith('create-class-key-001');
     expect(set).toHaveBeenCalledWith({
       title: 'Matemáticas — Grupo A',
       roomName: 'matematicas-grupo-a',
       scheduledAt: new Date(1751554800000),
       studentCount: 28,
       status: 'scheduled',
+      idempotencyKey: 'create-class-key-001',
       createdAt: 'server-timestamp',
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({
-      id: 'auto-id-1',
+      id: 'create-class-key-001',
       title: 'Matemáticas — Grupo A',
       roomName: 'matematicas-grupo-a',
       scheduledAtMs: 1751554800000,
       studentCount: 28,
+      status: 'scheduled',
     });
   });
 
@@ -164,10 +191,32 @@ describe('createCreateClassHandler', () => {
     const res = makeRes();
     const req: any = { body: { title: 'Cálculo III', scheduledAtMs: 1751554800000 } };
 
-    await handler(req, res, jest.fn());
+    await handler({ ...req, body: { ...req.body, idempotencyKey: 'create-class-key-002' } }, res, jest.fn());
 
     expect(set).toHaveBeenCalledWith(expect.objectContaining({ studentCount: 0 }));
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('returns the existing class for a repeated idempotency key without writing another class', async () => {
+    const { db, userGet, docGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({
+        title: 'Cálculo III', roomName: 'calculo-iii', scheduledAt: { toMillis: () => 1751554800000 }, studentCount: 0,
+      }),
+    });
+    const res = makeRes();
+
+    await createCreateClassHandler(db, serverTimestamp)(
+      { body: { title: 'Cálculo III', scheduledAtMs: 1751554800000, idempotencyKey: 'create-class-key-004' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(set).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ id: 'create-class-key-004', title: 'Cálculo III' }));
   });
 
   it('returns 401 when the middleware did not attach a verified user', async () => {
@@ -236,11 +285,7 @@ describe('createCreateClassHandler', () => {
     const handler = createCreateClassHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler(
-      { body: { title: 'x', scheduledAtMs: 1751554800000, studentCount: -1 } } as any,
-      res,
-      jest.fn()
-    );
+    await handler({ body: { title: 'x', scheduledAtMs: 1751554800000, studentCount: -1 } } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(set).not.toHaveBeenCalled();
@@ -252,11 +297,7 @@ describe('createCreateClassHandler', () => {
     const handler = createCreateClassHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler(
-      { body: { title: 'x', scheduledAtMs: 1751554800000, studentCount: 501 } } as any,
-      res,
-      jest.fn()
-    );
+    await handler({ body: { title: 'x', scheduledAtMs: 1751554800000, studentCount: 501 } } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(set).not.toHaveBeenCalled();
@@ -270,10 +311,43 @@ describe('createCreateClassHandler', () => {
     const handler = createCreateClassHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler({ body: { title: 'x', scheduledAtMs: 1751554800000 } } as any, res, jest.fn());
+    await handler({ body: { title: 'x', scheduledAtMs: 1751554800000, idempotencyKey: 'create-class-key-003' } } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(503);
     consoleError.mockRestore();
+  });
+});
+
+describe('createStartClassHandler', () => {
+  afterEach(jest.clearAllMocks);
+
+  it('marks only the verified teacher-owned class with its persisted roomName as started', async () => {
+    const { db, userGet, docGet, update } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ roomName: 'algebra-lineal', status: 'scheduled' }) });
+    const handler = createStartClassHandler(db, serverTimestamp);
+    const res = makeRes();
+
+    await handler({ params: { id: 'class-1' }, body: { roomName: 'algebra-lineal' } } as any, res, jest.fn());
+
+    expect(update).toHaveBeenCalledWith({ status: 'started', startedAt: 'server-timestamp' });
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('rejects a roomName that does not match the scheduled class', async () => {
+    const { db, userGet, docGet, update } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ roomName: 'algebra-lineal' }) });
+    const res = makeRes();
+
+    await createStartClassHandler(db, serverTimestamp)(
+      { params: { id: 'class-1' }, body: { roomName: 'otro-room' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(update).not.toHaveBeenCalled();
   });
 });
 

@@ -12,7 +12,7 @@
  * tab and cleared when the tab closes.
  */
 
-type PendingSession = { roomName: string; name: string } | null;
+type PendingSession = { roomName: string; name: string; classId?: string } | null;
 
 interface DashboardHandoffSession {
   pendingSession: PendingSession;
@@ -40,7 +40,13 @@ export function readDashboardHandoff(): DashboardHandoffSession | null {
     const pendingSession = parsed.pendingSession;
     if (pendingSession === null) return { pendingSession: null };
     if (pendingSession && typeof pendingSession.roomName === 'string' && typeof pendingSession.name === 'string') {
-      return { pendingSession: { roomName: pendingSession.roomName, name: pendingSession.name } };
+      return {
+        pendingSession: {
+          roomName: pendingSession.roomName,
+          name: pendingSession.name,
+          classId: typeof pendingSession.classId === 'string' ? pendingSession.classId : undefined,
+        },
+      };
     }
     return null;
   } catch {

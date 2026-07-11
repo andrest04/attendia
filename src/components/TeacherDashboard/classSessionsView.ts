@@ -57,7 +57,12 @@ export function buildUpcomingSessions(classes: ClassRecord[], nowMs: number): Up
   const now = new Date(nowMs);
 
   const visible = classes
-    .filter(classRecord => classRecord.scheduledAtMs >= nowMs - GRACE_PERIOD_MS)
+    .filter(
+      (classRecord): classRecord is ClassRecord & { scheduledAtMs: number } =>
+        classRecord.scheduledAtMs !== null &&
+        classRecord.status !== 'completed' &&
+        classRecord.scheduledAtMs >= nowMs - GRACE_PERIOD_MS
+    )
     .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs);
 
   return visible.map((classRecord, index) => {
@@ -66,6 +71,8 @@ export function buildUpcomingSessions(classes: ClassRecord[], nowMs: number): Up
       id: classRecord.id,
       title: classRecord.title,
       code: classRecord.roomName,
+      roomName: classRecord.roomName,
+      classId: classRecord.id,
       studentCount: classRecord.studentCount,
       time: formatTimeLabel(sessionDate),
       dayLabel: formatDayLabel(sessionDate, now),
