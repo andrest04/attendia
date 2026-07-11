@@ -29,6 +29,14 @@ export const dashboardTabLabel: Record<DashboardTabId, string> = {
   calendario: 'Calendario',
 };
 
+/** Real route for each tab, so it's reflected in the URL (bookmarks, refresh, back/forward). */
+export const dashboardTabPath: Record<DashboardTabId, string> = {
+  clases: '/dashboard/clases',
+  historial: '/dashboard/historial',
+  recursos: '/dashboard/recursos',
+  calendario: '/dashboard/calendario',
+};
+
 /** Stat-card icon, by DashboardStat.icon. */
 export const statCardIcon: Record<DashboardStatIcon, IconComponent> = {
   book: MenuBookIcon,

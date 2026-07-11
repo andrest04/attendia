@@ -6,11 +6,13 @@ import Room from './components/Room/Room';
 import SessionEndedScreen from './components/SessionEndedScreen/SessionEndedScreen';
 import TeacherDashboard from './components/TeacherDashboard';
 import useInitialRole from './components/TeacherDashboard/useInitialRole';
+import { saveDashboardHandoff, clearDashboardHandoff } from './components/TeacherDashboard/dashboardHandoffSession';
 import { shallow } from 'enzyme';
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
 import { useAppState } from './state';
 import { useMediaQuery } from '@material-ui/core';
+import { useHistory, useLocation } from 'react-router-dom';
 
 jest.mock('swiper/react', () => ({
   Swiper: jest.fn(),
@@ -29,12 +31,19 @@ jest.mock('@material-ui/core', () => {
   const actual = jest.requireActual('@material-ui/core');
   return { ...actual, useMediaQuery: jest.fn() };
 });
+jest.mock('react-router-dom', () => ({
+  useHistory: jest.fn(),
+  useLocation: jest.fn(),
+}));
 
 const mockUseRoomState = useRoomState as jest.Mock<any>;
 const mockUseHeight = useHeight as jest.Mock<any>;
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseMediaQuery = useMediaQuery as jest.Mock<any>;
 const mockUseInitialRole = useInitialRole as jest.Mock<any>;
+const mockUseHistory = useHistory as jest.Mock<any>;
+const mockUseLocation = useLocation as jest.Mock<any>;
+const mockHistoryPush = jest.fn();
 
 mockUseHeight.mockImplementation(() => '500px');
 mockUseMediaQuery.mockImplementation(() => false);
@@ -42,8 +51,14 @@ mockUseAppState.mockImplementation(() => ({ sessionEndedByProfessor: false }));
 // Existing tests below all assert directly on PreJoinScreens/Room, so default to the
 // student role (dashboard inactive) unless a test opts into the teacher landing page.
 mockUseInitialRole.mockImplementation(() => 'student');
+mockUseHistory.mockImplementation(() => ({ push: mockHistoryPush }));
+mockUseLocation.mockImplementation(() => ({ pathname: '/' }));
 
 describe('the App component', () => {
+  afterEach(() => {
+    clearDashboardHandoff();
+    mockHistoryPush.mockClear();
+  });
   it('shows the session-ended screen once the teacher ends the session for everyone', () => {
     mockUseRoomState.mockImplementation(() => 'disconnected');
     mockUseAppState.mockImplementationOnce(() => ({ sessionEndedByProfessor: true }));
@@ -85,6 +100,33 @@ describe('the App component', () => {
   });
 
   describe('the teacher landing dashboard', () => {
+    it('mounts Perfil within the dashboard shell for the protected profile route', () => {
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      mockUseLocation.mockImplementationOnce(() => ({ pathname: '/profile' }));
+      const wrapper = shallow(<App />);
+
+      expect(wrapper.find(TeacherDashboard).prop('showProfile')).toBe(true);
+      wrapper.find(TeacherDashboard).prop('onReturnToClasses')!();
+      expect(mockHistoryPush).toHaveBeenCalledWith('/dashboard/clases');
+    });
+
+    it('derives the active tab from a /dashboard/* route, even without dashboardActive', () => {
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      mockUseLocation.mockImplementationOnce(() => ({ pathname: '/dashboard/historial' }));
+      const wrapper = shallow(<App />);
+
+      expect(wrapper.find(TeacherDashboard).prop('activeTab')).toBe('historial');
+      expect(wrapper.find(TeacherDashboard).prop('showProfile')).toBe(false);
+    });
+
+    it('pushes the matching /dashboard/* route when onTabChange fires', () => {
+      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      const wrapper = shallow(<App />);
+
+      wrapper.find(TeacherDashboard).prop('onTabChange')!('recursos');
+      expect(mockHistoryPush).toHaveBeenCalledWith('/dashboard/recursos');
+    });
     it('shows the TeacherDashboard instead of PreJoinScreens when the initial role is teacher', () => {
       mockUseInitialRole.mockImplementationOnce(() => 'teacher');
       mockUseRoomState.mockImplementation(() => 'disconnected');
@@ -101,6 +143,20 @@ describe('the App component', () => {
 
       wrapper.find(TeacherDashboard).prop('onStartClass')({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
       wrapper.update();
+
+      expect(wrapper.find(TeacherDashboard).exists()).toBe(false);
+      expect(wrapper.find(PreJoinScreens).prop('initialClassSession')).toEqual({
+        roomName: 'mat-a',
+        name: 'Prof. García [Profesor]',
+      });
+    });
+
+    it('restores a persisted selected class to the prejoin device-selection contract after refresh', () => {
+      saveDashboardHandoff({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
+      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+
+      const wrapper = shallow(<App />);
 
       expect(wrapper.find(TeacherDashboard).exists()).toBe(false);
       expect(wrapper.find(PreJoinScreens).prop('initialClassSession')).toEqual({
