@@ -5,9 +5,10 @@ import IntroContainer from '../IntroContainer/IntroContainer';
 import MediaErrorSnackbar from './MediaErrorSnackbar/MediaErrorSnackbar';
 import RoomNameScreen from './RoomNameScreen/RoomNameScreen';
 import { useAppState } from '../../state';
-import { useLocation, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAutoRejoin from './useAutoRejoin';
+import useInitialRole from '../TeacherDashboard/useInitialRole';
 import { checkRoomOpen } from './checkRoomOpen';
 import { getResumableSession } from './rejoinSession';
 import {
@@ -15,51 +16,52 @@ import {
   ClassSessionDraft,
   createClassSessionAccess,
   createDefaultClassSessionDraft,
-  isTeacherIdentity,
   normalizeStudentJoinInputToRoomName,
   stripTeacherSuffix,
   toClassSessionDisplayName,
 } from './classSessionTypes';
 import { Steps } from './steps';
 
-export default function PreJoinScreens() {
+interface PreJoinScreensProps {
+  /**
+   * When set (by App.tsx, after a teacher picks a class from the TeacherDashboard),
+   * seeds roomName/name and skips straight to the device-selection step — the
+   * lobby's room-name step never renders for this handoff.
+   */
+  initialClassSession?: { roomName: string; name: string };
+}
+
+export default function PreJoinScreens({ initialClassSession }: PreJoinScreensProps = {}) {
   const { user, profile } = useAppState();
   const { getAudioAndVideoTracks } = useVideoContext();
   const { URLRoomName } = useParams<{ URLRoomName?: string }>();
   const isRejoining = useAutoRejoin(URLRoomName);
-  const location = useLocation<{ preJoinRole?: 'teacher' | 'student' }>();
-  const preJoinRole = location.state?.preJoinRole;
   // A refresh on /room/:name destroys the live Room; if a session was persisted for this exact
   // room, its identity encodes the correct role (teacher carries the [Profesor] suffix). Read it
   // synchronously so the fallback lobby shows the RIGHT role/name instead of defaulting to student.
   const resumable = getResumableSession(URLRoomName);
-  // When a verified Firestore profile exists (firebase auth mode), its role wins over
-  // EVERYTHING: a teacher opening a student deep-link stays teacher, and a student can
-  // never become teacher by omitting the link. Without a profile (anonymous/passcode
-  // modes), the legacy priority chain applies unchanged.
-  const initialRole: 'teacher' | 'student' = profile
-    ? profile.role
-    : resumable
-    ? isTeacherIdentity(resumable.identity)
-      ? 'teacher'
-      : 'student'
-    : URLRoomName
-    ? 'student'
-    : preJoinRole === 'student'
-    ? 'student'
-    : 'teacher';
-  const [step, setStep] = useState(Steps.roomNameStep);
+  // Single source of truth for the priority chain (profile > resumable session > deep link >
+  // login-screen choice > default teacher) — also used by App.tsx to gate the TeacherDashboard,
+  // so both places are guaranteed to agree instead of maintaining two copies that can drift.
+  const initialRole = useInitialRole();
+  const [step, setStep] = useState(initialClassSession ? Steps.deviceSelectionStep : Steps.roomNameStep);
 
   // Prefill the editable name field from the persisted identity on a manual rejoin (teacher
   // suffix stripped — the teacher join flow re-appends it). Falls back to the verified
-  // profile displayName (firebase mode), then to the auth user displayName.
+  // profile displayName (firebase mode), then to the auth user displayName. The
+  // TeacherDashboard handoff wins over all of these — it already carries the resolved
+  // teacher display name for the session being started.
   const [name, setName] = useState<string>(() =>
-    resumable ? stripTeacherSuffix(resumable.identity) : profile?.displayName || user?.displayName || ''
+    initialClassSession
+      ? initialClassSession.name
+      : resumable
+      ? stripTeacherSuffix(resumable.identity)
+      : profile?.displayName || user?.displayName || ''
   );
   // teacherDisplayName is purely derived from `name` (the [Profesor] suffix is appended for the
   // teacher card preview), so compute it during render instead of mirroring it into state.
   const teacherDisplayName = toClassSessionDisplayName(name, 'teacher');
-  const [roomName, setRoomName] = useState<string>('');
+  const [roomName, setRoomName] = useState<string>(initialClassSession ? initialClassSession.roomName : '');
   const [studentJoinCode, setStudentJoinCode] = useState<string>('');
   const [classSessionDraft, setClassSessionDraft] = useState<ClassSessionDraft>(() => ({
     ...createDefaultClassSessionDraft(profile?.displayName || user?.displayName || ''),
@@ -75,22 +77,16 @@ export default function PreJoinScreens() {
 
   const [mediaError, setMediaError] = useState<Error>();
 
-  // Depend on the scalar role (not the profile object) so an unstable profile
-  // reference can never re-trigger this effect into a render loop.
-  const profileRole = profile ? profile.role : undefined;
-
   useEffect(() => {
     if (URLRoomName) {
       setRoomName(URLRoomName);
       setStudentJoinCode(URLRoomName);
-      // The verified profile role (firebase mode) wins over the deep link. Otherwise,
-      // derive the role from the persisted identity (teacher suffix) instead of hardcoding
-      // 'student' — otherwise a teacher who refreshes lands on the student card (Bug 1).
-      const session = getResumableSession(URLRoomName);
-      const role = profileRole || (session && isTeacherIdentity(session.identity) ? 'teacher' : 'student');
-      setClassSessionDraft(prev => ({ ...prev, role }));
+      // `initialRole` already resolves profile > resumable session > deep link (Bug 1: a
+      // teacher who refreshes must land back on the teacher card, not hardcoded 'student')
+      // via the single shared priority chain in useInitialRole — no need to re-derive it here.
+      setClassSessionDraft(prev => ({ ...prev, role: initialRole }));
     }
-  }, [URLRoomName, profileRole]);
+  }, [URLRoomName, initialRole]);
 
   useEffect(() => {
     setClassSessionDraft(prev => ({ ...prev, displayName: name }));
@@ -117,6 +113,27 @@ export default function PreJoinScreens() {
     }
   }, [getAudioAndVideoTracks, step, mediaError]);
 
+  // If this app is deployed as a twilio function, don't change the URL because routing isn't supported.
+  const replaceRoomUrlWithoutNavigation = (targetRoomName: string) => {
+    // @ts-ignore
+    if (!window.location.origin.includes('twil.io') && !window.STORYBOOK_ENV) {
+      window.history.replaceState(null, '', window.encodeURI(`/room/${targetRoomName}${window.location.search || ''}`));
+    }
+  };
+
+  // The TeacherDashboard handoff seeds roomName/step via the lazy state initializers above and
+  // skips straight past goToDeviceSelection() — which is the only place that normally rewrites
+  // the URL to /room/:name. Without this, a mid-class refresh has no URLRoomName param, so
+  // getResumableSession() can never match and auto-rejoin silently never fires. Runs once on
+  // mount: initialClassSession is set once per dashboard hand-off and must land before the first
+  // paint of the device-selection step, not react to later changes.
+  useEffect(() => {
+    if (initialClassSession) {
+      replaceRoomUrlWithoutNavigation(initialClassSession.roomName);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const goToDeviceSelection = async () => {
     const normalizedStudentRoomName = normalizeStudentJoinInputToRoomName(studentJoinCode);
 
@@ -137,16 +154,8 @@ export default function PreJoinScreens() {
       }
     }
 
-    // If this app is deployed as a twilio function, don't change the URL because routing isn't supported.
-    // @ts-ignore
-    if (!window.location.origin.includes('twil.io') && !window.STORYBOOK_ENV) {
-      const selectedRoomName = classSessionDraft.role === 'student' ? normalizedStudentRoomName : roomName;
-      window.history.replaceState(
-        null,
-        '',
-        window.encodeURI(`/room/${selectedRoomName}${window.location.search || ''}`)
-      );
-    }
+    const selectedRoomName = classSessionDraft.role === 'student' ? normalizedStudentRoomName : roomName;
+    replaceRoomUrlWithoutNavigation(selectedRoomName);
     setStep(Steps.deviceSelectionStep);
   };
 
@@ -167,14 +176,7 @@ export default function PreJoinScreens() {
       return;
     }
 
-    // @ts-ignore
-    if (!window.location.origin.includes('twil.io') && !window.STORYBOOK_ENV) {
-      window.history.replaceState(
-        null,
-        '',
-        window.encodeURI(`/room/${normalizedStudentRoomName}${window.location.search || ''}`)
-      );
-    }
+    replaceRoomUrlWithoutNavigation(normalizedStudentRoomName);
     setStep(Steps.deviceSelectionStep);
   };
 
@@ -222,24 +224,24 @@ export default function PreJoinScreens() {
         homeRole={classSessionDraft.role}
       >
         {step === Steps.roomNameStep && (
-        <RoomNameScreen
-          name={name}
-          roomName={roomName}
-          teacherDisplayName={teacherDisplayName}
-          classSessionDraft={classSessionDraft}
-          classSessionAccess={classSessionAccess}
-          studentJoinCode={studentJoinCode}
-          isCheckingRoom={isCheckingRoom}
-          roomClosedError={roomClosed}
-          setName={setName}
-          setStudentJoinCode={setStudentJoinCode}
-          setClassSessionDraft={setClassSessionDraft}
-          onSelectRole={role => setClassSessionDraft(prev => ({ ...prev, role }))}
-          onCreateClassSession={handleCreateClassSession}
-          onContinueToDeviceSelection={goToDeviceSelection}
-          onContinueAsStudent={goToDeviceSelectionAsStudent}
-        />
-      )}
+          <RoomNameScreen
+            name={name}
+            roomName={roomName}
+            teacherDisplayName={teacherDisplayName}
+            classSessionDraft={classSessionDraft}
+            classSessionAccess={classSessionAccess}
+            studentJoinCode={studentJoinCode}
+            isCheckingRoom={isCheckingRoom}
+            roomClosedError={roomClosed}
+            setName={setName}
+            setStudentJoinCode={setStudentJoinCode}
+            setClassSessionDraft={setClassSessionDraft}
+            onSelectRole={role => setClassSessionDraft(prev => ({ ...prev, role }))}
+            onCreateClassSession={handleCreateClassSession}
+            onContinueToDeviceSelection={goToDeviceSelection}
+            onContinueAsStudent={goToDeviceSelectionAsStudent}
+          />
+        )}
 
         {step === Steps.deviceSelectionStep && (
           <DeviceSelectionScreen name={name} roomName={roomName} setStep={setStep} />

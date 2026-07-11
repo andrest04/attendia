@@ -44,3 +44,4 @@ public/virtualbackground/
 
 # Reference repos cloned for spike/research — not committed
 _reference/
+.vercel
