@@ -139,6 +139,15 @@ async function fetchReportsRequest(user: User): Promise<StoredAttentionReport[]>
   return response.json();
 }
 
+async function fetchReportRequest(user: User, roomSid: string): Promise<StoredAttentionReport> {
+  const idToken = await user.getIdToken();
+  const response = await fetch(`/reports/${encodeURIComponent(roomSid)}`, {
+    headers: { Authorization: idToken },
+  });
+  await throwOnErrorResponse(response);
+  return response.json();
+}
+
 // Mirror of one users/{uid}/resources/{id} document served by the /resources
 // endpoints. Size/date formatting for display is left to the client — this is the
 // raw wire shape, same convention as StoredAttentionReport's endedAtMs.
@@ -578,6 +587,16 @@ export default function useFirebaseAuth() {
     return fetchReportsRequest(user);
   }, [user]);
 
+  const fetchAttentionReport = useCallback(
+    (roomSid: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot fetch an attention report without an authenticated user'));
+      }
+      return fetchReportRequest(user, roomSid);
+    },
+    [user]
+  );
+
   const fetchResources = useCallback(() => {
     if (!user) {
       return Promise.reject(new Error('Cannot fetch resources without an authenticated user'));
@@ -676,6 +695,7 @@ export default function useFirebaseAuth() {
     updateRecordingRules,
     saveAttentionReport,
     fetchAttentionReports,
+    fetchAttentionReport,
     fetchResources,
     uploadResource,
     fetchResourceDownloadUrl,
