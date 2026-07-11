@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import Button from '@material-ui/core/Button';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { useAppState } from '../../state';
 import { DashboardStat, DashboardTabId, UpcomingSession } from './types';
@@ -9,10 +10,16 @@ import ClassesTab from './ClassesTab';
 import HistoryTab from './HistoryTab';
 import ResourcesTab from './ResourcesTab';
 import CalendarTab from './CalendarTab';
+import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
 import { buildUpcomingSessions } from './classSessionsView';
 import { buildReportStats } from './reportStats';
+import {
+  clearPendingAttentionReports,
+  getPendingAttentionReports,
+  removePendingAttentionReport,
+} from '../AttentionReport/pendingAttentionReports';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -34,6 +41,15 @@ const useStyles = makeStyles((theme: Theme) => ({
       overflow: 'auto',
     },
   },
+  pendingReports: {
+    margin: theme.spacing(2, 4, 0),
+    padding: theme.spacing(1.5, 2),
+    border: '1px solid #f0c36d',
+    borderRadius: theme.shape.borderRadius,
+    backgroundColor: '#fff8e6',
+    color: theme.palette.text.primary,
+    fontSize: '0.8125rem',
+  },
   content: {
     flex: 1,
     overflowY: 'auto',
@@ -42,9 +58,15 @@ const useStyles = makeStyles((theme: Theme) => ({
 
 interface Props {
   /** Real navigation: starts the highlighted upcoming class immediately. */
-  onStartClass: (session: { roomName: string; name: string }) => void;
+  onStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
   /** Real navigation: the sidebar's "Iniciar clase" button goes straight to the blank prejoin flow. */
   onStartBlankClass: () => void;
+  /** The protected /profile route reuses this dashboard shell instead of a standalone page. */
+  showProfile?: boolean;
+  onReturnToClasses?: () => void;
+  /** Route-derived active tab (see dashboardTabPath) — App.tsx owns the URL, not this component. */
+  activeTab?: DashboardTabId;
+  onTabChange?: (tab: DashboardTabId) => void;
 }
 
 // Up to 2 uppercase initials from a full name (first + last word), matching the
@@ -76,49 +98,100 @@ function capitalizeFirst(value: string): string {
  * signed-in user — the same profile > user displayName priority PreJoinScreens
  * uses — since it also becomes the Twilio room identity when starting a class.
  */
-export default function TeacherDashboard({ onStartClass, onStartBlankClass }: Props) {
+export default function TeacherDashboard({
+  onStartClass,
+  onStartBlankClass,
+  showProfile = false,
+  onReturnToClasses,
+  activeTab = 'clases',
+  onTabChange,
+}: Props) {
   const classes = useStyles();
-  const { signOut, user, profile, fetchClasses, createClass, deleteClass, fetchAttentionReports } = useAppState();
-  const [activeTab, setActiveTab] = useState<DashboardTabId>('clases');
+  const {
+    signOut,
+    user,
+    profile,
+    fetchClasses,
+    createClass,
+    deleteClass,
+    startClass,
+    fetchAttentionReports,
+    saveAttentionReport,
+  } = useAppState();
   const [realClasses, setRealClasses] = useState<ClassRecord[]>([]);
-  const [reports, setReports] = useState<StoredAttentionReport[]>([]);
+  const [isClassesLoading, setIsClassesLoading] = useState(false);
+  const [classesError, setClassesError] = useState<string | null>(null);
+  const [cancellingClassId, setCancellingClassId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const cancelRetrySessionRef = useRef<UpcomingSession | null>(null);
+  const [reports, setReports] = useState<StoredAttentionReport[] | null>(null);
+  const [isReportsLoading, setIsReportsLoading] = useState(false);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const userUid = user && 'uid' in user ? user.uid : undefined;
+  const [pendingReports, setPendingReports] = useState(() => getPendingAttentionReports(userUid));
   const data = mockDashboardData;
   const professorName = profile?.displayName || user?.displayName || data.professorName;
   const professorInitials = getProfessorInitials(professorName);
 
-  useEffect(() => {
+  const loadClasses = useCallback(() => {
     if (!fetchClasses) return;
-    // No loading/error UI here on purpose: unlike ResourcesTab (which owns its
-    // whole tab), ClassesTab is a thin presentational component fed by props, so a
-    // failed background fetch just leaves the grid empty instead of blocking render.
-    let isMounted = true;
+    setIsClassesLoading(true);
+    setClassesError(null);
     fetchClasses()
-      .then(fetched => {
-        if (isMounted) setRealClasses(fetched);
+      .then(setRealClasses)
+      .catch(err => {
+        console.error('TeacherDashboard: could not fetch classes', err);
+        setClassesError(err.message || 'No pudimos consultar las clases programadas.');
       })
-      .catch(err => console.error('TeacherDashboard: could not fetch classes', err));
-    return () => {
-      isMounted = false;
-    };
+      .finally(() => setIsClassesLoading(false));
   }, [fetchClasses]);
 
   useEffect(() => {
+    loadClasses();
+  }, [loadClasses]);
+
+  const loadReports = useCallback(() => {
     if (!fetchAttentionReports) return;
-    // Same no-loading/error-UI convention as the fetchClasses effect above: a
-    // failed background fetch just leaves the stat cards at their zero-state
-    // instead of blocking render.
-    let isMounted = true;
+    setIsReportsLoading(true);
+    setReportsError(null);
     fetchAttentionReports()
-      .then(fetched => {
-        if (isMounted) setReports(fetched);
+      .then(setReports)
+      .catch(err => {
+        console.error('TeacherDashboard: could not fetch attention reports', err);
+        setReportsError(err.message || 'No pudimos consultar el historial de clases.');
       })
-      .catch(err => console.error('TeacherDashboard: could not fetch attention reports', err));
-    return () => {
-      isMounted = false;
-    };
+      .finally(() => setIsReportsLoading(false));
   }, [fetchAttentionReports]);
 
-  const hasRealClasses = Boolean(fetchClasses && createClass && deleteClass);
+  useEffect(() => {
+    loadReports();
+  }, [loadReports]);
+
+  const retryPendingReports = () => {
+    if (!saveAttentionReport) return;
+    Promise.all(
+      pendingReports.map(report =>
+        saveAttentionReport(report)
+          .then(() => {
+            removePendingAttentionReport(userUid, report.roomSid);
+            return true;
+          })
+          .catch(error => {
+            console.error('attention-report-persistence: retry failed', { roomSid: report.roomSid, error });
+            return false;
+          })
+      )
+    ).then(results => {
+      if (results.some(Boolean)) setPendingReports(getPendingAttentionReports(userUid));
+    });
+  };
+
+  const handleSignOut = () => {
+    clearPendingAttentionReports(userUid);
+    return signOut ? signOut() : Promise.resolve();
+  };
+
+  const hasRealClasses = Boolean(fetchClasses && createClass && deleteClass && startClass);
   const hasRealStats = Boolean(fetchAttentionReports);
 
   const sessions: UpcomingSession[] = hasRealClasses
@@ -132,7 +205,7 @@ export default function TeacherDashboard({ onStartClass, onStartBlankClass }: Pr
 
   const stats: DashboardStat[] = hasRealStats
     ? (() => {
-        const { sessionsThisWeek, activeStudents, avgAttentionPercent } = buildReportStats(reports, Date.now());
+        const { sessionsThisWeek, activeStudents, avgAttentionPercent } = buildReportStats(reports || [], Date.now());
         return [
           { ...data.stats[0], value: `${sessionsThisWeek}` },
           { ...data.stats[1], value: `${activeStudents}` },
@@ -144,37 +217,74 @@ export default function TeacherDashboard({ onStartClass, onStartBlankClass }: Pr
     : data.stats;
 
   const handleCreateClass = hasRealClasses
-    ? (input: { title: string; scheduledAtMs: number; studentCount: number }) =>
+    ? (input: { title: string; scheduledAtMs: number; studentCount: number; idempotencyKey: string }) =>
         createClass!(input).then(created => {
           setRealClasses(current => [created, ...current]);
         })
     : undefined;
 
+  const cancelClass = (session: UpcomingSession) => {
+    setCancellingClassId(session.id);
+    setCancelError(null);
+    return deleteClass!(session.id)
+      .then(() => {
+        setRealClasses(current => current.filter(c => c.id !== session.id));
+        cancelRetrySessionRef.current = null;
+      })
+      .catch(err => {
+        setCancelError(err.message || 'No pudimos cancelar la clase.');
+        cancelRetrySessionRef.current = session;
+      })
+      .finally(() => setCancellingClassId(null));
+  };
+
   const handleCancelClass = hasRealClasses
     ? (session: UpcomingSession) => {
         if (!window.confirm(`¿Cancelar "${session.title}"? Esta acción no se puede deshacer.`)) return;
-        deleteClass!(session.id).then(() => {
-          setRealClasses(current => current.filter(c => c.id !== session.id));
-        });
+        cancelClass(session);
       }
     : undefined;
+
+  const startScheduledClass = (classId: string, roomName: string) => {
+    startClass!(classId, roomName)
+      .then(() => onStartClass({ roomName, name: professorName, classId }))
+      .catch(err => setClassesError(err.message || 'No pudimos iniciar la clase programada.'));
+  };
+
+  const handleStartClass = (session: { roomName: string; name: string; classId?: string }) => {
+    if (session.classId) {
+      startScheduledClass(session.classId, session.roomName);
+      return;
+    }
+    onStartClass(session);
+  };
 
   return (
     <div className={classes.root} data-testid="teacher-dashboard-root">
       <DashboardHeader
         professorName={professorName}
         professorInitials={professorInitials}
-        professorPhotoURL={user?.photoURL || undefined}
+        professorPhotoURL={profile?.avatarDataUrl || user?.photoURL || undefined}
       />
       <div className={classes.body}>
         <DashboardSidebar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
+          activeTab={showProfile ? undefined : activeTab}
+          onTabChange={tab => onTabChange?.(tab)}
           onStartBlankClass={onStartBlankClass}
-          onSignOut={signOut}
+          onSignOut={handleSignOut}
         />
         <div className={classes.content}>
-          {activeTab === 'clases' && (
+          {pendingReports.length > 0 && (
+            <div className={classes.pendingReports} data-testid="dashboard-pending-reports">
+              No pudimos guardar {pendingReports.length === 1 ? 'un reporte' : `${pendingReports.length} reportes`} al
+              cerrar la clase. Todavía no se enviaron. Podés reintentar ahora.
+              <Button onClick={retryPendingReports} data-testid="dashboard-retry-pending-reports">
+                Reintentar guardado
+              </Button>
+            </div>
+          )}
+          {showProfile && <TeacherProfilePage onReturnToClasses={onReturnToClasses} />}
+          {!showProfile && activeTab === 'clases' && (
             <ClassesTab
               // sessions-week/active-students/avg-attention are now real, computed
               // from this week's attention reports (see reportStats.ts). hours-taught
@@ -186,20 +296,33 @@ export default function TeacherDashboard({ onStartClass, onStartBlankClass }: Pr
               dateLabel={dateLabel}
               sessions={sessions}
               professorName={professorName}
-              onStartClass={onStartClass}
+              onStartClass={handleStartClass}
               onCreateClass={handleCreateClass}
               onCancelClass={handleCancelClass}
+              cancellingClassId={cancellingClassId}
+              cancelError={cancelError}
+              onRetryCancel={() => cancelRetrySessionRef.current && cancelClass(cancelRetrySessionRef.current)}
             />
           )}
-          {activeTab === 'historial' && <HistoryTab rows={data.historyRows} />}
-          {activeTab === 'recursos' && <ResourcesTab />}
-          {activeTab === 'calendario' && (
+          {!showProfile && activeTab === 'historial' && (
+            <HistoryTab
+              reports={reports}
+              isLoading={isReportsLoading}
+              error={reportsError}
+              onRetry={loadReports}
+              onOpenReport={report => {
+                window.open(`/report/${encodeURIComponent(report.roomSid)}`, '_blank', 'noopener');
+              }}
+            />
+          )}
+          {!showProfile && activeTab === 'recursos' && <ResourcesTab classes={realClasses} />}
+          {!showProfile && activeTab === 'calendario' && (
             <CalendarTab
-              monthLabel={data.calendarMonthLabel}
-              days={data.calendarDays}
-              selectedDay={data.selectedDay}
-              sessionsForSelectedDay={data.calendarSessionsForSelectedDay}
-              summary={data.calendarSummary}
+              classes={fetchClasses ? realClasses : null}
+              isLoading={isClassesLoading}
+              error={classesError}
+              onRetry={loadClasses}
+              onStartClass={classRecord => startScheduledClass(classRecord.id, classRecord.roomName)}
             />
           )}
         </div>
