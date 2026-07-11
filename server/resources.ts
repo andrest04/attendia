@@ -1,4 +1,5 @@
 import { RequestHandler } from 'express';
+import { logOperationalFailure } from './operationalEvents';
 
 /*
  * Firestore-only teacher "Recursos" (class materials):
@@ -153,6 +154,9 @@ function toResourceResponse(id: string, data: { [key: string]: any }) {
     name: data.name,
     kind: data.kind,
     roomLabel: data.roomLabel,
+    classId: typeof data.classId === 'string' ? data.classId : undefined,
+    classTitle: typeof data.classTitle === 'string' ? data.classTitle : undefined,
+    roomName: typeof data.roomName === 'string' ? data.roomName : undefined,
     sizeBytes: data.sizeBytes,
     contentType: data.contentType,
   };
@@ -193,7 +197,7 @@ export function createGetResourcesHandler(db: ResourcesDatabase): RequestHandler
 
       res.status(200).json(resources);
     } catch (err) {
-      console.error('resources: could not list resources', err);
+      logOperationalFailure({ event: 'resource_lookup_failed', operation: 'GET /resources', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'resource lookup failed',
@@ -204,10 +208,7 @@ export function createGetResourcesHandler(db: ResourcesDatabase): RequestHandler
   };
 }
 
-export function createUploadResourceHandler(
-  db: ResourcesDatabase,
-  serverTimestamp: () => unknown
-): RequestHandler {
+export function createUploadResourceHandler(db: ResourcesDatabase, serverTimestamp: () => unknown): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
 
@@ -235,20 +236,34 @@ export function createUploadResourceHandler(
 
       const kind = resolveKind(file.mimetype);
       if (!kind) {
-        sendBadRequest(
-          res,
-          'unsupported file type',
-          'Solo se admiten PDFs, presentaciones (PPTX/ODP) y videos.'
-        );
+        sendBadRequest(res, 'unsupported file type', 'Solo se admiten PDFs, presentaciones (PPTX/ODP) y videos.');
         return;
       }
 
       const body = req.body ?? {};
-      const roomLabel = typeof body.roomLabel === 'string' ? body.roomLabel.trim().slice(0, MAX_ROOM_LABEL_LENGTH) : '';
-      if (!roomLabel) {
-        sendBadRequest(res, 'invalid roomLabel', 'Debes indicar a qué clase pertenece el archivo.');
+      const classId = typeof body.classId === 'string' ? body.classId.trim() : '';
+      if (!classId) {
+        sendBadRequest(res, 'invalid classId', 'Debes seleccionar una clase programada para el archivo.');
         return;
       }
+
+      const classSnapshot = await db
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .collection('classes')
+        .doc(classId)
+        .get();
+      const classData = classSnapshot.data();
+      if (
+        !classSnapshot.exists ||
+        !classData ||
+        typeof classData.title !== 'string' ||
+        typeof classData.roomName !== 'string'
+      ) {
+        sendBadRequest(res, 'invalid classId', 'La clase seleccionada no existe o no te pertenece.');
+        return;
+      }
+      const roomLabel = classData.title.trim().slice(0, MAX_ROOM_LABEL_LENGTH);
 
       const name = (file.originalname || 'archivo').trim().slice(0, MAX_NAME_LENGTH) || 'archivo';
 
@@ -262,15 +277,29 @@ export function createUploadResourceHandler(
         name,
         kind,
         roomLabel,
+        classId,
+        classTitle: roomLabel,
+        roomName: classData.roomName,
         sizeBytes: file.size,
         contentType: file.mimetype,
         content: file.buffer.toString('base64'),
         createdAt: serverTimestamp(),
       });
 
-      res.status(201).json(toResourceResponse(docRef.id, { name, kind, roomLabel, sizeBytes: file.size, contentType: file.mimetype }));
+      res.status(201).json(
+        toResourceResponse(docRef.id, {
+          name,
+          kind,
+          roomLabel,
+          classId,
+          classTitle: roomLabel,
+          roomName: classData.roomName,
+          sizeBytes: file.size,
+          contentType: file.mimetype,
+        })
+      );
     } catch (err) {
-      console.error('resources: could not save the resource', err);
+      logOperationalFailure({ event: 'resource_save_failed', operation: 'POST /resources', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'resource save failed',
@@ -314,7 +343,7 @@ export function createDownloadResourceHandler(db: ResourcesDatabase): RequestHan
 
       res.status(200).json({ content: data.content, contentType: data.contentType, name: data.name });
     } catch (err) {
-      console.error('resources: could not prepare the download', err);
+      logOperationalFailure({ event: 'resource_download_failed', operation: 'GET /resources/:id/download', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'resource download failed',
@@ -358,7 +387,7 @@ export function createDeleteResourceHandler(db: ResourcesDatabase): RequestHandl
 
       res.status(200).json({ deleted: true });
     } catch (err) {
-      console.error('resources: could not delete the resource', err);
+      logOperationalFailure({ event: 'resource_delete_failed', operation: 'DELETE /resources/:id', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'resource delete failed',

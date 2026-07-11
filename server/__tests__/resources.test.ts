@@ -29,7 +29,20 @@ const makeDb = () => {
   const userDoc = jest.fn(() => ({ get: userGet, collection: resourcesCollection }));
   const collection = jest.fn(() => ({ doc: userDoc }));
   const db = ({ collection } as unknown) as ResourcesDatabase;
-  return { db, collection, userDoc, userGet, resourcesCollection, resourceDoc, docGet, set, del, orderBy, limit, resourcesGet };
+  return {
+    db,
+    collection,
+    userDoc,
+    userGet,
+    resourcesCollection,
+    resourceDoc,
+    docGet,
+    set,
+    del,
+    orderBy,
+    limit,
+    resourcesGet,
+  };
 };
 
 const teacherProfile = { displayName: 'Ana García', email: 'ana@example.com', role: 'teacher' };
@@ -37,7 +50,9 @@ const studentProfile = { displayName: 'Beto Díaz', email: 'beto@example.com', r
 
 const serverTimestamp = jest.fn(() => 'server-timestamp');
 
-const makeUploadedFile = (overrides: Partial<{ originalname: string; mimetype: string; size: number; buffer: Buffer }> = {}) => ({
+const makeUploadedFile = (
+  overrides: Partial<{ originalname: string; mimetype: string; size: number; buffer: Buffer }> = {}
+) => ({
   originalname: 'clase-1.pdf',
   mimetype: 'application/pdf',
   size: 1024,
@@ -150,19 +165,23 @@ describe('createUploadResourceHandler', () => {
   afterEach(jest.clearAllMocks);
 
   it('saves the Firestore doc with the base64-encoded content and returns 201', async () => {
-    const { db, userGet, resourceDoc, set } = makeDb();
+    const { db, userGet, resourceDoc, docGet, set } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
     const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
-    const req: any = { body: { roomLabel: 'Cálculo I' }, file: makeUploadedFile() };
+    const req: any = { body: { classId: 'class-1' }, file: makeUploadedFile() };
+    docGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Cálculo I', roomName: 'calculo-i' }) });
 
     await handler(req, res, jest.fn());
 
-    expect(resourceDoc).toHaveBeenCalledWith();
+    expect(resourceDoc).toHaveBeenCalledWith('class-1');
     expect(set).toHaveBeenCalledWith({
       name: 'clase-1.pdf',
       kind: 'pdf',
       roomLabel: 'Cálculo I',
+      classId: 'class-1',
+      classTitle: 'Cálculo I',
+      roomName: 'calculo-i',
       sizeBytes: 1024,
       contentType: 'application/pdf',
       content: req.file.buffer.toString('base64'),
@@ -170,7 +189,7 @@ describe('createUploadResourceHandler', () => {
     });
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'auto-id-1', name: 'clase-1.pdf', kind: 'pdf', roomLabel: 'Cálculo I' })
+      expect.objectContaining({ id: 'auto-id-1', name: 'clase-1.pdf', kind: 'pdf', classId: 'class-1' })
     );
   });
 
@@ -192,7 +211,7 @@ describe('createUploadResourceHandler', () => {
     const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler({ body: { roomLabel: 'x' }, file: makeUploadedFile() } as any, res, jest.fn());
+    await handler({ body: { classId: 'class-1' }, file: makeUploadedFile() } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(set).not.toHaveBeenCalled();
@@ -204,7 +223,7 @@ describe('createUploadResourceHandler', () => {
     const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler({ body: { roomLabel: 'x' } } as any, res, jest.fn());
+    await handler({ body: { classId: 'class-1' } } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(set).not.toHaveBeenCalled();
@@ -217,7 +236,7 @@ describe('createUploadResourceHandler', () => {
     const res = makeRes();
 
     await handler(
-      { body: { roomLabel: 'x' }, file: makeUploadedFile({ size: 701 * 1024 }) } as any,
+      { body: { classId: 'class-1' }, file: makeUploadedFile({ size: 701 * 1024 }) } as any,
       res,
       jest.fn()
     );
@@ -233,7 +252,7 @@ describe('createUploadResourceHandler', () => {
     const res = makeRes();
 
     await handler(
-      { body: { roomLabel: 'x' }, file: makeUploadedFile({ mimetype: 'application/zip' }) } as any,
+      { body: { classId: 'class-1' }, file: makeUploadedFile({ mimetype: 'application/zip' }) } as any,
       res,
       jest.fn()
     );
@@ -242,13 +261,13 @@ describe('createUploadResourceHandler', () => {
     expect(set).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when roomLabel is missing', async () => {
+  it('returns 400 when classId is missing', async () => {
     const { db, userGet, set } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
     const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler({ body: { roomLabel: '   ' }, file: makeUploadedFile() } as any, res, jest.fn());
+    await handler({ body: {}, file: makeUploadedFile() } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(set).not.toHaveBeenCalled();
@@ -256,13 +275,14 @@ describe('createUploadResourceHandler', () => {
 
   it('returns 503 when the Firestore save fails', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const { db, userGet, set } = makeDb();
+    const { db, userGet, docGet, set } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
     set.mockRejectedValue(new Error('firestore down'));
     const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
-    await handler({ body: { roomLabel: 'x' }, file: makeUploadedFile() } as any, res, jest.fn());
+    docGet.mockResolvedValue({ exists: true, data: () => ({ title: 'Cálculo I', roomName: 'calculo-i' }) });
+    await handler({ body: { classId: 'class-1' }, file: makeUploadedFile() } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(503);
     consoleError.mockRestore();

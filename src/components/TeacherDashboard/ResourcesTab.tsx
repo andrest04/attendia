@@ -5,8 +5,8 @@ import AddIcon from '@material-ui/icons/Add';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
 import { resourceKindIcon } from './dashboardHelpers';
+import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -176,18 +176,20 @@ const useStyles = makeStyles((theme: Theme) => ({
 }));
 
 interface ResourceGroup {
+  classId: string;
   label: string;
   files: ResourceRecord[];
 }
 
-function groupByRoomLabel(resources: ResourceRecord[]): ResourceGroup[] {
+function groupByClass(resources: ResourceRecord[]): ResourceGroup[] {
   const groups: ResourceGroup[] = [];
   resources.forEach(resource => {
-    const group = groups.find(g => g.label === resource.roomLabel);
+    if (!resource.classId || !resource.classTitle) return;
+    const group = groups.find(g => g.classId === resource.classId);
     if (group) {
       group.files.push(resource);
     } else {
-      groups.push({ label: resource.roomLabel, files: [resource] });
+      groups.push({ classId: resource.classId, label: resource.classTitle, files: [resource] });
     }
   });
   return groups;
@@ -205,7 +207,11 @@ function formatDateLabel(ms: number | null): string {
 }
 
 /** "Recursos" tab: real per-class file lists, backed by useAppState (Firestore + Storage). */
-export default function ResourcesTab() {
+interface Props {
+  classes: ClassRecord[];
+}
+
+export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   const classes = useStyles();
   const { fetchResources, uploadResource, fetchResourceDownloadUrl, deleteResource } = useAppState();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -213,8 +219,7 @@ export default function ResourcesTab() {
   const [resources, setResources] = useState<ResourceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeGroupLabel, setActiveGroupLabel] = useState<string | null>(null);
-  const [roomLabelInput, setRoomLabelInput] = useState('');
+  const [activeClassId, setActiveClassId] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -226,8 +231,8 @@ export default function ResourcesTab() {
       .then(fetched => {
         setResources(fetched);
         if (fetched.length > 0) {
-          setActiveGroupLabel(current => current ?? fetched[0].roomLabel);
-          setRoomLabelInput(current => current || fetched[0].roomLabel);
+          const firstAssociated = fetched.find(resource => resource.classId);
+          if (firstAssociated) setActiveClassId(current => current || firstAssociated.classId!);
         }
       })
       .catch(err => setErrorMessage(err.message))
@@ -245,17 +250,16 @@ export default function ResourcesTab() {
     );
   }
 
-  const groups = groupByRoomLabel(resources);
-  const activeGroup = groups.find(g => g.label === activeGroupLabel) || groups[0];
+  const groups = groupByClass(resources);
+  const activeGroup = groups.find(g => g.classId === activeClassId) || groups[0];
 
-  const handleSelectGroup = (label: string) => {
-    setActiveGroupLabel(label);
-    setRoomLabelInput(label);
+  const handleSelectGroup = (classId: string) => {
+    setActiveClassId(classId);
   };
 
   const handleUploadClick = () => {
-    if (!roomLabelInput.trim()) {
-      setErrorMessage('Indicá a qué clase pertenece el archivo antes de subirlo.');
+    if (!activeClassId) {
+      setErrorMessage('Seleccioná una clase programada antes de subir el archivo.');
       return;
     }
     fileInputRef.current?.click();
@@ -266,13 +270,12 @@ export default function ResourcesTab() {
     event.target.value = '';
     if (!file) return;
 
-    const roomLabel = roomLabelInput.trim();
     setIsUploading(true);
     setErrorMessage(null);
-    uploadResource(file, roomLabel)
+    uploadResource(file, activeClassId)
       .then(created => {
         setResources(current => [created, ...current]);
-        setActiveGroupLabel(roomLabel);
+        setActiveClassId(created.classId || activeClassId);
       })
       .catch(err => setErrorMessage(err.message))
       .finally(() => setIsUploading(false));
@@ -305,17 +308,23 @@ export default function ResourcesTab() {
       <div className={classes.header}>
         <div>
           <div className={classes.title}>Recursos</div>
-          <div className={classes.subtitle}>Materiales, presentaciones y grabaciones</div>
+          <div className={classes.subtitle}>Materiales asociados a clases programadas</div>
         </div>
         <div className={classes.uploadControls}>
-          <input
-            type="text"
+          <select
             className={classes.roomLabelInput}
-            placeholder="Nombre de la clase"
-            value={roomLabelInput}
-            onChange={e => setRoomLabelInput(e.target.value)}
-            data-testid="dashboard-resources-room-label-input"
-          />
+            aria-label="Clase asociada"
+            value={activeClassId}
+            onChange={e => setActiveClassId(e.target.value)}
+            data-testid="dashboard-resources-class-select"
+          >
+            <option value="">Seleccionar clase</option>
+            {scheduledClasses.map(classRecord => (
+              <option key={classRecord.id} value={classRecord.id}>
+                {classRecord.title}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             className={classes.uploadButton}
@@ -343,11 +352,11 @@ export default function ResourcesTab() {
         <div className={classes.pillTabs}>
           {groups.map(group => (
             <button
-              key={group.label}
+              key={group.classId}
               type="button"
-              className={clsx(classes.pill, { [classes.pillActive]: group.label === activeGroup?.label })}
-              onClick={() => handleSelectGroup(group.label)}
-              data-testid={`dashboard-resources-pill-${toClassSessionRoomName(group.label)}`}
+              className={clsx(classes.pill, { [classes.pillActive]: group.classId === activeGroup?.classId })}
+              onClick={() => handleSelectGroup(group.classId)}
+              data-testid={`dashboard-resources-pill-${group.classId}`}
             >
               {group.label}
             </button>
@@ -356,9 +365,7 @@ export default function ResourcesTab() {
       )}
 
       {!isLoading && groups.length === 0 && (
-        <div className={classes.statusMessage}>
-          Todavía no subiste ningún recurso. Escribí el nombre de la clase y subí el primer archivo.
-        </div>
+        <div className={classes.statusMessage}>Todavía no subiste recursos asociados a una clase programada.</div>
       )}
 
       {!isLoading && activeGroup && (
@@ -396,14 +403,15 @@ export default function ResourcesTab() {
               </div>
             );
           })}
-          <div
+          <button
+            type="button"
             className={classes.emptyTile}
             onClick={handleUploadClick}
             data-testid="dashboard-resources-empty-upload-tile"
           >
             <AddIcon style={{ fontSize: 22 }} />
             Subir archivo
-          </div>
+          </button>
         </div>
       )}
     </div>

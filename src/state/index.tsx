@@ -43,7 +43,7 @@ export interface StateContextType {
   // class materials). Undefined in the other auth modes — ResourcesTab gates on
   // presence, same contract as saveAttentionReport/fetchAttentionReports.
   fetchResources?(): Promise<ResourceRecord[]>;
-  uploadResource?(file: File, roomLabel: string): Promise<ResourceRecord>;
+  uploadResource?(file: File, classId: string): Promise<ResourceRecord>;
   fetchResourceDownloadUrl?(id: string): Promise<{ content: string; contentType: string; name: string }>;
   deleteResource?(id: string): Promise<void>;
   // Firebase-mode only: real persistence for the "Clases" tab (scheduled upcoming

@@ -514,12 +514,12 @@ describe('the useFirebaseAuth hook', () => {
       );
     });
 
-    it('uploads a file as multipart form data with the idToken and roomLabel', async () => {
+    it('uploads a file as multipart form data with the idToken and classId', async () => {
       const result = await signIn();
       mockFetch.mockResolvedValueOnce(profileResponse(201, mockResource));
       const file = new File(['contenido'], 'guia.pdf', { type: 'application/pdf' });
 
-      const created = await result.current.uploadResource(file, 'Cálculo I');
+      const created = await result.current.uploadResource(file, 'class-1');
 
       expect(created).toEqual(mockResource);
       const [url, init] = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
@@ -527,7 +527,7 @@ describe('the useFirebaseAuth hook', () => {
       expect(init.method).toBe('POST');
       expect(init.headers).toEqual({ Authorization: 'idToken' });
       expect(init.body).toBeInstanceOf(FormData);
-      expect(init.body.get('roomLabel')).toBe('Cálculo I');
+      expect(init.body.get('classId')).toBe('class-1');
       expect(init.body.get('file')).toBe(file);
     });
 
