@@ -10,6 +10,10 @@ import {
   updateProfile,
   EmailAuthProvider,
   linkWithCredential,
+  reauthenticateWithCredential,
+  reauthenticateWithPopup,
+  updatePassword,
+  updateEmail,
 } from 'firebase/auth';
 import { ClassSessionRole } from '../../components/PreJoinScreens/classSessionTypes';
 import { AttentionReport, StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
@@ -23,6 +27,22 @@ const firebaseConfig = {
   messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
 };
 
+function reportProfileFailure(user: User, operation: string, error: any): void {
+  const failure = typeof error?.code === 'string' ? error.code : 'unknown';
+  user
+    .getIdToken()
+    .then(idToken =>
+      fetch('/operational-events', {
+        method: 'POST',
+        headers: { Authorization: idToken, 'content-type': 'application/json' },
+        body: JSON.stringify({ operation, failure }),
+      }).then(response => {
+        if (!response.ok) throw new Error(`operational event rejected: ${response.status}`);
+      })
+    )
+    .catch(() => console.error(JSON.stringify({ level: 'error', event: 'operational_failure', operation, failure })));
+}
+
 // Mirror of the users/{uid} Firestore document served by GET/POST /profile. The role
 // here only drives client UX (prejoin role preselection); the server re-resolves the
 // role from Firestore on every request — the browser is never trusted at request time.
@@ -30,6 +50,7 @@ export interface UserProfile {
   displayName: string;
   email: string;
   role: ClassSessionRole;
+  avatarDataUrl?: string;
 }
 
 // Shared non-OK handling for the /profile and /reports requests: surface the
@@ -74,6 +95,20 @@ async function postProfileRequest(user: User, displayName: string, role: ClassSe
 
   await throwOnErrorResponse(response);
 
+  return response.json();
+}
+
+async function patchProfileRequest(
+  user: User,
+  input: { displayName?: string; avatarDataUrl?: string | null; syncEmail?: true }
+): Promise<UserProfile> {
+  const idToken = await user.getIdToken(true);
+  const response = await fetch('/profile', {
+    method: 'PATCH',
+    headers: { Authorization: idToken, 'content-type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  await throwOnErrorResponse(response);
   return response.json();
 }
 
@@ -423,6 +458,93 @@ export default function useFirebaseAuth() {
     [user]
   );
 
+  const reauthenticate = useCallback(
+    async (currentPassword?: string) => {
+      if (!user || !user.email) throw new Error('No hay una sesión activa para confirmar tu identidad.');
+      const hasPasswordProvider = user.providerData.some(provider => provider.providerId === 'password');
+      if (hasPasswordProvider) {
+        if (!currentPassword) throw new Error('Ingresá tu contraseña actual para continuar.');
+        await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
+        return;
+      }
+      await reauthenticateWithPopup(user, new GoogleAuthProvider());
+    },
+    [user]
+  );
+
+  const updateTeacherProfile = useCallback(
+    async (input: { displayName?: string; avatarDataUrl?: string | null; syncEmail?: true }) => {
+      if (!user) throw new Error('No hay una sesión activa.');
+      const previousDisplayName = user.displayName;
+      try {
+        if (input.displayName !== undefined) await updateProfile(user, { displayName: input.displayName });
+      } catch (error) {
+        reportProfileFailure(user, 'profile_auth_display_name_update', error);
+        throw error;
+      }
+
+      let updatedProfile: UserProfile;
+      try {
+        updatedProfile = await patchProfileRequest(user, input);
+      } catch (error) {
+        if (input.displayName !== undefined) {
+          try {
+            await updateProfile(user, { displayName: previousDisplayName || null });
+          } catch (rollbackError) {
+            reportProfileFailure(user, 'profile_auth_display_name_rollback', rollbackError);
+            throw new Error(
+              'No pudimos guardar el nombre ni restaurar tu identidad. Reintentá el cambio para reconciliarla.'
+            );
+          }
+        }
+        reportProfileFailure(user, 'profile_firestore_update', error);
+        throw error;
+      }
+      applyProfile(updatedProfile);
+      setUser(getAuth().currentUser);
+      return updatedProfile;
+    },
+    [user, applyProfile]
+  );
+
+  const changeEmail = useCallback(
+    async (email: string, currentPassword?: string) => {
+      if (!user) throw new Error('No hay una sesión activa.');
+      try {
+        await reauthenticate(currentPassword);
+        await updateEmail(user, email.trim());
+        const updatedProfile = await patchProfileRequest(user, { syncEmail: true });
+        applyProfile(updatedProfile);
+        setUser(getAuth().currentUser);
+        return updatedProfile;
+      } catch (error) {
+        reportProfileFailure(user, 'profile_email_change', error);
+        throw error;
+      }
+    },
+    [user, reauthenticate, applyProfile]
+  );
+
+  const changePassword = useCallback(
+    async (currentPassword: string | undefined, newPassword: string) => {
+      if (!user) throw new Error('No hay una sesión activa.');
+      const hasPasswordProvider = user.providerData.some(provider => provider.providerId === 'password');
+      try {
+        await reauthenticate(currentPassword);
+        if (hasPasswordProvider) {
+          await updatePassword(user, newPassword);
+        } else {
+          const result = await linkWithCredential(user, EmailAuthProvider.credential(user.email!, newPassword));
+          setUser(result.user);
+        }
+      } catch (error) {
+        reportProfileFailure(user, 'profile_password_change', error);
+        throw error;
+      }
+    },
+    [user, reauthenticate]
+  );
+
   // Best-effort persistence of a class attention report. Callers own the error
   // policy (the in-room saver swallows failures so leaving is never blocked).
   const saveAttentionReport = useCallback(
@@ -523,6 +645,9 @@ export default function useFirebaseAuth() {
     register,
     completeProfile,
     createPassword,
+    updateTeacherProfile,
+    changeEmail,
+    changePassword,
     signOut,
     isAuthReady,
     getToken,

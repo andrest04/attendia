@@ -6,12 +6,18 @@ import {
   updateProfile,
   EmailAuthProvider,
   linkWithCredential,
+  reauthenticateWithCredential,
+  updateEmail,
+  updatePassword,
 } from 'firebase/auth';
 
 const mockUser: any = {
+  uid: 'uid-1',
   displayName: 'Test User',
   email: 'test@example.com',
   getIdToken: jest.fn(() => Promise.resolve('idToken')),
+  providerData: [{ providerId: 'password' }],
+  reload: jest.fn(() => Promise.resolve()),
 };
 
 // Captured onAuthStateChanged callback so each test drives the initial auth state.
@@ -27,6 +33,7 @@ jest.mock('firebase/auth', () => {
       mockAuthStateCallback = fn;
     },
     signOut: jest.fn(() => Promise.resolve()),
+    currentUser: mockUser,
   });
   return {
     getAuth: mockAuth,
@@ -37,6 +44,10 @@ jest.mock('firebase/auth', () => {
     updateProfile: jest.fn(() => Promise.resolve()),
     EmailAuthProvider: { credential: jest.fn(() => 'mockEmailCredential') },
     linkWithCredential: jest.fn(() => Promise.resolve({ user: mockUser })),
+    reauthenticateWithCredential: jest.fn(() => Promise.resolve()),
+    reauthenticateWithPopup: jest.fn(() => Promise.resolve({ user: mockUser })),
+    updatePassword: jest.fn(() => Promise.resolve()),
+    updateEmail: jest.fn(() => Promise.resolve()),
   };
 });
 
@@ -53,7 +64,12 @@ const mockFetch = jest.fn();
 window.fetch = mockFetch;
 
 describe('the useFirebaseAuth hook', () => {
-  afterEach(jest.clearAllMocks);
+  afterEach(() => {
+    jest.clearAllMocks();
+    window.localStorage.clear();
+    mockUser.displayName = 'Test User';
+    mockUser.email = 'test@example.com';
+  });
 
   it('should expose the user and their profile once the initial auth state settles', async () => {
     mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
@@ -232,6 +248,171 @@ describe('the useFirebaseAuth hook', () => {
     expect(result.current.user).toBe(linkedUser);
     // The Firestore profile is untouched by the credential link.
     expect(result.current.profile).toEqual(mockProfile);
+  });
+
+  it('updates profile fields through the narrow PATCH endpoint', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, { ...mockProfile, role: 'teacher' }));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+    const updatedProfile = { displayName: 'Updated teacher', email: 'test@example.com', role: 'teacher' };
+    mockFetch.mockResolvedValueOnce(profileResponse(200, updatedProfile));
+
+    await act(async () => {
+      await result.current.updateTeacherProfile({ displayName: 'Updated teacher' });
+    });
+
+    expect(updateProfile).toHaveBeenCalledWith(mockUser, { displayName: 'Updated teacher' });
+    expect(mockFetch).toHaveBeenLastCalledWith('/profile', {
+      method: 'PATCH',
+      headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+      body: JSON.stringify({ displayName: 'Updated teacher' }),
+    });
+    expect(result.current.profile).toEqual(updatedProfile);
+  });
+
+  it('updates an avatar without mutating Firebase Auth displayName', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, { ...mockProfile, role: 'teacher' }));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+    const updatedProfile = { ...mockProfile, role: 'teacher', avatarDataUrl: 'data:image/jpeg;base64,AA==' };
+    mockFetch.mockResolvedValueOnce(profileResponse(200, updatedProfile));
+
+    await act(async () => {
+      await result.current.updateTeacherProfile({ avatarDataUrl: 'data:image/jpeg;base64,AA==' });
+    });
+
+    expect(updateProfile).not.toHaveBeenCalled();
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      '/profile',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ avatarDataUrl: 'data:image/jpeg;base64,AA==' }),
+      })
+    );
+  });
+
+  it('does not PATCH Firestore when Firebase rejects a display-name update', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, { ...mockProfile, role: 'teacher' }));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+    (updateProfile as jest.Mock).mockRejectedValueOnce(new Error('auth unavailable'));
+    mockFetch.mockResolvedValueOnce(profileResponse(204));
+
+    await act(async () => {
+      await expect(result.current.updateTeacherProfile({ displayName: 'Updated teacher' })).rejects.toEqual(
+        new Error('auth unavailable')
+      );
+    });
+
+    expect(mockFetch).not.toHaveBeenCalledWith('/profile', expect.objectContaining({ method: 'PATCH' }));
+  });
+
+  it('records a client fallback when operational event delivery receives a non-OK response', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+    mockFetch.mockResolvedValueOnce(profileResponse(200, { ...mockProfile, role: 'teacher' }));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+    (updateProfile as jest.Mock).mockRejectedValueOnce({ code: 'auth/network-request-failed' });
+    mockFetch.mockResolvedValueOnce(profileResponse(503));
+
+    await act(async () => {
+      await expect(result.current.updateTeacherProfile({ displayName: 'Updated teacher' })).rejects.toEqual({
+        code: 'auth/network-request-failed',
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(consoleError).toHaveBeenCalledWith(
+      JSON.stringify({
+        level: 'error',
+        event: 'operational_failure',
+        operation: 'profile_auth_display_name_update',
+        failure: 'auth/network-request-failed',
+      })
+    );
+    consoleError.mockRestore();
+  });
+
+  it('records a client fallback when operational event delivery rejects', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation();
+    mockFetch.mockResolvedValueOnce(profileResponse(200, { ...mockProfile, role: 'teacher' }));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+    (updateProfile as jest.Mock).mockRejectedValueOnce({ code: 'auth/network-request-failed' });
+    mockFetch.mockRejectedValueOnce(new Error('network unavailable'));
+
+    await act(async () => {
+      await expect(result.current.updateTeacherProfile({ displayName: 'Updated teacher' })).rejects.toEqual({
+        code: 'auth/network-request-failed',
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(consoleError).toHaveBeenCalledWith(
+      JSON.stringify({
+        level: 'error',
+        event: 'operational_failure',
+        operation: 'profile_auth_display_name_update',
+        failure: 'auth/network-request-failed',
+      })
+    );
+    consoleError.mockRestore();
+  });
+
+  it('rolls Firebase displayName back when the Firestore PATCH fails', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, { ...mockProfile, role: 'teacher' }));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+    mockFetch.mockResolvedValueOnce(profileResponse(503, { error: { explanation: 'Firestore no disponible.' } }));
+    mockFetch.mockResolvedValueOnce(profileResponse(204));
+
+    await act(async () => {
+      await expect(result.current.updateTeacherProfile({ displayName: 'Updated teacher' })).rejects.toEqual(
+        new Error('Firestore no disponible.')
+      );
+    });
+
+    expect(updateProfile).toHaveBeenNthCalledWith(1, mockUser, { displayName: 'Updated teacher' });
+    expect(updateProfile).toHaveBeenNthCalledWith(2, mockUser, { displayName: 'Test User' });
+  });
+
+  it('reauthenticates password users before changing their email and their password', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+
+    const updatedProfile = { displayName: 'Test User', email: 'new@example.com', role: 'student' };
+    mockFetch.mockResolvedValueOnce(profileResponse(200, updatedProfile));
+
+    await act(async () => {
+      await expect(result.current.changeEmail('new@example.com', 'current-password')).resolves.toEqual(updatedProfile);
+      await result.current.changePassword('current-password', 'new-password');
+    });
+
+    expect(reauthenticateWithCredential).toHaveBeenCalledWith(mockUser, 'mockEmailCredential');
+    expect(updateEmail).toHaveBeenCalledWith(mockUser, 'new@example.com');
+    expect(mockFetch).toHaveBeenCalledWith('/profile', {
+      method: 'PATCH',
+      headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+      body: JSON.stringify({ syncEmail: true }),
+    });
+    expect(updatePassword).toHaveBeenCalledWith(mockUser, 'new-password');
   });
 
   it('should reject createPassword when there is no signed-in user', async () => {

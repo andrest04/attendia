@@ -27,6 +27,13 @@ export interface StateContextType {
   register?(name: string, email: string, password: string, role: ClassSessionRole): Promise<void>;
   completeProfile?(role: ClassSessionRole): Promise<void>;
   createPassword?(password: string): Promise<void>;
+  updateTeacherProfile?(input: {
+    displayName?: string;
+    avatarDataUrl?: string | null;
+    syncEmail?: true;
+  }): Promise<UserProfile>;
+  changeEmail?(email: string, currentPassword?: string): Promise<UserProfile>;
+  changePassword?(currentPassword: string | undefined, newPassword: string): Promise<void>;
   // Firebase-mode only: persistence of per-class attention reports (teacher-only,
   // enforced server-side). Undefined in the other auth modes, so consumers gate on
   // presence and the feature is silently absent — same contract as /profile.

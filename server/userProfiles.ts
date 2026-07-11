@@ -1,4 +1,5 @@
 import { RequestHandler } from 'express';
+import { logOperationalFailure } from './operationalEvents';
 
 /*
  * Firestore-backed user profiles: users/{uid} = { displayName, email, role, createdAt }.
@@ -29,6 +30,7 @@ export interface UserProfile {
   displayName: string;
   email: string;
   role: UserRole;
+  avatarDataUrl?: string;
 }
 
 // Minimal structural slice of the Firestore API used below — keeps this unit
@@ -42,7 +44,7 @@ export interface ProfileDocumentSnapshot {
 
 export interface ProfileDocumentReference {
   get(): Promise<ProfileDocumentSnapshot>;
-  set(data: { [key: string]: any }): Promise<unknown>;
+  set(data: { [key: string]: any }, options?: { merge: boolean }): Promise<unknown>;
 }
 
 export interface ProfileDatabase {
@@ -62,7 +64,16 @@ function toProfileResponse(data: { [key: string]: any }): UserProfile {
     displayName: data.displayName,
     email: data.email,
     role: data.role,
+    avatarDataUrl: typeof data.avatarDataUrl === 'string' ? data.avatarDataUrl : undefined,
   };
+}
+
+const MAX_DISPLAY_NAME_LENGTH = 100;
+const MAX_AVATAR_DATA_URL_LENGTH = 96000;
+const AVATAR_DATA_URL = /^data:image\/(jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+function isTeacherProfile(data: { [key: string]: any } | undefined): boolean {
+  return data?.role === 'teacher';
 }
 
 export function createGetProfileHandler(db: ProfileDatabase): RequestHandler {
@@ -94,7 +105,7 @@ export function createGetProfileHandler(db: ProfileDatabase): RequestHandler {
 
       res.status(200).json(toProfileResponse(snapshot.data() || {}));
     } catch (err) {
-      console.error('userProfiles: could not read profile', err);
+      logOperationalFailure({ event: 'profile_read_failed', operation: 'profile_read', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'profile lookup failed',
@@ -161,13 +172,75 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
 
       res.status(201).json({ displayName, email, role });
     } catch (err) {
-      console.error('userProfiles: could not save profile', err);
+      logOperationalFailure({ event: 'profile_save_failed', operation: 'profile_create', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
           message: 'profile save failed',
           explanation: 'No pudimos guardar tu perfil. Intenta de nuevo en unos segundos.',
         },
       });
+    }
+  };
+}
+
+// Updates only a verified teacher's own presentation fields. Email is never accepted
+// from the request: syncEmail copies it from a freshly verified Firebase ID token.
+export function createPatchProfileHandler(db: ProfileDatabase): RequestHandler {
+  return async (req, res) => {
+    const firebaseUser = getVerifiedUser(res);
+    if (!firebaseUser) {
+      res.status(401).send();
+      return;
+    }
+
+    const body = req.body ?? {};
+    const fields = Object.keys(body);
+    const allowedFields = ['displayName', 'avatarDataUrl', 'syncEmail'];
+    if (!fields.length || fields.some(field => allowedFields.indexOf(field) === -1)) {
+      res.status(400).json({ error: { message: 'invalid profile fields', explanation: 'Los datos del perfil no son válidos.' } });
+      return;
+    }
+
+    const update: { [key: string]: any } = {};
+    if ('displayName' in body) {
+      const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
+      if (!displayName || displayName.length > MAX_DISPLAY_NAME_LENGTH) {
+        res.status(400).json({ error: { message: 'invalid displayName', explanation: 'El nombre debe tener entre 1 y 100 caracteres.' } });
+        return;
+      }
+      update.displayName = displayName;
+    }
+    if ('avatarDataUrl' in body) {
+      const avatarDataUrl = body.avatarDataUrl;
+      if (
+        avatarDataUrl !== null &&
+        (typeof avatarDataUrl !== 'string' || avatarDataUrl.length > MAX_AVATAR_DATA_URL_LENGTH || !AVATAR_DATA_URL.test(avatarDataUrl))
+      ) {
+        res.status(400).json({ error: { message: 'invalid avatar', explanation: 'La foto debe ser una imagen JPEG o WebP válida y pequeña.' } });
+        return;
+      }
+      update.avatarDataUrl = avatarDataUrl;
+    }
+    if ('syncEmail' in body && body.syncEmail !== true) {
+      res.status(400).json({ error: { message: 'invalid email sync', explanation: 'No pudimos sincronizar el correo.' } });
+      return;
+    }
+    if (body.syncEmail === true) update.email = firebaseUser.email || '';
+
+    try {
+      const docRef = db.collection('users').doc(firebaseUser.uid);
+      const snapshot = await docRef.get();
+      const profile = snapshot.data();
+      if (!snapshot.exists || !isTeacherProfile(profile)) {
+        res.status(403).json({ error: { message: 'teacher role required', explanation: 'Esta sección es exclusiva para docentes.' } });
+        return;
+      }
+
+      await docRef.set(update, { merge: true });
+      res.status(200).json(toProfileResponse({ ...profile, ...update }));
+    } catch (err) {
+      logOperationalFailure({ event: 'profile_update_failed', operation: 'profile_update', uid: firebaseUser.uid, error: err });
+      res.status(503).json({ error: { message: 'profile update failed', explanation: 'No pudimos actualizar tu perfil. Intenta de nuevo.' } });
     }
   };
 }
