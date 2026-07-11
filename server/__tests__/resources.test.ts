@@ -4,7 +4,6 @@ import {
   createDownloadResourceHandler,
   createDeleteResourceHandler,
   ResourcesDatabase,
-  ResourcesBucket,
 } from '../resources';
 
 const makeRes = () => {
@@ -31,15 +30,6 @@ const makeDb = () => {
   const collection = jest.fn(() => ({ doc: userDoc }));
   const db = ({ collection } as unknown) as ResourcesDatabase;
   return { db, collection, userDoc, userGet, resourcesCollection, resourceDoc, docGet, set, del, orderBy, limit, resourcesGet };
-};
-
-const makeBucket = () => {
-  const save = jest.fn(() => Promise.resolve());
-  const deleteFile = jest.fn(() => Promise.resolve());
-  const getSignedUrl = jest.fn(() => Promise.resolve(['https://storage.example.com/signed']));
-  const file = jest.fn(() => ({ save, delete: deleteFile, getSignedUrl }));
-  const bucket = ({ file } as unknown) as ResourcesBucket;
-  return { bucket, file, save, deleteFile, getSignedUrl };
 };
 
 const teacherProfile = { displayName: 'Ana García', email: 'ana@example.com', role: 'teacher' };
@@ -159,26 +149,23 @@ describe('createGetResourcesHandler', () => {
 describe('createUploadResourceHandler', () => {
   afterEach(jest.clearAllMocks);
 
-  it('uploads the buffer to Storage, saves the Firestore doc, and returns 201', async () => {
+  it('saves the Firestore doc with the base64-encoded content and returns 201', async () => {
     const { db, userGet, resourceDoc, set } = makeDb();
-    const { bucket, file, save } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    const handler = createUploadResourceHandler(db, bucket, serverTimestamp);
+    const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
     const req: any = { body: { roomLabel: 'Cálculo I' }, file: makeUploadedFile() };
 
     await handler(req, res, jest.fn());
 
     expect(resourceDoc).toHaveBeenCalledWith();
-    expect(file).toHaveBeenCalledWith('resources/uid-1/auto-id-1-clase-1.pdf');
-    expect(save).toHaveBeenCalledWith(req.file.buffer, { metadata: { contentType: 'application/pdf' } });
     expect(set).toHaveBeenCalledWith({
       name: 'clase-1.pdf',
       kind: 'pdf',
       roomLabel: 'Cálculo I',
       sizeBytes: 1024,
       contentType: 'application/pdf',
-      storagePath: 'resources/uid-1/auto-id-1-clase-1.pdf',
+      content: req.file.buffer.toString('base64'),
       createdAt: 'server-timestamp',
     });
     expect(res.status).toHaveBeenCalledWith(201);
@@ -189,69 +176,60 @@ describe('createUploadResourceHandler', () => {
 
   it('returns 401 when the middleware did not attach a verified user', async () => {
     const { db, set } = makeDb();
-    const { bucket, save } = makeBucket();
-    const handler = createUploadResourceHandler(db, bucket, serverTimestamp);
+    const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
     res.locals = {};
 
     await handler({ body: {}, file: makeUploadedFile() } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(save).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
   });
 
-  it('returns 403 without uploading when the caller is a student', async () => {
+  it('returns 403 without saving when the caller is a student', async () => {
     const { db, userGet, set } = makeDb();
-    const { bucket, save } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => studentProfile });
-    const handler = createUploadResourceHandler(db, bucket, serverTimestamp);
+    const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
     await handler({ body: { roomLabel: 'x' }, file: makeUploadedFile() } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(save).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
   });
 
   it('returns 400 when no file is attached', async () => {
     const { db, userGet, set } = makeDb();
-    const { bucket, save } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    const handler = createUploadResourceHandler(db, bucket, serverTimestamp);
+    const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
     await handler({ body: { roomLabel: 'x' } } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(save).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the file exceeds the max size', async () => {
     const { db, userGet, set } = makeDb();
-    const { bucket, save } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    const handler = createUploadResourceHandler(db, bucket, serverTimestamp);
+    const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
     await handler(
-      { body: { roomLabel: 'x' }, file: makeUploadedFile({ size: 51 * 1024 * 1024 }) } as any,
+      { body: { roomLabel: 'x' }, file: makeUploadedFile({ size: 701 * 1024 }) } as any,
       res,
       jest.fn()
     );
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(save).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
   });
 
   it('returns 400 for an unsupported mime type', async () => {
     const { db, userGet, set } = makeDb();
-    const { bucket, save } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    const handler = createUploadResourceHandler(db, bucket, serverTimestamp);
+    const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
     await handler(
@@ -261,37 +239,32 @@ describe('createUploadResourceHandler', () => {
     );
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(save).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
   });
 
   it('returns 400 when roomLabel is missing', async () => {
     const { db, userGet, set } = makeDb();
-    const { bucket, save } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    const handler = createUploadResourceHandler(db, bucket, serverTimestamp);
+    const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
     await handler({ body: { roomLabel: '   ' }, file: makeUploadedFile() } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(save).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
   });
 
-  it('returns 503 when the Storage upload fails', async () => {
+  it('returns 503 when the Firestore save fails', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     const { db, userGet, set } = makeDb();
-    const { bucket, save } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    save.mockRejectedValue(new Error('storage down'));
-    const handler = createUploadResourceHandler(db, bucket, serverTimestamp);
+    set.mockRejectedValue(new Error('firestore down'));
+    const handler = createUploadResourceHandler(db, serverTimestamp);
     const res = makeRes();
 
     await handler({ body: { roomLabel: 'x' }, file: makeUploadedFile() } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(503);
-    expect(set).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
 });
@@ -299,41 +272,43 @@ describe('createUploadResourceHandler', () => {
 describe('createDownloadResourceHandler', () => {
   afterEach(jest.clearAllMocks);
 
-  it('returns a signed url for an existing resource', async () => {
+  it('returns the base64 content, contentType and name for an existing resource', async () => {
     const { db, userGet, docGet } = makeDb();
-    const { bucket, file, getSignedUrl } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    docGet.mockResolvedValue({ exists: true, data: () => ({ storagePath: 'resources/uid-1/res-1-clase.pdf' }) });
-    const handler = createDownloadResourceHandler(db, bucket);
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ content: 'YmFzZTY0...', contentType: 'application/pdf', name: 'clase.pdf' }),
+    });
+    const handler = createDownloadResourceHandler(db);
     const res = makeRes();
 
     await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
 
-    expect(file).toHaveBeenCalledWith('resources/uid-1/res-1-clase.pdf');
-    expect(getSignedUrl).toHaveBeenCalledWith(expect.objectContaining({ action: 'read' }));
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ url: 'https://storage.example.com/signed' });
+    expect(res.json).toHaveBeenCalledWith({
+      content: 'YmFzZTY0...',
+      contentType: 'application/pdf',
+      name: 'clase.pdf',
+    });
   });
 
   it('returns 404 when the resource does not exist', async () => {
     const { db, userGet, docGet } = makeDb();
-    const { bucket, getSignedUrl } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
-    const handler = createDownloadResourceHandler(db, bucket);
+    const handler = createDownloadResourceHandler(db);
     const res = makeRes();
 
     await handler({ params: { id: 'missing' } } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(getSignedUrl).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalledWith(expect.objectContaining({ content: expect.anything() }));
   });
 
   it('returns 403 without reading when the caller is a student', async () => {
     const { db, userGet, docGet } = makeDb();
-    const { bucket } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => studentProfile });
-    const handler = createDownloadResourceHandler(db, bucket);
+    const handler = createDownloadResourceHandler(db);
     const res = makeRes();
 
     await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
@@ -346,46 +321,25 @@ describe('createDownloadResourceHandler', () => {
 describe('createDeleteResourceHandler', () => {
   afterEach(jest.clearAllMocks);
 
-  it('deletes the storage object and the Firestore doc', async () => {
+  it('deletes the Firestore doc and returns 200', async () => {
     const { db, userGet, docGet, del } = makeDb();
-    const { bucket, file, deleteFile } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    docGet.mockResolvedValue({ exists: true, data: () => ({ storagePath: 'resources/uid-1/res-1-clase.pdf' }) });
-    const handler = createDeleteResourceHandler(db, bucket);
+    docGet.mockResolvedValue({ exists: true, data: () => ({ content: 'YmFzZTY0...' }) });
+    const handler = createDeleteResourceHandler(db);
     const res = makeRes();
 
     await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
 
-    expect(file).toHaveBeenCalledWith('resources/uid-1/res-1-clase.pdf');
-    expect(deleteFile).toHaveBeenCalled();
     expect(del).toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({ deleted: true });
   });
 
-  it('still deletes the Firestore doc when the storage object is already gone', async () => {
-    const { db, userGet, docGet, del } = makeDb();
-    const { bucket, deleteFile } = makeBucket();
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    docGet.mockResolvedValue({ exists: true, data: () => ({ storagePath: 'resources/uid-1/res-1-clase.pdf' }) });
-    deleteFile.mockRejectedValue(new Error('not found'));
-    const handler = createDeleteResourceHandler(db, bucket);
-    const res = makeRes();
-
-    await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
-
-    expect(del).toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(200);
-    consoleError.mockRestore();
-  });
-
   it('returns 404 when the resource does not exist', async () => {
     const { db, userGet, docGet, del } = makeDb();
-    const { bucket } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
     docGet.mockResolvedValue({ exists: false, data: () => undefined });
-    const handler = createDeleteResourceHandler(db, bucket);
+    const handler = createDeleteResourceHandler(db);
     const res = makeRes();
 
     await handler({ params: { id: 'missing' } } as any, res, jest.fn());
@@ -396,9 +350,8 @@ describe('createDeleteResourceHandler', () => {
 
   it('returns 403 without reading when the caller is a student', async () => {
     const { db, userGet, docGet } = makeDb();
-    const { bucket } = makeBucket();
     userGet.mockResolvedValue({ exists: true, data: () => studentProfile });
-    const handler = createDeleteResourceHandler(db, bucket);
+    const handler = createDeleteResourceHandler(db);
     const res = makeRes();
 
     await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
