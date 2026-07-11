@@ -150,7 +150,18 @@ describe('createGetClassesHandler', () => {
 });
 
 describe('createCreateClassHandler', () => {
-  afterEach(jest.clearAllMocks);
+  // Frozen an hour before the fixture scheduledAtMs values below so they read as
+  // "in the future" regardless of when this suite actually runs.
+  const FROZEN_NOW = 1751554800000 - 60 * 60 * 1000;
+
+  beforeEach(() => {
+    jest.spyOn(Date, 'now').mockReturnValue(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.clearAllMocks();
+  });
 
   it('creates the class doc with a slugified roomName and returns 201', async () => {
     const { db, userGet, classDoc, set } = makeDb();
@@ -166,7 +177,7 @@ describe('createCreateClassHandler', () => {
     expect(classDoc).toHaveBeenCalledWith('create-class-key-001');
     expect(set).toHaveBeenCalledWith({
       title: 'Matemáticas — Grupo A',
-      roomName: 'matematicas-grupo-a',
+      roomName: 'matematicas-grupo-a-sskey001',
       scheduledAt: new Date(1751554800000),
       studentCount: 28,
       status: 'scheduled',
@@ -177,11 +188,31 @@ describe('createCreateClassHandler', () => {
     expect(res.json).toHaveBeenCalledWith({
       id: 'create-class-key-001',
       title: 'Matemáticas — Grupo A',
-      roomName: 'matematicas-grupo-a',
+      roomName: 'matematicas-grupo-a-sskey001',
       scheduledAtMs: 1751554800000,
       studentCount: 28,
       status: 'scheduled',
     });
+  });
+
+  it('gives two classes with the same title distinct room names', async () => {
+    const { db, userGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+
+    await handler(
+      { body: { title: 'test', scheduledAtMs: 1751554800000, idempotencyKey: 'create-class-key-001' } } as any,
+      makeRes(),
+      jest.fn()
+    );
+    await handler(
+      { body: { title: 'test', scheduledAtMs: 1751558400000, idempotencyKey: 'create-class-key-002' } } as any,
+      makeRes(),
+      jest.fn()
+    );
+
+    const [firstCall, secondCall] = set.mock.calls;
+    expect(firstCall[0].roomName).not.toEqual(secondCall[0].roomName);
   });
 
   it('defaults studentCount to 0 when omitted', async () => {
@@ -276,6 +307,72 @@ describe('createCreateClassHandler', () => {
     await handler({ body: { title: 'x', scheduledAtMs: Infinity } } as any, res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(400);
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when scheduledAtMs is more than a minute in the past', async () => {
+    const { db, userGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+    const res = makeRes();
+
+    await handler(
+      {
+        body: {
+          title: 'x',
+          scheduledAtMs: FROZEN_NOW - 2 * 60 * 1000,
+          idempotencyKey: 'create-class-key-past',
+        },
+      } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it('allows scheduledAtMs within the 1 minute clock-skew tolerance', async () => {
+    const { db, userGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+    const res = makeRes();
+
+    await handler(
+      {
+        body: {
+          title: 'x',
+          scheduledAtMs: FROZEN_NOW - 30 * 1000,
+          idempotencyKey: 'create-class-key-skew',
+        },
+      } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(set).toHaveBeenCalled();
+  });
+
+  it('returns the existing class for a repeated idempotency key even if its scheduledAtMs is now in the past', async () => {
+    const { db, userGet, docGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ title: 'x', roomName: 'x-abc12345', scheduledAt: { toMillis: () => FROZEN_NOW - 2 * 60 * 1000 } }),
+    });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+    const res = makeRes();
+
+    await handler(
+      {
+        body: { title: 'x', scheduledAtMs: FROZEN_NOW - 2 * 60 * 1000, idempotencyKey: 'create-class-key-retry' },
+      } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
     expect(set).not.toHaveBeenCalled();
   });
 

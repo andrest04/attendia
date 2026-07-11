@@ -31,7 +31,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: theme.palette.text.primary,
   },
   subtitle: { fontSize: '0.8125rem', color: theme.palette.text.secondary },
-  navButtons: { display: 'flex', gap: theme.spacing(1) },
+  navButtons: { display: 'flex', alignItems: 'center', gap: theme.spacing(1) },
   navButton: {
     width: 32,
     height: 32,
@@ -42,6 +42,18 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    cursor: 'pointer',
+  },
+  todayButton: {
+    height: 32,
+    padding: theme.spacing(0, 1.5),
+    borderRadius: 16,
+    border: '1px solid #e2ecf9',
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.secondary,
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.75rem',
     cursor: 'pointer',
   },
   weekRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: theme.spacing(1) },
@@ -164,6 +176,11 @@ export default function CalendarTab({ classes: classRecords, isLoading, error, o
     setVisibleMonth(next);
     setSelectedDay(1);
   };
+  const goToToday = () => {
+    const today = new Date();
+    setVisibleMonth(monthStart(today));
+    setSelectedDay(today.getDate());
+  };
   const monthLabel = visibleMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
 
   const effectiveDay = selectedDay > days.length ? 1 : selectedDay;
@@ -204,6 +221,14 @@ export default function CalendarTab({ classes: classRecords, isLoading, error, o
             <div className={styles.subtitle}>Clases programadas</div>
           </div>
           <div className={styles.navButtons}>
+            <button
+              type="button"
+              className={styles.todayButton}
+              onClick={goToToday}
+              data-testid="dashboard-calendar-today"
+            >
+              Hoy
+            </button>
             <button
               type="button"
               aria-label="Mes anterior"

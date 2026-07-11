@@ -47,6 +47,21 @@ function formatRelativeLabel(scheduledAtMs: number, nowMs: number, sessionDate: 
 }
 
 /**
+ * A scheduled (never started) class whose grace period has elapsed — the
+ * "vencida" set the auto-cancel button clears. Started/completed classes are
+ * never expired here: their lifecycle is "Terminar sesión", not this.
+ */
+export function findExpiredClasses(classes: ClassRecord[], nowMs: number): ClassRecord[] {
+  return classes.filter(
+    classRecord =>
+      classRecord.scheduledAtMs !== null &&
+      classRecord.status !== 'started' &&
+      classRecord.status !== 'completed' &&
+      classRecord.scheduledAtMs < nowMs - GRACE_PERIOD_MS
+  );
+}
+
+/**
  * Pure transform from real ClassRecord[] + an injected clock into the
  * UpcomingSession[] shape ClassesTab renders. Never reads Date.now() itself —
  * same discipline as mockAttentionData.ts/attentionHeuristics.ts elsewhere in

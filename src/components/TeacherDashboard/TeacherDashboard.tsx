@@ -13,7 +13,7 @@ import CalendarTab from './CalendarTab';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
-import { buildUpcomingSessions } from './classSessionsView';
+import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
 import { buildReportStats } from './reportStats';
 import {
   clearPendingAttentionReports,
@@ -124,6 +124,8 @@ export default function TeacherDashboard({
   const [cancellingClassId, setCancellingClassId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const cancelRetrySessionRef = useRef<UpcomingSession | null>(null);
+  const [isCancellingExpired, setIsCancellingExpired] = useState(false);
+  const [cancelExpiredError, setCancelExpiredError] = useState<string | null>(null);
   const [reports, setReports] = useState<StoredAttentionReport[] | null>(null);
   const [isReportsLoading, setIsReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState<string | null>(null);
@@ -245,6 +247,43 @@ export default function TeacherDashboard({
       }
     : undefined;
 
+  const expiredClasses = hasRealClasses ? findExpiredClasses(realClasses, Date.now()) : [];
+
+  const handleCancelExpiredClasses = hasRealClasses
+    ? () => {
+        if (expiredClasses.length === 0) return;
+        if (
+          !window.confirm(
+            `¿Cancelar ${
+              expiredClasses.length === 1 ? 'la clase vencida' : `las ${expiredClasses.length} clases vencidas`
+            }? Esta acción no se puede deshacer.`
+          )
+        )
+          return;
+        setIsCancellingExpired(true);
+        setCancelExpiredError(null);
+        Promise.allSettled(
+          expiredClasses.map(classRecord => deleteClass!(classRecord.id).then(() => classRecord.id))
+        ).then(results => {
+          const deletedIds = results
+            .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
+            .map(result => result.value);
+          const failedCount = results.length - deletedIds.length;
+          if (deletedIds.length > 0) {
+            setRealClasses(current => current.filter(c => !deletedIds.includes(c.id)));
+          }
+          if (failedCount > 0) {
+            setCancelExpiredError(
+              failedCount === 1
+                ? 'No pudimos cancelar 1 clase vencida.'
+                : `No pudimos cancelar ${failedCount} clases vencidas.`
+            );
+          }
+          setIsCancellingExpired(false);
+        });
+      }
+    : undefined;
+
   const startScheduledClass = (classId: string, roomName: string) => {
     startClass!(classId, roomName)
       .then(() => onStartClass({ roomName, name: professorName, classId }))
@@ -302,6 +341,10 @@ export default function TeacherDashboard({
               cancellingClassId={cancellingClassId}
               cancelError={cancelError}
               onRetryCancel={() => cancelRetrySessionRef.current && cancelClass(cancelRetrySessionRef.current)}
+              expiredClassesCount={expiredClasses.length}
+              onCancelExpiredClasses={handleCancelExpiredClasses}
+              isCancellingExpired={isCancellingExpired}
+              cancelExpiredError={cancelExpiredError}
             />
           )}
           {!showProfile && activeTab === 'historial' && (

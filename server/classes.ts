@@ -21,6 +21,11 @@ import { logOperationalFailure } from './operationalEvents';
 const MAX_TITLE_LENGTH = 200;
 const MAX_STUDENT_COUNT = 500;
 
+// A scheduled class must start in the future. The tolerance absorbs the date/time
+// pickers' minute granularity plus request latency — without it, picking "now"
+// client-side can land a few seconds in the past by the time this handler runs.
+const PAST_SCHEDULE_TOLERANCE_MS = 60 * 1000;
+
 // Max scheduled classes returned by GET /classes (soonest first).
 const MAX_CLASSES_RETURNED = 200;
 
@@ -37,6 +42,16 @@ function slugifyTitle(title: string): string {
     .replace(/^-+|-+$/g, '');
 
   return asciiValue || FALLBACK_ROOM_NAME;
+}
+
+// roomName must be unique per class doc, not just per title \u2014 two classes titled
+// "test" would otherwise slug to the same Twilio room and collide (same
+// participants/chat/attention data). The doc id (== idempotencyKey) is already
+// unique per creation, so it doubles as the disambiguator.
+function buildRoomName(title: string, docId: string): string {
+  // The tail, not the head: idempotency keys share a "class-" prefix, so only the
+  // trailing random segment reliably disambiguates two same-titled classes.
+  return `${slugifyTitle(title)}-${docId.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(-8)}`;
 }
 
 // Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
@@ -245,8 +260,6 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         return;
       }
 
-      const roomName = slugifyTitle(title);
-
       const docRef = db
         .collection('users')
         .doc(firebaseUser.uid)
@@ -261,6 +274,16 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         res.status(200).json(toClassResponse(docRef.id, data, existingScheduledAtMs));
         return;
       }
+
+      // Only gated here, past the idempotency check above, so a legitimate retry of
+      // an already-created class (same key resent after the clock moved on) still
+      // returns the existing doc instead of being rejected as "in the past".
+      if (scheduledAtMs < Date.now() - PAST_SCHEDULE_TOLERANCE_MS) {
+        sendBadRequest(res, 'scheduledAtMs in the past', 'No podés programar una clase en una fecha u hora pasada.');
+        return;
+      }
+
+      const roomName = buildRoomName(title, docRef.id);
 
       await docRef.set({
         title,
