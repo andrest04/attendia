@@ -47,6 +47,19 @@ describe('the IntroContainer component', () => {
     expect(wrapper.find(UserMenu).exists()).toBe(false);
   });
 
+  it('should not render the UserMenu when onReturnToDashboard is provided ("Volver al panel" is already the way back)', () => {
+    mockUseLocation.mockImplementation(() => ({ pathname: '/test' }));
+    mockUseAppState.mockImplementation(() => ({ user: {} }));
+
+    const wrapper = shallow(
+      <IntroContainer onReturnToDashboard={jest.fn()}>
+        <span>Test Content</span>
+      </IntroContainer>
+    );
+
+    expect(wrapper.find(UserMenu).exists()).toBe(false);
+  });
+
   it('should not render the UserMenu when a user object does not exist', () => {
     mockUseLocation.mockImplementation(() => ({ pathname: '/test' }));
     mockUseAppState.mockImplementation(() => ({ user: undefined }));
@@ -99,6 +112,34 @@ describe('the IntroContainer component', () => {
       wrapper.find('button[aria-label="Ir al inicio"]').simulate('click');
 
       expect(mockHistoryPush).toHaveBeenCalledWith({ pathname: '/', state: undefined });
+    });
+  });
+
+  describe('the "Volver al panel" back-to-dashboard link', () => {
+    it('renders above the content card and calls onReturnToDashboard when clicked', () => {
+      const onReturnToDashboard = jest.fn();
+      const wrapper = shallow(
+        <IntroContainer onReturnToDashboard={onReturnToDashboard}>
+          <span>Test Content</span>
+        </IntroContainer>
+      );
+
+      const backLink = wrapper.find('[data-testid="back-to-dashboard"]');
+      expect(backLink.exists()).toBe(true);
+      expect(backLink.text()).toContain('Volver al panel');
+
+      backLink.simulate('click');
+      expect(onReturnToDashboard).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not render when onReturnToDashboard is not provided', () => {
+      const wrapper = shallow(
+        <IntroContainer>
+          <span>Test Content</span>
+        </IntroContainer>
+      );
+
+      expect(wrapper.find('[data-testid="back-to-dashboard"]').exists()).toBe(false);
     });
   });
 });

@@ -43,7 +43,7 @@ describe('ClassesTab', () => {
     });
   });
 
-  it('renders only one wired "Iniciar sesión" button, and stub "Ver detalles" buttons for the rest', () => {
+  it('renders only one wired "Iniciar sesión" button, and stub "Ver detalles" buttons for the rest when no onCancelClass is passed', () => {
     const wrapper = shallow(
       <ClassesTab
         stats={mockDashboardData.stats}
@@ -58,5 +58,84 @@ describe('ClassesTab', () => {
     expect(wrapper.find('[data-testid="dashboard-view-details-button"]').length).toBe(
       mockDashboardData.upcomingSessions.length - 1
     );
+    expect(wrapper.find('[data-testid="dashboard-cancel-session-button"]').length).toBe(0);
+  });
+
+  it('renders "Cancelar" buttons instead of the stub, and calls onCancelClass with the session', () => {
+    const onCancelClass = jest.fn();
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        onCancelClass={onCancelClass}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-view-details-button"]').length).toBe(0);
+    const cancelButtons = wrapper.find('[data-testid="dashboard-cancel-session-button"]');
+    expect(cancelButtons.length).toBe(mockDashboardData.upcomingSessions.length - 1);
+
+    const nonHighlighted = mockDashboardData.upcomingSessions.find(s => !s.highlighted)!;
+    cancelButtons.first().simulate('click');
+
+    expect(onCancelClass).toHaveBeenCalledWith(nonHighlighted);
+  });
+
+  it('does nothing when "Nueva clase" is clicked without onCreateClass', () => {
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+      />
+    );
+
+    wrapper.find('[data-testid="dashboard-new-class-button"]').simulate('click');
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="dashboard-new-class-title-input"]').exists()).toBe(false);
+  });
+
+  it('reveals the inline creation form and calls onCreateClass with the combined values', () => {
+    const onCreateClass = jest.fn(() => Promise.resolve());
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        onCreateClass={onCreateClass}
+      />
+    );
+
+    wrapper.find('[data-testid="dashboard-new-class-button"]').simulate('click');
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="dashboard-new-class-title-input"]').exists()).toBe(true);
+
+    wrapper
+      .find('[data-testid="dashboard-new-class-title-input"]')
+      .simulate('change', { target: { value: '  Física 101  ' } });
+    // The date/time fields are @material-ui/pickers components whose onChange hands
+    // back a Date directly (not a DOM change event) — mirror that contract here.
+    wrapper.find('[data-testid="dashboard-new-class-date-input"]').simulate('change', new Date(2026, 6, 9));
+    wrapper.find('[data-testid="dashboard-new-class-time-input"]').simulate('change', new Date(2026, 6, 9, 10, 0));
+    wrapper
+      .find('[data-testid="dashboard-new-class-student-count-input"]')
+      .simulate('change', { target: { value: '15' } });
+
+    wrapper.find('form').simulate('submit', { preventDefault: jest.fn() });
+
+    expect(onCreateClass).toHaveBeenCalledWith({
+      title: 'Física 101',
+      scheduledAtMs: new Date(2026, 6, 9, 10, 0).getTime(),
+      studentCount: 15,
+    });
   });
 });

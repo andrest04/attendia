@@ -42,6 +42,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 700,
     fontSize: '0.8125rem',
+    flexShrink: 0,
+  },
+  avatarPhoto: {
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
   },
   name: {
     fontFamily: 'Poppins, Inter, sans-serif',
@@ -63,10 +68,13 @@ const useStyles = makeStyles((theme: Theme) => ({
 interface Props {
   professorName: string;
   professorInitials: string;
+  // Real user photo (e.g. Google sign-in avatar). Falls back to the initials
+  // chip when absent, mirroring UserAvatar in the lobby's UserMenu.
+  professorPhotoURL?: string;
 }
 
 /** Top bar shared by every Panel Docente tab: brand, notifications, profile chip. */
-export default function DashboardHeader({ professorName, professorInitials }: Props) {
+export default function DashboardHeader({ professorName, professorInitials, professorPhotoURL }: Props) {
   const classes = useStyles();
 
   return (
@@ -77,7 +85,17 @@ export default function DashboardHeader({ professorName, professorInitials }: Pr
           <NotificationsNoneIcon />
         </span>
         <div className={classes.profile} data-testid="dashboard-header-profile">
-          <span className={classes.avatar}>{professorInitials}</span>
+          {professorPhotoURL ? (
+            <span
+              className={`${classes.avatar} ${classes.avatarPhoto}`}
+              style={{ backgroundImage: `url(${professorPhotoURL})` }}
+              data-testid="dashboard-header-avatar-photo"
+            />
+          ) : (
+            <span className={classes.avatar} data-testid="dashboard-header-avatar-initials">
+              {professorInitials}
+            </span>
+          )}
           <span className={classes.name}>{professorName}</span>
           <ExpandMoreIcon className={classes.chevron} />
         </div>

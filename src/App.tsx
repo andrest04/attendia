@@ -50,10 +50,13 @@ export default function App() {
   // existing prejoin flow; it comes back once that class's room disconnects (see
   // useDashboardHandoff), so it's a "between classes" landing page, not a one-shot screen.
   const initialRole = useInitialRole();
-  const { dashboardActive, pendingSession, handleStartClass, handleStartBlankClass } = useDashboardHandoff(
-    initialRole,
-    roomState
-  );
+  const {
+    dashboardActive,
+    pendingSession,
+    handleStartClass,
+    handleStartBlankClass,
+    handleReturnToDashboard,
+  } = useDashboardHandoff(initialRole, roomState);
 
   return (
     <Container style={{ height }}>
@@ -62,7 +65,11 @@ export default function App() {
       ) : dashboardActive ? (
         <TeacherDashboard onStartClass={handleStartClass} onStartBlankClass={handleStartBlankClass} />
       ) : roomState === 'disconnected' ? (
-        <PreJoinScreens initialClassSession={pendingSession ?? undefined} />
+        <PreJoinScreens
+          initialClassSession={pendingSession ?? undefined}
+          // Only teachers have a dashboard to go back to; students never see the affordance.
+          onReturnToDashboard={initialRole === 'teacher' ? handleReturnToDashboard : undefined}
+        />
       ) : (
         <Main>
           <ReconnectingNotification />

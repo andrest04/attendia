@@ -3,7 +3,7 @@ import { RecordingRules, RoomType } from '../types';
 import { TwilioError } from 'twilio-video';
 import { settingsReducer, initialSettings, Settings, SettingsAction } from './settings/settingsReducer';
 import useActiveSinkId from './useActiveSinkId/useActiveSinkId';
-import useFirebaseAuth, { UserProfile } from './useFirebaseAuth/useFirebaseAuth';
+import useFirebaseAuth, { UserProfile, ResourceRecord, ClassRecord } from './useFirebaseAuth/useFirebaseAuth';
 import { useLocalStorageState } from '../hooks/useLocalStorageState/useLocalStorageState';
 import usePasscodeAuth from './usePasscodeAuth/usePasscodeAuth';
 import { User } from 'firebase/auth';
@@ -32,6 +32,19 @@ export interface StateContextType {
   // presence and the feature is silently absent — same contract as /profile.
   saveAttentionReport?(report: AttentionReport): Promise<void>;
   fetchAttentionReports?(): Promise<StoredAttentionReport[]>;
+  // Firebase-mode only: real persistence for the "Recursos" tab (teacher-uploaded
+  // class materials). Undefined in the other auth modes — ResourcesTab gates on
+  // presence, same contract as saveAttentionReport/fetchAttentionReports.
+  fetchResources?(): Promise<ResourceRecord[]>;
+  uploadResource?(file: File, roomLabel: string): Promise<ResourceRecord>;
+  fetchResourceDownloadUrl?(id: string): Promise<string>;
+  deleteResource?(id: string): Promise<void>;
+  // Firebase-mode only: real persistence for the "Clases" tab (scheduled upcoming
+  // sessions). Undefined in the other auth modes — ClassesTab's caller gates on
+  // presence, same contract as fetchResources/uploadResource/deleteResource.
+  fetchClasses?(): Promise<ClassRecord[]>;
+  createClass?(input: { title: string; scheduledAtMs: number; studentCount: number }): Promise<ClassRecord>;
+  deleteClass?(id: string): Promise<void>;
   isFetching: boolean;
   activeSinkId: string;
   setActiveSinkId(sinkId: string): void;

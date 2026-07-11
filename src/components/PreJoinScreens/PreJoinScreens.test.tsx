@@ -1,6 +1,7 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
 import DeviceSelectionScreen from './DeviceSelectionScreen/DeviceSelectionScreen';
+import IntroContainer from '../IntroContainer/IntroContainer';
 import MediaErrorSnackbar from './MediaErrorSnackbar/MediaErrorSnackbar';
 import { mount, shallow } from 'enzyme';
 import PreJoinScreens from './PreJoinScreens';
@@ -11,6 +12,7 @@ import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { checkRoomOpen } from './checkRoomOpen';
 import { getResumableSession } from './rejoinSession';
 import useAutoRejoin from './useAutoRejoin';
+import { Steps } from './steps';
 import { setImmediate } from 'timers';
 
 // @ts-ignore
@@ -472,5 +474,93 @@ describe('the PreJoinScreens component', () => {
     const error = wrapper.find(MediaErrorSnackbar).prop('error');
     expect(error).toBe('testError');
     expect(mockGetAudioAndVideoTracks).toHaveBeenCalledTimes(1);
+  });
+
+  // ── Back-to-dashboard handoff ─────────────────────────────────────────────────
+
+  it('does not offer onReturnToDashboard to IntroContainer when App.tsx does not provide it', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    const wrapper = shallow(<PreJoinScreens />);
+
+    expect(wrapper.find(IntroContainer).prop('onReturnToDashboard')).toBeUndefined();
+  });
+
+  it('resets the URL to "/" and calls onReturnToDashboard on the room-name step', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    const onReturnToDashboard = jest.fn();
+    const wrapper = shallow(<PreJoinScreens onReturnToDashboard={onReturnToDashboard} />);
+
+    const handler = wrapper.find(IntroContainer).prop('onReturnToDashboard');
+    expect(handler).toBeInstanceOf(Function);
+    handler!();
+
+    expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '/');
+    expect(onReturnToDashboard).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reset the URL for twilio function origin when returning to the dashboard', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    // @ts-ignore
+    window.location = { ...window.location, origin: 'https://video-app-1234-twil.io' };
+    const onReturnToDashboard = jest.fn();
+    const wrapper = shallow(<PreJoinScreens onReturnToDashboard={onReturnToDashboard} />);
+
+    wrapper.find(IntroContainer).prop('onReturnToDashboard')!();
+
+    expect(window.history.replaceState).not.toHaveBeenCalled();
+    expect(onReturnToDashboard).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not surface onReturnToDashboard on the device-selection step (Cancelar covers it there)', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    const onReturnToDashboard = jest.fn();
+    const wrapper = shallow(
+      <PreJoinScreens
+        initialClassSession={{ roomName: 'mat-a', name: 'Prof. García [Profesor]' }}
+        onReturnToDashboard={onReturnToDashboard}
+      />
+    );
+
+    expect(wrapper.find(IntroContainer).prop('onReturnToDashboard')).toBeUndefined();
+  });
+
+  it('routes the device-selection Cancelar to the dashboard when arriving via the dashboard handoff', () => {
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    const onReturnToDashboard = jest.fn();
+    const wrapper = shallow(
+      <PreJoinScreens
+        initialClassSession={{ roomName: 'mat-a', name: 'Prof. García [Profesor]' }}
+        onReturnToDashboard={onReturnToDashboard}
+      />
+    );
+
+    const setStep = wrapper.find(DeviceSelectionScreen).prop('setStep');
+    setStep(Steps.roomNameStep);
+
+    expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '/');
+    expect(onReturnToDashboard).toHaveBeenCalledTimes(1);
+    expect(wrapper.find(RoomNameScreen).exists()).toBe(false);
+  });
+
+  it('keeps the normal step-back behavior for a student, ignoring onReturnToDashboard', async () => {
+    const onReturnToDashboard = jest.fn();
+    const wrapper = mount(<PreJoinScreens onReturnToDashboard={onReturnToDashboard} />);
+
+    act(() => {
+      wrapper.find(RoomNameScreen).prop('setName')('Student Name');
+    });
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
+    });
+    wrapper.update();
+    expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(true);
+
+    act(() => {
+      wrapper.find(DeviceSelectionScreen).prop('setStep')(Steps.roomNameStep);
+    });
+    wrapper.update();
+
+    expect(onReturnToDashboard).not.toHaveBeenCalled();
+    expect(wrapper.find(RoomNameScreen).exists()).toBe(true);
   });
 });

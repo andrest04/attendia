@@ -295,13 +295,39 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: 'clamp(4px, 0.8vh, 10px)',
   },
 
+  // ── Content column (back link + card, sharing one max width) ────────────────
+  contentColumn: {
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100%',
+    maxWidth: 520,
+    gap: 10,
+  },
+  // Back-to-dashboard link (teacher only): rendered ABOVE contentCard, as its own
+  // row, so it reads as page-level navigation rather than part of the white card.
+  backToDashboardLink: {
+    alignSelf: 'flex-start',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 500,
+    fontSize: 13,
+    color: '#64748b',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: 0,
+    lineHeight: '19.5px',
+    '&:hover': {
+      color: '#1d6eed',
+      textDecoration: 'underline',
+    },
+  },
+
   // ── Content card wrapper ──────────────────────────────────────────────────────
   contentCard: {
     backgroundColor: '#ffffff',
     border: '1px solid #e2ecf9',
     borderRadius: 20,
     width: '100%',
-    maxWidth: 520,
     boxShadow: '0px 2px 12px 0px rgba(29,110,237,0.08), 0px 1px 3px 0px rgba(0,0,0,0.04)',
     overflow: 'hidden',
     [theme.breakpoints.down('sm')]: {
@@ -381,6 +407,9 @@ interface IntroContainerProps {
   // location.state.preJoinRole so the lobby reopens on the right role card. Role is a
   // client-set value (no server field), so it must travel with the navigation.
   homeRole?: 'teacher' | 'student';
+  // When set (teacher only), renders a "Volver al panel" link above the content card
+  // that abandons the prejoin flow and returns to the TeacherDashboard.
+  onReturnToDashboard?: () => void;
 }
 
 const IntroContainer = (props: IntroContainerProps) => {
@@ -439,7 +468,10 @@ const IntroContainer = (props: IntroContainerProps) => {
             </div>
           ) : null}
 
-          {user && location.pathname !== '/login' && (
+          {/* Hidden when "Volver al panel" is showing (roomNameStep reached from the
+              TeacherDashboard): that link is already the way back, so the account
+              menu (Historial de clases / Cerrar sesión) here would be redundant. */}
+          {user && location.pathname !== '/login' && !props.onReturnToDashboard && (
             <div className={classes.userMenuWrapper}>
               <UserMenu />
             </div>
@@ -469,8 +501,18 @@ const IntroContainer = (props: IntroContainerProps) => {
           </div>
         )}
 
-        <div className={classes.contentCard} style={props.maxWidth ? { maxWidth: props.maxWidth } : undefined}>
-          {props.children}
+        <div className={classes.contentColumn} style={props.maxWidth ? { maxWidth: props.maxWidth } : undefined}>
+          {props.onReturnToDashboard && (
+            <button
+              type="button"
+              className={classes.backToDashboardLink}
+              onClick={props.onReturnToDashboard}
+              data-testid="back-to-dashboard"
+            >
+              ← Volver al panel
+            </button>
+          )}
+          <div className={classes.contentCard}>{props.children}</div>
         </div>
       </div>
 
