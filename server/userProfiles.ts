@@ -4,11 +4,9 @@ import { logOperationalFailure } from './operationalEvents';
 /*
  * Firestore-backed user profiles: users/{uid} = { displayName, email, role, createdAt }.
  *
- * The role is self-declared at registration (accepted product decision for now),
- * BUT at request time the server always resolves the role by reading Firestore
- * with the uid from the VERIFIED ID token — nothing the browser sends is trusted.
- * Locking down who may hold role=teacher later only requires changing the write
- * path (createPostProfileHandler); every reader keeps working unchanged.
+ * Client registration can only create student profiles. Teacher profiles are
+ * provisioned by an administrator with the documented bootstrap command, so a
+ * verified Firebase identity alone can never grant teacher access.
  *
  * Both endpoints assume firebaseAuthMiddleware already ran and attached the
  * decoded token to res.locals.firebaseUser.
@@ -16,7 +14,7 @@ import { logOperationalFailure } from './operationalEvents';
 
 export type UserRole = 'teacher' | 'student';
 
-const VALID_ROLES: UserRole[] = ['teacher', 'student'];
+const STUDENT_ROLE: UserRole = 'student';
 
 // Decoded Firebase identity attached by firebaseAuthMiddleware. Lives here (a leaf
 // module with no runtime deps) so the middleware and the handlers share one type
@@ -127,13 +125,13 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
 
     const body = req.body ?? {};
     const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
-    const role = body.role;
+    const requestedRole = body.role;
 
-    if (!VALID_ROLES.includes(role)) {
+    if (requestedRole !== STUDENT_ROLE) {
       res.status(400).json({
         error: {
-          message: 'invalid role',
-          explanation: 'El rol debe ser "teacher" o "student".',
+          message: 'teacher provisioning required',
+          explanation: 'Las cuentas docentes deben ser habilitadas por un administrador.',
         },
       });
       return;
@@ -153,9 +151,7 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
       const docRef = db.collection('users').doc(firebaseUser.uid);
       const snapshot = await docRef.get();
 
-      // Role is write-once through this endpoint: an existing profile is never
-      // modified, we just echo it back. This is the single place to harden later
-      // (e.g. requiring approval for role=teacher) without touching any reader.
+      // Existing profiles are never modified through this public endpoint.
       if (snapshot.exists) {
         res.status(200).json(toProfileResponse(snapshot.data() || {}));
         return;
@@ -166,11 +162,11 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
       await docRef.set({
         displayName,
         email,
-        role,
+        role: STUDENT_ROLE,
         createdAt: serverTimestamp(),
       });
 
-      res.status(201).json({ displayName, email, role });
+      res.status(201).json({ displayName, email, role: STUDENT_ROLE });
     } catch (err) {
       logOperationalFailure({ event: 'profile_save_failed', operation: 'profile_create', uid: firebaseUser.uid, error: err });
       res.status(503).json({

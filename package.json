@@ -106,6 +106,7 @@
     "server": "ts-node -T -P server/tsconfig.json server/index.ts",
     "typescript:server": "tsc --noEmit -p server/",
     "test:ci": "node scripts/check-focused-tests.js && cross-env TZ=utc jest --config jest.config.js --ci --runInBand --reporters=default --reporters=jest-junit --coverage --silent",
+    "firebase:bootstrap-teacher": "node scripts/bootstrap-firebase-teacher.js",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run --browser chrome",
     "cypress:ci": "cross-env CYPRESS_baseUrl=http://localhost:8081 start-server-and-test server http://localhost:8081 cypress:run",
