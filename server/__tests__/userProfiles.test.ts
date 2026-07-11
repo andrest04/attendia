@@ -1,4 +1,5 @@
-import { createGetProfileHandler, createPostProfileHandler, ProfileDatabase } from '../userProfiles';
+import { createGetProfileHandler, createPatchProfileHandler, createPostProfileHandler, ProfileDatabase } from '../userProfiles';
+import { createClientOperationalEventHandler } from '../operationalEvents';
 
 const makeRes = () => {
   const res: any = { locals: { firebaseUser: { uid: 'uid-1', email: 'ana@example.com' } } };
@@ -70,6 +71,7 @@ describe('createGetProfileHandler', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: expect.objectContaining({ message: 'profile lookup failed' }) })
     );
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('"failure":"profile_read_failed"'));
     consoleError.mockRestore();
   });
 
@@ -83,6 +85,25 @@ describe('createGetProfileHandler', () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(get).not.toHaveBeenCalled();
+  });
+});
+
+describe('createClientOperationalEventHandler', () => {
+  afterEach(jest.clearAllMocks);
+
+  it('logs a safe browser profile failure against the verified uid', () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const handler = createClientOperationalEventHandler();
+    const res = makeRes();
+
+    handler({ body: { operation: 'profile_email_change_confirm', failure: 'auth/network-request-failed' } } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(204);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('"failure":"client_profile_failure"')
+    );
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('"uid":"uid-1"'));
+    consoleError.mockRestore();
   });
 });
 
@@ -197,5 +218,66 @@ describe('createPostProfileHandler', () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(get).not.toHaveBeenCalled();
+  });
+});
+
+describe('createPatchProfileHandler', () => {
+  afterEach(jest.clearAllMocks);
+
+  it('updates only the verified teacher own name and avatar', async () => {
+    const { db, doc, get, set } = makeDb();
+    const teacher = { ...storedProfile, role: 'teacher' };
+    get.mockResolvedValue({ exists: true, data: () => teacher });
+    const handler = createPatchProfileHandler(db);
+    const res = makeRes();
+
+    await handler(
+      { body: { displayName: 'Ana docente', avatarDataUrl: 'data:image/jpeg;base64,AA==' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(doc).toHaveBeenCalledWith('uid-1');
+    expect(set).toHaveBeenCalledWith(
+      { displayName: 'Ana docente', avatarDataUrl: 'data:image/jpeg;base64,AA==' },
+      { merge: true }
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ role: 'teacher', displayName: 'Ana docente' }));
+  });
+
+  it('rejects uid, role, arbitrary email and invalid avatar before touching Firestore', async () => {
+    const { db, get, set } = makeDb();
+    const handler = createPatchProfileHandler(db);
+    const res = makeRes();
+
+    await handler({ body: { uid: 'other-user', role: 'teacher', email: 'other@example.com' } } as any, res, jest.fn());
+
+    expect(get).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('uses the verified token email when syncing after Firebase verification', async () => {
+    const { db, get, set } = makeDb();
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher' }) });
+    const handler = createPatchProfileHandler(db);
+    const res = makeRes();
+
+    await handler({ body: { syncEmail: true } } as any, res, jest.fn());
+
+    expect(set).toHaveBeenCalledWith({ email: 'ana@example.com' }, { merge: true });
+  });
+
+  it('rejects non-teachers server-side', async () => {
+    const { db, get, set } = makeDb();
+    get.mockResolvedValue({ exists: true, data: () => storedProfile });
+    const handler = createPatchProfileHandler(db);
+    const res = makeRes();
+
+    await handler({ body: { displayName: 'Ana docente' } } as any, res, jest.fn());
+
+    expect(set).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
   });
 });
