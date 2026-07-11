@@ -1,0 +1,387 @@
+import { RequestHandler } from 'express';
+
+/*
+ * Firestore + Storage-backed teacher "Recursos" (class materials):
+ * users/{uid}/resources/{fileId} = { name, kind, roomLabel, sizeBytes, contentType,
+ * storagePath, createdAt }, with the actual bytes in Storage at storagePath.
+ *
+ * Teacher enforcement happens HERE, server-side, same as attentionReports.ts: every
+ * handler re-resolves role from users/{uid} (written by userProfiles.ts) using the
+ * uid from the VERIFIED ID token. All four endpoints assume firebaseAuthMiddleware
+ * already ran and attached the decoded token to res.locals.firebaseUser.
+ *
+ * Date/size formatting for display ("2.4 MB", "12 jul") is left to the client — this
+ * module only returns raw sizeBytes/createdAtMs, mirroring how attentionReports.ts
+ * returns endedAtMs instead of a formatted string.
+ */
+
+export type ResourceKind = 'pdf' | 'presentation' | 'video';
+
+// Enforced again here even though multer is configured with the same limit in
+// index.ts — this module must not trust its wiring.
+export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+
+const MAX_NAME_LENGTH = 200;
+const MAX_ROOM_LABEL_LENGTH = 120;
+
+// Max resources returned by GET /resources (newest first).
+const MAX_RESOURCES_RETURNED = 200;
+
+const PRESENTATION_MIME_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.oasis.opendocument.presentation',
+]);
+
+function resolveKind(mimetype: string): ResourceKind | null {
+  if (mimetype === 'application/pdf') return 'pdf';
+  if (PRESENTATION_MIME_TYPES.has(mimetype)) return 'presentation';
+  if (mimetype.startsWith('video/')) return 'video';
+  return null;
+}
+
+// Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
+// userProfiles.ts/attentionReports.ts on purpose — each server unit stays
+// independently deployable and testable.
+export interface VerifiedFirebaseUser {
+  uid: string;
+  email?: string;
+}
+
+// ─── Structural Firestore slice ────────────────────────────────────────────────
+// Minimal surface used below; the real firebase-admin Firestore satisfies all of
+// these structurally (same pattern as ReportsDatabase in attentionReports.ts).
+
+export interface ResourceDocumentSnapshot {
+  id: string;
+  exists: boolean;
+  data(): { [key: string]: any } | undefined;
+}
+
+export interface ResourceDocumentReference {
+  id: string;
+  get(): Promise<ResourceDocumentSnapshot>;
+  set(data: { [key: string]: any }): Promise<unknown>;
+  delete(): Promise<unknown>;
+}
+
+export interface ResourceQuerySnapshot {
+  docs: ResourceDocumentSnapshot[];
+}
+
+export interface ResourcesQuery {
+  get(): Promise<ResourceQuerySnapshot>;
+}
+
+export interface ResourcesCollection {
+  doc(id?: string): ResourceDocumentReference;
+  orderBy(field: string, direction: 'asc' | 'desc'): { limit(n: number): ResourcesQuery };
+}
+
+export interface UserDocumentSnapshot {
+  exists: boolean;
+  data(): { [key: string]: any } | undefined;
+}
+
+export interface UserDocumentReference {
+  get(): Promise<UserDocumentSnapshot>;
+  collection(name: string): ResourcesCollection;
+}
+
+export interface ResourcesDatabase {
+  collection(name: string): { doc(id: string): UserDocumentReference };
+}
+
+// ─── Structural Storage slice ──────────────────────────────────────────────────
+// Satisfied structurally by a real @google-cloud/storage Bucket/File.
+
+export interface ResourceStorageFile {
+  save(buffer: Buffer, options: { metadata: { contentType: string } }): Promise<unknown>;
+  delete(): Promise<unknown>;
+  getSignedUrl(options: { action: 'read'; expires: number }): Promise<[string]>;
+}
+
+export interface ResourcesBucket {
+  file(path: string): ResourceStorageFile;
+}
+
+// multer's req.file shape — declared locally to avoid an @types/multer dependency
+// on this leaf module's public surface.
+export interface UploadedFile {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
+function getVerifiedUser(res: Parameters<RequestHandler>[1]): VerifiedFirebaseUser | undefined {
+  const firebaseUser = res.locals && res.locals.firebaseUser;
+  if (firebaseUser && typeof firebaseUser.uid === 'string' && firebaseUser.uid.length > 0) {
+    return firebaseUser as VerifiedFirebaseUser;
+  }
+  return undefined;
+}
+
+function sendTeacherOnly(res: Parameters<RequestHandler>[1]) {
+  res.status(403).json({
+    error: {
+      message: 'teacher role required',
+      explanation: 'Los recursos de clase solo están disponibles para profesores.',
+    },
+  });
+}
+
+function sendBadRequest(res: Parameters<RequestHandler>[1], message: string, explanation: string) {
+  res.status(400).json({ error: { message, explanation } });
+}
+
+/**
+ * Resolves whether the verified uid holds role=teacher in Firestore, mirroring
+ * attentionReports.ts. Throws on Firestore failure (caller maps it to 503).
+ */
+async function resolveIsTeacher(db: ResourcesDatabase, uid: string): Promise<boolean> {
+  const snapshot = await db
+    .collection('users')
+    .doc(uid)
+    .get();
+  if (!snapshot.exists) return false;
+  const data = snapshot.data() || {};
+  return data.role === 'teacher';
+}
+
+function toResourceResponse(id: string, data: { [key: string]: any }) {
+  return {
+    id,
+    name: data.name,
+    kind: data.kind,
+    roomLabel: data.roomLabel,
+    sizeBytes: data.sizeBytes,
+    contentType: data.contentType,
+  };
+}
+
+export function createGetResourcesHandler(db: ResourcesDatabase): RequestHandler {
+  return async (_req, res) => {
+    const firebaseUser = getVerifiedUser(res);
+
+    if (!firebaseUser) {
+      res.status(401).send();
+      return;
+    }
+
+    try {
+      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
+        sendTeacherOnly(res);
+        return;
+      }
+
+      // Single-field orderBy on a subcollection — no composite index required.
+      const snapshot = await db
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .collection('resources')
+        .orderBy('createdAt', 'desc')
+        .limit(MAX_RESOURCES_RETURNED)
+        .get();
+
+      const resources = snapshot.docs.map(doc => {
+        const data = doc.data() || {};
+        return {
+          ...toResourceResponse(doc.id, data),
+          createdAtMs:
+            data.createdAt && typeof data.createdAt.toMillis === 'function' ? data.createdAt.toMillis() : null,
+        };
+      });
+
+      res.status(200).json(resources);
+    } catch (err) {
+      console.error('resources: could not list resources', err);
+      res.status(503).json({
+        error: {
+          message: 'resource lookup failed',
+          explanation: 'No pudimos consultar los recursos de la clase. Intenta de nuevo en unos segundos.',
+        },
+      });
+    }
+  };
+}
+
+export function createUploadResourceHandler(
+  db: ResourcesDatabase,
+  bucket: ResourcesBucket,
+  serverTimestamp: () => unknown
+): RequestHandler {
+  return async (req, res) => {
+    const firebaseUser = getVerifiedUser(res);
+
+    if (!firebaseUser) {
+      res.status(401).send();
+      return;
+    }
+
+    try {
+      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
+        sendTeacherOnly(res);
+        return;
+      }
+
+      const file = (req as any).file as UploadedFile | undefined;
+      if (!file) {
+        sendBadRequest(res, 'missing file', 'Debes seleccionar un archivo para subir.');
+        return;
+      }
+
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (50 MB).');
+        return;
+      }
+
+      const kind = resolveKind(file.mimetype);
+      if (!kind) {
+        sendBadRequest(
+          res,
+          'unsupported file type',
+          'Solo se admiten PDFs, presentaciones (PPTX/ODP) y videos.'
+        );
+        return;
+      }
+
+      const body = req.body ?? {};
+      const roomLabel = typeof body.roomLabel === 'string' ? body.roomLabel.trim().slice(0, MAX_ROOM_LABEL_LENGTH) : '';
+      if (!roomLabel) {
+        sendBadRequest(res, 'invalid roomLabel', 'Debes indicar a qué clase pertenece el archivo.');
+        return;
+      }
+
+      const name = (file.originalname || 'archivo').trim().slice(0, MAX_NAME_LENGTH) || 'archivo';
+
+      const docRef = db
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .collection('resources')
+        .doc();
+      const storagePath = `resources/${firebaseUser.uid}/${docRef.id}-${name}`;
+
+      await bucket.file(storagePath).save(file.buffer, { metadata: { contentType: file.mimetype } });
+
+      await docRef.set({
+        name,
+        kind,
+        roomLabel,
+        sizeBytes: file.size,
+        contentType: file.mimetype,
+        storagePath,
+        createdAt: serverTimestamp(),
+      });
+
+      res.status(201).json(toResourceResponse(docRef.id, { name, kind, roomLabel, sizeBytes: file.size, contentType: file.mimetype }));
+    } catch (err) {
+      console.error('resources: could not save the resource', err);
+      res.status(503).json({
+        error: {
+          message: 'resource save failed',
+          explanation: 'No pudimos subir el archivo. Intenta de nuevo en unos segundos.',
+        },
+      });
+    }
+  };
+}
+
+export function createDownloadResourceHandler(db: ResourcesDatabase, bucket: ResourcesBucket): RequestHandler {
+  return async (req, res) => {
+    const firebaseUser = getVerifiedUser(res);
+
+    if (!firebaseUser) {
+      res.status(401).send();
+      return;
+    }
+
+    try {
+      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
+        sendTeacherOnly(res);
+        return;
+      }
+
+      const docRef = db
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .collection('resources')
+        .doc(req.params.id);
+      const snapshot = await docRef.get();
+
+      if (!snapshot.exists) {
+        res.status(404).json({
+          error: { message: 'resource not found', explanation: 'El recurso solicitado no existe.' },
+        });
+        return;
+      }
+
+      const data = snapshot.data() || {};
+      const [url] = await bucket.file(data.storagePath).getSignedUrl({ action: 'read', expires: Date.now() + 5 * 60 * 1000 });
+
+      res.status(200).json({ url });
+    } catch (err) {
+      console.error('resources: could not generate a download url', err);
+      res.status(503).json({
+        error: {
+          message: 'resource download failed',
+          explanation: 'No pudimos generar el enlace de descarga. Intenta de nuevo en unos segundos.',
+        },
+      });
+    }
+  };
+}
+
+export function createDeleteResourceHandler(db: ResourcesDatabase, bucket: ResourcesBucket): RequestHandler {
+  return async (req, res) => {
+    const firebaseUser = getVerifiedUser(res);
+
+    if (!firebaseUser) {
+      res.status(401).send();
+      return;
+    }
+
+    try {
+      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
+        sendTeacherOnly(res);
+        return;
+      }
+
+      const docRef = db
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .collection('resources')
+        .doc(req.params.id);
+      const snapshot = await docRef.get();
+
+      if (!snapshot.exists) {
+        res.status(404).json({
+          error: { message: 'resource not found', explanation: 'El recurso solicitado no existe.' },
+        });
+        return;
+      }
+
+      const data = snapshot.data() || {};
+
+      // Best-effort: the Firestore doc is the source of truth for listing, so a
+      // dangling Storage object (e.g. already removed out-of-band) must not block
+      // the doc delete from succeeding.
+      await bucket
+        .file(data.storagePath)
+        .delete()
+        .catch(err => console.error('resources: could not delete storage object', err));
+
+      await docRef.delete();
+
+      res.status(200).json({ deleted: true });
+    } catch (err) {
+      console.error('resources: could not delete the resource', err);
+      res.status(503).json({
+        error: {
+          message: 'resource delete failed',
+          explanation: 'No pudimos eliminar el recurso. Intenta de nuevo en unos segundos.',
+        },
+      });
+    }
+  };
+}

@@ -16,6 +16,9 @@ jest.mock('firebase-admin', () => {
       verifyIdToken: mockVerifyIdToken,
     }),
     firestore: mockFirestore,
+    storage: () => ({
+      bucket: jest.fn(() => ({})),
+    }),
     credential: {
       cert: jest.fn((cert: any) => cert),
     },
