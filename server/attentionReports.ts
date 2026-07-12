@@ -65,7 +65,7 @@ export interface ReportDocumentReference {
 
 export interface ReportTransaction {
   get(reference: ReportDocumentReference): Promise<ReportDocumentSnapshot>;
-  set(reference: ReportDocumentReference, data: { [key: string]: any }): ReportTransaction;
+  set(reference: ReportDocumentReference, data: { [key: string]: any }, options?: { merge: boolean }): ReportTransaction;
   update(reference: ReportDocumentReference, data: { [key: string]: any }): ReportTransaction;
 }
 
@@ -190,10 +190,17 @@ function sanitizeReportBody(body: {
     return { error: { message: 'invalid classId', explanation: 'La clase asociada no es válida.' } };
   }
 
+  // Only the fields listed below ever reach Firestore — this is a whitelist by
+  // construction. In particular `recording` (the Twilio Composition artifact status)
+  // is deliberately absent: it is server-derived only (see recordings.ts) and a
+  // client-supplied value here is silently dropped, never persisted.
   return {
     report: {
       roomSid,
       roomName,
+      // Omit the key entirely rather than setting it to `undefined` — the
+      // Firestore Admin SDK rejects `undefined` field values outright, and
+      // this branch is hit on every ad-hoc (non-scheduled-class) session.
       ...(typeof body.classId === 'string' && body.classId.trim() ? { classId: body.classId.trim() } : {}),
       endReason: body.endReason,
       source: body.source === 'live' ? 'live' : 'mock',
@@ -260,7 +267,10 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
           }
           transaction.update(classRef, { status: 'completed', completedAt: serverTimestamp() });
         }
-        transaction.set(reportRef, { ...report, endedAt: serverTimestamp() });
+        // merge: true — a replayed save (Feature 1's keepalive-on-unload + pending-queue
+        // auto-retry can legitimately resend the same roomSid) must not wipe out the
+        // `recording` field recordings.ts writes onto this same doc after the class ends.
+        transaction.set(reportRef, { ...report, endedAt: serverTimestamp() }, { merge: true });
       });
 
       res.status(201).json({ saved: true, roomSid: report.roomSid });

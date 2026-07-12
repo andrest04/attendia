@@ -103,6 +103,8 @@ Now the local token server (see [server/index.ts](server/index.ts)) can dispense
 
 **Note:** the use of Twilio Conversations is optional. If you wish to opt out, simply run or build this app with the `REACT_APP_DISABLE_TWILIO_CONVERSATIONS` environment variable set to `true`.
 
+**Recording downloads:** the teacher-requested class recording feature (`server/recordings.ts`) signs short-lived download tickets with the `RECORDING_DOWNLOAD_SECRET` environment variable — set it to any long random string in your `.env` before using "Solicitar grabación" in the dashboard's class history. Without it, the download-ticket and download endpoints fail closed with a 503 instead of serving an unsigned link.
+
 ### Running the App locally
 
 Run the app locally with

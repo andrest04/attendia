@@ -13,6 +13,12 @@ import { createGetProfileHandler, createPostProfileHandler, createPatchProfileHa
 import { createClientOperationalEventHandler } from './operationalEvents';
 import { createGetReportHandler, createGetReportsHandler, createPostReportHandler } from './attentionReports';
 import {
+  createRequestRecordingHandler,
+  createGetRecordingStatusHandler,
+  createIssueRecordingDownloadTicketHandler,
+  createDownloadRecordingHandler,
+} from './recordings';
+import {
   createGetResourcesHandler,
   createUploadResourceHandler,
   createDownloadResourceHandler,
@@ -65,6 +71,24 @@ app.post('/operational-events', authMiddleware, createClientOperationalEventHand
 app.get('/reports', authMiddleware, createGetReportsHandler(firestore));
 app.get('/reports/:roomSid', authMiddleware, createGetReportHandler(firestore));
 app.post('/reports', authMiddleware, createPostReportHandler(firestore, serverTimestamp));
+
+// Teacher-requested Twilio recording (Composition) artifacts for a completed class,
+// stored on the same report doc as a `recording` field. Server-proxied end to end so
+// the Twilio Account SID/Auth Token never reach the browser — see recordings.ts.
+// The download endpoint alone is ticket-authorized (no firebaseAuthMiddleware):
+// window.open cannot send a custom Authorization header.
+const { RECORDING_DOWNLOAD_SECRET } = process.env;
+app.post('/reports/:roomSid/recording', authMiddleware, createRequestRecordingHandler(firestore, twilioClient));
+app.get('/reports/:roomSid/recording', authMiddleware, createGetRecordingStatusHandler(firestore, twilioClient));
+app.get(
+  '/reports/:roomSid/recording/download-url',
+  authMiddleware,
+  createIssueRecordingDownloadTicketHandler(firestore, RECORDING_DOWNLOAD_SECRET)
+);
+app.get(
+  '/reports/:roomSid/recording/download',
+  createDownloadRecordingHandler(firestore, twilioClient, RECORDING_DOWNLOAD_SECRET)
+);
 
 // Teacher-only "Recursos" tab: users/{uid}/resources/{fileId} in Firestore, with the
 // file bytes stored base64-encoded directly in the document (no Cloud Storage — see

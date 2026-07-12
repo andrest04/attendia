@@ -1,5 +1,6 @@
 import React from 'react';
 import { mount } from 'enzyme';
+import { act } from 'react-dom/test-utils';
 import HistoryTab from './HistoryTab';
 
 const reports: any[] = [
@@ -44,9 +45,20 @@ const reports: any[] = [
 ];
 
 describe('HistoryTab', () => {
-  const props = { reports, isLoading: false, error: null, onRetry: jest.fn(), onOpenReport: jest.fn() };
+  const props = {
+    reports,
+    isLoading: false,
+    error: null,
+    onRetry: jest.fn(),
+    onOpenReport: jest.fn(),
+    onRequestRecording: jest.fn(() => Promise.resolve({ status: 'enqueued' as const })),
+    onCheckRecordingStatus: jest.fn(() => Promise.resolve({ status: 'processing' as const })),
+    onGetRecordingDownloadUrl: jest.fn(() => Promise.resolve('/reports/x/recording/download?ticket=abc')),
+  };
 
-  it('renders persisted duration, disclosed mock attention, and no invented recording download', () => {
+  afterEach(() => jest.clearAllMocks());
+
+  it('renders persisted duration, disclosed mock attention, a request-recording action, and "No disponible" for the other row', () => {
     const wrapper = mount(<HistoryTab {...props} />);
 
     expect(wrapper.find('[data-testid="dashboard-history-row-RM00000000000000000000000000000abc"]').text()).toContain(
@@ -55,9 +67,51 @@ describe('HistoryTab', () => {
     expect(wrapper.find('[data-testid="dashboard-history-row-RM00000000000000000000000000000def"]').text()).toContain(
       'Datos simulados'
     );
-    expect(wrapper.text()).toContain('Activa al cierre (archivo no disponible)');
+    expect(
+      wrapper.find('[data-testid="dashboard-history-recording-request-RM00000000000000000000000000000abc"]').exists()
+    ).toBe(true);
     expect(wrapper.text()).toContain('No disponible');
-    expect(wrapper.find('[data-testid="dashboard-history-download"]').exists()).toBe(false);
+    expect(
+      wrapper.find('[data-testid="dashboard-history-recording-download-RM00000000000000000000000000000abc"]').exists()
+    ).toBe(false);
+  });
+
+  it('requests a recording and reflects the enqueued status', async () => {
+    const wrapper = mount(<HistoryTab {...props} />);
+
+    await act(async () => {
+      wrapper
+        .find('[data-testid="dashboard-history-recording-request-RM00000000000000000000000000000abc"]')
+        .first()
+        .simulate('click');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    wrapper.update();
+
+    expect(props.onRequestRecording).toHaveBeenCalledWith('RM00000000000000000000000000000abc');
+    expect(
+      wrapper.find('[data-testid="dashboard-history-recording-pending-RM00000000000000000000000000000abc"]').exists()
+    ).toBe(true);
+  });
+
+  it('opens the download URL for a completed recording', async () => {
+    const completedReports = [{ ...reports[0], recording: { status: 'completed', mediaExpiresAt: Date.now() + 1000 } }];
+    const windowOpen = jest.spyOn(window, 'open').mockImplementation(() => null);
+    const wrapper = mount(<HistoryTab {...props} reports={completedReports as any} />);
+
+    await act(async () => {
+      wrapper
+        .find('[data-testid="dashboard-history-recording-download-RM00000000000000000000000000000abc"]')
+        .first()
+        .simulate('click');
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(props.onGetRecordingDownloadUrl).toHaveBeenCalledWith('RM00000000000000000000000000000abc');
+    expect(windowOpen).toHaveBeenCalledWith('/reports/x/recording/download?ticket=abc', '_blank', 'noopener');
+    windowOpen.mockRestore();
   });
 
   it('filters reports and opens the selected persisted report', () => {
