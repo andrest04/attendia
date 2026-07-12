@@ -272,26 +272,69 @@ describe('the useFirebaseAuth hook', () => {
     expect(result.current.profile).toEqual(updatedProfile);
   });
 
-  it('updates an avatar without mutating Firebase Auth displayName', async () => {
+  it('uploads an avatar via multipart form data and applies the returned profile', async () => {
     mockFetch.mockResolvedValueOnce(profileResponse(200, { ...mockProfile, role: 'teacher' }));
     const { result } = renderHook(() => useFirebaseAuth());
     await act(async () => {
       await mockAuthStateCallback(mockUser);
     });
-    const updatedProfile = { ...mockProfile, role: 'teacher', avatarDataUrl: 'data:image/jpeg;base64,AA==' };
+    const updatedProfile = { ...mockProfile, role: 'teacher', avatarUrl: 'https://appwrite.example/avatar-1' };
     mockFetch.mockResolvedValueOnce(profileResponse(200, updatedProfile));
+    const file = new File(['bytes'], 'avatar.jpg', { type: 'image/jpeg' });
 
+    let returned: any;
     await act(async () => {
-      await result.current.updateTeacherProfile({ avatarDataUrl: 'data:image/jpeg;base64,AA==' });
+      returned = await result.current.uploadAvatar(file);
     });
 
-    expect(updateProfile).not.toHaveBeenCalled();
-    expect(mockFetch).toHaveBeenLastCalledWith(
-      '/profile',
-      expect.objectContaining({
-        method: 'PATCH',
-        body: JSON.stringify({ avatarDataUrl: 'data:image/jpeg;base64,AA==' }),
-      })
+    expect(returned).toEqual(updatedProfile);
+    expect(result.current.profile).toEqual(updatedProfile);
+    const [url, init] = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
+    expect(url).toBe('/profile/avatar');
+    expect(init.method).toBe('POST');
+    expect(init.headers).toEqual({ Authorization: 'idToken' });
+    expect(init.body).toBeInstanceOf(FormData);
+    expect(init.body.get('file')).toBe(file);
+  });
+
+  it('rejects uploadAvatar when there is no signed-in user', async () => {
+    const { result } = renderHook(() => useFirebaseAuth());
+    const file = new File(['bytes'], 'avatar.jpg', { type: 'image/jpeg' });
+
+    await expect(result.current.uploadAvatar(file)).rejects.toEqual(
+      new Error('Cannot upload an avatar without an authenticated user')
+    );
+  });
+
+  it('deletes an avatar and applies the returned profile', async () => {
+    mockFetch.mockResolvedValueOnce(
+      profileResponse(200, { ...mockProfile, role: 'teacher', avatarUrl: 'https://appwrite.example/avatar-1' })
+    );
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+    const updatedProfile = { ...mockProfile, role: 'teacher' };
+    mockFetch.mockResolvedValueOnce(profileResponse(200, updatedProfile));
+
+    let returned: any;
+    await act(async () => {
+      returned = await result.current.deleteAvatar();
+    });
+
+    expect(returned).toEqual(updatedProfile);
+    expect(result.current.profile).toEqual(updatedProfile);
+    expect(mockFetch).toHaveBeenLastCalledWith('/profile/avatar', {
+      method: 'DELETE',
+      headers: { Authorization: 'idToken' },
+    });
+  });
+
+  it('rejects deleteAvatar when there is no signed-in user', async () => {
+    const { result } = renderHook(() => useFirebaseAuth());
+
+    await expect(result.current.deleteAvatar()).rejects.toEqual(
+      new Error('Cannot delete an avatar without an authenticated user')
     );
   });
 
@@ -540,17 +583,17 @@ describe('the useFirebaseAuth hook', () => {
       );
     });
 
-    it('resolves the base64 content, contentType and name with the idToken', async () => {
+    it('resolves the binary response as a Blob with the idToken', async () => {
       const result = await signIn();
-      const downloadBody = { content: 'YmFzZTY0...', contentType: 'application/pdf', name: 'guia.pdf' };
-      mockFetch.mockResolvedValueOnce(profileResponse(200, downloadBody));
+      const blob = new Blob(['contenido'], { type: 'application/pdf' });
+      mockFetch.mockResolvedValueOnce({ ...profileResponse(200), blob: () => Promise.resolve(blob) });
 
       const download = await result.current.fetchResourceDownloadUrl('res-1');
 
       expect(mockFetch).toHaveBeenLastCalledWith('/resources/res-1/download', {
         headers: { Authorization: 'idToken' },
       });
-      expect(download).toEqual(downloadBody);
+      expect(download).toBe(blob);
     });
 
     it('rejects fetchResourceDownloadUrl when there is no signed-in user', async () => {

@@ -1,5 +1,14 @@
-import { createGetProfileHandler, createPatchProfileHandler, createPostProfileHandler, ProfileDatabase } from '../userProfiles';
+import {
+  createGetProfileHandler,
+  createPatchProfileHandler,
+  createPostProfileHandler,
+  createUploadAvatarHandler,
+  createDeleteAvatarHandler,
+  createAvatarUploadErrorHandler,
+  ProfileDatabase,
+} from '../userProfiles';
 import { createClientOperationalEventHandler } from '../operationalEvents';
+import { FileStorage } from '../fileStorage';
 
 const makeRes = () => {
   const res: any = { locals: { firebaseUser: { uid: 'uid-1', email: 'ana@example.com' } } };
@@ -23,6 +32,23 @@ const storedProfile = { displayName: 'Ana García', email: 'ana@example.com', ro
 
 const serverTimestamp = jest.fn(() => 'server-timestamp');
 
+// Fake FileStorage test double — no Appwrite import anywhere in this test file.
+const makeFileStorage = () => {
+  const upload = jest.fn(() => Promise.resolve({ fileId: 'avatar-file-1', url: 'https://appwrite.example/avatar-file-1' }));
+  const download = jest.fn(() => Promise.resolve(Buffer.from('')));
+  const del = jest.fn(() => Promise.resolve());
+  const fileStorage = ({ upload, download, delete: del } as unknown) as FileStorage;
+  return { fileStorage, upload, download, del };
+};
+
+const makeAvatarFile = (overrides: Partial<{ originalname: string; mimetype: string; size: number; buffer: Buffer }> = {}) => ({
+  originalname: 'avatar.jpg',
+  mimetype: 'image/jpeg',
+  size: 1024,
+  buffer: Buffer.from('image-bytes'),
+  ...overrides,
+});
+
 describe('createGetProfileHandler', () => {
   afterEach(jest.clearAllMocks);
 
@@ -42,6 +68,30 @@ describe('createGetProfileHandler', () => {
       email: 'ana@example.com',
       role: 'student',
     });
+  });
+
+  it('returns the Appwrite avatar URL when the profile has one', async () => {
+    const { db, get } = makeDb();
+    get.mockResolvedValue({
+      exists: true,
+      data: () => ({ ...storedProfile, avatarUrl: 'https://appwrite.example/avatar-1', avatarDataUrl: 'data:image/jpeg;base64,AA==' }),
+    });
+    const res = makeRes();
+
+    await createGetProfileHandler(db)({} as any, res, jest.fn());
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: 'https://appwrite.example/avatar-1' }));
+  });
+
+  it('maps a validated legacy avatarDataUrl to avatarUrl when there is no Appwrite URL', async () => {
+    const { db, get } = makeDb();
+    const avatarDataUrl = 'data:image/jpeg;base64,AA==';
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, avatarDataUrl }) });
+    const res = makeRes();
+
+    await createGetProfileHandler(db)({} as any, res, jest.fn());
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: avatarDataUrl }));
   });
 
   it('returns 404 when there is no profile document', async () => {
@@ -223,34 +273,39 @@ describe('createPostProfileHandler', () => {
 describe('createPatchProfileHandler', () => {
   afterEach(jest.clearAllMocks);
 
-  it('updates only the verified teacher own name and avatar', async () => {
+  it('updates only the verified teacher own name', async () => {
     const { db, doc, get, set } = makeDb();
     const teacher = { ...storedProfile, role: 'teacher' };
     get.mockResolvedValue({ exists: true, data: () => teacher });
     const handler = createPatchProfileHandler(db);
     const res = makeRes();
 
-    await handler(
-      { body: { displayName: 'Ana docente', avatarDataUrl: 'data:image/jpeg;base64,AA==' } } as any,
-      res,
-      jest.fn()
-    );
+    await handler({ body: { displayName: 'Ana docente' } } as any, res, jest.fn());
 
     expect(doc).toHaveBeenCalledWith('uid-1');
-    expect(set).toHaveBeenCalledWith(
-      { displayName: 'Ana docente', avatarDataUrl: 'data:image/jpeg;base64,AA==' },
-      { merge: true }
-    );
+    expect(set).toHaveBeenCalledWith({ displayName: 'Ana docente' }, { merge: true });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ role: 'teacher', displayName: 'Ana docente' }));
   });
 
-  it('rejects uid, role, arbitrary email and invalid avatar before touching Firestore', async () => {
+  it('rejects uid, role, arbitrary email and the removed avatarDataUrl field before touching Firestore', async () => {
     const { db, get, set } = makeDb();
     const handler = createPatchProfileHandler(db);
     const res = makeRes();
 
     await handler({ body: { uid: 'other-user', role: 'teacher', email: 'other@example.com' } } as any, res, jest.fn());
+
+    expect(get).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
+
+  it('rejects avatarDataUrl now that avatars are handled by /profile/avatar', async () => {
+    const { db, get, set } = makeDb();
+    const handler = createPatchProfileHandler(db);
+    const res = makeRes();
+
+    await handler({ body: { avatarDataUrl: 'data:image/jpeg;base64,AA==' } } as any, res, jest.fn());
 
     expect(get).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
@@ -278,5 +333,283 @@ describe('createPatchProfileHandler', () => {
 
     expect(set).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(403);
+  });
+});
+
+describe('createUploadAvatarHandler', () => {
+  afterEach(jest.clearAllMocks);
+
+  it('uploads the file to storage and saves avatarUrl/avatarFileId, returning 200', async () => {
+    const { db, doc, get, set } = makeDb();
+    const { fileStorage, upload } = makeFileStorage();
+    const teacher = { ...storedProfile, role: 'teacher' };
+    get.mockResolvedValue({ exists: true, data: () => teacher });
+    const handler = createUploadAvatarHandler(db, fileStorage);
+    const res = makeRes();
+    const file = makeAvatarFile();
+
+    await handler({ file } as any, res, jest.fn());
+
+    expect(doc).toHaveBeenCalledWith('uid-1');
+    expect(upload).toHaveBeenCalledWith({
+      buffer: file.buffer,
+      contentType: 'image/jpeg',
+      fileName: expect.stringContaining('uid-1-avatar-'),
+    });
+    expect(set).toHaveBeenCalledWith(
+      { avatarUrl: 'https://appwrite.example/avatar-file-1', avatarFileId: 'avatar-file-1' },
+      { merge: true }
+    );
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ avatarUrl: 'https://appwrite.example/avatar-file-1' })
+    );
+  });
+
+  it('logs a failed previous-avatar cleanup without changing the successful response', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { db, get, set } = makeDb();
+    const { fileStorage, del } = makeFileStorage();
+    del.mockRejectedValue(new Error('appwrite down'));
+    const teacher = { ...storedProfile, role: 'teacher', avatarFileId: 'old-file' };
+    get.mockResolvedValue({ exists: true, data: () => teacher });
+    const handler = createUploadAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({ file: makeAvatarFile() } as any, res, jest.fn());
+    await Promise.resolve();
+
+    expect(set).toHaveBeenCalled();
+    expect(del).toHaveBeenCalledWith('old-file');
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('avatar_replace_cleanup_failed'));
+    consoleError.mockRestore();
+  });
+
+  it('returns 401 when the middleware did not attach a verified user', async () => {
+    const { db, get } = makeDb();
+    const { fileStorage } = makeFileStorage();
+    const handler = createUploadAvatarHandler(db, fileStorage);
+    const res = makeRes();
+    res.locals = {};
+
+    await handler({ file: makeAvatarFile() } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 for a non-teacher before touching storage', async () => {
+    const { db, get } = makeDb();
+    const { fileStorage, upload } = makeFileStorage();
+    get.mockResolvedValue({ exists: true, data: () => storedProfile });
+    const handler = createUploadAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({ file: makeAvatarFile() } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when no file is attached', async () => {
+    const { db, get } = makeDb();
+    const { fileStorage, upload } = makeFileStorage();
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher' }) });
+    const handler = createUploadAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({} as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for an unsupported mime type', async () => {
+    const { db, get } = makeDb();
+    const { fileStorage, upload } = makeFileStorage();
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher' }) });
+    const handler = createUploadAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({ file: makeAvatarFile({ mimetype: 'image/gif' }) } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when the file exceeds the max size', async () => {
+    const { db, get } = makeDb();
+    const { fileStorage, upload } = makeFileStorage();
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher' }) });
+    const handler = createUploadAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({ file: makeAvatarFile({ size: 3 * 1024 * 1024 }) } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when the storage upload fails', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { db, get, set } = makeDb();
+    const { fileStorage, upload } = makeFileStorage();
+    upload.mockRejectedValue(new Error('appwrite down'));
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher' }) });
+    const handler = createUploadAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({ file: makeAvatarFile() } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(set).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('cleans up the uploaded avatar when Firestore persistence fails', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { db, get, set } = makeDb();
+    const { fileStorage, del } = makeFileStorage();
+    set.mockRejectedValue(new Error('firestore down'));
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher' }) });
+    const res = makeRes();
+
+    await createUploadAvatarHandler(db, fileStorage)({ file: makeAvatarFile() } as any, res, jest.fn());
+
+    expect(del).toHaveBeenCalledWith('avatar-file-1');
+    expect(res.status).toHaveBeenCalledWith(503);
+    consoleError.mockRestore();
+  });
+});
+
+describe('createDeleteAvatarHandler', () => {
+  afterEach(jest.clearAllMocks);
+
+  it('clears Appwrite and legacy avatar fields so the deleted avatar cannot reappear', async () => {
+    const { db, doc, get, set } = makeDb();
+    const { fileStorage, del } = makeFileStorage();
+    const teacher = {
+      ...storedProfile,
+      role: 'teacher',
+      avatarUrl: 'https://appwrite.example/x',
+      avatarFileId: 'file-x',
+      avatarDataUrl: 'data:image/jpeg;base64,AA==',
+    };
+    get.mockResolvedValue({ exists: true, data: () => teacher });
+    const handler = createDeleteAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({} as any, res, jest.fn());
+    await Promise.resolve();
+
+    expect(doc).toHaveBeenCalledWith('uid-1');
+    expect(set).toHaveBeenCalledWith({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null }, { merge: true });
+    expect(del).toHaveBeenCalledWith('file-x');
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: undefined }));
+  });
+
+  it('logs a failed avatar cleanup without changing the successful Firestore response', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { db, get } = makeDb();
+    const { fileStorage, del } = makeFileStorage();
+    del.mockRejectedValue(new Error('appwrite down'));
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher', avatarFileId: 'file-x' }) });
+    const res = makeRes();
+
+    await createDeleteAvatarHandler(db, fileStorage)({} as any, res, jest.fn());
+    await Promise.resolve();
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('avatar_delete_storage_failed'));
+    consoleError.mockRestore();
+  });
+
+  it('skips the storage delete when there was no avatarFileId', async () => {
+    const { db, get, set } = makeDb();
+    const { fileStorage, del } = makeFileStorage();
+    const teacher = { ...storedProfile, role: 'teacher' };
+    get.mockResolvedValue({ exists: true, data: () => teacher });
+    const handler = createDeleteAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({} as any, res, jest.fn());
+
+    expect(set).toHaveBeenCalledWith({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null }, { merge: true });
+    expect(del).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('returns 401 when the middleware did not attach a verified user', async () => {
+    const { db, get } = makeDb();
+    const { fileStorage } = makeFileStorage();
+    const handler = createDeleteAvatarHandler(db, fileStorage);
+    const res = makeRes();
+    res.locals = {};
+
+    await handler({} as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 for a non-teacher before touching storage', async () => {
+    const { db, get } = makeDb();
+    const { fileStorage, del } = makeFileStorage();
+    get.mockResolvedValue({ exists: true, data: () => storedProfile });
+    const handler = createDeleteAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({} as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when Firestore fails', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { db, get, set } = makeDb();
+    const { fileStorage } = makeFileStorage();
+    set.mockRejectedValue(new Error('firestore down'));
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher' }) });
+    const handler = createDeleteAvatarHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({} as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    consoleError.mockRestore();
+  });
+});
+
+describe('createAvatarUploadErrorHandler', () => {
+  it('maps multer file-size failures to the avatar JSON error contract', () => {
+    const res = makeRes();
+    const next = jest.fn();
+    const err = { code: 'LIMIT_FILE_SIZE' };
+    const req = {} as any;
+
+    createAvatarUploadErrorHandler()(err, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      error: { message: 'file too large', explanation: 'La foto supera el tamaño máximo permitido (2 MB).' },
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('passes non-multer errors through to the next middleware', () => {
+    const res = makeRes();
+    const next = jest.fn();
+    const err = new Error('unexpected');
+    const req = {} as any;
+    res.status.mockClear();
+    res.json.mockClear();
+
+    createAvatarUploadErrorHandler()(err, req, res, next);
+
+    expect(next).toHaveBeenCalledWith(err);
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
   });
 });

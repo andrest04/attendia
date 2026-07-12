@@ -9,7 +9,16 @@ import fs from 'fs';
 import path from 'path';
 import { ServerlessFunction } from './types';
 import { firestore, serverTimestamp } from './firebaseAdmin';
-import { createGetProfileHandler, createPostProfileHandler, createPatchProfileHandler } from './userProfiles';
+import {
+  createGetProfileHandler,
+  createPostProfileHandler,
+  createPatchProfileHandler,
+  createUploadAvatarHandler,
+  createDeleteAvatarHandler,
+  createAvatarUploadErrorHandler,
+  MAX_AVATAR_FILE_SIZE_BYTES,
+} from './userProfiles';
+import { createAppwriteFileStorage } from './appwriteFileStorage';
 import { createClientOperationalEventHandler } from './operationalEvents';
 import { createGetReportHandler, createGetReportsHandler, createPostReportHandler } from './attentionReports';
 import {
@@ -23,6 +32,7 @@ import {
   createUploadResourceHandler,
   createDownloadResourceHandler,
   createDeleteResourceHandler,
+  createResourceUploadErrorHandler,
   MAX_FILE_SIZE_BYTES,
 } from './resources';
 import {
@@ -54,6 +64,24 @@ const recordingRulesEndpoint = createExpressHandler(recordingRulesFunction);
 // that unique name exists.
 const roomExists = createRoomExists(twilioClient);
 
+// Appwrite Storage singletons: avatars (public-read, so the returned view URL can be
+// used straight in an <img src>) and resources (private — content only leaves through
+// the authenticated server download route). See appwriteFileStorage.ts.
+const avatarStorage = createAppwriteFileStorage({
+  endpoint: process.env.APPWRITE_ENDPOINT!,
+  projectId: process.env.APPWRITE_PROJECT_ID!,
+  apiKey: process.env.APPWRITE_API_KEY!,
+  bucketId: process.env.APPWRITE_AVATARS_BUCKET_ID!,
+  publicRead: true,
+});
+const resourceStorage = createAppwriteFileStorage({
+  endpoint: process.env.APPWRITE_ENDPOINT!,
+  projectId: process.env.APPWRITE_PROJECT_ID!,
+  apiKey: process.env.APPWRITE_API_KEY!,
+  bucketId: process.env.APPWRITE_RESOURCES_BUCKET_ID!,
+  publicRead: false,
+});
+
 app.all('/token', authMiddleware, createRoomAccessGuard(roomExists), tokenEndpoint);
 app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 
@@ -63,6 +91,9 @@ app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 app.get('/profile', authMiddleware, createGetProfileHandler(firestore));
 app.post('/profile', authMiddleware, createPostProfileHandler(firestore, serverTimestamp));
 app.patch('/profile', authMiddleware, createPatchProfileHandler(firestore));
+const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_AVATAR_FILE_SIZE_BYTES } });
+app.post('/profile/avatar', authMiddleware, avatarUpload.single('file'), createAvatarUploadErrorHandler(), createUploadAvatarHandler(firestore, avatarStorage));
+app.delete('/profile/avatar', authMiddleware, createDeleteAvatarHandler(firestore, avatarStorage));
 app.post('/operational-events', authMiddleware, createClientOperationalEventHandler());
 
 // Per-class attention reports (users/{uid}/reports/{roomSid}), written when the
@@ -90,16 +121,22 @@ app.get(
   createDownloadRecordingHandler(firestore, twilioClient, RECORDING_DOWNLOAD_SECRET)
 );
 
-// Teacher-only "Recursos" tab: users/{uid}/resources/{fileId} in Firestore, with the
-// file bytes stored base64-encoded directly in the document (no Cloud Storage — see
-// resources.ts for why). Uploads are buffered in memory (multer) before being
-// base64-encoded. See resources.ts for the validation/role checks.
+// Teacher-only "Recursos" tab: users/{uid}/resources/{fileId} metadata in Firestore,
+// file bytes in Appwrite Storage (private bucket — see resources.ts and
+// appwriteFileStorage.ts). Uploads are buffered in memory (multer) before being
+// forwarded to Appwrite. See resources.ts for the validation/role checks.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE_BYTES } });
 
 app.get('/resources', authMiddleware, createGetResourcesHandler(firestore));
-app.post('/resources', authMiddleware, upload.single('file'), createUploadResourceHandler(firestore, serverTimestamp));
-app.get('/resources/:id/download', authMiddleware, createDownloadResourceHandler(firestore));
-app.delete('/resources/:id', authMiddleware, createDeleteResourceHandler(firestore));
+app.post(
+  '/resources',
+  authMiddleware,
+  upload.single('file'),
+  createResourceUploadErrorHandler(),
+  createUploadResourceHandler(firestore, serverTimestamp, resourceStorage)
+);
+app.get('/resources/:id/download', authMiddleware, createDownloadResourceHandler(firestore, resourceStorage));
+app.delete('/resources/:id', authMiddleware, createDeleteResourceHandler(firestore, resourceStorage));
 
 // Teacher-only "Clases" tab: users/{uid}/classes/{classId} scheduled-session
 // metadata in Firestore, no Storage involved. See classes.ts for the validation/
@@ -110,9 +147,10 @@ app.post('/classes/:id/start', authMiddleware, createStartClassHandler(firestore
 app.delete('/classes/:id', authMiddleware, createDeleteClassHandler(firestore));
 
 // Teacher-only "end the session for everyone": completes the Twilio room so all
-// participants are disconnected and the class can no longer be rejoined. Guarded by
-// the (guardrail-only) teacher-identity check inside the handler. See completeRoom.ts.
-app.post('/completeRoom', authMiddleware, createCompleteRoomHandler(twilioClient));
+// participants are disconnected and the class can no longer be rejoined. The
+// teacher role is resolved server-side from the Firestore profile, not from the
+// request body. See completeRoom.ts.
+app.post('/completeRoom', authMiddleware, createCompleteRoomHandler(twilioClient, firestore));
 
 // Read-only probe so the student prejoin can warn "the class isn't open yet" BEFORE the
 // device-selection waiting room, instead of only when POST /token blocks them. This never

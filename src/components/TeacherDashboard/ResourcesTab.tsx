@@ -300,14 +300,12 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
 
   const handleDownload = (resource: ResourceRecord) => {
     fetchResourceDownloadUrl(resource.id)
-      .then(({ content, contentType }) => {
-        const binary = atob(content);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-        const objectUrl = URL.createObjectURL(new Blob([bytes], { type: contentType }));
-        window.open(objectUrl, '_blank', 'noopener');
+      .then(blob => {
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = resource.name;
+        link.click();
         setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
       })
       .catch(err => {
