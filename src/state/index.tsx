@@ -26,11 +26,11 @@ export interface StateContextType {
   register?(name: string, email: string, password: string, role: ClassSessionRole): Promise<void>;
   completeProfile?(role: ClassSessionRole): Promise<void>;
   createPassword?(password: string): Promise<void>;
-  updateTeacherProfile?(input: {
-    displayName?: string;
-    avatarDataUrl?: string | null;
-    syncEmail?: true;
-  }): Promise<UserProfile>;
+  updateTeacherProfile?(input: { displayName?: string; syncEmail?: true }): Promise<UserProfile>;
+  // Real persistence for the teacher profile avatar (Appwrite Storage, behind the
+  // FileStorage port on the server — see server/fileStorage.ts).
+  uploadAvatar?(file: File): Promise<UserProfile>;
+  deleteAvatar?(): Promise<UserProfile>;
   changeEmail?(email: string, currentPassword?: string): Promise<UserProfile>;
   changePassword?(currentPassword: string | undefined, newPassword: string): Promise<void>;
   // Persistence of per-class attention reports (teacher-only, enforced server-side).
@@ -46,7 +46,7 @@ export interface StateContextType {
   // Real persistence for the "Recursos" tab (teacher-uploaded class materials).
   fetchResources?(): Promise<ResourceRecord[]>;
   uploadResource?(file: File, classId: string): Promise<ResourceRecord>;
-  fetchResourceDownloadUrl?(id: string): Promise<{ content: string; contentType: string; name: string }>;
+  fetchResourceDownloadUrl?(id: string): Promise<Blob>;
   deleteResource?(id: string): Promise<void>;
   // Real persistence for the "Clases" tab (scheduled upcoming sessions).
   fetchClasses?(): Promise<ClassRecord[]>;

@@ -23,9 +23,11 @@ const teacherState = (overrides = {}) => ({
     displayName: 'Ana',
     email: 'ana@example.com',
     role: 'teacher',
-    avatarDataUrl: 'data:image/jpeg;base64,AA==',
+    avatarUrl: 'https://appwrite.example/avatar-1.jpg',
   },
   updateTeacherProfile: jest.fn(() => Promise.resolve()),
+  uploadAvatar: jest.fn(() => Promise.resolve({ displayName: 'Ana', email: 'ana@example.com', role: 'teacher' })),
+  deleteAvatar: jest.fn(() => Promise.resolve({ displayName: 'Ana', email: 'ana@example.com', role: 'teacher' })),
   changeEmail: jest.fn(() => Promise.resolve()),
   changePassword: jest.fn(() => Promise.resolve()),
   ...overrides,
@@ -104,14 +106,14 @@ describe('TeacherProfilePage', () => {
     ).toBe('/');
   });
 
-  it('removes the avatar through the profile mutation and keeps the loading action disabled', async () => {
+  it('removes the avatar through deleteAvatar and keeps the loading action disabled', async () => {
     const state = teacherState();
     mockUseAppState.mockReturnValue(state);
     const wrapper = shallow(<TeacherProfilePage />);
 
     await button(wrapper, 'Usar foto de Google').prop('onClick')!({});
 
-    expect(state.updateTeacherProfile).toHaveBeenCalledWith({ avatarDataUrl: null });
+    expect(state.deleteAvatar).toHaveBeenCalled();
     expect(wrapper.text()).toContain('Foto eliminada.');
   });
 
