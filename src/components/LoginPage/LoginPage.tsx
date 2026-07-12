@@ -209,6 +209,26 @@ const useStyles = makeStyles((theme: Theme) => ({
       color: '#94a3b8',
     },
   },
+  completionCancelButton: {
+    display: 'flex',
+    minHeight: 36,
+    margin: '12px auto 0',
+    padding: '6px 12px',
+    borderRadius: 8,
+    color: '#64748b',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 12,
+    textTransform: 'none',
+    '&:hover': {
+      backgroundColor: '#f1f5fb',
+      color: '#1d2f6f',
+    },
+    '&.Mui-focusVisible': {
+      outline: '2px solid #1d6eed',
+      outlineOffset: 2,
+    },
+  },
   // ── Divider between the email form and the Google button ─────────────────────
   divider: {
     display: 'flex',
@@ -332,7 +352,7 @@ function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role
 
 export default function LoginPage() {
   const classes = useStyles();
-  const { signIn, signInWithEmail, register, completeProfile, user, profile, isAuthReady } = useAppState();
+  const { signIn, signInWithEmail, register, completeProfile, signOut, user, profile, isAuthReady } = useAppState();
   const history = useHistory();
   const location = useLocation<{ from: Location }>();
   const [authError, setAuthError] = useState<Error | null>(null);
@@ -344,12 +364,14 @@ export default function LoginPage() {
   const [fullName, setFullName] = useState('');
   const [registerRole, setRegisterRole] = useState<PreJoinRole>('student');
   const [completionRole, setCompletionRole] = useState<PreJoinRole>('student');
+  const [hasExitedCompletion, setHasExitedCompletion] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const runFirebaseAction = (action: Promise<void> | undefined) => {
+  const runFirebaseAction = (action: Promise<void> | undefined, onSuccess?: () => void) => {
     setAuthError(null);
     setIsSubmitting(true);
     (action || Promise.resolve())
+      .then(() => onSuccess?.())
       .catch(err => setAuthError(new Error(getFirebaseAuthErrorMessage(err))))
       .finally(() => setIsSubmitting(false));
   };
@@ -373,6 +395,12 @@ export default function LoginPage() {
     runFirebaseAction(completeProfile?.(completionRole));
   };
 
+  const handleAbandonCompletion = () => {
+    if (signOut) {
+      runFirebaseAction(signOut(), () => setHasExitedCompletion(true));
+    }
+  };
+
   const switchView = (nextView: 'login' | 'register') => {
     setAuthError(null);
     setView(nextView);
@@ -392,7 +420,7 @@ export default function LoginPage() {
 
   // First-time Google users arrive authenticated but without a profile: only the
   // role is missing, so show the completion step instead of the auth forms.
-  const showCompletionStep = Boolean(user) && !profile;
+  const showCompletionStep = Boolean(user) && !profile && !hasExitedCompletion;
 
   // Role currently highlighted on screen — drives IntroContainer's page tint
   // (blue for teacher, amber for student). The login view has no role cards, so
@@ -420,6 +448,15 @@ export default function LoginPage() {
               )}
               <Button variant="contained" type="submit" disabled={isSubmitting} className={classes.primaryButton}>
                 Confirmar y continuar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAbandonCompletion}
+                disabled={isSubmitting}
+                className={classes.completionCancelButton}
+                aria-label="Cancelar la configuración y cerrar sesión"
+              >
+                Cancelar y cerrar sesión
               </Button>
             </form>
           </>
