@@ -1,20 +1,23 @@
-import { RequestHandler } from 'express';
+import { ErrorRequestHandler, RequestHandler } from 'express';
 import { logOperationalFailure } from './operationalEvents';
+import { FileStorage } from './fileStorage';
 
 /*
- * Firestore-only teacher "Recursos" (class materials):
- * users/{uid}/resources/{fileId} = { name, kind, roomLabel, sizeBytes, contentType,
- * content, createdAt }, with the actual file bytes stored base64-encoded directly in
- * the `content` field of the Firestore document.
+ * Teacher "Recursos" (class materials): the file bytes live in Appwrite Storage (a
+ * private, non-public-read bucket); Firestore only keeps metadata plus a `fileId`
+ * pointer at users/{uid}/resources/{fileId} = { name, kind, roomLabel, sizeBytes,
+ * contentType, fileId, createdAt }.
  *
- * Why not Cloud Storage: Firebase Storage requires the project to be on the paid
- * Blaze billing plan, which this project deliberately avoids. Firestore is on the
- * free Spark plan, so the bytes are embedded in the document instead.
+ * This replaces an earlier approach that stored the file bytes base64-encoded
+ * directly in the Firestore document (avoiding Firebase Storage's paid Blaze
+ * requirement). That 1 MiB-per-document ceiling no longer applies now that bytes live
+ * in Appwrite — see appwriteFileStorage.ts for the storage implementation and
+ * fileStorage.ts for the storage-agnostic port these handlers program against.
  *
- * This is why MAX_FILE_SIZE_BYTES is small: Firestore caps a document at 1 MiB, and
- * base64 inflates raw bytes by ~4/3. 700 KB of raw bytes becomes ~933 KB of base64,
- * leaving headroom in the 1 MiB budget for the document's other fields (name, kind,
- * roomLabel, contentType, sizeBytes, createdAt).
+ * The resources bucket has no public read — content only ever leaves the server as
+ * base64 JSON to an authenticated request (createDownloadResourceHandler), exactly
+ * like before. Client contract is unchanged: fileId is a server-only pointer and is
+ * never exposed to the client.
  *
  * Teacher enforcement happens HERE, server-side, same as attentionReports.ts: every
  * handler re-resolves role from users/{uid} (written by userProfiles.ts) using the
@@ -29,12 +32,22 @@ import { logOperationalFailure } from './operationalEvents';
 export type ResourceKind = 'pdf' | 'presentation' | 'video';
 
 // Enforced again here even though multer is configured with the same limit in
-// index.ts — this module must not trust its wiring. Kept small: see the file header
-// comment for why (Firestore's 1 MiB document limit plus base64 inflation).
-export const MAX_FILE_SIZE_BYTES = 700 * 1024;
+// index.ts — this module must not trust its wiring. No longer bounded by Firestore's
+// 1 MiB document limit (file bytes live in Appwrite now, not in the document) —
+// bounded instead by not wanting to buffer huge files in server memory via multer
+// before forwarding them to Appwrite. The Appwrite bucket itself allows up to 100MB;
+// the server deliberately enforces the tighter 25MB here.
+export const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 const MAX_NAME_LENGTH = 200;
 const MAX_ROOM_LABEL_LENGTH = 120;
+
+// Temporary read-only bridge for documents written before Appwrite Storage. The
+// old upload limit was 700 KiB, so this prevents an oversized Firestore field
+// from being decoded while keeping the fallback straightforward to remove.
+const LEGACY_CONTENT_MAX_BYTES = 700 * 1024;
+const LEGACY_CONTENT_MAX_BASE64_LENGTH = Math.ceil(LEGACY_CONTENT_MAX_BYTES / 3) * 4;
+const LEGACY_BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 // Max resources returned by GET /resources (newest first).
 const MAX_RESOURCES_RETURNED = 200;
@@ -50,6 +63,30 @@ function resolveKind(mimetype: string): ResourceKind | null {
   if (PRESENTATION_MIME_TYPES.has(mimetype)) return 'presentation';
   if (mimetype.startsWith('video/')) return 'video';
   return null;
+}
+
+function safeContentType(contentType: unknown): string {
+  if (contentType === 'application/pdf' || PRESENTATION_MIME_TYPES.has(contentType as string)) return contentType as string;
+  return typeof contentType === 'string' && /^video\/[a-z0-9!#$&^_.+-]+$/i.test(contentType)
+    ? contentType
+    : 'application/octet-stream';
+}
+
+function decodeLegacyContent(content: unknown): Buffer {
+  if (
+    typeof content !== 'string' ||
+    content.length === 0 ||
+    content.length > LEGACY_CONTENT_MAX_BASE64_LENGTH ||
+    !LEGACY_BASE64_PATTERN.test(content)
+  ) {
+    throw new Error('invalid legacy resource content');
+  }
+
+  const buffer = Buffer.from(content, 'base64');
+  if (buffer.length > LEGACY_CONTENT_MAX_BYTES) {
+    throw new Error('legacy resource content exceeds size limit');
+  }
+  return buffer;
 }
 
 // Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
@@ -208,7 +245,11 @@ export function createGetResourcesHandler(db: ResourcesDatabase): RequestHandler
   };
 }
 
-export function createUploadResourceHandler(db: ResourcesDatabase, serverTimestamp: () => unknown): RequestHandler {
+export function createUploadResourceHandler(
+  db: ResourcesDatabase,
+  serverTimestamp: () => unknown,
+  fileStorage: FileStorage
+): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
 
@@ -217,6 +258,7 @@ export function createUploadResourceHandler(db: ResourcesDatabase, serverTimesta
       return;
     }
 
+    let uploadedFileId: string | undefined;
     try {
       if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
         sendTeacherOnly(res);
@@ -230,7 +272,7 @@ export function createUploadResourceHandler(db: ResourcesDatabase, serverTimesta
       }
 
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (700 KB).');
+        sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (25 MB).');
         return;
       }
 
@@ -267,6 +309,13 @@ export function createUploadResourceHandler(db: ResourcesDatabase, serverTimesta
 
       const name = (file.originalname || 'archivo').trim().slice(0, MAX_NAME_LENGTH) || 'archivo';
 
+      const stored = await fileStorage.upload({
+        buffer: file.buffer,
+        contentType: file.mimetype,
+        fileName: name,
+      });
+      uploadedFileId = stored.fileId;
+
       const docRef = db
         .collection('users')
         .doc(firebaseUser.uid)
@@ -282,9 +331,10 @@ export function createUploadResourceHandler(db: ResourcesDatabase, serverTimesta
         roomName: classData.roomName,
         sizeBytes: file.size,
         contentType: file.mimetype,
-        content: file.buffer.toString('base64'),
+        fileId: stored.fileId,
         createdAt: serverTimestamp(),
       });
+      uploadedFileId = undefined;
 
       res.status(201).json(
         toResourceResponse(docRef.id, {
@@ -299,6 +349,16 @@ export function createUploadResourceHandler(db: ResourcesDatabase, serverTimesta
         })
       );
     } catch (err) {
+      if (uploadedFileId) {
+        fileStorage.delete(uploadedFileId).catch(cleanupError =>
+          logOperationalFailure({
+            event: 'resource_upload_cleanup_failed',
+            operation: 'POST /resources',
+            uid: firebaseUser.uid,
+            error: cleanupError,
+          })
+        );
+      }
       logOperationalFailure({ event: 'resource_save_failed', operation: 'POST /resources', uid: firebaseUser.uid, error: err });
       res.status(503).json({
         error: {
@@ -310,7 +370,7 @@ export function createUploadResourceHandler(db: ResourcesDatabase, serverTimesta
   };
 }
 
-export function createDownloadResourceHandler(db: ResourcesDatabase): RequestHandler {
+export function createDownloadResourceHandler(db: ResourcesDatabase, fileStorage: FileStorage): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
 
@@ -341,7 +401,13 @@ export function createDownloadResourceHandler(db: ResourcesDatabase): RequestHan
 
       const data = snapshot.data() || {};
 
-      res.status(200).json({ content: data.content, contentType: data.contentType, name: data.name });
+      // Read legacy base64 only when this document has no Appwrite pointer. New
+      // writes always carry fileId, so this bridge can be removed after migration.
+      const fileId = typeof data.fileId === 'string' && data.fileId.trim() ? data.fileId : undefined;
+      const buffer = fileId ? await fileStorage.download(fileId) : decodeLegacyContent(data.content);
+      const name = typeof data.name === 'string' && data.name ? data.name : 'archivo';
+
+      res.type(safeContentType(data.contentType)).attachment(name).status(200).send(buffer);
     } catch (err) {
       logOperationalFailure({ event: 'resource_download_failed', operation: 'GET /resources/:id/download', uid: firebaseUser.uid, error: err });
       res.status(503).json({
@@ -354,7 +420,7 @@ export function createDownloadResourceHandler(db: ResourcesDatabase): RequestHan
   };
 }
 
-export function createDeleteResourceHandler(db: ResourcesDatabase): RequestHandler {
+export function createDeleteResourceHandler(db: ResourcesDatabase, fileStorage: FileStorage): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
 
@@ -383,7 +449,21 @@ export function createDeleteResourceHandler(db: ResourcesDatabase): RequestHandl
         return;
       }
 
+      const data = snapshot.data() || {};
+      const fileId = typeof data.fileId === 'string' ? data.fileId : undefined;
+
       await docRef.delete();
+
+      if (fileId) {
+        fileStorage.delete(fileId).catch(error =>
+          logOperationalFailure({
+            event: 'resource_delete_storage_failed',
+            operation: 'DELETE /resources/:id',
+            uid: firebaseUser.uid,
+            error,
+          })
+        );
+      }
 
       res.status(200).json({ deleted: true });
     } catch (err) {
@@ -397,3 +477,11 @@ export function createDeleteResourceHandler(db: ResourcesDatabase): RequestHandl
     }
   };
 }
+
+export const createResourceUploadErrorHandler = (): ErrorRequestHandler => (err, _req, res, next) => {
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (25 MB).');
+    return;
+  }
+  next(err);
+};

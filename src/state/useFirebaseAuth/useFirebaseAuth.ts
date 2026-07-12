@@ -54,7 +54,7 @@ export interface UserProfile {
   displayName: string;
   email: string;
   role: ClassSessionRole;
-  avatarDataUrl?: string;
+  avatarUrl?: string;
 }
 
 // Shared non-OK handling for the /profile and /reports requests: surface the
@@ -104,7 +104,7 @@ async function postProfileRequest(user: User, displayName: string, role: ClassSe
 
 async function patchProfileRequest(
   user: User,
-  input: { displayName?: string; avatarDataUrl?: string | null; syncEmail?: true }
+  input: { displayName?: string; syncEmail?: true }
 ): Promise<UserProfile> {
   const idToken = await user.getIdToken(true);
   const response = await fetch('/profile', {
@@ -238,13 +238,8 @@ async function uploadResourceRequest(user: User, file: File, classId: string): P
   return response.json();
 }
 
-// GET /resources/:id/download — resolves the base64-encoded file content stored
-// directly in the Firestore document, plus enough metadata to reconstruct it
-// client-side (contentType, name).
-async function fetchResourceDownloadRequest(
-  user: User,
-  id: string
-): Promise<{ content: string; contentType: string; name: string }> {
+// GET /resources/:id/download — streams the authenticated binary response into a Blob.
+async function fetchResourceDownloadRequest(user: User, id: string): Promise<Blob> {
   const idToken = await user.getIdToken();
 
   const response = await fetch(`/resources/${encodeURIComponent(id)}/download`, {
@@ -253,7 +248,7 @@ async function fetchResourceDownloadRequest(
 
   await throwOnErrorResponse(response);
 
-  return response.json();
+  return response.blob();
 }
 
 // DELETE /resources/:id
@@ -266,6 +261,32 @@ async function deleteResourceRequest(user: User, id: string): Promise<void> {
   });
 
   await throwOnErrorResponse(response);
+}
+
+// POST /profile/avatar (multipart). Uploads the compressed avatar to Appwrite Storage
+// (via the server) and returns the updated profile with the new avatarUrl.
+async function uploadAvatarRequest(user: User, file: File): Promise<UserProfile> {
+  const idToken = await user.getIdToken();
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetch('/profile/avatar', {
+    method: 'POST',
+    headers: { Authorization: idToken },
+    body: formData,
+  });
+  await throwOnErrorResponse(response);
+  return response.json();
+}
+
+// DELETE /profile/avatar
+async function deleteAvatarRequest(user: User): Promise<UserProfile> {
+  const idToken = await user.getIdToken();
+  const response = await fetch('/profile/avatar', {
+    method: 'DELETE',
+    headers: { Authorization: idToken },
+  });
+  await throwOnErrorResponse(response);
+  return response.json();
 }
 
 // Mirror of one users/{uid}/classes/{id} document served by the /classes
@@ -537,7 +558,7 @@ export default function useFirebaseAuth() {
   );
 
   const updateTeacherProfile = useCallback(
-    async (input: { displayName?: string; avatarDataUrl?: string | null; syncEmail?: true }) => {
+    async (input: { displayName?: string; syncEmail?: true }) => {
       if (!user) throw new Error('No hay una sesión activa.');
       const previousDisplayName = user.displayName;
       try {
@@ -705,6 +726,30 @@ export default function useFirebaseAuth() {
     [user]
   );
 
+  // Unlike uploadResource/deleteResource, avatar changes must update shared profile
+  // state immediately (same as updateTeacherProfile), since the profile is what other
+  // views (TeacherDashboard header, etc.) read the avatar from.
+  const uploadAvatar = useCallback(
+    async (file: File) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot upload an avatar without an authenticated user'));
+      }
+      const updatedProfile = await uploadAvatarRequest(user, file);
+      applyProfile(updatedProfile);
+      return updatedProfile;
+    },
+    [user, applyProfile]
+  );
+
+  const deleteAvatar = useCallback(async () => {
+    if (!user) {
+      return Promise.reject(new Error('Cannot delete an avatar without an authenticated user'));
+    }
+    const updatedProfile = await deleteAvatarRequest(user);
+    applyProfile(updatedProfile);
+    return updatedProfile;
+  }, [user, applyProfile]);
+
   const fetchClasses = useCallback(() => {
     if (!user) {
       return Promise.reject(new Error('Cannot fetch classes without an authenticated user'));
@@ -774,6 +819,8 @@ export default function useFirebaseAuth() {
     uploadResource,
     fetchResourceDownloadUrl,
     deleteResource,
+    uploadAvatar,
+    deleteAvatar,
     fetchClasses,
     createClass,
     deleteClass,

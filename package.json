@@ -28,6 +28,7 @@
     "lint-staged": "^9.5.0",
     "lodash.throttle": "^4.1.1",
     "multer": "^2.2.0",
+    "node-appwrite": "^26.2.0",
     "notistack": "^1.0.10",
     "prettier": "^1.19.1",
     "react": "^16.12.0",

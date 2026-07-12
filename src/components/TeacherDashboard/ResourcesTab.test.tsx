@@ -165,10 +165,10 @@ describe('the ResourcesTab component', () => {
     expect(wrapper.text()).toContain('Selecciona una clase programada');
   });
 
-  it('decodes the base64 content into a Blob and opens an object URL in a new tab', async () => {
+  it('downloads the binary Blob using the original resource filename', async () => {
     const fetchResources = jest.fn(() => Promise.resolve([fileA]));
     const fetchResourceDownloadUrl = jest.fn(() =>
-      Promise.resolve({ content: btoa('contenido'), contentType: 'application/pdf', name: 'guia.pdf' })
+      Promise.resolve(new Blob(['contenido'], { type: 'application/pdf' }))
     );
     mockUseAppState.mockImplementation(() => ({
       fetchResources,
@@ -176,9 +176,14 @@ describe('the ResourcesTab component', () => {
       fetchResourceDownloadUrl,
       deleteResource: jest.fn(),
     }));
-    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
     const createObjectURL = jest.fn(() => 'blob:mock-url');
     const revokeObjectURL = jest.fn();
+    let downloadedFileName = '';
+    const clickSpy = jest
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function(this: HTMLAnchorElement) {
+        downloadedFileName = this.download;
+      });
     // @ts-ignore jsdom does not implement these by default
     global.URL.createObjectURL = createObjectURL;
     // @ts-ignore
@@ -196,9 +201,10 @@ describe('the ResourcesTab component', () => {
     });
 
     expect(fetchResourceDownloadUrl).toHaveBeenCalledWith('file-a');
-    expect(createObjectURL).toHaveBeenCalled();
-    expect(openSpy).toHaveBeenCalledWith('blob:mock-url', '_blank', 'noopener');
-    openSpy.mockRestore();
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(clickSpy).toHaveBeenCalled();
+    expect(downloadedFileName).toBe('guia.pdf');
+    clickSpy.mockRestore();
   });
 
   it('deletes a resource after confirming, removing it from the grid', async () => {
