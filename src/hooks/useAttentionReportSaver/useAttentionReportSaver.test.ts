@@ -168,7 +168,7 @@ describe('useAttentionReportSaver', () => {
     expect(mockSave.mock.calls[0][0].source).toBe('mock');
   });
 
-  it('skips silently when there is genuinely no data (empty timeline, no live reading)', async () => {
+  it('still saves when there is genuinely no attention data (e.g. zero students joined)', async () => {
     const attention = { ...baseAttention, timeline: [], groupDataAvailable: false };
     const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(attention) });
 
@@ -176,7 +176,8 @@ describe('useAttentionReportSaver', () => {
       await result.current.saveReport('ended-for-all');
     });
 
-    expect(mockSave).not.toHaveBeenCalled();
+    expect(mockSave).toHaveBeenCalledTimes(1);
+    expect(mockSave.mock.calls[0][0].timeline).toEqual([]);
   });
 
   it('skips silently when the room has no SID', async () => {
