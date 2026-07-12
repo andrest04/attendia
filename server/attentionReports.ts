@@ -194,7 +194,7 @@ function sanitizeReportBody(body: {
     report: {
       roomSid,
       roomName,
-      classId: typeof body.classId === 'string' ? body.classId.trim() : undefined,
+      ...(typeof body.classId === 'string' && body.classId.trim() ? { classId: body.classId.trim() } : {}),
       endReason: body.endReason,
       source: body.source === 'live' ? 'live' : 'mock',
       studentCount: body.studentCount,
