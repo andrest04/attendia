@@ -5,23 +5,22 @@ import { settingsReducer, initialSettings, Settings, SettingsAction } from './se
 import useActiveSinkId from './useActiveSinkId/useActiveSinkId';
 import useFirebaseAuth, { UserProfile, ResourceRecord, ClassRecord } from './useFirebaseAuth/useFirebaseAuth';
 import { useLocalStorageState } from '../hooks/useLocalStorageState/useLocalStorageState';
-import usePasscodeAuth from './usePasscodeAuth/usePasscodeAuth';
 import { User } from 'firebase/auth';
 import { ClassSessionRole } from '../components/PreJoinScreens/classSessionTypes';
-import { AttentionReport, StoredAttentionReport } from '../components/AttentionProvider/reportTypes';
+import { AttentionReport, RecordingArtifact, StoredAttentionReport } from '../components/AttentionProvider/reportTypes';
 
 export interface StateContextType {
   error: TwilioError | Error | null;
   setError(error: TwilioError | Error | null): void;
-  getToken(name: string, room: string, passcode?: string): Promise<{ room_type: RoomType; token: string }>;
-  user?: User | null | { displayName: undefined; photoURL: undefined; passcode?: string };
-  signIn?(passcode?: string): Promise<void>;
+  getToken(name: string, room: string): Promise<{ room_type: RoomType; token: string }>;
+  user?: User | null;
+  signIn?(): Promise<void>;
   signOut?(): Promise<void>;
   isAuthReady?: boolean;
-  // Firebase-mode only (undefined in the other auth modes): the Firestore-backed
-  // user profile and the email/registration flows. The profile role is what the
-  // prejoin flow uses to preselect teacher/student; the server re-resolves it from
-  // Firestore on every request, so it is UX state, not an authorization boundary.
+  // The Firestore-backed user profile and the email/registration flows. The profile
+  // role is what the prejoin flow uses to preselect teacher/student; the server
+  // re-resolves it from Firestore on every request, so it is UX state, not an
+  // authorization boundary.
   profile?: UserProfile | null;
   signInWithEmail?(email: string, password: string): Promise<void>;
   register?(name: string, email: string, password: string, role: ClassSessionRole): Promise<void>;
@@ -34,22 +33,22 @@ export interface StateContextType {
   }): Promise<UserProfile>;
   changeEmail?(email: string, currentPassword?: string): Promise<UserProfile>;
   changePassword?(currentPassword: string | undefined, newPassword: string): Promise<void>;
-  // Firebase-mode only: persistence of per-class attention reports (teacher-only,
-  // enforced server-side). Undefined in the other auth modes, so consumers gate on
-  // presence and the feature is silently absent — same contract as /profile.
+  // Persistence of per-class attention reports (teacher-only, enforced server-side).
   saveAttentionReport?(report: AttentionReport): Promise<void>;
   fetchAttentionReports?(): Promise<StoredAttentionReport[]>;
   fetchAttentionReport?(roomSid: string): Promise<StoredAttentionReport>;
-  // Firebase-mode only: real persistence for the "Recursos" tab (teacher-uploaded
-  // class materials). Undefined in the other auth modes — ResourcesTab gates on
-  // presence, same contract as saveAttentionReport/fetchAttentionReports.
+  // Teacher-requested Twilio recording (Composition) artifacts, server-proxied end to
+  // end so the Twilio Account SID/Auth Token never reach the browser (see
+  // server/recordings.ts).
+  requestRecordingArtifact?(roomSid: string): Promise<RecordingArtifact>;
+  fetchRecordingArtifactStatus?(roomSid: string): Promise<RecordingArtifact>;
+  fetchRecordingDownloadUrl?(roomSid: string): Promise<string>;
+  // Real persistence for the "Recursos" tab (teacher-uploaded class materials).
   fetchResources?(): Promise<ResourceRecord[]>;
   uploadResource?(file: File, classId: string): Promise<ResourceRecord>;
   fetchResourceDownloadUrl?(id: string): Promise<{ content: string; contentType: string; name: string }>;
   deleteResource?(id: string): Promise<void>;
-  // Firebase-mode only: real persistence for the "Clases" tab (scheduled upcoming
-  // sessions). Undefined in the other auth modes — ClassesTab's caller gates on
-  // presence, same contract as fetchResources/uploadResource/deleteResource.
+  // Real persistence for the "Clases" tab (scheduled upcoming sessions).
   fetchClasses?(): Promise<ClassRecord[]>;
   createClass?(input: {
     title: string;
@@ -85,15 +84,6 @@ export interface StateContextType {
 
 export const StateContext = createContext<StateContextType>(null!);
 
-/*
-  The 'react-hooks/rules-of-hooks' linting rules prevent React Hooks from being called
-  inside of if() statements. This is because hooks must always be called in the same order
-  every time a component is rendered. The 'react-hooks/rules-of-hooks' rule is disabled below
-  because the "if (process.env.REACT_APP_SET_AUTH === 'firebase')" statements are evaluated
-  at build time (not runtime). If the statement evaluates to false, then the code is not
-  included in the bundle that is produced (due to tree-shaking). Thus, in this instance, it
-  is ok to call hooks inside if() statements.
-*/
 export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
   const [error, setError] = useState<TwilioError | null>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -134,70 +124,10 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
     setSessionEndedByProfessor,
   } as StateContextType;
 
-  if (process.env.REACT_APP_SET_AUTH === 'firebase') {
-    contextValue = {
-      ...contextValue,
-      ...useFirebaseAuth(), // eslint-disable-line react-hooks/rules-of-hooks
-    };
-  } else if (process.env.REACT_APP_SET_AUTH === 'passcode') {
-    contextValue = {
-      ...contextValue,
-      ...usePasscodeAuth(), // eslint-disable-line react-hooks/rules-of-hooks
-    };
-  } else {
-    contextValue = {
-      ...contextValue,
-      getToken: async (user_identity, room_name) => {
-        const endpoint = process.env.REACT_APP_TOKEN_ENDPOINT || '/token';
-
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_identity,
-            room_name,
-            create_conversation: process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true',
-          }),
-        });
-
-        if (!response.ok) {
-          // Surface the server's reason (e.g. the room-access guard rejecting a student
-          // for a room the teacher hasn't opened) through the app-level ErrorDialog.
-          const body = await response.json().catch(() => ({}));
-          throw new Error(body.error?.explanation || body.error?.message || response.statusText);
-        }
-
-        return response.json();
-      },
-      updateRecordingRules: async (room_sid, rules) => {
-        const endpoint = process.env.REACT_APP_TOKEN_ENDPOINT || '/recordingrules';
-
-        return fetch(endpoint, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ room_sid, rules }),
-          method: 'POST',
-        })
-          .then(async res => {
-            const jsonResponse = await res.json();
-
-            if (!res.ok) {
-              const recordingError = new Error(
-                jsonResponse.error?.message || 'There was an error updating recording rules'
-              );
-              recordingError.code = jsonResponse.error?.code;
-              return Promise.reject(recordingError);
-            }
-
-            return jsonResponse;
-          })
-          .catch(err => setError(err));
-      },
-    };
-  }
+  contextValue = {
+    ...contextValue,
+    ...useFirebaseAuth(),
+  };
 
   const getToken: StateContextType['getToken'] = (name, room) => {
     setIsFetching(true);

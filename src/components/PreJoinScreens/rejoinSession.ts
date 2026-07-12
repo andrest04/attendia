@@ -9,8 +9,8 @@
  * restores the correct room shell after reconnecting.
  *
  * sessionStorage is intentional: it survives a refresh but is scoped to the tab and
- * cleared when the tab closes — matching the passcode storage in usePasscodeAuth and
- * avoiding a new tab on the same link auto-joining with a stale identity.
+ * cleared when the tab closes, avoiding a new tab on the same link auto-joining with
+ * a stale identity.
  */
 
 export interface RejoinSession {

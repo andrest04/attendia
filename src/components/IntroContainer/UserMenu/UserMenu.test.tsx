@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Link, Menu, MenuItem, Typography } from '@material-ui/core';
+import { Button, Menu, MenuItem, Typography } from '@material-ui/core';
 import { shallow } from 'enzyme';
 import { useAppState } from '../../../state';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
@@ -26,11 +26,7 @@ describe('the UserMenu component', () => {
     signOut: mockSignOut,
   }));
 
-  describe('when logged in with firebase', () => {
-    beforeAll(() => {
-      process.env.REACT_APP_SET_AUTH = 'firebase';
-    });
-
+  describe('when logged in', () => {
     it('should open the menu when clicked', () => {
       const wrapper = shallow(<UserMenu />);
       expect(wrapper.find(Menu).prop('open')).toBe(false);
@@ -117,10 +113,6 @@ describe('the UserMenu component', () => {
     const menuItemLabels = (wrapper: any) =>
       wrapper.find(MenuItem).map((item: any) => item.find(Typography).prop('children'));
 
-    beforeAll(() => {
-      process.env.REACT_APP_SET_AUTH = 'firebase';
-    });
-
     beforeEach(() => {
       mockHistoryPush.mockClear();
     });
@@ -176,19 +168,6 @@ describe('the UserMenu component', () => {
 
       expect(wrapper.find(Menu).prop('open')).toBe(false);
       expect(mockHistoryPush).toHaveBeenCalledWith('/history');
-    });
-  });
-
-  describe('when logged in with passcode auth', () => {
-    beforeAll(() => {
-      process.env.REACT_APP_SET_AUTH = 'passcode';
-    });
-
-    it('should stop all tracks and signout when the Logout link is clicked', () => {
-      const wrapper = shallow(<UserMenu />);
-      wrapper.find(Link).simulate('click');
-      expect(mockTrack.stop).toHaveBeenCalled();
-      expect(mockSignOut).toHaveBeenCalled();
     });
   });
 });

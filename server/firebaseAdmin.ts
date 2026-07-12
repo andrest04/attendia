@@ -8,9 +8,8 @@ import firebaseAdmin from 'firebase-admin';
  * need firebase-admin. The service account credential lives in
  * server/serviceAccountKey.json (gitignored — never log or expose its contents).
  *
- * This module must only be required when REACT_APP_SET_AUTH === 'firebase'
- * (see the conditional requires in index.ts), so non-firebase deployments never
- * need the key file to exist.
+ * Firebase is the only auth mode this app supports, so server/index.ts always
+ * requires this module — the key file must exist for every deployment.
  */
 firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert(require('./serviceAccountKey.json')),
