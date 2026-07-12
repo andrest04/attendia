@@ -63,14 +63,13 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
     const currentRoom = roomRef.current;
     const data = attentionRef.current;
 
-    // Skip silently: a room that never connected has no SID, and a session with
-    // genuinely no data (no timeline AND no live reading) has nothing worth
-    // persisting. Mock data IS built (source:'mock') so dev exercises the whole
-    // pipeline.
+    // Skip silently only when the room never actually connected (no SID) or the
+    // AttentionProvider never mounted — there is nothing to attribute a report
+    // to. A class that connected and ended is a real event worth a history
+    // entry even with zero students / no attention data: the report view
+    // already renders that honestly ("—"/"Sin datos") instead of a fake 0, so
+    // there is no reason to suppress the record itself.
     if (!data || !currentRoom?.sid) {
-      return null;
-    }
-    if (data.timeline.length === 0 && !data.groupDataAvailable) {
       return null;
     }
 
