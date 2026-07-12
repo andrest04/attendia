@@ -1,5 +1,4 @@
 import type { RequestHandler } from 'express';
-import { isTeacherIdentity } from './roomAccessGuard';
 
 /*
  * "End the session for everyone" for the classroom flow.
@@ -11,11 +10,10 @@ import { isTeacherIdentity } from './roomAccessGuard';
  * closed" signal the room-access guard relies on (a later join / auto-rejoin then
  * gets a 404 → 403 "class not open" instead of silently re-creating the room).
  *
- * IMPORTANT — like the room-access guard, the teacher check here is a UX guardrail,
- * NOT a security boundary: the role is the client-set identity suffix. A determined
- * caller could spoof it. See roomAccessGuard.ts for the full threat-model note and
- * what real enforcement would require. The suffix check reuses isTeacherIdentity so
- * both stay in sync.
+ * Teacher authorization is now resolved SERVER-SIDE from the Firestore profile
+ * using the verified Firebase uid (same pattern as resources.ts and userProfiles.ts).
+ * The caller's Firestore role field is the authority — the request body is never
+ * trusted for identity.
  *
  * Completing an already-completed (or never-created) room throws a 404; that is
  * treated as success so the endpoint is idempotent — the class is closed either way.
@@ -32,10 +30,28 @@ export interface RoomCompletingClient {
   };
 }
 
-export function createCompleteRoomHandler(twilioClient: RoomCompletingClient): RequestHandler {
+// Minimal structural Firestore surface — only what is needed to read a user's
+// profile doc and check their role. Decouples this unit from firebase-admin.
+export interface CompleteRoomDocumentSnapshot {
+  exists: boolean;
+  data(): { [key: string]: any } | undefined;
+}
+
+export interface CompleteRoomDatabase {
+  collection(name: string): {
+    doc(id: string): {
+      get(): Promise<CompleteRoomDocumentSnapshot>;
+    };
+  };
+}
+
+export function createCompleteRoomHandler(
+  twilioClient: RoomCompletingClient,
+  db: CompleteRoomDatabase,
+): RequestHandler {
   return async (req, res) => {
     const body = req.body ?? {};
-    const { room_name, user_identity } = body;
+    const { room_name } = body;
 
     if (!room_name) {
       res.status(400).json({
@@ -44,18 +60,29 @@ export function createCompleteRoomHandler(twilioClient: RoomCompletingClient): R
       return;
     }
 
-    // Only a teacher may end the session for everyone. Students get 403.
-    if (!isTeacherIdentity(user_identity)) {
-      res.status(403).json({
-        error: {
-          message: 'not allowed',
-          explanation: 'Solo el docente puede terminar la sesión para todos.',
-        },
-      });
+    // Resolve teacher identity from the server-verified Firebase profile, not
+    // from anything the client sends in the request body. Same pattern as
+    // resources.ts and userProfiles.ts.
+    const firebaseUser = res.locals?.firebaseUser as { uid: string } | undefined;
+    if (!firebaseUser) {
+      res.status(401).send();
       return;
     }
 
     try {
+      const snapshot = await db.collection('users').doc(firebaseUser.uid).get();
+      const isTeacher = snapshot.exists && (snapshot.data()?.role === 'teacher');
+
+      if (!isTeacher) {
+        res.status(403).json({
+          error: {
+            message: 'not allowed',
+            explanation: 'Solo el docente puede terminar la sesión para todos.',
+          },
+        });
+        return;
+      }
+
       await twilioClient.video.v1.rooms(room_name).update({ status: 'completed' });
       res.json({ completed: true });
     } catch (err: any) {
