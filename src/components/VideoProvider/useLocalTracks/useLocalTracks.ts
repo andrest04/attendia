@@ -1,6 +1,6 @@
 import { DEFAULT_VIDEO_CONSTRAINTS, SELECTED_AUDIO_INPUT_KEY, SELECTED_VIDEO_INPUT_KEY } from '../../../constants';
 import { getDeviceInfo, isPermissionDenied } from '../../../utils';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Video, {
   LocalVideoTrack,
   LocalAudioTrack,
@@ -19,6 +19,25 @@ export default function useLocalTracks() {
   const [audioTrack, setAudioTrack] = useState<LocalAudioTrack>();
   const [videoTrack, setVideoTrack] = useState<LocalVideoTrack>();
   const [isAcquiringLocalTracks, setIsAcquiringLocalTracks] = useState(false);
+
+  // Kept in sync on every render so the unmount cleanup below always stops whatever
+  // tracks are currently held, without re-registering the effect (and without it
+  // capturing stale, already-replaced track instances) on every acquire/toggle.
+  const audioTrackRef = useRef<LocalAudioTrack>();
+  const videoTrackRef = useRef<LocalVideoTrack>();
+  audioTrackRef.current = audioTrack;
+  videoTrackRef.current = videoTrack;
+
+  // If this hook ever unmounts (e.g. a dev hot-reload of VideoProvider) while a track is
+  // still live, the MediaStreamTrack must be stopped here. Otherwise the browser keeps the
+  // OS-level device handle open with nothing left to release it, and the next getUserMedia
+  // call can fail with a NotReadableError even though no other app is really using it.
+  useEffect(() => {
+    return () => {
+      audioTrackRef.current?.stop();
+      videoTrackRef.current?.stop();
+    };
+  }, []);
 
   const getLocalVideoTrack = useCallback(async () => {
     const selectedVideoDeviceId = window.localStorage.getItem(SELECTED_VIDEO_INPUT_KEY);
@@ -55,11 +74,25 @@ export default function useLocalTracks() {
     }
   }, [videoTrack]);
 
+  // PreJoinScreens' own device-selection effect and useAutoRejoin's mount effect can both
+  // call getAudioAndVideoTracks() around the same render (e.g. on a refresh where both a
+  // dashboard handoff and a resumable rejoin session are valid at once). The state-based
+  // guard below reads isAcquiringLocalTracks only after an `await`, so two concurrent calls
+  // can both pass it before either sets the flag — racing two getUserMedia requests for the
+  // same camera and failing both with NotReadableError. This ref is set synchronously,
+  // before any await, so the second caller bails out immediately instead of racing.
+  const isAcquiringRef = useRef(false);
+
   const getAudioAndVideoTracks = useCallback(async () => {
+    if (isAcquiringRef.current || audioTrack || videoTrack) return Promise.resolve();
+    isAcquiringRef.current = true;
+
     const { audioInputDevices, videoInputDevices, hasAudioInputDevices, hasVideoInputDevices } = await getDeviceInfo();
 
-    if (!hasAudioInputDevices && !hasVideoInputDevices) return Promise.resolve();
-    if (isAcquiringLocalTracks || audioTrack || videoTrack) return Promise.resolve();
+    if (!hasAudioInputDevices && !hasVideoInputDevices) {
+      isAcquiringRef.current = false;
+      return Promise.resolve();
+    }
 
     setIsAcquiringLocalTracks(true);
 
@@ -129,8 +162,11 @@ export default function useLocalTracks() {
           throw new Error('MicrophonePermissionsDenied');
         }
       })
-      .finally(() => setIsAcquiringLocalTracks(false));
-  }, [audioTrack, videoTrack, isAcquiringLocalTracks, setIsKrispEnabled, setIsKrispInstalled]);
+      .finally(() => {
+        isAcquiringRef.current = false;
+        setIsAcquiringLocalTracks(false);
+      });
+  }, [audioTrack, videoTrack, setIsKrispEnabled, setIsKrispInstalled]);
 
   const localTracks = [audioTrack, videoTrack].filter(track => track !== undefined) as (
     | LocalAudioTrack

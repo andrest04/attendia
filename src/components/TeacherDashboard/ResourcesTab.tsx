@@ -222,6 +222,13 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   const [activeClassId, setActiveClassId] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
 
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!fetchResources) {
       setIsLoading(false);
@@ -229,14 +236,19 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
     }
     fetchResources()
       .then(fetched => {
+        if (!isMountedRef.current) return;
         setResources(fetched);
         if (fetched.length > 0) {
           const firstAssociated = fetched.find(resource => resource.classId);
           if (firstAssociated) setActiveClassId(current => current || firstAssociated.classId!);
         }
       })
-      .catch(err => setErrorMessage(err.message))
-      .finally(() => setIsLoading(false));
+      .catch(err => {
+        if (isMountedRef.current) setErrorMessage(err.message);
+      })
+      .finally(() => {
+        if (isMountedRef.current) setIsLoading(false);
+      });
   }, [fetchResources]);
 
   if (!fetchResources || !uploadResource || !fetchResourceDownloadUrl || !deleteResource) {
@@ -274,11 +286,16 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
     setErrorMessage(null);
     uploadResource(file, activeClassId)
       .then(created => {
+        if (!isMountedRef.current) return;
         setResources(current => [created, ...current]);
         setActiveClassId(created.classId || activeClassId);
       })
-      .catch(err => setErrorMessage(err.message))
-      .finally(() => setIsUploading(false));
+      .catch(err => {
+        if (isMountedRef.current) setErrorMessage(err.message);
+      })
+      .finally(() => {
+        if (isMountedRef.current) setIsUploading(false);
+      });
   };
 
   const handleDownload = (resource: ResourceRecord) => {
@@ -293,14 +310,20 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
         window.open(objectUrl, '_blank', 'noopener');
         setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
       })
-      .catch(err => setErrorMessage(err.message));
+      .catch(err => {
+        if (isMountedRef.current) setErrorMessage(err.message);
+      });
   };
 
   const handleDelete = (resource: ResourceRecord) => {
     if (!window.confirm(`¿Eliminar "${resource.name}"? Esta acción no se puede deshacer.`)) return;
     deleteResource(resource.id)
-      .then(() => setResources(current => current.filter(r => r.id !== resource.id)))
-      .catch(err => setErrorMessage(err.message));
+      .then(() => {
+        if (isMountedRef.current) setResources(current => current.filter(r => r.id !== resource.id));
+      })
+      .catch(err => {
+        if (isMountedRef.current) setErrorMessage(err.message);
+      });
   };
 
   return (
