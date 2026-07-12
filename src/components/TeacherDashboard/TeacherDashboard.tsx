@@ -169,10 +169,12 @@ export default function TeacherDashboard({
     loadReports();
   }, [loadReports]);
 
-  const retryPendingReports = () => {
+  const retryPendingReports = useCallback(() => {
     if (!saveAttentionReport) return;
+    const reportsToRetry = getPendingAttentionReports(userUid);
+    if (reportsToRetry.length === 0) return;
     Promise.all(
-      pendingReports.map(report =>
+      reportsToRetry.map(report =>
         saveAttentionReport(report)
           .then(() => {
             removePendingAttentionReport(userUid, report.roomSid);
@@ -186,7 +188,20 @@ export default function TeacherDashboard({
     ).then(results => {
       if (results.some(Boolean)) setPendingReports(getPendingAttentionReports(userUid));
     });
-  };
+  }, [saveAttentionReport, userUid]);
+
+  // Auto-retry once on mount if reports were queued from a failed/unload save, and
+  // again whenever the browser regains connectivity — the manual "Reintentar
+  // guardado" button (below) stays as the visible fallback either way.
+  useEffect(() => {
+    retryPendingReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('online', retryPendingReports);
+    return () => window.removeEventListener('online', retryPendingReports);
+  }, [retryPendingReports]);
 
   const handleSignOut = () => {
     clearPendingAttentionReports(userUid);

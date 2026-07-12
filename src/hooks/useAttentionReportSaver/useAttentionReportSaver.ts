@@ -23,6 +23,14 @@ import { readScheduledClassSession } from '../../components/TeacherDashboard/cla
 export interface AttentionReportSaverApi {
   /** Snapshot the current attention data and persist it. Never throws. */
   saveReport: (endReason: ReportEndReason) => Promise<void>;
+  /**
+   * Pure, synchronous snapshot of the current attention data into the exact
+   * AttentionReport shape `saveReport` persists — without touching the network.
+   * Returns null when there is nothing worth persisting (same skip conditions
+   * as `saveReport`). Used by the `beforeunload`/`pagehide` handler in Room.tsx,
+   * where an async POST can't be awaited but a synchronous localStorage write can.
+   */
+  buildReport: (endReason: ReportEndReason) => AttentionReport | null;
 }
 
 export default function useAttentionReportSaver(): AttentionReportSaverApi {
@@ -51,69 +59,80 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
     startedAtRef.current = Date.now();
   }
 
+  const buildReport = useCallback((endReason: ReportEndReason): AttentionReport | null => {
+    const currentRoom = roomRef.current;
+    const data = attentionRef.current;
+
+    // Skip silently: a room that never connected has no SID, and a session with
+    // genuinely no data (no timeline AND no live reading) has nothing worth
+    // persisting. Mock data IS built (source:'mock') so dev exercises the whole
+    // pipeline.
+    if (!data || !currentRoom?.sid) {
+      return null;
+    }
+    if (data.timeline.length === 0 && !data.groupDataAvailable) {
+      return null;
+    }
+
+    // Fold proctoring alerts per identity for the per-student table.
+    const alertCountByIdentity: Record<string, number> = {};
+    data.proctoringAlerts.forEach(alert => {
+      alertCountByIdentity[alert.identity] = (alertCountByIdentity[alert.identity] || 0) + 1;
+    });
+
+    const endedAt = new Date();
+    const startedAt = startedAtRef.current ?? endedAt.getTime();
+    const scheduledClass = readScheduledClassSession(currentRoom.name);
+    return {
+      roomSid: currentRoom.sid,
+      roomName: currentRoom.name,
+      ...(scheduledClass ? { classId: scheduledClass.classId } : {}),
+      endReason,
+      source: data.source,
+      studentCount: participantsRef.current.length,
+      attentionThreshold: data.attentionThreshold,
+      ranges: data.ranges,
+      // Same derivations as the in-room report view: session time-average with a
+      // live-snapshot fallback, and the real share of time at/above the threshold.
+      groupAverage: data.timeline.length > 0 ? averageOverTime(data.timeline) : data.groupAttention,
+      percentAboveThreshold: percentTimeAboveThreshold(data.timeline, data.attentionThreshold),
+      timeline: data.timeline,
+      participants: data.participants.map(participant => {
+        const avg = participant.indexAvg ?? participant.index;
+        return {
+          identity: participant.identity,
+          indexAvg: avg,
+          indexMin: participant.indexMin ?? participant.index,
+          indexMax: participant.indexMax ?? participant.index,
+          level: data.attentionLevel(avg),
+          alertCount: alertCountByIdentity[participant.identity] || 0,
+        };
+      }),
+      proctoringAlerts: data.proctoringAlerts.map(alert => ({
+        identity: alert.identity,
+        kind: alert.kind,
+        detectedAt: alert.detectedAt,
+      })),
+      endedAtIso: endedAt.toISOString(),
+      startedAtIso: new Date(startedAt).toISOString(),
+      durationMs: Math.max(0, endedAt.getTime() - startedAt),
+      // The SDK has no recording-composition status or media URL API in this app.
+      // This is only the truthful final in-room state, not a download guarantee.
+      recordingWasActiveAtEnd: Boolean(currentRoom.isRecording),
+    };
+  }, []);
+
   const saveReport = useCallback(
     async (endReason: ReportEndReason) => {
       const save = saveRef.current;
-      const currentRoom = roomRef.current;
-      const data = attentionRef.current;
-
-      // Skip silently: non-firebase modes have no saveAttentionReport, a room that
-      // never connected has no SID, and a session with genuinely no data (no
-      // timeline AND no live reading) has nothing worth persisting. Mock data IS
-      // saved (source:'mock') so dev exercises the whole pipeline.
-      if (!save || !data || !currentRoom?.sid) {
+      // Non-firebase modes have no saveAttentionReport — skip without building.
+      if (!save) {
         return;
       }
-      if (data.timeline.length === 0 && !data.groupDataAvailable) {
+      const report = buildReport(endReason);
+      if (!report) {
         return;
       }
-
-      // Fold proctoring alerts per identity for the per-student table.
-      const alertCountByIdentity: Record<string, number> = {};
-      data.proctoringAlerts.forEach(alert => {
-        alertCountByIdentity[alert.identity] = (alertCountByIdentity[alert.identity] || 0) + 1;
-      });
-
-      const endedAt = new Date();
-      const startedAt = startedAtRef.current ?? endedAt.getTime();
-      const scheduledClass = readScheduledClassSession(currentRoom.name);
-      const report: AttentionReport = {
-        roomSid: currentRoom.sid,
-        roomName: currentRoom.name,
-        ...(scheduledClass ? { classId: scheduledClass.classId } : {}),
-        endReason,
-        source: data.source,
-        studentCount: participantsRef.current.length,
-        attentionThreshold: data.attentionThreshold,
-        ranges: data.ranges,
-        // Same derivations as the in-room report view: session time-average with a
-        // live-snapshot fallback, and the real share of time at/above the threshold.
-        groupAverage: data.timeline.length > 0 ? averageOverTime(data.timeline) : data.groupAttention,
-        percentAboveThreshold: percentTimeAboveThreshold(data.timeline, data.attentionThreshold),
-        timeline: data.timeline,
-        participants: data.participants.map(participant => {
-          const avg = participant.indexAvg ?? participant.index;
-          return {
-            identity: participant.identity,
-            indexAvg: avg,
-            indexMin: participant.indexMin ?? participant.index,
-            indexMax: participant.indexMax ?? participant.index,
-            level: data.attentionLevel(avg),
-            alertCount: alertCountByIdentity[participant.identity] || 0,
-          };
-        }),
-        proctoringAlerts: data.proctoringAlerts.map(alert => ({
-          identity: alert.identity,
-          kind: alert.kind,
-          detectedAt: alert.detectedAt,
-        })),
-        endedAtIso: endedAt.toISOString(),
-        startedAtIso: new Date(startedAt).toISOString(),
-        durationMs: Math.max(0, endedAt.getTime() - startedAt),
-        // The SDK has no recording-composition status or media URL API in this app.
-        // This is only the truthful final in-room state, not a download guarantee.
-        recordingWasActiveAtEnd: Boolean(currentRoom.isRecording),
-      };
 
       try {
         await save(report);
@@ -125,8 +144,8 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
         });
       }
     },
-    [user]
+    [buildReport, user]
   );
 
-  return { saveReport };
+  return { saveReport, buildReport };
 }
