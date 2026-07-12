@@ -549,16 +549,35 @@ describe('ProfessorRoomShell', () => {
     );
   });
 
-  it('directs the teacher to authenticated history instead of persisting a browser snapshot', () => {
-    const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
+  describe('live report modal (Feature 3)', () => {
+    it('opens the in-room report modal fed by live attention data, instead of a snackbar', () => {
+      const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} sessionName="Clase de Historia" />);
 
-    wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
+      expect(wrapper.find('[data-testid="professor-live-report-modal"]').exists()).toBe(false);
 
-    expect(
-      mockEnqueue
-    ).toHaveBeenCalledWith('El reporte estará disponible en el historial cuando finalice y se guarde la clase.', {
-      variant: 'info',
+      wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
+      wrapper.update();
+
+      expect(mockEnqueue).not.toHaveBeenCalled();
+      expect(wrapper.find('[data-testid="professor-live-report-modal"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="attention-report-summary"]').exists()).toBe(true);
+      expect(wrapper.text()).toContain('Clase de Historia');
     });
-    expect(wrapper.find('[data-testid="attention-report-overlay"]').exists()).toBe(false);
+
+    it('closes the modal from its header close button', () => {
+      const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
+
+      wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
+      wrapper.update();
+      expect(wrapper.find('[data-testid="professor-live-report-modal"]').exists()).toBe(true);
+
+      wrapper
+        .find('[data-testid="professor-live-report-modal-close"]')
+        .first()
+        .simulate('click');
+      wrapper.update();
+
+      expect(wrapper.find('[data-testid="professor-live-report-modal"]').exists()).toBe(false);
+    });
   });
 });
