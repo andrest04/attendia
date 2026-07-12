@@ -69,7 +69,7 @@ export function createCompleteRoomHandler(twilioClient: RoomCompletingClient): R
       res.status(503).json({
         error: {
           message: 'room completion failed',
-          explanation: 'No pudimos terminar la sesión. Intentá de nuevo en unos segundos.',
+          explanation: 'No pudimos terminar la sesión. Intenta de nuevo en unos segundos.',
         },
       });
     }

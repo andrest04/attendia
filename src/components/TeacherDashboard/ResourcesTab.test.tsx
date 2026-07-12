@@ -162,7 +162,7 @@ describe('the ResourcesTab component', () => {
     wrapper.update();
 
     expect(uploadResource).not.toHaveBeenCalled();
-    expect(wrapper.text()).toContain('Seleccioná una clase programada');
+    expect(wrapper.text()).toContain('Selecciona una clase programada');
   });
 
   it('decodes the base64 content into a Blob and opens an object URL in a new tab', async () => {

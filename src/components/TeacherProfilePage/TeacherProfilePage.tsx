@@ -54,7 +54,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 
 async function compressAvatar(file: File): Promise<string> {
   if (!['image/jpeg', 'image/webp'].includes(file.type) || file.size > MAX_INPUT_AVATAR_BYTES) {
-    throw new Error('Elegí una imagen JPEG o WebP de hasta 2 MB.');
+    throw new Error('Elige una imagen JPEG o WebP de hasta 2 MB.');
   }
   const source = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -190,7 +190,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
             </Button>
           </div>
           <Typography variant="h4">Perfil docente</Typography>
-          <Typography color="textSecondary">Administrá tu identidad y acceso.</Typography>
+          <Typography color="textSecondary">Administra tu identidad y acceso.</Typography>
         </div>
         <div className={classes.layout} data-testid="teacher-profile-layout">
           <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-photo">

@@ -527,7 +527,7 @@ export default function useFirebaseAuth() {
       if (!user || !user.email) throw new Error('No hay una sesión activa para confirmar tu identidad.');
       const hasPasswordProvider = user.providerData.some(provider => provider.providerId === 'password');
       if (hasPasswordProvider) {
-        if (!currentPassword) throw new Error('Ingresá tu contraseña actual para continuar.');
+        if (!currentPassword) throw new Error('Ingresa tu contraseña actual para continuar.');
         await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
         return;
       }
@@ -557,7 +557,7 @@ export default function useFirebaseAuth() {
           } catch (rollbackError) {
             reportProfileFailure(user, 'profile_auth_display_name_rollback', rollbackError);
             throw new Error(
-              'No pudimos guardar el nombre ni restaurar tu identidad. Reintentá el cambio para reconciliarla.'
+              'No pudimos guardar el nombre ni restaurar tu identidad. Reintenta el cambio para reconciliarla.'
             );
           }
         }

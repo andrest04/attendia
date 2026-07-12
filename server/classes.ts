@@ -279,7 +279,7 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
       // an already-created class (same key resent after the clock moved on) still
       // returns the existing doc instead of being rejected as "in the past".
       if (scheduledAtMs < Date.now() - PAST_SCHEDULE_TOLERANCE_MS) {
-        sendBadRequest(res, 'scheduledAtMs in the past', 'No podés programar una clase en una fecha u hora pasada.');
+        sendBadRequest(res, 'scheduledAtMs in the past', 'No puedes programar una clase en una fecha u hora pasada.');
         return;
       }
 
