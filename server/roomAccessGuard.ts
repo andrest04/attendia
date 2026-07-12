@@ -19,16 +19,14 @@ export type { RoomExistenceChecker };
  *
  * IMPORTANT — this is a guardrail, NOT a security boundary. The role is derived from
  * the Twilio identity, which the client sets freely (the student UI just appends
- * `[Profesor]` for teachers). With no real authentication (anonymous/passcode modes)
- * a determined caller can spoof the suffix, or send create_room:false and rely on
- * ad-hoc creation, to bypass it. To make this an actual control you need:
- *   1. an authenticated role (e.g. a Firebase custom claim or a separate teacher
- *      passcode) instead of the identity suffix, AND
+ * `[Profesor]` for teachers), and Firebase authenticates the user, not their claimed
+ * role. A determined caller can spoof the suffix, or send create_room:false and rely
+ * on ad-hoc creation, to bypass it. To make this an actual control you need:
+ *   1. an authenticated role (e.g. a Firebase custom claim) instead of the identity
+ *      suffix, AND
  *   2. "Client-side Room Creation" DISABLED in the Twilio Console Room Settings, so a
  *      bare VideoGrant cannot materialise a room on connect (teachers still create
- *      via the server-side REST call in token.js), AND
- *   3. the same check ported into the serverless token function for the
- *      `deploy:twilio-cli` path, which does not run this Express server.
+ *      via the server-side REST call in token.js).
  *
  * The suffix check below is intentionally kept in sync with `isTeacherIdentity` in
  * src/components/PreJoinScreens/classSessionTypes.ts (the app's display-side role).

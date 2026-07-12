@@ -51,74 +51,15 @@ Twilio Video has partnered with [Krisp Technologies Inc.](https://krisp.ai/) to 
 
 The on-screen Captions functionality is provided by the [Real-Time Transcriptions for Video(beta)](https://www.twilio.com/docs/video/api/transcriptions) feature. To use captions in this reference application Real-Time Transcriptions must be enabled by default in the [Room settings page](https://console.twilio.com/us1/develop/video/manage/room-settings) on the Twilio Console. Note that usage charges will apply.
 
-### Install the Twilio CLI
+## Deploying the app
 
-The app is deployed to Twilio using the Twilio CLI. You can [install the Twilio CLI using Homebrew on a Mac or npm](https://www.twilio.com/docs/twilio-cli/quickstart).
+This application authenticates every user through Firebase (Google sign-in or email/password), which requires `firebase-admin` and a service account running inside the Express server. Twilio Serverless Functions cannot run `firebase-admin`, so this app is **not** deployed via the Twilio CLI/Serverless plugin — it is deployed as the Express server (see [server/index.ts](server/index.ts)) to whatever Node.js hosting you use (a VM, container platform, Cloud Run, etc). The Express server reuses the token/recording-rules serverless functions shipped inside `@twilio-labs/plugin-rtc` directly from `node_modules`, so that dependency stays even though there is no separate Twilio Serverless deploy step.
 
-To install twilio-cli using npm, run the following command:
+To deploy:
 
-    npm install -g twilio-cli
-
-**Note**: If you run into permissions errors when installing the twilio-cli globally with the `npm install -g` command, you might need to change the permissions of your global `node_modules` directory or configure npm to use a different directory for globally installed npm packages. See [this StackOverflow thread](https://stackoverflow.com/a/51024493), which has more information about both options. This [code sample in GitHub](https://github.com/sindresorhus/guides/blob/main/npm-global-without-sudo.md) is also a helpful guide for how to install npm packages globally without needing to change directory permissions and without sudo.
-
-### Login to the Twilio CLI
-
-Login to the Twilio CLI. You will be prompted for your Account SID and Auth Token, both of which you can find on the dashboard of your [Twilio console](https://twilio.com/console).
-
-    twilio login
-
-**Note**: If you installed the Twilio CLI using npm and you receive an error that the `twilio` command is not found, you might need to update your Node install prefix. See [this StackOverflow thread for more information](https://stackoverflow.com/a/15623632).
-
-### Install the RTC Plugin
-
-This app requires an additional plugin. Install the CLI plugin with:
-
-    twilio plugins:install @twilio-labs/plugin-rtc
-
-**Note:** If you have previously installed the `@twilio-labs/plugin-rtc` plugin, please make sure that you are using the most recent version. You can upgrade the plugin by running `twilio plugins:update`. The chat feature requires version 0.8.1 or greater of `@twilio-labs/plugin-rtc`.
-
-## Deploy the app to Twilio
-
-Before deploying the app, make sure you are using the correct account on the Twilio CLI (using the command `twilio profiles:list` to check).
-The app is deployed to Twilio with a single command:
-
-    npm run deploy:twilio-cli
-
-This performs the following steps:
-
-- Builds the React app in the `src` directory
-- Generates a random code used to access the Video app
-- Deploys the React app and token server function as a Twilio Serverless service.
-- Prints the URL for the app and the passcode.
-
-**NOTE:** The Twilio Function that provides access tokens via a passcode should _NOT_ be used in a production environment. This token server supports seamlessly getting started with the collaboration app, and while convenient, the passcode is not secure enough for production environments. You should use an authentication provider to securely provide access tokens to your client applications. You can find more information about Programmable Video access tokens [in this tutorial](https://www.twilio.com/docs/video/tutorials/user-identity-access-tokens). **As a precaution, the passcode will expire after one week**. To generate a new passcode, redeploy the app:
-
-    npm run deploy:twilio-cli -- --override
-
-**NOTE:** As of November 10th, 2025, Twilio Functions requires Node.js v20 or v22, see the [migration guide](https://www.twilio.com/docs/serverless/functions-assets/node-upgrade). If you previously deployed this Twilio Video React App using Node.js v18 then you either need to edit the Function entry in the Twilio Console and select node v22 or else delete the entry in the Twilio Console and redeploy from the command line. The node setting can be found in the Twilio Console in the Functions & Assets section -> Services and select the video-app-xxxx entry.
-
-## View app details
-
-View the URL and passcode for the Video app with
-
-     twilio rtc:apps:video:view
-
-## Delete the app
-
-Delete the app with
-
-    twilio rtc:apps:video:delete
-
-This removes the Serverless app from Twilio. This will ensure that no further cost are incurred by the app.
-
-## Troubleshooting The Twilio CLI
-
-If any errors occur after running a [Twilio CLI RTC Plugin](https://github.com/twilio-labs/plugin-rtc) command, then try the following steps.
-
-1. Run `twilio plugins:update` to update the rtc plugin to the latest version.
-1. Run `twilio rtc:apps:video:delete` to delete any existing video apps.
-1. Run `npm run deploy:twilio-cli` to deploy a new video app.
-
+1. Run `npm run build` to produce the production React build (served by the Express server, see [server/index.ts](server/index.ts)).
+2. Configure the Firebase and Twilio environment variables described in [.env.example](.env.example) on your hosting platform.
+3. Run `npm run server` (or your process manager's equivalent) to start the Express server, which serves both the built app and the `/token`, `/recordingrules`, and Firestore-backed API routes.
 
 ## Features
 
@@ -263,11 +204,11 @@ The `connect` function from the SDK accepts a [configuration object](https://sdk
 
 This application dynamically changes the priority of remote video tracks to provide an optimal collaboration experience. Any video track that will be displayed in the main video area will have `track.setPriority('high')` called on it (see the [VideoTrack](https://github.com/twilio/twilio-video-app-react/blob/master/src/components/VideoTrack/VideoTrack.tsx#L29) component) when the component is mounted. This higher priority enables the track to be rendered at a high resolution. `track.setPriority(null)` is called when the component is unmounted so that the track's priority is set to its publish priority (low).
 
-### Google Authentication using Firebase (optional)
+### Authentication using Firebase
 
-This application can be configured to authenticate users before they use the app. Once users have signed into the app with their Google credentials, their Firebase ID Token will be included in the Authorization header of the HTTP request that is used to obtain an access token. The Firebase ID Token can then be [verified](https://firebase.google.com/docs/auth/admin/verify-id-tokens) by the server that dispenses access tokens for connecting to a room.
+Firebase is the only supported authentication mode: every user signs in with a Google account or an email/password before using the app. Once a user signs in, their Firebase ID Token is included in the Authorization header of the HTTP requests used to obtain an access token and to call the Firestore-backed API routes (profile, attention reports, resources, classes). The Firebase ID Token is [verified](https://firebase.google.com/docs/auth/admin/verify-id-tokens) server-side by [server/firebaseAuthMiddleware.ts](server/firebaseAuthMiddleware.ts).
 
-See [.env.example](.env.example) for an explanation of the environment variables that must be set to enable Google authentication.
+See [.env.example](.env.example) for an explanation of the environment variables that must be set for Firebase authentication.
 
 ## Related
 

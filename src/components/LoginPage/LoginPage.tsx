@@ -335,9 +335,7 @@ export default function LoginPage() {
   const { signIn, signInWithEmail, register, completeProfile, user, profile, isAuthReady } = useAppState();
   const history = useHistory();
   const location = useLocation<{ from: Location }>();
-  const [passcode, setPasscode] = useState('');
   const [authError, setAuthError] = useState<Error | null>(null);
-  const [selectedRole, setSelectedRole] = useState<PreJoinRole>('teacher');
 
   // Firebase-mode form state.
   const [view, setView] = useState<'login' | 'register'>('login');
@@ -347,40 +345,6 @@ export default function LoginPage() {
   const [registerRole, setRegisterRole] = useState<PreJoinRole>('student');
   const [completionRole, setCompletionRole] = useState<PreJoinRole>('student');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const isAuthEnabled = Boolean(process.env.REACT_APP_SET_AUTH);
-  const isFirebaseAuth = process.env.REACT_APP_SET_AUTH === 'firebase';
-
-  // Passcode-mode sign-in. The selected role card travels to the prejoin flow via
-  // location state (there is no profile in passcode mode).
-  const login = () => {
-    setAuthError(null);
-    signIn?.(passcode)
-      .then(() => {
-        const from = location?.state?.from as
-          | { pathname?: string; search?: string; hash?: string; state?: any }
-          | undefined;
-
-        if (from) {
-          history.replace({
-            ...from,
-            state: {
-              ...(from.state || {}),
-              preJoinRole: selectedRole,
-            },
-          });
-          return;
-        }
-
-        history.replace({ pathname: '/', state: { preJoinRole: selectedRole } });
-      })
-      .catch(err => setAuthError(err));
-  };
-
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    login();
-  };
 
   const runFirebaseAction = (action: Promise<void> | undefined) => {
     setAuthError(null);
@@ -414,13 +378,10 @@ export default function LoginPage() {
     setView(nextView);
   };
 
-  if (!isAuthEnabled) {
-    history.replace('/');
-  } else if (user && (!isFirebaseAuth || profile)) {
-    // In firebase mode the redirect waits for the profile: an authenticated user
-    // without one must stay here to complete the role step first. Unlike the
-    // passcode login above, no preJoinRole is merged into the destination state —
-    // the prejoin resolves the role from the verified profile instead.
+  if (user && profile) {
+    // The redirect waits for the profile: an authenticated user without one must
+    // stay here to complete the role step first. The prejoin resolves the role
+    // from the verified profile.
     const from = location?.state?.from;
     history.replace(from ? from : '/');
   }
@@ -431,78 +392,17 @@ export default function LoginPage() {
 
   // First-time Google users arrive authenticated but without a profile: only the
   // role is missing, so show the completion step instead of the auth forms.
-  const showCompletionStep = isFirebaseAuth && Boolean(user) && !profile;
+  const showCompletionStep = Boolean(user) && !profile;
 
   // Role currently highlighted on screen — drives IntroContainer's page tint
   // (blue for teacher, amber for student). The login view has no role cards, so
   // it keeps the default teacher palette.
-  const activeRole: PreJoinRole = !isFirebaseAuth
-    ? selectedRole
-    : showCompletionStep
-    ? completionRole
-    : view === 'register'
-    ? registerRole
-    : 'teacher';
+  const activeRole: PreJoinRole = showCompletionStep ? completionRole : view === 'register' ? registerRole : 'teacher';
 
   return (
     <IntroContainer homeRole={activeRole}>
       <div className={classes.formBody}>
-        {!isFirebaseAuth && (
-          <>
-            <div className={classes.roleCards}>
-              <div
-                data-testid="role-card-profesor"
-                className={`${classes.roleCard} ${selectedRole === 'teacher' ? classes.roleCardSelected : ''}`}
-                onClick={() => setSelectedRole('teacher')}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selectedRole === 'teacher'}
-                onKeyDown={event => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setSelectedRole('teacher');
-                  }
-                }}
-              >
-                <div className={`${classes.roleAvatar} ${classes.roleAvatarProfesor}`}>
-                  <MenuBookIcon style={{ fontSize: 18, color: '#1d6eed' }} />
-                </div>
-                <div>
-                  <div className={classes.roleLabel}>Profesor</div>
-                  <div className={classes.roleCaption}>Crear nueva sala de clase</div>
-                </div>
-              </div>
-
-              <div
-                data-testid="role-card-estudiante"
-                className={`${classes.roleCard} ${selectedRole === 'student' ? classes.roleCardSelected : ''}`}
-                onClick={() => setSelectedRole('student')}
-                role="button"
-                tabIndex={0}
-                aria-pressed={selectedRole === 'student'}
-                onKeyDown={event => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    setSelectedRole('student');
-                  }
-                }}
-              >
-                <div className={`${classes.roleAvatar} ${classes.roleAvatarEstudiante}`}>
-                  <PersonIcon style={{ fontSize: 18, color: '#d97706' }} />
-                </div>
-                <div>
-                  <div className={classes.roleLabel}>Estudiante</div>
-                  <div className={classes.roleCaption}>Unirme a sala existente</div>
-                </div>
-              </div>
-            </div>
-            <Typography variant="caption" className={classes.roleHint}>
-              Elige tu rol para iniciar el flujo correspondiente.
-            </Typography>
-          </>
-        )}
-
-        {isFirebaseAuth && showCompletionStep && (
+        {showCompletionStep && (
           <>
             <Typography variant="h5" className={classes.formTitle}>
               ¿Cómo vas a usar Attendia?
@@ -525,7 +425,7 @@ export default function LoginPage() {
           </>
         )}
 
-        {isFirebaseAuth && !showCompletionStep && view === 'login' && (
+        {!showCompletionStep && view === 'login' && (
           <>
             <Typography variant="h5" className={classes.formTitle}>
               Iniciar sesión
@@ -596,7 +496,7 @@ export default function LoginPage() {
           </>
         )}
 
-        {isFirebaseAuth && !showCompletionStep && view === 'register' && (
+        {!showCompletionStep && view === 'register' && (
           <>
             <Typography variant="h5" className={classes.formTitle}>
               Crear cuenta
@@ -668,39 +568,6 @@ export default function LoginPage() {
                 Iniciar sesión
               </button>
             </div>
-          </>
-        )}
-
-        {process.env.REACT_APP_SET_AUTH === 'passcode' && (
-          <>
-            <Typography variant="h5" className={classes.formTitle}>
-              Ingresa el código de acceso
-            </Typography>
-            <Typography className={classes.formSubtitle}>
-              Usa el código que recibiste para acceder a la plataforma.
-            </Typography>
-            <form onSubmit={handleSubmit}>
-              <label htmlFor="input-passcode" className={classes.fieldLabel}>
-                Código de acceso
-              </label>
-              <TextField
-                id="input-passcode"
-                fullWidth
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setPasscode(e.target.value)}
-                type="password"
-                variant="outlined"
-                className={classes.textInput}
-              />
-              {authError && (
-                <Typography variant="caption" className={classes.errorMessage}>
-                  <ErrorOutlineIcon />
-                  {authError.message}
-                </Typography>
-              )}
-              <Button variant="contained" type="submit" disabled={!passcode.length} className={classes.primaryButton}>
-                Ingresar
-              </Button>
-            </form>
           </>
         )}
 

@@ -2,7 +2,6 @@ import { useCallback, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import { useAppState } from '../../state';
-import { getPasscode } from '../../state/usePasscodeAuth/usePasscodeAuth';
 import { clearRejoinSession } from '../../components/PreJoinScreens/rejoinSession';
 import { ReportEndReason } from '../../components/AttentionProvider/reportTypes';
 
@@ -89,12 +88,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       await onProfessorEndRef.current?.('ended-for-all');
       if (roomName && identity) {
         const endpoint = process.env.REACT_APP_COMPLETE_ROOM_ENDPOINT || '/completeRoom';
-        // Include the passcode when present so the request passes the serverless
-        // auth-handler on the deployed (passcode) path, mirroring token/recordingrules.
-        // Harmless locally where the Express server does not enforce it.
-        const passcode = getPasscode();
         const body: Record<string, unknown> = { room_name: roomName, user_identity: identity };
-        if (passcode) body.passcode = passcode;
         await fetch(endpoint, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },

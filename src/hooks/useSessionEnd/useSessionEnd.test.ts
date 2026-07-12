@@ -8,9 +8,6 @@ import { clearRejoinSession } from '../../components/PreJoinScreens/rejoinSessio
 jest.mock('../useVideoContext/useVideoContext');
 jest.mock('../useClassDataChannel/useClassDataChannel');
 jest.mock('../../state');
-jest.mock('../../state/usePasscodeAuth/usePasscodeAuth', () => ({
-  getPasscode: () => undefined,
-}));
 jest.mock('../../components/PreJoinScreens/rejoinSession', () => ({
   clearRejoinSession: jest.fn(),
 }));
