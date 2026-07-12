@@ -467,11 +467,11 @@ export default function ClassesTab({
 
     const title = titleInput.trim();
     if (!title) {
-      setFormError('Indicá un título para la clase.');
+      setFormError('Indica un título para la clase.');
       return;
     }
     if (!dateValue || isNaN(dateValue.getTime()) || !timeValue || isNaN(timeValue.getTime())) {
-      setFormError('Indicá la fecha y la hora de la clase.');
+      setFormError('Indica la fecha y la hora de la clase.');
       return;
     }
     const studentCount = Number(studentCountInput);
@@ -491,7 +491,7 @@ export default function ClassesTab({
       return;
     }
     if (scheduledAtMs < Date.now()) {
-      setFormError('No podés programar una clase en una fecha u hora pasada.');
+      setFormError('No puedes programar una clase en una fecha u hora pasada.');
       return;
     }
 
@@ -562,7 +562,7 @@ export default function ClassesTab({
       {onCreateClass && isFormOpen && (
         <form className={classes.newClassForm} onSubmit={handleSubmitNewClass}>
           <div className={classes.newClassFormTitle}>Nueva clase</div>
-          <div className={classes.newClassFormSubtitle}>Completá estos datos para programar la sesión.</div>
+          <div className={classes.newClassFormSubtitle}>Completa estos datos para programar la sesión.</div>
 
           <div className={classes.newClassFieldGrid}>
             <div className={classes.newClassField}>

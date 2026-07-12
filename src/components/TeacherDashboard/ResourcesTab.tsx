@@ -271,7 +271,7 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
 
   const handleUploadClick = () => {
     if (!activeClassId) {
-      setErrorMessage('Seleccioná una clase programada antes de subir el archivo.');
+      setErrorMessage('Selecciona una clase programada antes de subir el archivo.');
       return;
     }
     fileInputRef.current?.click();

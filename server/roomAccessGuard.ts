@@ -77,7 +77,7 @@ export function createRoomAccessGuard(roomExists: RoomExistenceChecker): Request
       res.status(503).json({
         error: {
           message: 'room verification failed',
-          explanation: 'No pudimos verificar la sala. Intentá de nuevo en unos segundos.',
+          explanation: 'No pudimos verificar la sala. Intenta de nuevo en unos segundos.',
         },
       });
     }

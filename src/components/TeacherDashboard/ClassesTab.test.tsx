@@ -257,6 +257,6 @@ describe('ClassesTab', () => {
     wrapper.update();
 
     expect(onCreateClass).not.toHaveBeenCalled();
-    expect(wrapper.find('form').text()).toContain('No podés programar una clase en una fecha u hora pasada.');
+    expect(wrapper.find('form').text()).toContain('No puedes programar una clase en una fecha u hora pasada.');
   });
 });

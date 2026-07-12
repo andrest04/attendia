@@ -334,7 +334,7 @@ export default function TeacherDashboard({
           {pendingReports.length > 0 && (
             <div className={classes.pendingReports} data-testid="dashboard-pending-reports">
               No pudimos guardar {pendingReports.length === 1 ? 'un reporte' : `${pendingReports.length} reportes`} al
-              cerrar la clase. Todavía no se enviaron. Podés reintentar ahora.
+              cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.
               <Button onClick={retryPendingReports} data-testid="dashboard-retry-pending-reports">
                 Reintentar guardado
               </Button>
