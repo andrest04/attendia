@@ -6,10 +6,12 @@ import { useAttention } from '../../AttentionProvider';
 import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { ShellNotification } from '../StudentRoomShell/useShellNotifications';
+import { buildReportViewData } from '../../AttentionReport/buildReportViewData';
 import SessionStatusBar from './SessionStatusBar';
 import ProfessorLeftRail from './ProfessorLeftRail';
 import ProfessorRightRail from './ProfessorRightRail';
 import ProctoringAlertModal from './ProctoringAlertModal';
+import LiveReportModal from './LiveReportModal';
 import { ProfessorRightTab } from './professorShellHelpers';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -176,13 +178,34 @@ export default function ProfessorRoomShell({
   const attentionByIdentity = new Map(attentionParticipants.map(p => [p.identity, p]));
   const studentCount = Math.max(0, participantCount - 1);
 
-  // Reports are available only after their authenticated server-side save. Never
-  // copy attention data to browser-global storage just to open another tab.
+  // Live report modal (Feature 3): reopens the full AttentionReportView in-room,
+  // fed directly from useAttention() via buildReportViewData — no localStorage
+  // snapshot, no new tab. The post-session /report flow (fetch-by-id, new tab)
+  // stays untouched and additive.
+  const [isLiveReportOpen, setIsLiveReportOpen] = React.useState(false);
   const handleOpenReport = () => {
-    enqueueSnackbar('El reporte estará disponible en el historial cuando finalice y se guarde la clase.', {
-      variant: 'info',
-    });
+    setIsLiveReportOpen(true);
   };
+  const handleCloseLiveReport = () => {
+    setIsLiveReportOpen(false);
+  };
+  // Only built while the modal is actually open, so a closed report doesn't pay
+  // for the normalization work on every attention tick.
+  const liveReportViewData = isLiveReportOpen
+    ? buildReportViewData({
+        sessionName,
+        studentCount,
+        source,
+        groupAttention,
+        groupDataAvailable,
+        attentionThreshold,
+        timeline,
+        participants: attentionParticipants,
+        proctoringAlerts,
+        attentionLevel,
+        reportDate: new Date(),
+      })
+    : null;
 
   // Proctoring modal local state
   const [proctoringModalAlert, setProctoringModalAlert] = React.useState<ProctoringAlert | null>(null);
@@ -279,6 +302,11 @@ export default function ProfessorRoomShell({
           onMarkLegitimate={handleMarkLegitimate}
           onSendWarning={handleSendWarning}
         />
+      )}
+
+      {/* ── LIVE REPORT MODAL ── */}
+      {isLiveReportOpen && liveReportViewData && (
+        <LiveReportModal data={liveReportViewData} onClose={handleCloseLiveReport} />
       )}
     </section>
   );
