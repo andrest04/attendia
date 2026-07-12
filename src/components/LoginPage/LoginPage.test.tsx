@@ -261,7 +261,7 @@ describe('the LoginPage component', () => {
     });
 
     describe('the profile-completion step (authenticated user without a profile)', () => {
-      it('should show only the role selector and confirm button', () => {
+      it('should show the role selector, confirm button, and sign-out control', () => {
         mockUseAppState.mockImplementation(() => ({
           user: { displayName: 'Test User' },
           profile: null,
@@ -273,6 +273,7 @@ describe('the LoginPage component', () => {
         expect(getByText('¿Cómo vas a usar Attendia?')).toBeTruthy();
         expect(getByTestId('role-option-estudiante').getAttribute('aria-pressed')).toBe('true');
         expect(getByText('Confirmar y continuar')).toBeTruthy();
+        expect(getByText('Cancelar y cerrar sesión')).toBeTruthy();
         // No auth forms in the completion step.
         expect(queryByLabelText('Correo electrónico')).toBeNull();
         expect(queryByLabelText('Contraseña')).toBeNull();
@@ -295,6 +296,45 @@ describe('the LoginPage component', () => {
           expect(mockCompleteProfile).toHaveBeenCalledWith('student');
           done();
         });
+      });
+
+      it('should sign out and return to the login form when onboarding is abandoned', async () => {
+        const mockSignOut = jest.fn(() => Promise.resolve());
+        mockUseAppState.mockImplementation(() => ({
+          user: { displayName: 'Test User' },
+          profile: null,
+          isAuthReady: true,
+          signOut: mockSignOut,
+        }));
+        const { getByLabelText, getByText } = render(<LoginPage />);
+
+        act(() => {
+          fireEvent.click(getByText('Cancelar y cerrar sesión'));
+        });
+
+        await waitForElement(() => getByLabelText('Correo electrónico'));
+        expect(mockSignOut).toHaveBeenCalledWith();
+      });
+
+      it('should show the existing auth error when sign-out fails', async () => {
+        const mockSignOut = jest.fn(() => Promise.reject(new Error('sign-out failed')));
+        mockUseAppState.mockImplementation(() => ({
+          user: { displayName: 'Test User' },
+          profile: null,
+          isAuthReady: true,
+          signOut: mockSignOut,
+        }));
+        const { getByText } = render(<LoginPage />);
+
+        act(() => {
+          fireEvent.click(getByText('Cancelar y cerrar sesión'));
+        });
+
+        const error = await waitForElement(() =>
+          getByText('No pudimos completar la operación. Intenta de nuevo en unos segundos.')
+        );
+        expect(error).toBeTruthy();
+        expect(getByText('¿Cómo vas a usar Attendia?')).toBeTruthy();
       });
     });
   });
