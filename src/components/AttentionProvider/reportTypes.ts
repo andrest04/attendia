@@ -33,6 +33,21 @@ export interface AttentionReportAlert {
   detectedAt: string;
 }
 
+/**
+ * Status of a teacher-requested Twilio recording (Composition) for this class.
+ * Server-derived only — mirrored (structurally, not by import) by
+ * server/recordings.ts and never accepted from client input (see
+ * sanitizeReportBody in server/attentionReports.ts).
+ */
+export type RecordingArtifactStatus = 'not_requested' | 'enqueued' | 'processing' | 'completed' | 'failed' | 'expired';
+
+export interface RecordingArtifact {
+  compositionSid?: string;
+  status: RecordingArtifactStatus;
+  /** epoch ms; Twilio's composition dateCreated + the ~7-day media hosting window. */
+  mediaExpiresAt?: number;
+}
+
 /** The payload POSTed to /reports when the professor ends or leaves a class. */
 export interface AttentionReport {
   /** Twilio room SID — dedup key: a final save overwrites a partial "left" save. */
@@ -63,6 +78,8 @@ export interface AttentionReport {
   durationMs: number;
   /** Twilio exposed recording as active when the final snapshot was taken. */
   recordingWasActiveAtEnd: boolean;
+  /** Whether/how a Composition of this class has been requested — set by the server only. */
+  recording?: RecordingArtifact;
 }
 
 /** A report as returned by GET /reports (Firestore serverTimestamp resolved to millis). */

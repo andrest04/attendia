@@ -75,7 +75,11 @@ describe('createPostReportHandler', () => {
     expect(reportsCollection).toHaveBeenCalledWith('reports');
     expect(reportDoc).toHaveBeenCalledWith(VALID_ROOM_SID);
     expect(runTransaction).toHaveBeenCalled();
-    expect(transactionSet).toHaveBeenCalledWith(expect.anything(), { ...validReport, endedAt: 'server-timestamp' });
+    expect(transactionSet).toHaveBeenCalledWith(
+      expect.anything(),
+      { ...validReport, endedAt: 'server-timestamp' },
+      { merge: true }
+    );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ saved: true, roomSid: VALID_ROOM_SID });
   });
@@ -93,7 +97,11 @@ describe('createPostReportHandler', () => {
     );
 
     expect(transactionGet).toHaveBeenCalled();
-    expect(transactionSet).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ roomSid: VALID_ROOM_SID }));
+    expect(transactionSet).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ roomSid: VALID_ROOM_SID }),
+      { merge: true }
+    );
     expect(transactionUpdate).toHaveBeenCalledWith(
       expect.anything(),
       { status: 'completed', completedAt: 'server-timestamp' }

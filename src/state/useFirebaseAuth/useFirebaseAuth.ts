@@ -16,7 +16,11 @@ import {
   updateEmail,
 } from 'firebase/auth';
 import { ClassSessionRole } from '../../components/PreJoinScreens/classSessionTypes';
-import { AttentionReport, StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
+import {
+  AttentionReport,
+  RecordingArtifact,
+  StoredAttentionReport,
+} from '../../components/AttentionProvider/reportTypes';
 import { ResourceFileKind } from '../../components/TeacherDashboard/types';
 
 const firebaseConfig = {
@@ -146,6 +150,43 @@ async function fetchReportRequest(user: User, roomSid: string): Promise<StoredAt
   });
   await throwOnErrorResponse(response);
   return response.json();
+}
+
+// POST /reports/:roomSid/recording — requests (or re-fetches, if already requested and
+// still in flight/done) a Twilio Composition for a completed, recorded class.
+async function requestRecordingArtifactRequest(user: User, roomSid: string): Promise<RecordingArtifact> {
+  const idToken = await user.getIdToken();
+  const response = await fetch(`/reports/${encodeURIComponent(roomSid)}/recording`, {
+    method: 'POST',
+    headers: { Authorization: idToken },
+  });
+  await throwOnErrorResponse(response);
+  const body = await response.json();
+  return body.recording;
+}
+
+// GET /reports/:roomSid/recording — refreshes and persists the composition's status.
+async function fetchRecordingArtifactStatusRequest(user: User, roomSid: string): Promise<RecordingArtifact> {
+  const idToken = await user.getIdToken();
+  const response = await fetch(`/reports/${encodeURIComponent(roomSid)}/recording`, {
+    headers: { Authorization: idToken },
+  });
+  await throwOnErrorResponse(response);
+  const body = await response.json();
+  return body.recording;
+}
+
+// GET /reports/:roomSid/recording/download-url — issues a one-time ticketed URL. The
+// download itself is reached with `window.open`, which cannot carry the Authorization
+// header, hence the indirection through this ticket-issuing endpoint.
+async function fetchRecordingDownloadUrlRequest(user: User, roomSid: string): Promise<string> {
+  const idToken = await user.getIdToken();
+  const response = await fetch(`/reports/${encodeURIComponent(roomSid)}/recording/download-url`, {
+    headers: { Authorization: idToken },
+  });
+  await throwOnErrorResponse(response);
+  const body = await response.json();
+  return body.downloadUrl;
 }
 
 // Mirror of one users/{uid}/resources/{id} document served by the /resources
@@ -597,6 +638,36 @@ export default function useFirebaseAuth() {
     [user]
   );
 
+  const requestRecordingArtifact = useCallback(
+    (roomSid: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot request a recording without an authenticated user'));
+      }
+      return requestRecordingArtifactRequest(user, roomSid);
+    },
+    [user]
+  );
+
+  const fetchRecordingArtifactStatus = useCallback(
+    (roomSid: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot fetch a recording status without an authenticated user'));
+      }
+      return fetchRecordingArtifactStatusRequest(user, roomSid);
+    },
+    [user]
+  );
+
+  const fetchRecordingDownloadUrl = useCallback(
+    (roomSid: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot fetch a recording download url without an authenticated user'));
+      }
+      return fetchRecordingDownloadUrlRequest(user, roomSid);
+    },
+    [user]
+  );
+
   const fetchResources = useCallback(() => {
     if (!user) {
       return Promise.reject(new Error('Cannot fetch resources without an authenticated user'));
@@ -696,6 +767,9 @@ export default function useFirebaseAuth() {
     saveAttentionReport,
     fetchAttentionReports,
     fetchAttentionReport,
+    requestRecordingArtifact,
+    fetchRecordingArtifactStatus,
+    fetchRecordingDownloadUrl,
     fetchResources,
     uploadResource,
     fetchResourceDownloadUrl,
