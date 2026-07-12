@@ -75,6 +75,17 @@ export default function App() {
     history.push(dashboardTabPath.clases);
   };
   const navigateToDashboardTab = (tab: DashboardTabId) => history.push(dashboardTabPath[tab]);
+  // Starting a class must also leave whichever /dashboard/* tab route is active — otherwise
+  // isDashboardTabRoute stays true and keeps TeacherDashboard mounted despite dashboardActive
+  // flipping to false, so the click appears to do nothing.
+  const startClass = (session: { roomName: string; name: string; classId?: string }) => {
+    handleStartClass(session);
+    if (isDashboardTabRoute) history.push('/');
+  };
+  const startBlankClass = () => {
+    handleStartBlankClass();
+    if (isDashboardTabRoute) history.push('/');
+  };
 
   return (
     <Container style={{ height }}>
@@ -82,8 +93,8 @@ export default function App() {
         <SessionEndedScreen />
       ) : dashboardActive || isProfileRoute || isDashboardTabRoute ? (
         <TeacherDashboard
-          onStartClass={handleStartClass}
-          onStartBlankClass={handleStartBlankClass}
+          onStartClass={startClass}
+          onStartBlankClass={startBlankClass}
           showProfile={isProfileRoute}
           activeTab={activeTab}
           onTabChange={navigateToDashboardTab}
