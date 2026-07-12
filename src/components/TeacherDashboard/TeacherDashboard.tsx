@@ -321,7 +321,7 @@ export default function TeacherDashboard({
       <DashboardHeader
         professorName={professorName}
         professorInitials={professorInitials}
-        professorPhotoURL={profile?.avatarDataUrl || user?.photoURL || undefined}
+        professorPhotoURL={profile?.avatarUrl || user?.photoURL || undefined}
       />
       <div className={classes.body}>
         <DashboardSidebar

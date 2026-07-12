@@ -18,7 +18,9 @@ import { Redirect } from 'react-router-dom';
 import { useAppState } from '../../state';
 
 const MAX_INPUT_AVATAR_BYTES = 2 * 1024 * 1024;
-const MAX_AVATAR_DATA_URL_LENGTH = 90000;
+// Sanity cap on the compressed output blob — must match the server's
+// MAX_AVATAR_FILE_SIZE_BYTES (server/userProfiles.ts).
+const MAX_AVATAR_BLOB_BYTES = 2 * 1024 * 1024;
 
 const useStyles = makeStyles((theme: Theme) => ({
   page: { minHeight: '100%', padding: theme.spacing(4), backgroundColor: '#f6f9fd' },
@@ -52,7 +54,11 @@ const useStyles = makeStyles((theme: Theme) => ({
   status: { minHeight: theme.spacing(3), color: theme.palette.text.secondary },
 }));
 
-async function compressAvatar(file: File): Promise<string> {
+function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+}
+
+async function compressAvatar(file: File): Promise<Blob> {
   if (!['image/jpeg', 'image/webp'].includes(file.type) || file.size > MAX_INPUT_AVATAR_BYTES) {
     throw new Error('Elige una imagen JPEG o WebP de hasta 2 MB.');
   }
@@ -74,8 +80,8 @@ async function compressAvatar(file: File): Promise<string> {
   canvas.height = Math.max(1, Math.round(image.height * scale));
   canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
   for (const quality of [0.82, 0.7, 0.58]) {
-    const dataUrl = canvas.toDataURL('image/jpeg', quality);
-    if (dataUrl.length <= MAX_AVATAR_DATA_URL_LENGTH) return dataUrl;
+    const blob = await canvasToBlob(canvas, quality);
+    if (blob && blob.size <= MAX_AVATAR_BLOB_BYTES) return blob;
   }
   throw new Error('La imagen sigue siendo demasiado grande después de comprimirla.');
 }
@@ -99,13 +105,21 @@ interface Props {
 
 export default function TeacherProfilePage({ onReturnToClasses }: Props) {
   const classes = useStyles();
-  const { user, profile, updateTeacherProfile, changeEmail, changePassword } = useAppState();
+  const {
+    user,
+    profile,
+    updateTeacherProfile,
+    uploadAvatar,
+    deleteAvatar,
+    changeEmail,
+    changePassword,
+  } = useAppState();
   const firebaseUser = user && 'email' in user ? user : null;
   const [name, setName] = useState(profile?.displayName || firebaseUser?.displayName || '');
   const [email, setEmail] = useState(firebaseUser?.email || profile?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [avatarDataUrl, setAvatarDataUrl] = useState<string | null | undefined>(profile?.avatarDataUrl);
+  const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(profile?.avatarUrl);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false);
@@ -116,7 +130,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
     firebaseUser?.displayName,
   ]);
   useEffect(() => setEmail(firebaseUser?.email || profile?.email || ''), [profile?.email, firebaseUser?.email]);
-  useEffect(() => setAvatarDataUrl(profile?.avatarDataUrl), [profile?.avatarDataUrl]);
+  useEffect(() => setAvatarUrl(profile?.avatarUrl), [profile?.avatarUrl]);
 
   if (!firebaseUser || profile?.role !== 'teacher') return <Redirect to="/" />;
 
@@ -144,9 +158,10 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
     const file = event.target.files?.[0];
     if (!file) return;
     run(async () => {
-      const nextAvatar = await compressAvatar(file);
-      await updateTeacherProfile!({ avatarDataUrl: nextAvatar });
-      setAvatarDataUrl(nextAvatar);
+      const blob = await compressAvatar(file);
+      const compressedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+      const updatedProfile = await uploadAvatar!(compressedFile);
+      setAvatarUrl(updatedProfile.avatarUrl);
       setStatus('Foto actualizada.');
     });
   };
@@ -179,7 +194,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
     });
   };
 
-  const photo = avatarDataUrl || firebaseUser.photoURL || undefined;
+  const photo = avatarUrl || firebaseUser.photoURL || undefined;
   return (
     <main className={classes.page} data-testid="teacher-profile-page">
       <Container maxWidth={false} className={classes.container}>
@@ -212,13 +227,13 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
                     data-testid="profile-avatar-input"
                   />
                 </Button>
-                {avatarDataUrl && (
+                {avatarUrl && (
                   <Button
                     className={classes.button}
                     onClick={() =>
                       run(async () => {
-                        await updateTeacherProfile!({ avatarDataUrl: null });
-                        setAvatarDataUrl(null);
+                        const updatedProfile = await deleteAvatar!();
+                        setAvatarUrl(updatedProfile.avatarUrl);
                         setStatus('Foto eliminada.');
                       })
                     }

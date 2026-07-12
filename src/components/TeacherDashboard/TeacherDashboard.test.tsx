@@ -83,11 +83,11 @@ describe('TeacherDashboard', () => {
     mockUseAppState.mockImplementation(() => ({
       signOut: mockSignOut,
       user: { displayName: 'Andrés Torres', photoURL: 'https://example.com/google.jpg' },
-      profile: { displayName: 'Andrés Torres', avatarDataUrl: 'data:image/jpeg;base64,AA==' },
+      profile: { displayName: 'Andrés Torres', avatarUrl: 'https://appwrite.example/avatar.jpg' },
     }));
     const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
 
-    expect(wrapper.find(DashboardHeader).prop('professorPhotoURL')).toBe('data:image/jpeg;base64,AA==');
+    expect(wrapper.find(DashboardHeader).prop('professorPhotoURL')).toBe('https://appwrite.example/avatar.jpg');
   });
 
   it('renders no photo when the signed-in user has none', () => {
