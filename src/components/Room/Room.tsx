@@ -29,6 +29,8 @@ import useModeration from '../../hooks/useModeration/useModeration';
 import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctoringWarnings';
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
 import useAttentionReportSaver from '../../hooks/useAttentionReportSaver/useAttentionReportSaver';
+import useCachedIdToken from '../../hooks/useCachedIdToken/useCachedIdToken';
+import { savePendingAttentionReport } from '../AttentionReport/pendingAttentionReports';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
@@ -109,7 +111,7 @@ export default function Room() {
   const classes = useStyles();
   const { isChatWindowOpen } = useChatContext();
   const { isBackgroundSelectionOpen, room } = useVideoContext();
-  const { isGalleryViewActive, setIsGalleryViewActive } = useAppState();
+  const { isGalleryViewActive, setIsGalleryViewActive, user } = useAppState();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   // Between 600-960px the desktop shells still render (isMobile only flips below 600),
@@ -128,7 +130,7 @@ export default function Room() {
   const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
   // Snapshots the attention report to Firestore on both professor exit paths; a
   // silent no-op for students and in non-firebase modes.
-  const { saveReport } = useAttentionReportSaver();
+  const { saveReport, buildReport } = useAttentionReportSaver();
   // Singleton (one DataTrack) like useRaiseHand: drives the teacher's "end for everyone"
   // and the student-side "session ended" screen. Must be called once here.
   const { endSessionForAll, leaveWithoutEnding } = useSessionEnd({ onProfessorEnd: saveReport });
@@ -140,6 +142,13 @@ export default function Room() {
   const openTour = useCallback(() => setOnboardingSignal(s => s + 1), []);
   const onboardingValue = useMemo(() => ({ openTour }), [openTour]);
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
+  // `user` is typed as a union with a legacy non-firebase shape (see StateContextType);
+  // narrow to a real firebase User via a method only it has before handing it to
+  // useCachedIdToken, which calls user.getIdToken().
+  const firebaseUser = user && 'getIdToken' in user ? user : null;
+  // Only cached while a teacher is present — the unload-time keepalive POST below is
+  // the only consumer, and it never runs for students.
+  const cachedIdTokenRef = useCachedIdToken(isTeacher ? firebaseUser : null);
   const mainParticipant = useMainParticipant();
   const participants = useParticipants();
   const localParticipantNetworkQuality = useParticipantNetworkQualityLevel(room?.localParticipant ?? null);
@@ -186,6 +195,61 @@ export default function Room() {
   // Here we switch to speaker view when a participant starts sharing their screen, but
   // the user is still free to switch back to gallery view.
   useSetSpeakerViewOnScreenShare(screenShareParticipant, room, setIsGalleryViewActive, isGalleryViewActive);
+
+  // Additional teacher-only beforeunload/pagehide listener: useRoom.tsx already
+  // registers its own listener that disconnects the room, but never persists the
+  // attention report — a tab close or refresh silently dropped it. This one, in
+  // order: (1) synchronously snapshots the report into the localStorage retry
+  // queue (guaranteed durability even if the fetch below never lands), then (2)
+  // fires a best-effort keepalive POST with the id token cached by
+  // useCachedIdToken (a synchronous handler can't await user.getIdToken()).
+  // Latest-value refs (same idiom as useAttentionReportSaver/useSessionEnd) keep
+  // the listener registered once while always reading fresh values.
+  const isTeacherRef = useRef(isTeacher);
+  isTeacherRef.current = isTeacher;
+  const buildReportRef = useRef(buildReport);
+  buildReportRef.current = buildReport;
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  useEffect(() => {
+    const handleUnload = () => {
+      if (!isTeacherRef.current) {
+        return;
+      }
+      const report = buildReportRef.current('left');
+      if (!report) {
+        return;
+      }
+
+      const currentUser = userRef.current;
+      savePendingAttentionReport(currentUser && 'uid' in currentUser ? currentUser.uid : undefined, report);
+
+      const idToken = cachedIdTokenRef.current;
+      if (!idToken) {
+        return;
+      }
+      // Not awaited: keepalive lets the browser keep this request alive past
+      // teardown. The localStorage queue above already guarantees no data loss
+      // if this fails or never completes.
+      fetch('/reports', {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', Authorization: idToken },
+        body: JSON.stringify(report),
+      }).catch(() => {
+        // Swallowed: the pending-report queue is the source of truth for retry.
+      });
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('pagehide', handleUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      window.removeEventListener('pagehide', handleUnload);
+    };
+  }, [cachedIdTokenRef]);
 
   // Speaker-view stage: ParticipantStrip filmstrip on top + MainParticipant filling remaining space.
   // Used by both desktop shells; not rendered on mobile or in gallery view.
