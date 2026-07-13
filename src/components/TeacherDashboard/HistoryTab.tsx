@@ -136,10 +136,15 @@ function formatDate(report: StoredAttentionReport): string {
 
 function formatDuration(report: StoredAttentionReport): string {
   if (!Number.isFinite(report.durationMs) || report.durationMs < 0) return 'No disponible';
-  const totalMinutes = Math.floor(report.durationMs / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+  const totalSeconds = Math.floor(report.durationMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}min`;
+  // Sub-minute sessions (e.g. a test class ended right away) used to all read
+  // "0min" — show seconds instead so they're distinguishable from each other.
+  if (minutes > 0) return `${minutes}min`;
+  return `${seconds}s`;
 }
 
 interface RecordingCellProps {
