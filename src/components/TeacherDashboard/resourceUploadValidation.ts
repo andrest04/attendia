@@ -29,6 +29,13 @@ const WORD_MIME_TYPES = new Set([
   'application/vnd.oasis.opendocument.text',
 ]);
 
+const ZIP_MIME_TYPES = new Set([
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-zip',
+  'multipart/x-zip',
+]);
+
 // Hint for the <input type="file"> accept attribute, so the OS file picker
 // itself filters out unsupported files (extensions + MIME types together for
 // broadest picker compatibility). This narrows what's easy to pick, but a
@@ -49,6 +56,9 @@ export const RESOURCE_FILE_ACCEPT = [
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.oasis.opendocument.text',
+  '.zip',
+  'application/zip',
+  'application/x-zip-compressed',
   'video/*',
 ].join(',');
 
@@ -57,6 +67,7 @@ function isSupportedResourceMimeType(mimetype: string): boolean {
     mimetype === 'application/pdf' ||
     PRESENTATION_MIME_TYPES.has(mimetype) ||
     WORD_MIME_TYPES.has(mimetype) ||
+    ZIP_MIME_TYPES.has(mimetype) ||
     mimetype.startsWith('video/')
   );
 }
@@ -67,7 +78,7 @@ export function validateResourceFile(file: File): string | null {
     return 'El archivo supera el tamaño máximo permitido (25 MB).';
   }
   if (!isSupportedResourceMimeType(file.type)) {
-    return 'Tipo de archivo no admitido. Solo se aceptan PDFs, presentaciones, documentos de Word y videos.';
+    return 'Tipo de archivo no admitido. Solo se aceptan PDFs, presentaciones, documentos de Word, archivos ZIP y videos.';
   }
   return null;
 }

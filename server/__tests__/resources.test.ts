@@ -282,7 +282,7 @@ describe('createUploadResourceHandler', () => {
     const res = makeRes();
 
     await handler(
-      { body: { classId: 'class-1' }, file: makeUploadedFile({ mimetype: 'application/zip' }) } as any,
+      { body: { classId: 'class-1' }, file: makeUploadedFile({ mimetype: 'application/x-msdownload' }) } as any,
       res,
       jest.fn()
     );

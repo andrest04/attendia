@@ -9,6 +9,7 @@ import EventIcon from '@material-ui/icons/Event';
 import PictureAsPdfIcon from '@material-ui/icons/PictureAsPdf';
 import SlideshowIcon from '@material-ui/icons/Slideshow';
 import DescriptionIcon from '@material-ui/icons/Description';
+import ArchiveIcon from '@material-ui/icons/Archive';
 import VideocamIcon from '@material-ui/icons/Videocam';
 
 import { DashboardStatIcon, DashboardTabId, ResourceFileKind } from './types';
@@ -53,6 +54,7 @@ export const resourceKindIcon: Record<ResourceFileKind, IconComponent> = {
   pdf: PictureAsPdfIcon,
   presentation: SlideshowIcon,
   word: DescriptionIcon,
+  zip: ArchiveIcon,
   video: VideocamIcon,
 };
 
