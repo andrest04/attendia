@@ -31,7 +31,7 @@ declare module '@material-ui/core/styles/createTheme' {
 
 const defaultTheme = createTheme();
 
-export default createTheme({
+const theme = createTheme({
   overrides: {
     MuiCssBaseline: {
       '@global': {
@@ -214,3 +214,19 @@ export default createTheme({
   rightDrawerWidth: 320,
   galleryViewBackgroundColor: '#121C2D',
 });
+
+/**
+ * Single source of truth for the attention-level / quality status colors
+ * (green=high/good, amber=medium/warning, red=low/alert). Derived from the
+ * theme's success/warning/error palette so every consumer of these three hex
+ * values (GroupAttentionGauge, dashboardHelpers, AttentionReportView, the
+ * proctoring modal, etc.) shares one definition instead of repeating the
+ * literals.
+ */
+export const attentionStatusColors: Record<'high' | 'medium' | 'low', string> = {
+  high: theme.palette.success.main,
+  medium: theme.palette.warning.main,
+  low: theme.palette.error.main,
+};
+
+export default theme;

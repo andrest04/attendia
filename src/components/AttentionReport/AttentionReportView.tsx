@@ -8,6 +8,7 @@ import { LineChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YA
 
 import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/types';
 import { levelColor, levelLabel } from '../AttentionProvider/attentionLabels';
+import { attentionStatusColors } from '../../theme';
 
 /*
  * Presentational core of the attention report so the same light-themed report body
@@ -36,8 +37,8 @@ const levelChipFg: Record<AttentionLevel, string> = {
 const KPI_COLORS = {
   group: '#1d6eed',
   students: '#059669',
-  alerts: '#ef4444',
-  threshold: '#ffb800',
+  alerts: attentionStatusColors.low,
+  threshold: attentionStatusColors.medium,
 };
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -233,7 +234,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   legendLineDashed: {
     width: 20,
     height: 0,
-    borderTop: '2px dashed #ffb800',
+    borderTop: `2px dashed ${attentionStatusColors.medium}`,
     flexShrink: 0,
   },
   legendLabel: {
@@ -587,7 +588,7 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
               />
               <ReferenceLine
                 y={attentionThreshold}
-                stroke="#ffb800"
+                stroke={KPI_COLORS.threshold}
                 strokeWidth={1.5}
                 strokeDasharray="5 5"
                 strokeOpacity={0.5}

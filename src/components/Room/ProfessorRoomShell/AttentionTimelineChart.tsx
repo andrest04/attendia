@@ -1,6 +1,7 @@
 import React from 'react';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Tooltip } from 'recharts';
 import { AttentionTimelinePoint } from '../../AttentionProvider/types';
+import { attentionStatusColors } from '../../../theme';
 
 interface AttentionTimelineChartProps {
   timeline: AttentionTimelinePoint[];
@@ -23,7 +24,7 @@ export default function AttentionTimelineChart({ timeline, attentionThreshold }:
         <Tooltip contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e2ecf9' }} />
         <ReferenceLine
           y={attentionThreshold}
-          stroke="#ffb800"
+          stroke={attentionStatusColors.medium}
           strokeDasharray="4 4"
           strokeWidth={1}
           strokeOpacity={0.5}

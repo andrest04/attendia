@@ -1,5 +1,5 @@
 import { AttentionData } from './types';
-import { computeAttentionIndex } from './attentionFormula';
+import { ATTENTION_RANGES, ATTENTION_THRESHOLD, computeAttentionIndex } from './attentionFormula';
 
 /**
  * Deterministic mock data for the AttentionProvider.
@@ -16,10 +16,10 @@ const selfComponents = { eyes: 80, posture: 75, head: 70 };
 
 export const mockAttentionData: AttentionData = {
   source: 'mock',
-  ranges: { lowMax: 40, mediumMax: 70 },
+  ranges: ATTENTION_RANGES,
   groupAttention: 72,
   groupDataAvailable: true,
-  attentionThreshold: 60,
+  attentionThreshold: ATTENTION_THRESHOLD,
 
   timeline: [
     { time: '10:00', value: 68 },

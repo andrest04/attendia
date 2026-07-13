@@ -11,6 +11,7 @@ import RoleBadge from '../../RoleBadge/RoleBadge';
 import { ParticipantAttention } from '../../AttentionProvider/types';
 import { levelLabel } from '../../AttentionProvider/attentionLabels';
 import { attBadgeBg, attBadgeText, getInitials } from './professorShellHelpers';
+import { attentionStatusColors } from '../../../theme';
 
 const useStyles = makeStyles((theme: Theme) => ({
   rosterRow: {
@@ -72,7 +73,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   multifaceWarning: {
     flexShrink: 0,
     fontSize: 11,
-    color: '#ef4444',
+    color: attentionStatusColors.low,
   },
   cameraOffFlag: {
     flexShrink: 0,
