@@ -40,6 +40,13 @@ describe('TeacherDashboard', () => {
     expect(wrapper.find(ClassesTab).prop('stats')).toEqual(mockDashboardData.stats);
   });
 
+  it('flags both stats and sessions as mock data when neither backend endpoint is available', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
+
+    expect(wrapper.find(ClassesTab).prop('statsAreMock')).toBe(true);
+    expect(wrapper.find(ClassesTab).prop('sessionsAreMock')).toBe(true);
+  });
+
   // ── Real professor identity (header + session name) ──────────────────────────
   // The dashboard used to show/send the mocked "Prof. García" identity even for a
   // real signed-in user, which is confusing (looks like a different account) and,
@@ -240,6 +247,13 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     expect(wrapper.find(ClassesTab).prop('onCancelClass')).toBeInstanceOf(Function);
   });
 
+  it('clears both mock flags once both classes and attention-report backends are available', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
+
+    expect(wrapper.find(ClassesTab).prop('statsAreMock')).toBe(false);
+    expect(wrapper.find(ClassesTab).prop('sessionsAreMock')).toBe(false);
+  });
+
   it('calls the real start endpoint before handing a calendar class to prejoin', async () => {
     const onStartClass = jest.fn();
     const classRecord = {
@@ -286,5 +300,12 @@ describe('TeacherDashboard stat cards (firebase auth mode)', () => {
     expect(stats[1]).toEqual({ ...mockDashboardData.stats[1], value: '0' });
     expect(stats[2]).toEqual({ ...mockDashboardData.stats[2], value: '0%' });
     expect(stats[3]).toEqual(mockDashboardData.stats[3]);
+  });
+
+  it('flags stats as real but sessions as mock when only fetchAttentionReports is available', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
+
+    expect(wrapper.find(ClassesTab).prop('statsAreMock')).toBe(false);
+    expect(wrapper.find(ClassesTab).prop('sessionsAreMock')).toBe(true);
   });
 });

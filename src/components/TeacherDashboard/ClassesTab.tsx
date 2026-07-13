@@ -126,6 +126,18 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: theme.palette.text.secondary,
     marginTop: 2,
   },
+  // Same convention as HistoryTab's mockTag — a lightweight inline note, not a
+  // new visual component, flagging data that fell back to mockDashboardData.
+  mockTag: {
+    display: 'inline-block',
+    marginLeft: theme.spacing(1),
+    fontSize: '0.6875rem',
+    fontStyle: 'italic',
+    color: theme.palette.text.secondary,
+  },
+  statsGridHeader: {
+    marginBottom: theme.spacing(1),
+  },
   newClassButton: {
     display: 'flex',
     alignItems: 'center',
@@ -395,6 +407,10 @@ interface Props {
   onCancelExpiredClasses?: () => void;
   isCancellingExpired?: boolean;
   cancelExpiredError?: string | null;
+  /** True when `stats`/`sessions` (respectively) came from mockDashboardData instead of a
+   * real backend — each flag is independent since they can fall back separately. */
+  statsAreMock?: boolean;
+  sessionsAreMock?: boolean;
 }
 
 function createIdempotencyKey(): string {
@@ -422,6 +438,8 @@ export default function ClassesTab({
   onCancelExpiredClasses,
   isCancellingExpired,
   cancelExpiredError,
+  statsAreMock = false,
+  sessionsAreMock = false,
 }: Props) {
   const classes = useStyles();
 
@@ -510,6 +528,13 @@ export default function ClassesTab({
 
   return (
     <div className={classes.root} data-testid="dashboard-classes-tab">
+      {statsAreMock && (
+        <div className={classes.statsGridHeader}>
+          <span className={classes.mockTag} data-testid="dashboard-stats-mock-tag">
+            Datos simulados
+          </span>
+        </div>
+      )}
       <div className={classes.statsGrid}>
         {stats.map(stat => {
           const Icon = statCardIcon[stat.icon];
@@ -529,7 +554,14 @@ export default function ClassesTab({
 
       <div className={classes.sectionHeader}>
         <div>
-          <div className={classes.sectionTitle}>Próximas sesiones</div>
+          <div className={classes.sectionTitle}>
+            Próximas sesiones
+            {sessionsAreMock && (
+              <span className={classes.mockTag} data-testid="dashboard-sessions-mock-tag">
+                Datos simulados
+              </span>
+            )}
+          </div>
           <div className={classes.sectionSubtitle}>{dateLabel}</div>
         </div>
         <div className={classes.headerActions}>
