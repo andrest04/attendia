@@ -40,7 +40,7 @@ export interface HistoryRow {
   hasDownload: boolean;
 }
 
-export type ResourceFileKind = 'pdf' | 'presentation' | 'word' | 'video';
+export type ResourceFileKind = 'pdf' | 'presentation' | 'word' | 'zip' | 'video';
 
 /** One day of the July 2026 grid. sessionCount 0 renders no dots. */
 export interface CalendarDaySession {

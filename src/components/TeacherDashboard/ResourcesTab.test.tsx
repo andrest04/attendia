@@ -162,7 +162,7 @@ describe('the ResourcesTab component', () => {
       .first()
       .simulate('change', { target: { value: 'class-a' } });
 
-    const file = new File(['contenido'], 'archivo.zip', { type: 'application/zip' });
+    const file = new File(['contenido'], 'instalador.exe', { type: 'application/x-msdownload' });
     await act(async () => {
       wrapper
         .find('[data-testid="dashboard-resources-file-input"]')

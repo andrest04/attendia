@@ -29,7 +29,7 @@ import { FileStorage } from './fileStorage';
  * returns endedAtMs instead of a formatted string.
  */
 
-export type ResourceKind = 'pdf' | 'presentation' | 'word' | 'video';
+export type ResourceKind = 'pdf' | 'presentation' | 'word' | 'zip' | 'video';
 
 // Enforced again here even though multer is configured with the same limit in
 // index.ts — this module must not trust its wiring. No longer bounded by Firestore's
@@ -64,10 +64,18 @@ const WORD_MIME_TYPES = new Set([
   'application/vnd.oasis.opendocument.text',
 ]);
 
+const ZIP_MIME_TYPES = new Set([
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-zip',
+  'multipart/x-zip',
+]);
+
 function resolveKind(mimetype: string): ResourceKind | null {
   if (mimetype === 'application/pdf') return 'pdf';
   if (PRESENTATION_MIME_TYPES.has(mimetype)) return 'presentation';
   if (WORD_MIME_TYPES.has(mimetype)) return 'word';
+  if (ZIP_MIME_TYPES.has(mimetype)) return 'zip';
   if (mimetype.startsWith('video/')) return 'video';
   return null;
 }
@@ -76,7 +84,8 @@ function safeContentType(contentType: unknown): string {
   if (
     contentType === 'application/pdf' ||
     PRESENTATION_MIME_TYPES.has(contentType as string) ||
-    WORD_MIME_TYPES.has(contentType as string)
+    WORD_MIME_TYPES.has(contentType as string) ||
+    ZIP_MIME_TYPES.has(contentType as string)
   ) {
     return contentType as string;
   }
@@ -294,7 +303,7 @@ export function createUploadResourceHandler(
         sendBadRequest(
           res,
           'unsupported file type',
-          'Solo se admiten PDFs, presentaciones (PPTX/ODP), documentos de Word (DOCX/ODT) y videos.'
+          'Solo se admiten PDFs, presentaciones (PPTX/ODP), documentos de Word (DOCX/ODT), archivos comprimidos (ZIP) y videos.'
         );
         return;
       }
