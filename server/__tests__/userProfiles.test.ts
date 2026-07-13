@@ -200,28 +200,42 @@ describe('createPostProfileHandler', () => {
     });
   });
 
-  it('rejects teacher self-provisioning with 400 before reading or writing', async () => {
+  it('creates a teacher profile when the client requests the teacher role', async () => {
     const { db, get, set } = makeDb();
+    get.mockResolvedValue({ exists: false, data: () => undefined });
     const handler = createPostProfileHandler(db, serverTimestamp);
     const res = makeRes();
 
     await handler({ body: { displayName: 'Ana', role: 'teacher' } } as any, res, jest.fn());
 
-    expect(get).not.toHaveBeenCalled();
-    expect(set).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ error: expect.objectContaining({ message: 'teacher provisioning required' }) })
-    );
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ role: 'teacher' }));
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ role: 'teacher' }));
   });
 
-  it('rejects a missing role with 400', async () => {
-    const { db, set } = makeDb();
+  it('rejects a missing role with 400 before reading or writing', async () => {
+    const { db, get, set } = makeDb();
     const handler = createPostProfileHandler(db, serverTimestamp);
     const res = makeRes();
 
     await handler({ body: { displayName: 'Ana' } } as any, res, jest.fn());
 
+    expect(get).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ message: 'invalid role' }) })
+    );
+  });
+
+  it('rejects an invalid role with 400', async () => {
+    const { db, get, set } = makeDb();
+    const handler = createPostProfileHandler(db, serverTimestamp);
+    const res = makeRes();
+
+    await handler({ body: { displayName: 'Ana', role: 'admin' } } as any, res, jest.fn());
+
+    expect(get).not.toHaveBeenCalled();
     expect(set).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(400);
   });

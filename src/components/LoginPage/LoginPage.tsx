@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useState, FormEvent } from 'react';
+import React, { ChangeEvent, useEffect, useRef, useState, FormEvent } from 'react';
 import { useAppState } from '../../state';
 
 import Button from '@material-ui/core/Button';
@@ -17,6 +17,12 @@ import { useLocation, useHistory, Link } from 'react-router-dom';
 type PreJoinRole = 'teacher' | 'student';
 
 const SELF_REGISTER_ROLE_OPTIONS: { role: PreJoinRole; label: string; caption: string; testId: string }[] = [
+  {
+    role: 'teacher',
+    label: 'Soy profesor',
+    caption: 'Crear y dar clases',
+    testId: 'role-option-profesor',
+  },
   {
     role: 'student',
     label: 'Soy estudiante',
@@ -305,9 +311,6 @@ export function getFirebaseAuthErrorMessage(error: any): string {
   }
 }
 
-// Firebase self-registration creates student profiles only. Teacher access is
-// provisioned administratively; keeping that option out of this form prevents a
-// misleading client-side elevation path.
 function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role: PreJoinRole) => void }) {
   const classes = useStyles();
 
@@ -367,13 +370,25 @@ export default function LoginPage() {
   const [hasExitedCompletion, setHasExitedCompletion] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const isMountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    []
+  );
+
   const runFirebaseAction = (action: Promise<void> | undefined, onSuccess?: () => void) => {
     setAuthError(null);
     setIsSubmitting(true);
     (action || Promise.resolve())
       .then(() => onSuccess?.())
-      .catch(err => setAuthError(new Error(getFirebaseAuthErrorMessage(err))))
-      .finally(() => setIsSubmitting(false));
+      .catch(err => {
+        if (isMountedRef.current) setAuthError(new Error(getFirebaseAuthErrorMessage(err)));
+      })
+      .finally(() => {
+        if (isMountedRef.current) setIsSubmitting(false);
+      });
   };
 
   const handleEmailLogin = (e: FormEvent<HTMLFormElement>) => {
@@ -406,13 +421,16 @@ export default function LoginPage() {
     setView(nextView);
   };
 
-  if (user && profile) {
-    // The redirect waits for the profile: an authenticated user without one must
-    // stay here to complete the role step first. The prejoin resolves the role
-    // from the verified profile.
-    const from = location?.state?.from;
-    history.replace(from ? from : '/');
-  }
+  // The redirect waits for the profile: an authenticated user without one must
+  // stay here to complete the role step first. The prejoin resolves the role
+  // from the verified profile. Runs as an effect (not during render) so it
+  // doesn't trigger a state update while LoginPage itself is still rendering.
+  useEffect(() => {
+    if (user && profile) {
+      const from = location?.state?.from;
+      history.replace(from ? from : '/');
+    }
+  }, [user, profile, location, history]);
 
   if (!isAuthReady) {
     return null;
