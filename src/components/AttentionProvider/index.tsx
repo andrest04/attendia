@@ -49,6 +49,7 @@ import { useMediaQuery, useTheme } from '@material-ui/core';
 import { LocalVideoTrack } from 'twilio-video';
 import { AttentionContextValue, AttentionLevel, AttentionTimelinePoint, ProctoringAlert } from './types';
 import { mockAttentionData } from './mockAttentionData';
+import { attentionLevelFromScore } from './attentionFormula';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
@@ -358,12 +359,8 @@ export const AttentionProvider: React.FC = ({ children }) => {
   }, [isActive]);
 
   // ─── attentionLevel helper — fixed ranges, stays the same regardless of source ─
-  const ranges = mockAttentionData.ranges; // { lowMax: 40, mediumMax: 70 }
-  const attentionLevel = (score: number): AttentionLevel => {
-    if (score <= ranges.lowMax) return 'low';
-    if (score <= ranges.mediumMax) return 'medium';
-    return 'high';
-  };
+  const ranges = mockAttentionData.ranges; // ATTENTION_RANGES from attentionFormula.ts
+  const attentionLevel = (score: number): AttentionLevel => attentionLevelFromScore(score, ranges);
 
   // ─── Assemble AttentionData ───────────────────────────────────────────────────
 

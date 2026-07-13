@@ -1,11 +1,9 @@
 import React from 'react';
 import { AttentionLevel } from '../../AttentionProvider/types';
+import { attentionStatusColors } from '../../../theme';
 
-const levelArcColor: Record<AttentionLevel, string> = {
-  high: '#10b981',
-  medium: '#ffb800',
-  low: '#ef4444',
-};
+// Single source of truth: theme.ts's attentionStatusColors.
+const levelArcColor: Record<AttentionLevel, string> = attentionStatusColors;
 
 const levelTrackColor: Record<AttentionLevel, string> = {
   high: '#d1fae5',

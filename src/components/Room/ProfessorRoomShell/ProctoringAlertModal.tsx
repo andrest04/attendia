@@ -4,6 +4,7 @@ import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import WarningIcon from '@material-ui/icons/Warning';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
+import { attentionStatusColors } from '../../../theme';
 import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
 import { getInitials, proctoringKindIcon, proctoringKindMessage } from './professorShellHelpers';
 
@@ -23,7 +24,7 @@ const useStyles = makeStyles(() => ({
     boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
     width: 460,
     maxWidth: '90vw',
-    borderLeft: '4px solid #ffb800',
+    borderLeft: `4px solid ${attentionStatusColors.medium}`,
     // Cap height and scroll so the footer actions stay reachable on short viewports.
     maxHeight: '90vh',
     overflowY: 'auto',
@@ -232,7 +233,7 @@ export default function ProctoringAlertModal({
               <div className={classes.studentCardName}>{stripTeacherSuffix(alert.identity)}</div>
               <div className={classes.studentCardRole}>Estudiante · Sesión activa</div>
               <div className={classes.alertBox}>
-                <WarningIcon className={classes.alertBoxIcon} style={{ fontSize: 14, color: '#ffb800' }} />
+                <WarningIcon className={classes.alertBoxIcon} style={{ fontSize: 14, color: attentionStatusColors.medium }} />
                 <span className={classes.alertBoxText}>
                   {proctoringKindMessage(alert.kind, stripTeacherSuffix(alert.identity), alert.detectedAt)}
                 </span>
@@ -248,7 +249,7 @@ export default function ProctoringAlertModal({
             onClick={onMarkLegitimate}
             data-testid="professor-proctoring-modal-legitimate"
           >
-            <CheckCircleOutlineIcon style={{ fontSize: 16, color: '#10b981' }} />
+            <CheckCircleOutlineIcon style={{ fontSize: 16, color: attentionStatusColors.high }} />
             Marcar como legítimo
           </button>
           <button

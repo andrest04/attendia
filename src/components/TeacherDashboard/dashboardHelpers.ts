@@ -11,6 +11,8 @@ import BarChartIcon from '@material-ui/icons/BarChart';
 import VideocamIcon from '@material-ui/icons/Videocam';
 
 import { DashboardStatIcon, DashboardTabId, ResourceFileKind } from './types';
+import { attentionLevelFromScore } from '../AttentionProvider/attentionFormula';
+import { attentionStatusColors } from '../../theme';
 
 type IconComponent = React.ComponentType<{ style?: React.CSSProperties; className?: string }>;
 
@@ -54,19 +56,14 @@ export const resourceKindIcon: Record<ResourceFileKind, IconComponent> = {
 
 export type AttentionBarLevel = 'high' | 'medium' | 'low';
 
-// Mirrors the AttentionProvider ranges convention (lowMax=40, mediumMax=70).
-const ATTENTION_RANGES = { lowMax: 40, mediumMax: 70 };
-
-/** Maps a 0-100 attention percentage to a level, using the same thresholds as GroupAttentionGauge. */
+/**
+ * Maps a 0-100 attention percentage to a level, using the same thresholds as
+ * AttentionProvider/GroupAttentionGauge (single source of truth: attentionFormula.ts).
+ */
 export function attentionLevelFromPercent(percent: number): AttentionBarLevel {
-  if (percent <= ATTENTION_RANGES.lowMax) return 'low';
-  if (percent <= ATTENTION_RANGES.mediumMax) return 'medium';
-  return 'high';
+  return attentionLevelFromScore(percent);
 }
 
-// Same color triplet as ProfessorRoomShell/GroupAttentionGauge.tsx.
-export const attentionLevelColor: Record<AttentionBarLevel, string> = {
-  high: '#10b981',
-  medium: '#ffb800',
-  low: '#ef4444',
-};
+// Same color triplet as ProfessorRoomShell/GroupAttentionGauge.tsx (single source
+// of truth: theme.ts's attentionStatusColors).
+export const attentionLevelColor: Record<AttentionBarLevel, string> = attentionStatusColors;

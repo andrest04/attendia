@@ -8,6 +8,7 @@ import SmartphoneIcon from '@material-ui/icons/Smartphone';
 import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import { AttentionLevel, AttentionTimelinePoint, ParticipantAttention } from '../../AttentionProvider/types';
 import { levelColor } from '../../AttentionProvider/attentionLabels';
+import { attentionStatusColors } from '../../../theme';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import { ProfessorRightTab } from './professorShellHelpers';
 
@@ -146,7 +147,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   bannerIcon: {
     fontSize: 16,
-    color: '#ffb800',
+    color: attentionStatusColors.medium,
     flexShrink: 0,
   },
   // Neutral "no data" banner — distinct from the amber below-threshold alarm so a
