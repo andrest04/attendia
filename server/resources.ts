@@ -307,7 +307,11 @@ export function createUploadResourceHandler(
       }
       const roomLabel = classData.title.trim().slice(0, MAX_ROOM_LABEL_LENGTH);
 
-      const name = (file.originalname || 'archivo').trim().slice(0, MAX_NAME_LENGTH) || 'archivo';
+      // multer/busboy decode multipart headers as latin1 regardless of the actual
+      // encoding, so a UTF-8 filename (e.g. "Andrés") arrives mojibake'd. Re-decode
+      // to recover the original bytes as UTF-8.
+      const decodedOriginalName = Buffer.from(file.originalname || '', 'latin1').toString('utf8');
+      const name = (decodedOriginalName || 'archivo').trim().slice(0, MAX_NAME_LENGTH) || 'archivo';
 
       const stored = await fileStorage.upload({
         buffer: file.buffer,
@@ -336,8 +340,8 @@ export function createUploadResourceHandler(
       });
       uploadedFileId = undefined;
 
-      res.status(201).json(
-        toResourceResponse(docRef.id, {
+      res.status(201).json({
+        ...toResourceResponse(docRef.id, {
           name,
           kind,
           roomLabel,
@@ -346,8 +350,12 @@ export function createUploadResourceHandler(
           roomName: classData.roomName,
           sizeBytes: file.size,
           contentType: file.mimetype,
-        })
-      );
+        }),
+        // serverTimestamp() resolves once Firestore commits it — not known here — so
+        // the immediate response approximates it with the current time, same as the
+        // real value will be to millisecond precision.
+        createdAtMs: Date.now(),
+      });
     } catch (err) {
       if (uploadedFileId) {
         fileStorage.delete(uploadedFileId).catch(cleanupError =>
