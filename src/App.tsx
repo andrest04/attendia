@@ -70,10 +70,6 @@ export default function App() {
   );
   const isDashboardTabRoute = activeTabFromRoute !== undefined;
   const activeTab: DashboardTabId = activeTabFromRoute ?? 'clases';
-  const returnToDashboardClasses = () => {
-    handleReturnToDashboard();
-    history.push(dashboardTabPath.clases);
-  };
   const navigateToDashboardTab = (tab: DashboardTabId) => history.push(dashboardTabPath[tab]);
   // Starting a class must also leave whichever /dashboard/* tab route is active — otherwise
   // isDashboardTabRoute stays true and keeps TeacherDashboard mounted despite dashboardActive
@@ -98,7 +94,6 @@ export default function App() {
           showProfile={isProfileRoute}
           activeTab={activeTab}
           onTabChange={navigateToDashboardTab}
-          onReturnToClasses={returnToDashboardClasses}
         />
       ) : roomState === 'disconnected' ? (
         <PreJoinScreens

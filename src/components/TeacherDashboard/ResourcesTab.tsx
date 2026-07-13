@@ -7,6 +7,7 @@ import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { resourceKindIcon } from './dashboardHelpers';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import ConfirmDialog from './ConfirmDialog';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -88,6 +89,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: '#1d2f6f',
     borderColor: '#1d2f6f',
     color: '#ffffff',
+  },
+  pillCancelledTag: {
+    marginLeft: theme.spacing(0.75),
+    color: theme.palette.text.hint,
+    fontWeight: 400,
   },
   grid: {
     display: 'grid',
@@ -221,6 +227,12 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeClassId, setActiveClassId] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
+  // Kept separate from the dialog's open flag: MUI's Dialog plays a ~225ms exit
+  // transition with its content still mounted, so clearing this at the same time
+  // as closing would flash "undefined" mid-animation (see ConfirmDialog usages).
+  const [pendingDeleteResource, setPendingDeleteResource] = useState<ResourceRecord | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingResource, setIsDeletingResource] = useState(false);
 
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -264,6 +276,7 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
 
   const groups = groupByClass(resources);
   const activeGroup = groups.find(g => g.classId === activeClassId) || groups[0];
+  const scheduledClassIds = new Set(scheduledClasses.map(classRecord => classRecord.id));
 
   const handleSelectGroup = (classId: string) => {
     setActiveClassId(classId);
@@ -314,13 +327,26 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   };
 
   const handleDelete = (resource: ResourceRecord) => {
-    if (!window.confirm(`¿Eliminar "${resource.name}"? Esta acción no se puede deshacer.`)) return;
+    setPendingDeleteResource(resource);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDeleteResource) return;
+    const resource = pendingDeleteResource;
+    setIsDeletingResource(true);
     deleteResource(resource.id)
       .then(() => {
         if (isMountedRef.current) setResources(current => current.filter(r => r.id !== resource.id));
       })
       .catch(err => {
         if (isMountedRef.current) setErrorMessage(err.message);
+      })
+      .finally(() => {
+        if (isMountedRef.current) {
+          setIsDeletingResource(false);
+          setIsDeleteDialogOpen(false);
+        }
       });
   };
 
@@ -380,6 +406,11 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
               data-testid={`dashboard-resources-pill-${group.classId}`}
             >
               {group.label}
+              {!scheduledClassIds.has(group.classId) && (
+                <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-cancelled-${group.classId}`}>
+                  (clase cancelada)
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -435,6 +466,16 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
           </button>
         </div>
       )}
+      <ConfirmDialog
+        open={isDeleteDialogOpen}
+        title="Eliminar recurso"
+        message={`¿Eliminar "${pendingDeleteResource?.name}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        cancelLabel="Volver"
+        isConfirming={isDeletingResource}
+        onConfirm={confirmDelete}
+        onCancel={() => setIsDeleteDialogOpen(false)}
+      />
     </div>
   );
 }

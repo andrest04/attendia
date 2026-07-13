@@ -216,15 +216,19 @@ describe('the ResourcesTab component', () => {
       fetchResourceDownloadUrl: jest.fn(),
       deleteResource,
     }));
-    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
-
     const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
 
+    wrapper
+      .find('[data-testid="dashboard-resource-delete"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+
     await act(async () => {
       wrapper
-        .find('[data-testid="dashboard-resource-delete"]')
+        .find('[data-testid="dashboard-confirm-dialog-confirm"]')
         .first()
         .simulate('click');
     });
@@ -232,7 +236,6 @@ describe('the ResourcesTab component', () => {
 
     expect(deleteResource).toHaveBeenCalledWith('file-a');
     expect(wrapper.find('[data-testid="dashboard-resource-file-file-a"]').exists()).toBe(false);
-    confirmSpy.mockRestore();
   });
 
   it('does not delete when the confirmation is declined', async () => {
@@ -244,8 +247,6 @@ describe('the ResourcesTab component', () => {
       fetchResourceDownloadUrl: jest.fn(),
       deleteResource,
     }));
-    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
-
     const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
     await flushPromises();
     wrapper.update();
@@ -254,8 +255,13 @@ describe('the ResourcesTab component', () => {
       .find('[data-testid="dashboard-resource-delete"]')
       .first()
       .simulate('click');
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-confirm-dialog-cancel"]')
+      .first()
+      .simulate('click');
 
     expect(deleteResource).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 });

@@ -257,11 +257,10 @@ describe('TeacherProfilePage', () => {
     expect(state.changePassword).toHaveBeenCalledWith(undefined, 'new-password');
   });
 
-  it('surfaces a failed profile action and returns to Clases in the dashboard', async () => {
+  it('surfaces a failed profile action', async () => {
     const updateTeacherProfile = jest.fn(() => Promise.reject(new Error('Firestore no disponible.')));
-    const onReturnToClasses = jest.fn();
     mockUseAppState.mockReturnValue(teacherState({ updateTeacherProfile }));
-    const wrapper = mount(<TeacherProfilePage onReturnToClasses={onReturnToClasses} />);
+    const wrapper = mount(<TeacherProfilePage />);
 
     await act(async () => {
       await (wrapper
@@ -270,9 +269,7 @@ describe('TeacherProfilePage', () => {
         .prop('onSubmit') as any)({ preventDefault: jest.fn() });
     });
     wrapper.update();
-    button(wrapper, 'Volver a Clases').prop('onClick')!({});
 
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Firestore no disponible.', { variant: 'error' });
-    expect(onReturnToClasses).toHaveBeenCalled();
   });
 });

@@ -121,17 +121,9 @@ describe('TeacherDashboard', () => {
   });
 
   it('renders Perfil inside the dashboard content without adding it to the sidebar', () => {
-    const onReturnToClasses = jest.fn();
-    const wrapper = shallow(
-      <TeacherDashboard
-        onStartClass={jest.fn()}
-        onStartBlankClass={jest.fn()}
-        showProfile
-        onReturnToClasses={onReturnToClasses}
-      />
-    );
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} showProfile />);
 
-    expect(wrapper.find(TeacherProfilePage).prop('onReturnToClasses')).toBe(onReturnToClasses);
+    expect(wrapper.find(TeacherProfilePage).exists()).toBe(true);
     expect(wrapper.find(ClassesTab).exists()).toBe(false);
     expect(wrapper.find(DashboardSidebar).prop('activeTab')).toBeUndefined();
   });

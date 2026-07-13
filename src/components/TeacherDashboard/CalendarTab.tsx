@@ -6,6 +6,7 @@ import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
+import DeleteIcon from '@material-ui/icons/Delete';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { buildCalendarDays, calendarSummary, mondayLeadingBlanks, monthStart } from './calendarView';
 
@@ -96,6 +97,20 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: theme.shape.borderRadius,
     padding: theme.spacing(2),
   },
+  sessionCardExpired: {
+    border: '2px solid #94a3b8',
+    backgroundColor: '#f1f5f9',
+  },
+  badgeExpired: {
+    display: 'inline-block',
+    fontSize: '0.6875rem',
+    fontWeight: 700,
+    padding: '2px 8px',
+    borderRadius: 20,
+    backgroundColor: '#e2e8f0',
+    color: '#475569',
+    marginBottom: theme.spacing(1),
+  },
   sessionTitle: {
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 700,
@@ -112,8 +127,12 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginBottom: theme.spacing(1.5),
   },
   metaItem: { display: 'flex', alignItems: 'center', gap: 4 },
+  sessionActions: {
+    display: 'flex',
+    gap: theme.spacing(1),
+  },
   startButton: {
-    width: '100%',
+    flex: 1,
     padding: theme.spacing(1),
     borderRadius: theme.shape.borderRadius,
     border: 'none',
@@ -123,6 +142,31 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 600,
     fontSize: '0.8125rem',
+  },
+  cancelButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing(0.5),
+    padding: theme.spacing(1),
+    borderRadius: theme.shape.borderRadius,
+    border: '1px solid #e2ecf9',
+    cursor: 'pointer',
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.text.primary,
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.8125rem',
+    '&:disabled': {
+      opacity: 0.6,
+      cursor: 'default',
+    },
+  },
+  cancelError: {
+    marginTop: theme.spacing(1),
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '0.8125rem',
+    color: theme.palette.error.main,
   },
   summaryCard: {
     backgroundColor: '#0f1e45',
@@ -156,6 +200,15 @@ interface Props {
   error: string | null;
   onRetry: () => void;
   onStartClass: (classRecord: ClassRecord) => void;
+  /** Firebase-mode only: cancels (hard-deletes) a real scheduled class. Undefined
+   * elsewhere — the cancel button then stays hidden, same convention as ClassesTab. */
+  onCancelClass?: (session: { id: string; title: string }) => void;
+  cancellingClassId?: string | null;
+  cancelError?: string | null;
+  onRetryCancel?: () => void;
+  /** Ids of scheduled classes whose grace period elapsed without being started —
+   * rendered with a gray outline instead of disappearing (see findExpiredClasses). */
+  expiredClassIds?: Set<string>;
 }
 
 function formatTime(value: number | null): string {
@@ -164,7 +217,18 @@ function formatTime(value: number | null): string {
     : new Date(value).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function CalendarTab({ classes: classRecords, isLoading, error, onRetry, onStartClass }: Props) {
+export default function CalendarTab({
+  classes: classRecords,
+  isLoading,
+  error,
+  onRetry,
+  onStartClass,
+  onCancelClass,
+  cancellingClassId,
+  cancelError,
+  onRetryCancel,
+  expiredClassIds,
+}: Props) {
   const styles = useStyles();
   const [visibleMonth, setVisibleMonth] = useState(() => monthStart(new Date()));
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
@@ -298,10 +362,17 @@ export default function CalendarTab({ classes: classRecords, isLoading, error, o
             effectiveSelected.classes.map(classRecord => (
               <div
                 key={classRecord.id}
-                className={styles.sessionCard}
+                className={clsx(styles.sessionCard, {
+                  [styles.sessionCardExpired]: expiredClassIds?.has(classRecord.id),
+                })}
                 style={{ marginBottom: 12 }}
                 data-testid={`dashboard-calendar-session-${classRecord.id}`}
               >
+                {expiredClassIds?.has(classRecord.id) && (
+                  <span className={styles.badgeExpired} data-testid={`dashboard-calendar-expired-badge-${classRecord.id}`}>
+                    Vencida
+                  </span>
+                )}
                 <div className={styles.sessionTitle}>{classRecord.title}</div>
                 <div className={styles.sessionMeta}>
                   <span className={styles.metaItem}>
@@ -313,16 +384,38 @@ export default function CalendarTab({ classes: classRecords, isLoading, error, o
                     {classRecord.studentCount} alumnos
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className={styles.startButton}
-                  onClick={() => onStartClass(classRecord)}
-                  data-testid={`dashboard-calendar-start-${classRecord.id}`}
-                >
-                  Iniciar
-                </button>
+                <div className={styles.sessionActions}>
+                  <button
+                    type="button"
+                    className={styles.startButton}
+                    onClick={() => onStartClass(classRecord)}
+                    data-testid={`dashboard-calendar-start-${classRecord.id}`}
+                  >
+                    Iniciar
+                  </button>
+                  {onCancelClass && (
+                    <button
+                      type="button"
+                      className={styles.cancelButton}
+                      onClick={() => onCancelClass(classRecord)}
+                      disabled={cancellingClassId === classRecord.id}
+                      data-testid={`dashboard-calendar-cancel-${classRecord.id}`}
+                    >
+                      <DeleteIcon style={{ fontSize: 16 }} />
+                      {cancellingClassId === classRecord.id ? 'Cancelando…' : 'Cancelar'}
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
+          {cancelError && (
+            <div className={styles.cancelError} data-testid="dashboard-calendar-cancel-error">
+              {cancelError}{' '}
+              <button type="button" onClick={onRetryCancel} data-testid="dashboard-calendar-retry-cancel-button">
+                Reintentar cancelación
+              </button>
+            </div>
+          )}
         </div>
         <div className={styles.summaryCard} data-testid="dashboard-calendar-summary">
           <div className={styles.summaryTitle}>{monthLabel.toUpperCase()} · RESUMEN</div>
