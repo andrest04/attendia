@@ -42,6 +42,25 @@ const reports: any[] = [
     durationMs: 3480000,
     recordingWasActiveAtEnd: false,
   },
+  {
+    roomSid: 'RM00000000000000000000000000000ghi',
+    roomName: 'test',
+    endReason: 'ended-for-all',
+    source: 'live',
+    studentCount: 0,
+    attentionThreshold: 60,
+    ranges: { lowMax: 40, mediumMax: 70 },
+    groupAverage: 0,
+    percentAboveThreshold: 0,
+    timeline: [],
+    participants: [],
+    proctoringAlerts: [],
+    startedAtIso: '2026-07-13T09:00:00.000Z',
+    endedAtIso: '2026-07-13T09:00:05.000Z',
+    endedAtMs: 1789289405000,
+    durationMs: 5000,
+    recordingWasActiveAtEnd: false,
+  },
 ];
 
 describe('HistoryTab', () => {
@@ -71,6 +90,9 @@ describe('HistoryTab', () => {
       wrapper.find('[data-testid="dashboard-history-recording-request-RM00000000000000000000000000000abc"]').exists()
     ).toBe(true);
     expect(wrapper.text()).toContain('No disponible');
+    expect(
+      wrapper.find('[data-testid="dashboard-history-row-RM00000000000000000000000000000ghi"]').text()
+    ).toContain('5s');
     expect(
       wrapper.find('[data-testid="dashboard-history-recording-download-RM00000000000000000000000000000abc"]').exists()
     ).toBe(false);
