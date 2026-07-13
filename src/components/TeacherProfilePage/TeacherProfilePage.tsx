@@ -47,8 +47,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   section: { display: 'grid', gap: theme.spacing(2) },
   avatarRow: { display: 'flex', alignItems: 'center', gap: theme.spacing(2), flexWrap: 'wrap' },
   avatar: { width: 72, height: 72 },
-  actions: { display: 'flex', gap: theme.spacing(1), flexWrap: 'wrap' },
-  backLink: { padding: 0, minWidth: 'auto' },
   button: { whiteSpace: 'nowrap' },
 }));
 
@@ -85,11 +83,7 @@ function errorMessage(error: any) {
   return error?.message || 'No pudimos completar el cambio. Intenta de nuevo.';
 }
 
-interface Props {
-  onReturnToClasses?: () => void;
-}
-
-export default function TeacherProfilePage({ onReturnToClasses }: Props) {
+export default function TeacherProfilePage() {
   const classes = useStyles();
   const {
     user,
@@ -202,11 +196,6 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
     <main className={classes.page} data-testid="teacher-profile-page">
       <Container maxWidth={false} className={classes.container}>
         <div className={classes.header}>
-          <div className={classes.actions}>
-            <Button className={classes.backLink} onClick={onReturnToClasses}>
-              Volver a Clases
-            </Button>
-          </div>
           <Typography variant="h4">Perfil docente</Typography>
           <Typography color="textSecondary">Administra tu identidad y acceso.</Typography>
         </div>

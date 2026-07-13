@@ -10,6 +10,7 @@ import ClassesTab from './ClassesTab';
 import HistoryTab from './HistoryTab';
 import ResourcesTab from './ResourcesTab';
 import CalendarTab from './CalendarTab';
+import ConfirmDialog from './ConfirmDialog';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
@@ -63,7 +64,6 @@ interface Props {
   onStartBlankClass: () => void;
   /** The protected /profile route reuses this dashboard shell instead of a standalone page. */
   showProfile?: boolean;
-  onReturnToClasses?: () => void;
   /** Route-derived active tab (see dashboardTabPath) — App.tsx owns the URL, not this component. */
   activeTab?: DashboardTabId;
   onTabChange?: (tab: DashboardTabId) => void;
@@ -102,7 +102,6 @@ export default function TeacherDashboard({
   onStartClass,
   onStartBlankClass,
   showProfile = false,
-  onReturnToClasses,
   activeTab = 'clases',
   onTabChange,
 }: Props) {
@@ -126,9 +125,15 @@ export default function TeacherDashboard({
   const [classesError, setClassesError] = useState<string | null>(null);
   const [cancellingClassId, setCancellingClassId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
-  const cancelRetrySessionRef = useRef<UpcomingSession | null>(null);
+  const cancelRetrySessionRef = useRef<{ id: string; title: string } | null>(null);
   const [isCancellingExpired, setIsCancellingExpired] = useState(false);
   const [cancelExpiredError, setCancelExpiredError] = useState<string | null>(null);
+  // The dialog's target data is kept separate from its open flag: MUI's Dialog
+  // plays a ~225ms exit transition with its content still mounted, so clearing
+  // the data at the same time as closing would flash "undefined" mid-animation.
+  const [cancelDialogSession, setCancelDialogSession] = useState<{ id: string; title: string } | null>(null);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isCancelExpiredDialogOpen, setIsCancelExpiredDialogOpen] = useState(false);
   const [reports, setReports] = useState<StoredAttentionReport[] | null>(null);
   const [isReportsLoading, setIsReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState<string | null>(null);
@@ -243,7 +248,7 @@ export default function TeacherDashboard({
         })
     : undefined;
 
-  const cancelClass = (session: UpcomingSession) => {
+  const cancelClass = (session: { id: string; title: string }) => {
     setCancellingClassId(session.id);
     setCancelError(null);
     return deleteClass!(session.id)
@@ -259,48 +264,50 @@ export default function TeacherDashboard({
   };
 
   const handleCancelClass = hasRealClasses
-    ? (session: UpcomingSession) => {
-        if (!window.confirm(`¿Cancelar "${session.title}"? Esta acción no se puede deshacer.`)) return;
-        cancelClass(session);
+    ? (session: { id: string; title: string }) => {
+        setCancelDialogSession(session);
+        setIsCancelDialogOpen(true);
       }
     : undefined;
 
+  const confirmCancelClass = () => {
+    if (!cancelDialogSession) return;
+    cancelClass(cancelDialogSession);
+    setIsCancelDialogOpen(false);
+  };
+
   const expiredClasses = hasRealClasses ? findExpiredClasses(realClasses, Date.now()) : [];
+  const expiredClassIds = new Set(expiredClasses.map(classRecord => classRecord.id));
 
   const handleCancelExpiredClasses = hasRealClasses
     ? () => {
         if (expiredClasses.length === 0) return;
-        if (
-          !window.confirm(
-            `¿Cancelar ${
-              expiredClasses.length === 1 ? 'la clase vencida' : `las ${expiredClasses.length} clases vencidas`
-            }? Esta acción no se puede deshacer.`
-          )
-        )
-          return;
-        setIsCancellingExpired(true);
-        setCancelExpiredError(null);
-        Promise.allSettled(
-          expiredClasses.map(classRecord => deleteClass!(classRecord.id).then(() => classRecord.id))
-        ).then(results => {
-          const deletedIds = results
-            .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
-            .map(result => result.value);
-          const failedCount = results.length - deletedIds.length;
-          if (deletedIds.length > 0) {
-            setRealClasses(current => current.filter(c => !deletedIds.includes(c.id)));
-          }
-          if (failedCount > 0) {
-            setCancelExpiredError(
-              failedCount === 1
-                ? 'No pudimos cancelar 1 clase vencida.'
-                : `No pudimos cancelar ${failedCount} clases vencidas.`
-            );
-          }
-          setIsCancellingExpired(false);
-        });
+        setIsCancelExpiredDialogOpen(true);
       }
     : undefined;
+
+  const confirmCancelExpiredClasses = () => {
+    setIsCancelExpiredDialogOpen(false);
+    setIsCancellingExpired(true);
+    setCancelExpiredError(null);
+    Promise.allSettled(
+      expiredClasses.map(classRecord => deleteClass!(classRecord.id).then(() => classRecord.id))
+    ).then(results => {
+      const deletedIds = results
+        .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
+        .map(result => result.value);
+      const failedCount = results.length - deletedIds.length;
+      if (deletedIds.length > 0) {
+        setRealClasses(current => current.filter(c => !deletedIds.includes(c.id)));
+      }
+      if (failedCount > 0) {
+        setCancelExpiredError(
+          failedCount === 1 ? 'No pudimos cancelar 1 clase vencida.' : `No pudimos cancelar ${failedCount} clases vencidas.`
+        );
+      }
+      setIsCancellingExpired(false);
+    });
+  };
 
   const startScheduledClass = (classId: string, roomName: string) => {
     startClass!(classId, roomName)
@@ -340,7 +347,7 @@ export default function TeacherDashboard({
               </Button>
             </div>
           )}
-          {showProfile && <TeacherProfilePage onReturnToClasses={onReturnToClasses} />}
+          {showProfile && <TeacherProfilePage />}
           {!showProfile && activeTab === 'clases' && (
             <ClassesTab
               // sessions-week/active-students/avg-attention are now real, computed
@@ -387,10 +394,37 @@ export default function TeacherDashboard({
               error={classesError}
               onRetry={loadClasses}
               onStartClass={classRecord => startScheduledClass(classRecord.id, classRecord.roomName)}
+              onCancelClass={handleCancelClass}
+              cancellingClassId={cancellingClassId}
+              cancelError={cancelError}
+              onRetryCancel={() => cancelRetrySessionRef.current && cancelClass(cancelRetrySessionRef.current)}
+              expiredClassIds={expiredClassIds}
             />
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={isCancelDialogOpen}
+        title="Cancelar clase"
+        message={`¿Cancelar "${cancelDialogSession?.title}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Cancelar clase"
+        cancelLabel="Volver"
+        isConfirming={cancellingClassId === cancelDialogSession?.id}
+        onConfirm={confirmCancelClass}
+        onCancel={() => setIsCancelDialogOpen(false)}
+      />
+      <ConfirmDialog
+        open={isCancelExpiredDialogOpen}
+        title="Cancelar clases vencidas"
+        message={`¿Cancelar ${
+          expiredClasses.length === 1 ? 'la clase vencida' : `las ${expiredClasses.length} clases vencidas`
+        }? Esta acción no se puede deshacer.`}
+        confirmLabel="Cancelar"
+        cancelLabel="Volver"
+        isConfirming={isCancellingExpired}
+        onConfirm={confirmCancelExpiredClasses}
+        onCancel={() => setIsCancelExpiredDialogOpen(false)}
+      />
     </div>
   );
 }

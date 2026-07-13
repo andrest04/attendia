@@ -106,8 +106,6 @@ describe('the App component', () => {
       const wrapper = shallow(<App />);
 
       expect(wrapper.find(TeacherDashboard).prop('showProfile')).toBe(true);
-      wrapper.find(TeacherDashboard).prop('onReturnToClasses')!();
-      expect(mockHistoryPush).toHaveBeenCalledWith('/dashboard/clases');
     });
 
     it('derives the active tab from a /dashboard/* route, even without dashboardActive', () => {
