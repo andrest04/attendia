@@ -45,4 +45,12 @@ const buildProcess = spawn('node', [require.resolve('react-scripts/scripts/build
 
 buildProcess.stderr.pipe(process.stderr);
 buildProcess.stdout.pipe(new Filter()).pipe(process.stdout);
-buildProcess.on('exit', process.exit);
+buildProcess.on('exit', (code, signal) => {
+  if (signal) {
+    // A signal (e.g. SIGKILL from an OOM) means the build never finished.
+    // process.exit(null) would report success, so fail explicitly instead.
+    console.error(`build process was killed by signal ${signal}`);
+    process.exit(1);
+  }
+  process.exit(code);
+});

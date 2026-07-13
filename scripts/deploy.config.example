@@ -1,0 +1,35 @@
+# Copy to scripts/deploy.config (gitignored — never commit the real one) and fill in.
+# Sourced by scripts/deploy.sh to build + deploy to Azure Container Apps.
+
+# --- Azure targets ---
+AZURE_RESOURCE_GROUP=rg-eduspace-academic
+AZURE_CONTAINERAPP_ENV=eduspace-api-env
+AZURE_CONTAINERAPP_NAME=attendia
+AZURE_ACR_NAME=ca1e77e4bf38acr
+
+# --- Build-time (inlined into the React bundle) ---
+REACT_APP_FIREBASE_API_KEY=
+REACT_APP_FIREBASE_AUTH_DOMAIN=
+REACT_APP_FIREBASE_DATABASE_URL=
+REACT_APP_FIREBASE_STORAGE_BUCKET=
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=
+REACT_APP_TWILIO_ENVIRONMENT=
+REACT_APP_DISABLE_TWILIO_CONVERSATIONS=
+REACT_APP_ENABLE_ATTENTION_CV=
+REACT_APP_TOKEN_ENDPOINT=
+REACT_APP_COMPLETE_ROOM_ENDPOINT=
+
+# --- Runtime server secrets (never inlined, only read on the server) ---
+# Full contents of server/serviceAccountKey.json, base64-encoded, single line.
+# e.g. (git bash): base64 -w0 server/serviceAccountKey.json
+FIREBASE_SERVICE_ACCOUNT_BASE64=
+TWILIO_ACCOUNT_SID=
+TWILIO_API_KEY_SID=
+TWILIO_API_KEY_SECRET=
+TWILIO_CONVERSATIONS_SERVICE_SID=
+RECORDING_DOWNLOAD_SECRET=
+APPWRITE_ENDPOINT=
+APPWRITE_PROJECT_ID=
+APPWRITE_API_KEY=
+APPWRITE_AVATARS_BUCKET_ID=
+APPWRITE_RESOURCES_BUCKET_ID=
