@@ -97,12 +97,19 @@ export default function TeacherProfilePage() {
   const firebaseUser = user && 'email' in user ? user : null;
   const [name, setName] = useState(profile?.displayName || firebaseUser?.displayName || '');
   const [email, setEmail] = useState(firebaseUser?.email || profile?.email || '');
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(profile?.avatarUrl);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState<'name' | 'email' | 'password' | 'avatar' | 'deleteAvatar' | null>(
+    null
+  );
+  const isSaving = savingAction !== null;
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false);
+  const [nameSubmitted, setNameSubmitted] = useState(false);
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [passwordSubmitted, setPasswordSubmitted] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
   const hasPasswordProvider = Boolean(firebaseUser?.providerData.some(provider => provider.providerId === 'password'));
 
@@ -115,20 +122,26 @@ export default function TeacherProfilePage() {
 
   if (!firebaseUser || profile?.role !== 'teacher') return <Redirect to="/" />;
 
-  const run = async (work: () => Promise<void>) => {
-    setIsSaving(true);
+  const run = async (action: 'name' | 'email' | 'password' | 'avatar' | 'deleteAvatar', work: () => Promise<void>) => {
+    setSavingAction(action);
     try {
       await work();
     } catch (error) {
       enqueueSnackbar(errorMessage(error), { variant: 'error' });
     } finally {
-      setIsSaving(false);
+      setSavingAction(null);
     }
   };
 
+  const originalName = profile?.displayName || firebaseUser?.displayName || '';
+  const isNameEmpty = !name.trim();
+  const isNameUnchanged = name.trim() === originalName.trim();
+
   const saveName = (event: FormEvent) => {
     event.preventDefault();
-    run(async () => {
+    setNameSubmitted(true);
+    if (isNameEmpty || isNameUnchanged) return;
+    run('name', async () => {
       await updateTeacherProfile!({ displayName: name.trim() });
       enqueueSnackbar('Nombre actualizado.', { variant: 'success' });
     });
@@ -154,7 +167,7 @@ export default function TeacherProfilePage() {
   const confirmCrop = (blob: Blob) => {
     setCropImageSrc(null);
     const compressedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
-    run(async () => {
+    run('avatar', async () => {
       const updatedProfile = await uploadAvatar!(compressedFile);
       setAvatarUrl(updatedProfile.avatarUrl);
       enqueueSnackbar('Foto actualizada.', { variant: 'success' });
@@ -162,26 +175,35 @@ export default function TeacherProfilePage() {
   };
 
   const isEmailUnchanged = email.trim().toLowerCase() === (firebaseUser.email || '').trim().toLowerCase();
-  const isEmailInvalid = !isValidEmail(email);
+  const isEmailEmpty = !email.trim();
+  const isEmailInvalid = !isEmailEmpty && !isValidEmail(email);
+  const isCurrentPasswordEmptyForEmail = hasPasswordProvider && !emailCurrentPassword;
 
   const saveEmail = (event: FormEvent) => {
     event.preventDefault();
-    if (isEmailUnchanged || isEmailInvalid) return;
+    setEmailSubmitted(true);
+    if (isEmailUnchanged || isEmailEmpty || isEmailInvalid || isCurrentPasswordEmptyForEmail) return;
     setIsEmailConfirmOpen(true);
   };
 
   const confirmSaveEmail = () => {
     setIsEmailConfirmOpen(false);
-    return run(async () => {
-      await changeEmail!(email, currentPassword || undefined);
+    return run('email', async () => {
+      await changeEmail!(email, emailCurrentPassword || undefined);
+      setEmailCurrentPassword('');
       enqueueSnackbar('Correo actualizado.', { variant: 'success' });
     });
   };
 
+  const isCurrentPasswordEmptyForPassword = hasPasswordProvider && !currentPassword;
+  const isNewPasswordEmpty = !newPassword;
+  const isNewPasswordInvalid = newPassword.length < 8;
+
   const savePassword = (event: FormEvent) => {
     event.preventDefault();
-    run(async () => {
-      if (newPassword.length < 8) throw new Error('La nueva contraseña debe tener al menos 8 caracteres.');
+    setPasswordSubmitted(true);
+    if (isCurrentPasswordEmptyForPassword || isNewPasswordInvalid) return;
+    run('password', async () => {
       await changePassword!(currentPassword || undefined, newPassword);
       setCurrentPassword('');
       setNewPassword('');
@@ -210,7 +232,7 @@ export default function TeacherProfilePage() {
                   {name.slice(0, 1).toUpperCase()}
                 </Avatar>
                 <Button className={classes.button} component="label" variant="outlined" disabled={isSaving}>
-                  Cambiar foto
+                  {savingAction === 'avatar' ? <CircularProgress size={18} color="inherit" /> : 'Cambiar foto'}
                   <input
                     hidden
                     type="file"
@@ -222,22 +244,23 @@ export default function TeacherProfilePage() {
                 {avatarUrl && (
                   <Button
                     className={classes.button}
+                    disabled={isSaving}
                     onClick={() =>
-                      run(async () => {
+                      run('deleteAvatar', async () => {
                         const updatedProfile = await deleteAvatar!();
                         setAvatarUrl(updatedProfile.avatarUrl);
                         enqueueSnackbar('Foto eliminada.', { variant: 'success' });
                       })
                     }
                   >
-                    Usar foto de Google
+                    {savingAction === 'deleteAvatar' ? <CircularProgress size={18} color="inherit" /> : 'Usar foto de Google'}
                   </Button>
                 )}
               </div>
             </section>
           </Paper>
           <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-name">
-            <form className={classes.section} onSubmit={saveName}>
+            <form className={classes.section} onSubmit={saveName} noValidate>
               <Typography variant="h6">Nombre</Typography>
               <TextField
                 label="Nombre"
@@ -245,14 +268,22 @@ export default function TeacherProfilePage() {
                 onChange={event => setName(event.target.value)}
                 required
                 inputProps={{ maxLength: 100 }}
+                error={nameSubmitted && isNameEmpty}
+                helperText={nameSubmitted && isNameEmpty ? 'Ingresa un nombre.' : ' '}
               />
-              <Button className={classes.button} type="submit" variant="contained" color="primary" disabled={isSaving}>
-                Guardar nombre
+              <Button
+                className={classes.button}
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={isSaving || isNameEmpty || isNameUnchanged}
+              >
+                {savingAction === 'name' ? <CircularProgress size={18} color="inherit" /> : 'Guardar nombre'}
               </Button>
             </form>
           </Paper>
           <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-email">
-            <form className={classes.section} onSubmit={saveEmail}>
+            <form className={classes.section} onSubmit={saveEmail} noValidate>
               <Typography variant="h6">Correo</Typography>
               <TextField
                 label="Nuevo correo"
@@ -260,16 +291,24 @@ export default function TeacherProfilePage() {
                 value={email}
                 onChange={event => setEmail(event.target.value)}
                 required
-                error={isEmailInvalid}
-                helperText={isEmailInvalid ? 'El formato del correo no es válido.' : ' '}
+                error={(emailSubmitted && isEmailEmpty) || isEmailInvalid}
+                helperText={
+                  emailSubmitted && isEmailEmpty
+                    ? 'Ingresa un correo.'
+                    : isEmailInvalid
+                    ? 'El formato del correo no es válido.'
+                    : ' '
+                }
               />
               {hasPasswordProvider && (
                 <TextField
                   label="Contraseña actual"
                   type="password"
-                  value={currentPassword}
-                  onChange={event => setCurrentPassword(event.target.value)}
+                  value={emailCurrentPassword}
+                  onChange={event => setEmailCurrentPassword(event.target.value)}
                   required
+                  error={emailSubmitted && isCurrentPasswordEmptyForEmail}
+                  helperText={emailSubmitted && isCurrentPasswordEmptyForEmail ? 'Ingresa tu contraseña actual.' : ' '}
                 />
               )}
               <Button
@@ -277,14 +316,14 @@ export default function TeacherProfilePage() {
                 type="submit"
                 variant="contained"
                 color="primary"
-                disabled={isSaving || isEmailUnchanged || isEmailInvalid}
+                disabled={isSaving || isEmailUnchanged || isEmailInvalid || isCurrentPasswordEmptyForEmail}
               >
-                Guardar correo
+                {savingAction === 'email' ? <CircularProgress size={18} color="inherit" /> : 'Guardar correo'}
               </Button>
             </form>
           </Paper>
           <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-password">
-            <form className={classes.section} onSubmit={savePassword}>
+            <form className={classes.section} onSubmit={savePassword} noValidate>
               <Typography variant="h6">{hasPasswordProvider ? 'Contraseña' : 'Crear contraseña'}</Typography>
               {hasPasswordProvider && (
                 <TextField
@@ -293,6 +332,10 @@ export default function TeacherProfilePage() {
                   value={currentPassword}
                   onChange={event => setCurrentPassword(event.target.value)}
                   required
+                  error={passwordSubmitted && isCurrentPasswordEmptyForPassword}
+                  helperText={
+                    passwordSubmitted && isCurrentPasswordEmptyForPassword ? 'Ingresa tu contraseña actual.' : ' '
+                  }
                 />
               )}
               <TextField
@@ -302,14 +345,29 @@ export default function TeacherProfilePage() {
                 onChange={event => setNewPassword(event.target.value)}
                 required
                 inputProps={{ minLength: 8 }}
+                error={passwordSubmitted && isNewPasswordInvalid}
+                helperText={
+                  passwordSubmitted && isNewPasswordInvalid ? 'La nueva contraseña debe tener al menos 8 caracteres.' : ' '
+                }
               />
-              <Button className={classes.button} type="submit" variant="contained" color="primary" disabled={isSaving}>
-                {hasPasswordProvider ? 'Actualizar contraseña' : 'Crear contraseña'}
+              <Button
+                className={classes.button}
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={isSaving || isNewPasswordEmpty || isCurrentPasswordEmptyForPassword}
+              >
+                {savingAction === 'password' ? (
+                  <CircularProgress size={18} color="inherit" />
+                ) : hasPasswordProvider ? (
+                  'Actualizar contraseña'
+                ) : (
+                  'Crear contraseña'
+                )}
               </Button>
             </form>
           </Paper>
         </div>
-        {isSaving && <CircularProgress size={18} role="status" />}
         <Dialog
           open={isEmailConfirmOpen}
           onClose={() => setIsEmailConfirmOpen(false)}

@@ -261,6 +261,11 @@ describe('TeacherProfilePage', () => {
     const updateTeacherProfile = jest.fn(() => Promise.reject(new Error('Firestore no disponible.')));
     mockUseAppState.mockReturnValue(teacherState({ updateTeacherProfile }));
     const wrapper = mount(<TeacherProfilePage />);
+    act(() => {
+      const nameField = wrapper.findWhere((node: any) => node.prop('label') === 'Nombre').first();
+      (nameField.prop('onChange') as any)({ target: { value: 'Ana Nueva' } });
+    });
+    wrapper.update();
 
     await act(async () => {
       await (wrapper
