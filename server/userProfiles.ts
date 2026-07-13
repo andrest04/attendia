@@ -5,9 +5,11 @@ import { FileStorage } from './fileStorage';
 /*
  * Firestore-backed user profiles: users/{uid} = { displayName, email, role, createdAt }.
  *
- * Client registration can only create student profiles. Teacher profiles are
- * provisioned by an administrator with the documented bootstrap command, so a
- * verified Firebase identity alone can never grant teacher access.
+ * Client registration can create either a teacher or a student profile — the
+ * client sends the chosen role and the server trusts it at account-creation time
+ * only. After that, role is write-once: this endpoint never modifies an existing
+ * profile document, and every other handler (PATCH, avatar upload/delete) re-reads
+ * the role from Firestore rather than trusting anything the browser sends.
  *
  * Both endpoints assume firebaseAuthMiddleware already ran and attached the
  * decoded token to res.locals.firebaseUser.
@@ -16,6 +18,7 @@ import { FileStorage } from './fileStorage';
 export type UserRole = 'teacher' | 'student';
 
 const STUDENT_ROLE: UserRole = 'student';
+const TEACHER_ROLE: UserRole = 'teacher';
 
 // Decoded Firebase identity attached by firebaseAuthMiddleware. Lives here (a leaf
 // module with no runtime deps) so the middleware and the handlers share one type
@@ -160,11 +163,11 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
     const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
     const requestedRole = body.role;
 
-    if (requestedRole !== STUDENT_ROLE) {
+    if (requestedRole !== STUDENT_ROLE && requestedRole !== TEACHER_ROLE) {
       res.status(400).json({
         error: {
-          message: 'teacher provisioning required',
-          explanation: 'Las cuentas docentes deben ser habilitadas por un administrador.',
+          message: 'invalid role',
+          explanation: 'El rol debe ser profesor o estudiante.',
         },
       });
       return;
@@ -195,11 +198,11 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
       await docRef.set({
         displayName,
         email,
-        role: STUDENT_ROLE,
+        role: requestedRole,
         createdAt: serverTimestamp(),
       });
 
-      res.status(201).json({ displayName, email, role: STUDENT_ROLE });
+      res.status(201).json({ displayName, email, role: requestedRole });
     } catch (err) {
       logOperationalFailure({ event: 'profile_save_failed', operation: 'profile_create', uid: firebaseUser.uid, error: err });
       res.status(503).json({

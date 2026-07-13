@@ -162,7 +162,7 @@ describe('the LoginPage component', () => {
         expect(getByLabelText('Correo electrónico')).toBeTruthy();
         expect(getByLabelText('Contraseña')).toBeTruthy();
         expect(getByTestId('role-option-estudiante').getAttribute('aria-pressed')).toBe('true');
-        expect(() => getByTestId('role-option-profesor')).toThrow();
+        expect(getByTestId('role-option-profesor').getAttribute('aria-pressed')).toBe('false');
       });
 
       it('should call register with the entered data and the default student role', done => {
@@ -190,11 +190,30 @@ describe('the LoginPage component', () => {
         });
       });
 
-      it('does not expose a teacher self-provisioning option', () => {
-        mockUseAppState.mockImplementation(() => ({ user: null, profile: null, isAuthReady: true }));
-        const { queryByTestId } = openRegisterView();
+      it('should call register with the teacher role when selected', done => {
+        const mockRegister = jest.fn(() => Promise.resolve());
+        mockUseAppState.mockImplementation(() => ({
+          user: null,
+          profile: null,
+          isAuthReady: true,
+          register: mockRegister,
+        }));
+        const { getByLabelText, getByTestId } = openRegisterView();
 
-        expect(queryByTestId('role-option-profesor')).toBeNull();
+        act(() => {
+          fireEvent.change(getByLabelText('Nombre completo'), { target: { value: 'Ana García' } });
+          fireEvent.change(getByLabelText('Correo electrónico'), { target: { value: 'ana@example.com' } });
+          fireEvent.change(getByLabelText('Contraseña'), { target: { value: 'password1' } });
+          fireEvent.click(getByTestId('role-option-profesor'));
+        });
+        act(() => {
+          fireEvent.submit(getByLabelText('Contraseña').closest('form')!);
+        });
+
+        setImmediate(() => {
+          expect(mockRegister).toHaveBeenCalledWith('Ana García', 'ana@example.com', 'password1', 'teacher');
+          done();
+        });
       });
 
       it('should map auth/email-already-in-use to a friendly Spanish message', async () => {
