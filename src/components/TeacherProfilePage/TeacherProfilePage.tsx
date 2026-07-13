@@ -16,11 +16,9 @@ import {
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { Redirect } from 'react-router-dom';
 import { useAppState } from '../../state';
+import AvatarCropModal from './AvatarCropModal';
 
 const MAX_INPUT_AVATAR_BYTES = 2 * 1024 * 1024;
-// Sanity cap on the compressed output blob — must match the server's
-// MAX_AVATAR_FILE_SIZE_BYTES (server/userProfiles.ts).
-const MAX_AVATAR_BLOB_BYTES = 2 * 1024 * 1024;
 
 const useStyles = makeStyles((theme: Theme) => ({
   page: { minHeight: '100%', padding: theme.spacing(4), backgroundColor: '#f6f9fd' },
@@ -54,36 +52,24 @@ const useStyles = makeStyles((theme: Theme) => ({
   status: { minHeight: theme.spacing(3), color: theme.palette.text.secondary },
 }));
 
-function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
-  return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+// Any raster format the browser can decode into an <img> and draw to canvas works here —
+// the crop step always re-encodes to JPEG (see avatarCropUtils), so the input format
+// never reaches the server. SVG is excluded (vector, not a photo, and taints the canvas).
+const ALLOWED_AVATAR_INPUT_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'];
+
+function validateAvatarFile(file: File) {
+  if (!ALLOWED_AVATAR_INPUT_MIME_TYPES.includes(file.type) || file.size > MAX_INPUT_AVATAR_BYTES) {
+    throw new Error('Elige una imagen JPEG, PNG, WebP, GIF o BMP de hasta 2 MB.');
+  }
 }
 
-async function compressAvatar(file: File): Promise<Blob> {
-  if (!['image/jpeg', 'image/webp'].includes(file.type) || file.size > MAX_INPUT_AVATAR_BYTES) {
-    throw new Error('Elige una imagen JPEG o WebP de hasta 2 MB.');
-  }
-  const source = await new Promise<string>((resolve, reject) => {
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(new Error('No pudimos leer la imagen.'));
     reader.readAsDataURL(file);
   });
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const element = new Image();
-    element.onload = () => resolve(element);
-    element.onerror = () => reject(new Error('La imagen no es válida.'));
-    element.src = source;
-  });
-  const scale = Math.min(1, 256 / Math.max(image.width, image.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(image.width * scale));
-  canvas.height = Math.max(1, Math.round(image.height * scale));
-  canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
-  for (const quality of [0.82, 0.7, 0.58]) {
-    const blob = await canvasToBlob(canvas, quality);
-    if (blob && blob.size <= MAX_AVATAR_BLOB_BYTES) return blob;
-  }
-  throw new Error('La imagen sigue siendo demasiado grande después de comprimirla.');
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -120,6 +106,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(profile?.avatarUrl);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false);
@@ -156,10 +143,25 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
 
   const selectAvatar = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = ''; // allow re-selecting the same file after cancelling the crop
     if (!file) return;
+    try {
+      validateAvatarFile(file);
+    } catch (error: any) {
+      setStatus(error.message);
+      return;
+    }
+    readFileAsDataUrl(file)
+      .then(setCropImageSrc)
+      .catch((error: Error) => setStatus(error.message));
+  };
+
+  const cancelCrop = () => setCropImageSrc(null);
+
+  const confirmCrop = (blob: Blob) => {
+    setCropImageSrc(null);
+    const compressedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
     run(async () => {
-      const blob = await compressAvatar(file);
-      const compressedFile = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
       const updatedProfile = await uploadAvatar!(compressedFile);
       setAvatarUrl(updatedProfile.avatarUrl);
       setStatus('Foto actualizada.');
@@ -222,7 +224,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
                   <input
                     hidden
                     type="file"
-                    accept="image/jpeg,image/webp"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/bmp"
                     onChange={selectAvatar}
                     data-testid="profile-avatar-input"
                   />
@@ -345,6 +347,13 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
             </Button>
           </DialogActions>
         </Dialog>
+        <AvatarCropModal
+          imageSrc={cropImageSrc}
+          isSaving={isSaving}
+          onCancel={cancelCrop}
+          onConfirm={confirmCrop}
+          onError={setStatus}
+        />
       </Container>
     </main>
   );
