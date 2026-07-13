@@ -27,10 +27,13 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
   },
   profile: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(2),
     cursor: 'pointer',
+  },
+  // MUI Button wraps children in an inner .MuiButton-label span that inherits
+  // `display` from the root but not `gap` — so the gap has to live here, not on
+  // the root, or the avatar/name/chevron render flush against each other.
+  profileLabel: {
+    gap: theme.spacing(1),
   },
   avatar: {
     width: 32,
@@ -95,6 +98,7 @@ export default function DashboardHeader({ professorName, professorInitials, prof
         </span>
         <Button
           className={classes.profile}
+          classes={{ label: classes.profileLabel }}
           data-testid="dashboard-header-profile"
           aria-label="Abrir menú de perfil"
           aria-controls={profileMenuAnchor ? 'dashboard-profile-menu' : undefined}
