@@ -163,18 +163,6 @@ describe('the App component', () => {
       });
     });
 
-    it('drops into a blank PreJoinScreens when the sidebar "Iniciar clase" fires', () => {
-      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
-      mockUseRoomState.mockImplementation(() => 'disconnected');
-      const wrapper = shallow(<App />);
-
-      wrapper.find(TeacherDashboard).prop('onStartBlankClass')();
-      wrapper.update();
-
-      expect(wrapper.find(TeacherDashboard).exists()).toBe(false);
-      expect(wrapper.find(PreJoinScreens).prop('initialClassSession')).toBeUndefined();
-    });
-
     // The "return to the dashboard once the class ends" reset relies on a useEffect, which
     // enzyme's shallow renderer never flushes — that behavior is covered instead by
     // useDashboardHandoff.test.ts (renderHook, real effects) since App.tsx now delegates the

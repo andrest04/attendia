@@ -56,13 +56,10 @@ export default function App() {
   // existing prejoin flow; it comes back once that class's room disconnects (see
   // useDashboardHandoff), so it's a "between classes" landing page, not a one-shot screen.
   const initialRole = useInitialRole();
-  const {
-    dashboardActive,
-    pendingSession,
-    handleStartClass,
-    handleStartBlankClass,
-    handleReturnToDashboard,
-  } = useDashboardHandoff(initialRole, roomState);
+  const { dashboardActive, pendingSession, handleStartClass, handleReturnToDashboard } = useDashboardHandoff(
+    initialRole,
+    roomState
+  );
   useDashboardRouteSync(dashboardActive);
   const isProfileRoute = location.pathname === '/profile';
   const activeTabFromRoute = (Object.keys(dashboardTabPath) as DashboardTabId[]).find(
@@ -78,10 +75,6 @@ export default function App() {
     handleStartClass(session);
     if (isDashboardTabRoute) history.push('/');
   };
-  const startBlankClass = () => {
-    handleStartBlankClass();
-    if (isDashboardTabRoute) history.push('/');
-  };
 
   return (
     <Container style={{ height }}>
@@ -90,7 +83,6 @@ export default function App() {
       ) : dashboardActive || isProfileRoute || isDashboardTabRoute ? (
         <TeacherDashboard
           onStartClass={startClass}
-          onStartBlankClass={startBlankClass}
           showProfile={isProfileRoute}
           activeTab={activeTab}
           onTabChange={navigateToDashboardTab}

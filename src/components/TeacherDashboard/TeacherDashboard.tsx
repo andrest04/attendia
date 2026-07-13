@@ -11,6 +11,7 @@ import HistoryTab from './HistoryTab';
 import ResourcesTab from './ResourcesTab';
 import CalendarTab from './CalendarTab';
 import ConfirmDialog from './ConfirmDialog';
+import QuickStartClassPanel from './QuickStartClassPanel';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
@@ -60,8 +61,6 @@ const useStyles = makeStyles((theme: Theme) => ({
 interface Props {
   /** Real navigation: starts the highlighted upcoming class immediately. */
   onStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
-  /** Real navigation: the sidebar's "Iniciar clase" button goes straight to the blank prejoin flow. */
-  onStartBlankClass: () => void;
   /** The protected /profile route reuses this dashboard shell instead of a standalone page. */
   showProfile?: boolean;
   /** Route-derived active tab (see dashboardTabPath) — App.tsx owns the URL, not this component. */
@@ -100,7 +99,6 @@ function capitalizeFirst(value: string): string {
  */
 export default function TeacherDashboard({
   onStartClass,
-  onStartBlankClass,
   showProfile = false,
   activeTab = 'clases',
   onTabChange,
@@ -139,6 +137,10 @@ export default function TeacherDashboard({
   const [reportsError, setReportsError] = useState<string | null>(null);
   const userUid = user && 'uid' in user ? user.uid : undefined;
   const [pendingReports, setPendingReports] = useState(() => getPendingAttentionReports(userUid));
+  // The sidebar's "Iniciar clase" only opens this in-dashboard panel (sidebar/navbar stay put);
+  // it navigates away to the standalone device-selection prejoin only once a room name is
+  // confirmed (see handleQuickStartCreate below).
+  const [isQuickStartOpen, setIsQuickStartOpen] = useState(false);
   const data = mockDashboardData;
   const professorName = profile?.displayName || user?.displayName || data.professorName;
   const professorInitials = getProfessorInitials(professorName);
@@ -323,6 +325,11 @@ export default function TeacherDashboard({
     onStartClass(session);
   };
 
+  const handleQuickStartCreate = (session: { roomName: string; name: string }) => {
+    setIsQuickStartOpen(false);
+    onStartClass(session);
+  };
+
   return (
     <div className={classes.root} data-testid="teacher-dashboard-root">
       <DashboardHeader
@@ -333,8 +340,13 @@ export default function TeacherDashboard({
       <div className={classes.body}>
         <DashboardSidebar
           activeTab={showProfile ? undefined : activeTab}
-          onTabChange={tab => onTabChange?.(tab)}
-          onStartBlankClass={onStartBlankClass}
+          // Clicking any sidebar tab while the quick-start panel is open also leaves it —
+          // it has no back link of its own, since the sidebar navigation already covers that.
+          onTabChange={tab => {
+            setIsQuickStartOpen(false);
+            onTabChange?.(tab);
+          }}
+          onStartBlankClass={() => setIsQuickStartOpen(true)}
           onSignOut={handleSignOut}
         />
         <div className={classes.content}>
@@ -347,8 +359,9 @@ export default function TeacherDashboard({
               </Button>
             </div>
           )}
-          {showProfile && <TeacherProfilePage />}
-          {!showProfile && activeTab === 'clases' && (
+          {isQuickStartOpen && <QuickStartClassPanel professorName={professorName} onCreate={handleQuickStartCreate} />}
+          {!isQuickStartOpen && showProfile && <TeacherProfilePage />}
+          {!isQuickStartOpen && !showProfile && activeTab === 'clases' && (
             <ClassesTab
               // sessions-week/active-students/avg-attention are now real, computed
               // from this week's attention reports (see reportStats.ts). hours-taught
@@ -372,7 +385,7 @@ export default function TeacherDashboard({
               cancelExpiredError={cancelExpiredError}
             />
           )}
-          {!showProfile && activeTab === 'historial' && (
+          {!isQuickStartOpen && !showProfile && activeTab === 'historial' && (
             <HistoryTab
               reports={reports}
               isLoading={isReportsLoading}
@@ -386,8 +399,8 @@ export default function TeacherDashboard({
               onGetRecordingDownloadUrl={fetchRecordingDownloadUrl}
             />
           )}
-          {!showProfile && activeTab === 'recursos' && <ResourcesTab classes={realClasses} />}
-          {!showProfile && activeTab === 'calendario' && (
+          {!isQuickStartOpen && !showProfile && activeTab === 'recursos' && <ResourcesTab classes={realClasses} />}
+          {!isQuickStartOpen && !showProfile && activeTab === 'calendario' && (
             <CalendarTab
               classes={fetchClasses ? realClasses : null}
               isLoading={isClassesLoading}

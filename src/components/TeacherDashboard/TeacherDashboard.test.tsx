@@ -3,6 +3,7 @@ import { shallow } from 'enzyme';
 import TeacherDashboard from './TeacherDashboard';
 import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
+import QuickStartClassPanel from './QuickStartClassPanel';
 import ClassesTab from './ClassesTab';
 import HistoryTab from './HistoryTab';
 import ResourcesTab from './ResourcesTab';
@@ -34,7 +35,7 @@ describe('TeacherDashboard', () => {
   });
 
   it('renders the mocked stat cards when fetchAttentionReports is unavailable', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     expect(wrapper.find(ClassesTab).prop('stats')).toEqual(mockDashboardData.stats);
   });
@@ -45,7 +46,7 @@ describe('TeacherDashboard', () => {
   // worse, leaked into the REAL onStartClass navigation as the room identity.
 
   it('shows the signed-in user displayName and initials in the header, not the mock', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     expect(wrapper.find(DashboardHeader).prop('professorName')).toBe('Andrés Torres');
     expect(wrapper.find(DashboardHeader).prop('professorInitials')).toBe('AT');
@@ -57,14 +58,14 @@ describe('TeacherDashboard', () => {
       user: { displayName: 'Auth Name' },
       profile: { displayName: 'Profile Name' },
     }));
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     expect(wrapper.find(DashboardHeader).prop('professorName')).toBe('Profile Name');
   });
 
   it('falls back to the mock professor name when no user/profile displayName is available', () => {
     mockUseAppState.mockImplementation(() => ({ signOut: mockSignOut }));
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     expect(wrapper.find(DashboardHeader).prop('professorName')).toBe(mockDashboardData.professorName);
   });
@@ -74,7 +75,7 @@ describe('TeacherDashboard', () => {
       signOut: mockSignOut,
       user: { displayName: 'Andrés Torres', photoURL: 'https://example.com/photo.jpg' },
     }));
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     expect(wrapper.find(DashboardHeader).prop('professorPhotoURL')).toBe('https://example.com/photo.jpg');
   });
@@ -85,20 +86,20 @@ describe('TeacherDashboard', () => {
       user: { displayName: 'Andrés Torres', photoURL: 'https://example.com/google.jpg' },
       profile: { displayName: 'Andrés Torres', avatarUrl: 'https://appwrite.example/avatar.jpg' },
     }));
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     expect(wrapper.find(DashboardHeader).prop('professorPhotoURL')).toBe('https://appwrite.example/avatar.jpg');
   });
 
   it('renders no photo when the signed-in user has none', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     expect(wrapper.find(DashboardHeader).prop('professorPhotoURL')).toBeUndefined();
   });
 
   it('feeds the real professor name (not the mock) into ClassesTab for onStartClass', () => {
     const onStartClass = jest.fn();
-    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
 
     const highlighted = mockDashboardData.upcomingSessions.find(s => s.highlighted)!;
     wrapper.find(ClassesTab).prop('onStartClass')({
@@ -113,7 +114,7 @@ describe('TeacherDashboard', () => {
   });
 
   it('defaults to the Clases tab', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
     expect(wrapper.find(ClassesTab).exists()).toBe(true);
     expect(wrapper.find(HistoryTab).exists()).toBe(false);
     expect(wrapper.find(ResourcesTab).exists()).toBe(false);
@@ -121,7 +122,7 @@ describe('TeacherDashboard', () => {
   });
 
   it('renders Perfil inside the dashboard content without adding it to the sidebar', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} showProfile />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} showProfile />);
 
     expect(wrapper.find(TeacherProfilePage).exists()).toBe(true);
     expect(wrapper.find(ClassesTab).exists()).toBe(false);
@@ -130,17 +131,17 @@ describe('TeacherDashboard', () => {
 
   it('renders the tab that matches the activeTab prop', () => {
     expect(
-      shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} activeTab="historial" />)
+      shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="historial" />)
         .find(HistoryTab)
         .exists()
     ).toBe(true);
     expect(
-      shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} activeTab="recursos" />)
+      shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="recursos" />)
         .find(ResourcesTab)
         .exists()
     ).toBe(true);
     expect(
-      shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} activeTab="calendario" />)
+      shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="calendario" />)
         .find(CalendarTab)
         .exists()
     ).toBe(true);
@@ -149,23 +150,57 @@ describe('TeacherDashboard', () => {
   it("forwards the sidebar's tab change to the onTabChange prop", () => {
     const onTabChange = jest.fn();
     const wrapper = shallow(
-      <TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} onTabChange={onTabChange} />
+      <TeacherDashboard onStartClass={jest.fn()} onTabChange={onTabChange} />
     );
 
     wrapper.find(DashboardSidebar).prop('onTabChange')('historial');
     expect(onTabChange).toHaveBeenCalledWith('historial');
   });
 
-  it('wires the sidebar "Iniciar clase" button to onStartBlankClass', () => {
-    const onStartBlankClass = jest.fn();
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={onStartBlankClass} />);
+  it('opens the embedded quick-start panel (sidebar stays put) on "Iniciar clase", instead of navigating away', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    expect(onStartBlankClass).toHaveBeenCalled();
+    wrapper.update();
+
+    expect(wrapper.find(DashboardSidebar).exists()).toBe(true);
+    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(true);
+    expect(wrapper.find(ClassesTab).exists()).toBe(false);
+  });
+
+  it('only calls onStartClass (real navigation) once the quick-start panel is submitted with a room name', () => {
+    const onStartClass = jest.fn();
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
+
+    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
+    wrapper.update();
+    expect(onStartClass).not.toHaveBeenCalled();
+
+    wrapper.find(QuickStartClassPanel).prop('onCreate')({ roomName: 'matematicas-grupo-a', name: 'Andrés Torres [Profesor]' });
+    wrapper.update();
+
+    expect(onStartClass).toHaveBeenCalledWith({ roomName: 'matematicas-grupo-a', name: 'Andrés Torres [Profesor]' });
+    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
+  });
+
+  it('closes the quick-start panel without navigating when another sidebar tab is picked', () => {
+    const onStartClass = jest.fn();
+    const onTabChange = jest.fn();
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} onTabChange={onTabChange} />);
+
+    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
+    wrapper.update();
+
+    wrapper.find(DashboardSidebar).prop('onTabChange')('historial');
+    wrapper.update();
+
+    expect(onStartClass).not.toHaveBeenCalled();
+    expect(onTabChange).toHaveBeenCalledWith('historial');
+    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
   });
 
   it('clears pending reports before delegating sign-out to app state', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
     wrapper.find(DashboardSidebar).prop('onSignOut')!();
     expect(mockSignOut).toHaveBeenCalled();
   });
@@ -199,7 +234,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
   // useEffect, so the fetch-on-mount call itself is exercised via `mount` in
   // ResourcesTab.test.tsx's equivalent test; this asserts the wiring shallow can see.
   it('passes real onCreateClass/onCancelClass handlers through to ClassesTab', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     expect(wrapper.find(ClassesTab).prop('onCreateClass')).toBeInstanceOf(Function);
     expect(wrapper.find(ClassesTab).prop('onCancelClass')).toBeInstanceOf(Function);
@@ -216,7 +251,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     };
     mockStartClass.mockResolvedValue(undefined);
     const wrapper = shallow(
-      <TeacherDashboard onStartClass={onStartClass} onStartBlankClass={jest.fn()} activeTab="calendario" />
+      <TeacherDashboard onStartClass={onStartClass} activeTab="calendario" />
     );
 
     wrapper.find(CalendarTab).prop('onStartClass')(classRecord);
@@ -244,7 +279,7 @@ describe('TeacherDashboard stat cards (firebase auth mode)', () => {
   // from an empty report list, with hours-taught still copied from the mock)
   // rather than the fetch-on-mount call itself.
   it('computes the three real stat values (zeros for an empty report list) and keeps hours-taught mocked', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onStartBlankClass={jest.fn()} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     const stats = wrapper.find(ClassesTab).prop('stats');
     expect(stats[0]).toEqual({ ...mockDashboardData.stats[0], value: '0' });
