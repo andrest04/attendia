@@ -414,7 +414,7 @@ interface Props {
   sessionsAreMock?: boolean;
 }
 
-function createIdempotencyKey(): string {
+export function createIdempotencyKey(): string {
   return `class-${Date.now().toString(36)}-${Math.random()
     .toString(36)
     .slice(2)}-${Math.random()

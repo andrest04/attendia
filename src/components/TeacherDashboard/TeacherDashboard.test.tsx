@@ -183,10 +183,18 @@ describe('TeacherDashboard', () => {
     wrapper.update();
     expect(onStartClass).not.toHaveBeenCalled();
 
-    wrapper.find(QuickStartClassPanel).prop('onCreate')({ roomName: 'matematicas-grupo-a', name: 'Andrés Torres [Profesor]' });
+    wrapper.find(QuickStartClassPanel).prop('onCreate')({
+      roomName: 'matematicas-grupo-a',
+      name: 'Andrés Torres [Profesor]',
+      title: 'Matemáticas grupo A',
+    });
     wrapper.update();
 
-    expect(onStartClass).toHaveBeenCalledWith({ roomName: 'matematicas-grupo-a', name: 'Andrés Torres [Profesor]' });
+    expect(onStartClass).toHaveBeenCalledWith({
+      roomName: 'matematicas-grupo-a',
+      name: 'Andrés Torres [Profesor]',
+      title: 'Matemáticas grupo A',
+    });
     expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
   });
 
@@ -274,6 +282,66 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
 
     expect(mockStartClass).toHaveBeenCalledWith('class-1', 'algebra');
     expect(onStartClass).toHaveBeenCalledWith({ roomName: 'algebra', name: 'Andrés Torres', classId: 'class-1' });
+  });
+
+  it('persists a sidebar quick-start as a real class, starts it, then navigates with its classId', async () => {
+    const onStartClass = jest.fn();
+    const created = {
+      id: 'class-quick-1',
+      title: 'Física 101',
+      roomName: 'fisica-101',
+      scheduledAtMs: Date.now(),
+      studentCount: 0,
+      durationMinutes: 60,
+    };
+    mockCreateClass.mockResolvedValue(created);
+    mockStartClass.mockResolvedValue(undefined);
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
+
+    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
+    wrapper.update();
+    wrapper.find(QuickStartClassPanel).prop('onCreate')({
+      roomName: 'fisica-101',
+      name: 'Andrés Torres [Profesor]',
+      title: 'Física 101',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockCreateClass).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Física 101', roomName: 'fisica-101' })
+    );
+    expect(mockStartClass).toHaveBeenCalledWith('class-quick-1', 'fisica-101');
+    expect(onStartClass).toHaveBeenCalledWith({
+      roomName: 'fisica-101',
+      name: 'Andrés Torres [Profesor]',
+      classId: 'class-quick-1',
+    });
+  });
+
+  it('falls open to plain navigation (no classId) when persisting a quick-started class fails', async () => {
+    const onStartClass = jest.fn();
+    mockCreateClass.mockRejectedValue(new Error('firestore unavailable'));
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
+
+    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
+    wrapper.update();
+    wrapper.find(QuickStartClassPanel).prop('onCreate')({
+      roomName: 'fisica-101',
+      name: 'Andrés Torres [Profesor]',
+      title: 'Física 101',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockStartClass).not.toHaveBeenCalled();
+    expect(onStartClass).toHaveBeenCalledWith({
+      roomName: 'fisica-101',
+      name: 'Andrés Torres [Profesor]',
+      title: 'Física 101',
+    });
+    (console.error as jest.Mock).mockRestore();
   });
 });
 

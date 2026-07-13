@@ -56,6 +56,7 @@ export interface StateContextType {
     studentCount: number;
     durationMinutes: number;
     idempotencyKey: string;
+    roomName?: string;
   }): Promise<ClassRecord>;
   deleteClass?(id: string): Promise<void>;
   startClass?(id: string, roomName: string): Promise<void>;

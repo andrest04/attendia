@@ -318,7 +318,14 @@ async function fetchClassesRequest(user: User): Promise<ClassRecord[]> {
 // POST /classes
 async function createClassRequest(
   user: User,
-  input: { title: string; scheduledAtMs: number; studentCount: number; durationMinutes: number; idempotencyKey: string }
+  input: {
+    title: string;
+    scheduledAtMs: number;
+    studentCount: number;
+    durationMinutes: number;
+    idempotencyKey: string;
+    roomName?: string;
+  }
 ): Promise<ClassRecord> {
   const idToken = await user.getIdToken();
 
@@ -765,6 +772,7 @@ export default function useFirebaseAuth() {
       studentCount: number;
       durationMinutes: number;
       idempotencyKey: string;
+      roomName?: string;
     }) => {
       if (!user) {
         return Promise.reject(new Error('Cannot create a class without an authenticated user'));

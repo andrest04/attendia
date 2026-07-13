@@ -231,6 +231,50 @@ describe('createCreateClassHandler', () => {
     });
   });
 
+  it('uses an explicit roomName verbatim instead of deriving one from the title', async () => {
+    const { db, userGet, classDoc, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+    const res = makeRes();
+    const req: any = {
+      body: {
+        title: 'Física 101',
+        scheduledAtMs: 1751554800000,
+        idempotencyKey: 'create-class-key-quick-1',
+        roomName: 'fisica-101',
+      },
+    };
+
+    await handler(req, res, jest.fn());
+
+    expect(classDoc).toHaveBeenCalledWith('create-class-key-quick-1');
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ roomName: 'fisica-101' }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('returns 400 when an explicit roomName is blank', async () => {
+    const { db, userGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+    const res = makeRes();
+
+    await handler(
+      {
+        body: {
+          title: 'Física 101',
+          scheduledAtMs: 1751554800000,
+          idempotencyKey: 'create-class-key-quick-2',
+          roomName: '   ',
+        },
+      } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(set).not.toHaveBeenCalled();
+  });
+
   it('gives two classes with the same title distinct room names', async () => {
     const { db, userGet, set } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
