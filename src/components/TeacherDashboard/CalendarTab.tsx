@@ -44,6 +44,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
+    transition: theme.transitions.create(['transform', 'background-color'], { duration: 120 }),
+    '&:active': { transform: 'scale(0.88)', backgroundColor: '#e2ecf9' },
   },
   todayButton: {
     height: 32,
@@ -56,6 +58,15 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontWeight: 600,
     fontSize: '0.75rem',
     cursor: 'pointer',
+    transition: theme.transitions.create(['transform', 'background-color', 'color', 'border-color'], {
+      duration: 120,
+    }),
+    '&:active': { transform: 'scale(0.92)' },
+  },
+  todayButtonActive: {
+    backgroundColor: '#0f1e45',
+    borderColor: '#0f1e45',
+    color: '#ffffff',
   },
   weekRow: { display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: theme.spacing(1) },
   weekLabel: { textAlign: 'center', fontSize: '0.6875rem', fontWeight: 700, color: theme.palette.text.secondary },
@@ -250,6 +261,12 @@ export default function CalendarTab({
   const effectiveDay = selectedDay > days.length ? 1 : selectedDay;
   const effectiveSelected = days.find(day => day.day === effectiveDay) || days[0];
 
+  const today = new Date();
+  const isViewingToday =
+    visibleMonth.getFullYear() === today.getFullYear() &&
+    visibleMonth.getMonth() === today.getMonth() &&
+    effectiveDay === today.getDate();
+
   if (isLoading)
     return (
       <div className={styles.state} data-testid="dashboard-calendar-loading">
@@ -287,7 +304,7 @@ export default function CalendarTab({
           <div className={styles.navButtons}>
             <button
               type="button"
-              className={styles.todayButton}
+              className={clsx(styles.todayButton, { [styles.todayButtonActive]: isViewingToday })}
               onClick={goToToday}
               data-testid="dashboard-calendar-today"
             >
@@ -356,7 +373,12 @@ export default function CalendarTab({
             {effectiveDay} de {visibleMonth.toLocaleDateString('es-AR', { month: 'long' })}
           </div>
           <div className={styles.sideSubtitle}>
-            {effectiveSelected ? effectiveSelected.classes.length : 0} clases programadas
+            {(() => {
+              const count = effectiveSelected ? effectiveSelected.classes.length : 0;
+              if (count === 0) return 'No hay clases programadas';
+              if (count === 1) return '1 clase programada';
+              return `${count} clases programadas`;
+            })()}
           </div>
           {effectiveSelected &&
             effectiveSelected.classes.map(classRecord => (
