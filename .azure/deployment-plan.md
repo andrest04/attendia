@@ -1,6 +1,6 @@
 # Azure Deployment Plan — twilio-video-app-react
 
-Status: Infra already provisioned — only deploy.config + run remaining
+Status: Deployed — attendia.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io (live, verified 200 OK)
 
 ## 0. CORRECTION — infra already exists, do NOT re-provision
 Discovered via `az resource list -g rg-eduspace-academic` and reading `scripts/deploy.sh` /
