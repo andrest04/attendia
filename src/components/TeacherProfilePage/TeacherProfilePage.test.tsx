@@ -53,7 +53,9 @@ describe('TeacherProfilePage', () => {
 
     expect(wrapper.find('[data-testid="teacher-profile-page"]').exists()).toBe(true);
     expect(wrapper.text()).toContain('Perfil docente');
-    expect(wrapper.find('[data-testid="profile-avatar-input"]').prop('accept')).toBe('image/jpeg,image/webp');
+    expect(wrapper.find('[data-testid="profile-avatar-input"]').prop('accept')).toBe(
+      'image/jpeg,image/png,image/webp,image/gif,image/bmp'
+    );
   });
 
   it('keeps the four profile sections ordered and reachable in both responsive layout modes', () => {
