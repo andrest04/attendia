@@ -298,6 +298,7 @@ export interface ClassRecord {
   roomName: string;
   scheduledAtMs: number | null;
   studentCount: number;
+  durationMinutes: number;
   status?: 'scheduled' | 'started' | 'completed';
 }
 
@@ -317,7 +318,7 @@ async function fetchClassesRequest(user: User): Promise<ClassRecord[]> {
 // POST /classes
 async function createClassRequest(
   user: User,
-  input: { title: string; scheduledAtMs: number; studentCount: number; idempotencyKey: string }
+  input: { title: string; scheduledAtMs: number; studentCount: number; durationMinutes: number; idempotencyKey: string }
 ): Promise<ClassRecord> {
   const idToken = await user.getIdToken();
 
@@ -758,7 +759,13 @@ export default function useFirebaseAuth() {
   }, [user]);
 
   const createClass = useCallback(
-    (input: { title: string; scheduledAtMs: number; studentCount: number; idempotencyKey: string }) => {
+    (input: {
+      title: string;
+      scheduledAtMs: number;
+      studentCount: number;
+      durationMinutes: number;
+      idempotencyKey: string;
+    }) => {
       if (!user) {
         return Promise.reject(new Error('Cannot create a class without an authenticated user'));
       }

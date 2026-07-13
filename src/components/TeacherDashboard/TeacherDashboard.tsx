@@ -16,7 +16,7 @@ import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
 import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
-import { buildReportStats } from './reportStats';
+import { buildReportStats, computeTotalHoursTaught } from './reportStats';
 import {
   clearPendingAttentionReports,
   getPendingAttentionReports,
@@ -87,10 +87,10 @@ function capitalizeFirst(value: string): string {
  * Owns the active-tab state and composes the shared header/sidebar with one of
  * the four tabs. "Recursos" is fully real (self-fetching from useAppState,
  * firebase-mode only). "Clases" is real for session scheduling (fetch/create/
- * cancel) and for three of its four stat cards (sessions-week/active-students/
- * avg-attention, computed from this week's attention reports — see
- * reportStats.ts); its "hours-taught" card and the Historial/Calendario tabs
- * remain visual-only stubs backed by mockDashboardData.
+ * cancel) and for all four of its stat cards (sessions-week/active-students/
+ * avg-attention scoped to this week, hours-taught summed across all reports —
+ * see reportStats.ts); the Historial/Calendario tabs remain visual-only stubs
+ * backed by mockDashboardData.
  *
  * The professor's identity (header name/initials/photo, and the name fed into
  * onStartClass) is the one exception: it is real, not mocked. It must match the
@@ -233,18 +233,24 @@ export default function TeacherDashboard({
   const stats: DashboardStat[] = hasRealStats
     ? (() => {
         const { sessionsThisWeek, activeStudents, avgAttentionPercent } = buildReportStats(reports || [], Date.now());
+        const totalHoursTaught = computeTotalHoursTaught(reports || []);
         return [
           { ...data.stats[0], value: `${sessionsThisWeek}` },
           { ...data.stats[1], value: `${activeStudents}` },
           { ...data.stats[2], value: `${avgAttentionPercent}%` },
-          // hours-taught stays mocked verbatim — see the comment on ClassesTab below.
-          data.stats[3],
+          { ...data.stats[3], value: `${totalHoursTaught}h` },
         ];
       })()
     : data.stats;
 
   const handleCreateClass = hasRealClasses
-    ? (input: { title: string; scheduledAtMs: number; studentCount: number; idempotencyKey: string }) =>
+    ? (input: {
+        title: string;
+        scheduledAtMs: number;
+        studentCount: number;
+        durationMinutes: number;
+        idempotencyKey: string;
+      }) =>
         createClass!(input).then(created => {
           setRealClasses(current => [created, ...current]);
         })
@@ -363,12 +369,9 @@ export default function TeacherDashboard({
           {!isQuickStartOpen && showProfile && <TeacherProfilePage />}
           {!isQuickStartOpen && !showProfile && activeTab === 'clases' && (
             <ClassesTab
-              // sessions-week/active-students/avg-attention are now real, computed
-              // from this week's attention reports (see reportStats.ts). hours-taught
-              // stays mocked on purpose: there is no session-duration data anywhere in
-              // the app (the attention report schema has no start/duration field, and
-              // the live timeline is a capped rolling window, not total session
-              // length) — this is intentional, not an oversight.
+              // All four stats are now real, computed from attention reports (see
+              // reportStats.ts): sessions-week/active-students/avg-attention are
+              // scoped to this week, hours-taught sums durationMs across every report.
               stats={stats}
               dateLabel={dateLabel}
               sessions={sessions}

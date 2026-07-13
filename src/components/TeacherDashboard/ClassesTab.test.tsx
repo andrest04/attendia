@@ -217,6 +217,9 @@ describe('ClassesTab', () => {
     wrapper
       .find('[data-testid="dashboard-new-class-student-count-input"]')
       .simulate('change', { target: { value: '15' } });
+    wrapper
+      .find('[data-testid="dashboard-new-class-duration-input"]')
+      .simulate('change', { target: { value: '90' } });
 
     wrapper.find('form').simulate('submit', { preventDefault: jest.fn() });
 
@@ -225,9 +228,44 @@ describe('ClassesTab', () => {
         title: 'Física 101',
         scheduledAtMs: futureDateTime.getTime(),
         studentCount: 15,
+        durationMinutes: 90,
         idempotencyKey: expect.any(String),
       })
     );
+  });
+
+  it('defaults the duration field to 60 minutes and rejects an invalid duration', () => {
+    const onCreateClass = jest.fn(() => Promise.resolve());
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        onCreateClass={onCreateClass}
+      />
+    );
+
+    wrapper.find('[data-testid="dashboard-new-class-button"]').simulate('click');
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="dashboard-new-class-duration-input"]').prop('value')).toBe('60');
+
+    wrapper
+      .find('[data-testid="dashboard-new-class-title-input"]')
+      .simulate('change', { target: { value: 'Física 101' } });
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    wrapper.find('[data-testid="dashboard-new-class-date-input"]').simulate('change', futureDate);
+    wrapper.find('[data-testid="dashboard-new-class-time-input"]').simulate('change', futureDate);
+    wrapper
+      .find('[data-testid="dashboard-new-class-duration-input"]')
+      .simulate('change', { target: { value: '0' } });
+
+    wrapper.find('form').simulate('submit', { preventDefault: jest.fn() });
+
+    expect(onCreateClass).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('La duración de la clase no es válida.');
   });
 
   it('rejects a past date/time without calling onCreateClass', () => {

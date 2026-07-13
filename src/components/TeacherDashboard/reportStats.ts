@@ -44,3 +44,16 @@ export function buildReportStats(
 
   return { sessionsThisWeek, activeStudents, avgAttentionPercent };
 }
+
+/**
+ * Total hours taught across all reports (not scoped to the current week, unlike
+ * the three stats above) — each report's durationMs is the elapsed time between
+ * its observed start and its final snapshot (see AttentionReport.durationMs).
+ */
+export function computeTotalHoursTaught(reports: StoredAttentionReport[]): number {
+  const totalMs = reports.reduce(
+    (sum, report) => sum + (Number.isFinite(report.durationMs) ? report.durationMs : 0),
+    0
+  );
+  return Math.round(totalMs / 3600000);
+}

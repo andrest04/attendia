@@ -54,6 +54,7 @@ export interface StateContextType {
     title: string;
     scheduledAtMs: number;
     studentCount: number;
+    durationMinutes: number;
     idempotencyKey: string;
   }): Promise<ClassRecord>;
   deleteClass?(id: string): Promise<void>;

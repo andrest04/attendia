@@ -1,4 +1,4 @@
-import { startOfWeekMs, buildReportStats } from './reportStats';
+import { startOfWeekMs, buildReportStats, computeTotalHoursTaught } from './reportStats';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
 
 function makeReport(overrides: Partial<StoredAttentionReport> = {}): StoredAttentionReport {
@@ -107,5 +107,25 @@ describe('buildReportStats', () => {
 
     // (70 + 71) / 2 = 70.5 -> rounds to 71
     expect(result.avgAttentionPercent).toBe(71);
+  });
+});
+
+describe('computeTotalHoursTaught', () => {
+  it('returns 0 for an empty reports array', () => {
+    expect(computeTotalHoursTaught([])).toBe(0);
+  });
+
+  it('sums durationMs across all reports, regardless of when they ended', () => {
+    const reportA = makeReport({ durationMs: 3600000, endedAtMs: new Date(2026, 5, 1).getTime() }); // 1h, last month
+    const reportB = makeReport({ durationMs: 1800000 }); // 30min, this week
+
+    expect(computeTotalHoursTaught([reportA, reportB])).toBe(2); // 1.5h rounds to 2h
+  });
+
+  it('ignores reports with a non-finite durationMs', () => {
+    const bad = makeReport({ durationMs: NaN as any });
+    const good = makeReport({ durationMs: 3600000 });
+
+    expect(computeTotalHoursTaught([bad, good])).toBe(1);
   });
 });

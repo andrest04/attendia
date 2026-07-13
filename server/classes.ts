@@ -20,6 +20,11 @@ import { logOperationalFailure } from './operationalEvents';
 
 const MAX_TITLE_LENGTH = 200;
 const MAX_STUDENT_COUNT = 500;
+// Duration is optional on create (mirrors studentCount's default-to-0 pattern) —
+// this default only applies to classes scheduled before the field existed, or
+// requests that omit it outright.
+const DEFAULT_DURATION_MINUTES = 60;
+const MAX_DURATION_MINUTES = 480; // 8h — generous upper bound for a single session.
 
 // A scheduled class must start in the future. The tolerance absorbs the date/time
 // pickers' minute granularity plus request latency — without it, picking "now"
@@ -149,6 +154,7 @@ function toClassResponse(id: string, data: { [key: string]: any }, scheduledAtMs
     roomName: data.roomName,
     scheduledAtMs,
     studentCount: data.studentCount,
+    durationMinutes: typeof data.durationMinutes === 'number' ? data.durationMinutes : DEFAULT_DURATION_MINUTES,
     status: data.status === 'completed' ? 'completed' : data.status === 'started' ? 'started' : 'scheduled',
   };
 }
@@ -254,6 +260,20 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         studentCount = body.studentCount;
       }
 
+      let durationMinutes = DEFAULT_DURATION_MINUTES;
+      if (body.durationMinutes !== undefined) {
+        if (
+          typeof body.durationMinutes !== 'number' ||
+          !Number.isInteger(body.durationMinutes) ||
+          body.durationMinutes <= 0 ||
+          body.durationMinutes > MAX_DURATION_MINUTES
+        ) {
+          sendBadRequest(res, 'invalid durationMinutes', 'La duración de la clase no es válida.');
+          return;
+        }
+        durationMinutes = body.durationMinutes;
+      }
+
       const idempotencyKey = body.idempotencyKey;
       if (typeof idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
         sendBadRequest(res, 'invalid idempotencyKey', 'La clave de creación no es válida. Reintenta desde el formulario.');
@@ -290,12 +310,15 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         roomName,
         scheduledAt: new Date(scheduledAtMs),
         studentCount,
+        durationMinutes,
         status: 'scheduled',
         idempotencyKey,
         createdAt: serverTimestamp(),
       });
 
-      res.status(201).json(toClassResponse(docRef.id, { title, roomName, studentCount }, scheduledAtMs));
+      res
+        .status(201)
+        .json(toClassResponse(docRef.id, { title, roomName, studentCount, durationMinutes }, scheduledAtMs));
     } catch (err) {
       logOperationalFailure({ event: 'class_save_failed', operation: 'POST /classes', uid: firebaseUser.uid, error: err });
       res.status(503).json({

@@ -451,7 +451,7 @@ export default function CalendarTab({
           </div>
           <div className={styles.summaryRow}>
             <span>Horas de clase</span>
-            <span>No disponible</span>
+            <span>{summary.classHours}</span>
           </div>
         </div>
       </div>

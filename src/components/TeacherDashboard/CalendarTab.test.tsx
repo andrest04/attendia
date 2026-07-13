@@ -10,6 +10,7 @@ const classes = [
     roomName: 'algebra',
     scheduledAtMs: new Date(2026, 6, 8, 9, 0).getTime(),
     studentCount: 10,
+    durationMinutes: 60,
     status: 'scheduled' as const,
   },
   {
@@ -18,6 +19,7 @@ const classes = [
     roomName: 'fisica',
     scheduledAtMs: new Date(2026, 6, 8, 11, 0).getTime(),
     studentCount: 12,
+    durationMinutes: 90,
     status: 'scheduled' as const,
   },
 ];
@@ -32,8 +34,9 @@ describe('calendarView', () => {
     expect(days[7].classes.map(item => item.id)).toEqual(['class-1', 'class-2']);
   });
 
-  it('summarizes only real scheduled classes and does not invent durations', () => {
-    expect(calendarSummary(classes, july)).toEqual({ scheduledSessions: 2, expectedStudents: 22 });
+  it('summarizes real scheduled classes, including total hours from durationMinutes', () => {
+    // 60min + 90min = 150min -> rounds to 3h.
+    expect(calendarSummary(classes, july)).toEqual({ scheduledSessions: 2, expectedStudents: 22, classHours: '3h' });
   });
 });
 
@@ -48,7 +51,7 @@ describe('CalendarTab', () => {
     expect(wrapper.find('[data-testid="dashboard-calendar-session-class-1"]').exists()).toBe(true);
     wrapper.find('[data-testid="dashboard-calendar-start-class-1"]').simulate('click');
     expect(onStartClass).toHaveBeenCalledWith(classes[0]);
-    expect(wrapper.find('[data-testid="dashboard-calendar-summary"]').text()).toContain('No disponible');
+    expect(wrapper.find('[data-testid="dashboard-calendar-summary"]').text()).toContain('3h');
   });
 
   it('renders honest loading, error and unavailable states', () => {

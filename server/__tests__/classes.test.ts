@@ -97,6 +97,7 @@ describe('createGetClassesHandler', () => {
         roomName: 'matematicas-grupo-a',
         scheduledAtMs: 1751554800000,
         studentCount: 28,
+        durationMinutes: 60,
         status: 'scheduled',
       },
       {
@@ -105,9 +106,36 @@ describe('createGetClassesHandler', () => {
         roomName: 'algebra-lineal',
         scheduledAtMs: null,
         studentCount: 32,
+        durationMinutes: 60,
         status: 'scheduled',
       },
     ]);
+  });
+
+  it('reads a persisted durationMinutes instead of the default', async () => {
+    const { db, userGet, classesGet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    classesGet.mockResolvedValue({
+      docs: [
+        {
+          id: 'class-1',
+          data: () => ({
+            title: 'Matemáticas — Grupo A',
+            roomName: 'matematicas-grupo-a',
+            studentCount: 28,
+            durationMinutes: 90,
+            status: 'scheduled',
+            scheduledAt: { toMillis: () => 1751554800000 },
+          }),
+        },
+      ],
+    });
+    const handler = createGetClassesHandler(db);
+    const res = makeRes();
+
+    await handler({} as any, res, jest.fn());
+
+    expect(res.json).toHaveBeenCalledWith([expect.objectContaining({ durationMinutes: 90 })]);
   });
 
   it('returns 401 when the middleware did not attach a verified user', async () => {
@@ -169,7 +197,13 @@ describe('createCreateClassHandler', () => {
     const handler = createCreateClassHandler(db, serverTimestamp);
     const res = makeRes();
     const req: any = {
-      body: { title: 'Matemáticas — Grupo A', scheduledAtMs: 1751554800000, studentCount: 28, idempotencyKey: 'create-class-key-001' },
+      body: {
+        title: 'Matemáticas — Grupo A',
+        scheduledAtMs: 1751554800000,
+        studentCount: 28,
+        durationMinutes: 45,
+        idempotencyKey: 'create-class-key-001',
+      },
     };
 
     await handler(req, res, jest.fn());
@@ -180,6 +214,7 @@ describe('createCreateClassHandler', () => {
       roomName: 'matematicas-grupo-a-sskey001',
       scheduledAt: new Date(1751554800000),
       studentCount: 28,
+      durationMinutes: 45,
       status: 'scheduled',
       idempotencyKey: 'create-class-key-001',
       createdAt: 'server-timestamp',
@@ -191,6 +226,7 @@ describe('createCreateClassHandler', () => {
       roomName: 'matematicas-grupo-a-sskey001',
       scheduledAtMs: 1751554800000,
       studentCount: 28,
+      durationMinutes: 45,
       status: 'scheduled',
     });
   });
@@ -226,6 +262,43 @@ describe('createCreateClassHandler', () => {
 
     expect(set).toHaveBeenCalledWith(expect.objectContaining({ studentCount: 0 }));
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('defaults durationMinutes to 60 when omitted', async () => {
+    const { db, userGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+    const res = makeRes();
+    const req: any = { body: { title: 'Cálculo III', scheduledAtMs: 1751554800000, idempotencyKey: 'create-class-key-002' } };
+
+    await handler(req, res, jest.fn());
+
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ durationMinutes: 60 }));
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('returns 400 when durationMinutes is provided but invalid', async () => {
+    const { db, userGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+    const res = makeRes();
+
+    await handler({ body: { title: 'x', scheduledAtMs: 1751554800000, durationMinutes: 0 } } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(set).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when durationMinutes exceeds the max', async () => {
+    const { db, userGet, set } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const handler = createCreateClassHandler(db, serverTimestamp);
+    const res = makeRes();
+
+    await handler({ body: { title: 'x', scheduledAtMs: 1751554800000, durationMinutes: 481 } } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(set).not.toHaveBeenCalled();
   });
 
   it('returns the existing class for a repeated idempotency key without writing another class', async () => {
