@@ -2,7 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom';
 
 import { CssBaseline } from '@material-ui/core';
-import { MuiThemeProvider } from '@material-ui/core/styles';
+import { makeStyles, MuiThemeProvider } from '@material-ui/core/styles';
 
 import App from './App';
 import AppStateProvider, { useAppState } from './state';
@@ -19,6 +19,7 @@ import { VideoProvider } from './components/VideoProvider';
 import useConnectionOptions from './utils/useConnectionOptions/useConnectionOptions';
 import UnsupportedBrowserWarning from './components/UnsupportedBrowserWarning/UnsupportedBrowserWarning';
 import { dashboardTabPath } from './components/TeacherDashboard/dashboardHelpers';
+import SnackbarCloseButton from './components/SnackbarCloseButton/SnackbarCloseButton';
 
 // Standalone pages (outside the room) are code-split so their weight — recharts,
 // page-only UI — stays out of the main bundle. VideoApp stays eager: it is the
@@ -29,9 +30,18 @@ const ClassHistoryPage = lazy(() => import('./components/ClassHistoryPage/ClassH
 const ManualPage = lazy(() => import('./components/ManualPage/ManualPage'));
 const ReportPage = lazy(() => import('./components/ReportPage/ReportPage'));
 
+// DashboardHeader (Panel Docente, including /profile) is a fixed 64px top bar; without
+// this offset, top-right toasts render underneath it and cover the profile name/photo.
+const useSnackbarStyles = makeStyles({
+  containerAnchorOriginTopRight: {
+    top: '76px !important',
+  },
+});
+
 export const VideoApp = () => {
   const { error, setError } = useAppState();
   const connectionOptions = useConnectionOptions();
+  const snackbarClasses = useSnackbarStyles();
 
   return (
     <VideoProvider options={connectionOptions} onError={setError}>
@@ -46,6 +56,8 @@ export const VideoApp = () => {
               autoHideDuration={4000}
               anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
               dense
+              classes={snackbarClasses}
+              action={snackbarKey => <SnackbarCloseButton snackbarKey={snackbarKey} />}
             >
               <App />
             </SnackbarProvider>

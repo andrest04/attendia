@@ -10,6 +10,11 @@ jest.mock('react-router-dom', () => ({
   Redirect: () => null,
 }));
 
+const mockEnqueueSnackbar = jest.fn();
+jest.mock('notistack', () => ({
+  useSnackbar: () => ({ enqueueSnackbar: mockEnqueueSnackbar, closeSnackbar: jest.fn() }),
+}));
+
 const mockUseAppState = useAppState as jest.Mock<any>;
 
 const teacherState = (overrides = {}) => ({
@@ -38,6 +43,10 @@ function button(wrapper: any, label: string) {
 }
 
 describe('TeacherProfilePage', () => {
+  beforeEach(() => {
+    mockEnqueueSnackbar.mockClear();
+  });
+
   it('renders editable teacher profile fields and the Google photo fallback', () => {
     mockUseAppState.mockReturnValue({
       user: {
@@ -116,7 +125,7 @@ describe('TeacherProfilePage', () => {
     await button(wrapper, 'Usar foto de Google').prop('onClick')!({});
 
     expect(state.deleteAvatar).toHaveBeenCalled();
-    expect(wrapper.text()).toContain('Foto eliminada.');
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Foto eliminada.', { variant: 'success' });
   });
 
   it('asks for confirmation before saving an email change, and does nothing on cancel', () => {
@@ -159,7 +168,7 @@ describe('TeacherProfilePage', () => {
 
     expect(state.changeEmail).toHaveBeenCalledWith('nueva@example.com', undefined);
     expect(wrapper.find('[data-testid="email-confirm-dialog"]').prop('open')).toBe(false);
-    expect(wrapper.text()).toContain('Correo actualizado.');
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Correo actualizado.', { variant: 'success' });
   });
 
   it('disables "Guardar correo" and skips the confirmation dialog when the email is unchanged', () => {
@@ -228,7 +237,9 @@ describe('TeacherProfilePage', () => {
     await (wrapper.find('[data-testid="email-confirm-accept"]').prop('onClick') as any)({});
     wrapper.update();
 
-    expect(wrapper.text()).toContain('Ese correo ya está vinculado a otra cuenta.');
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Ese correo ya está vinculado a otra cuenta.', {
+      variant: 'error',
+    });
   });
 
   it('creates a password from the profile form', async () => {
@@ -261,7 +272,7 @@ describe('TeacherProfilePage', () => {
     wrapper.update();
     button(wrapper, 'Volver a Clases').prop('onClick')!({});
 
-    expect(wrapper.text()).toContain('Firestore no disponible.');
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Firestore no disponible.', { variant: 'error' });
     expect(onReturnToClasses).toHaveBeenCalled();
   });
 });

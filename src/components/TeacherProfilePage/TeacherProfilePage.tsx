@@ -15,6 +15,7 @@ import {
 } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { Redirect } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
 import { useAppState } from '../../state';
 import AvatarCropModal from './AvatarCropModal';
 
@@ -49,7 +50,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   actions: { display: 'flex', gap: theme.spacing(1), flexWrap: 'wrap' },
   backLink: { padding: 0, minWidth: 'auto' },
   button: { whiteSpace: 'nowrap' },
-  status: { minHeight: theme.spacing(3), color: theme.palette.text.secondary },
 }));
 
 // Any raster format the browser can decode into an <img> and draw to canvas works here —
@@ -108,8 +108,8 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
   const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(profile?.avatarUrl);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [status, setStatus] = useState('');
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false);
+  const { enqueueSnackbar } = useSnackbar();
   const hasPasswordProvider = Boolean(firebaseUser?.providerData.some(provider => provider.providerId === 'password'));
 
   useEffect(() => setName(profile?.displayName || firebaseUser?.displayName || ''), [
@@ -123,11 +123,10 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
 
   const run = async (work: () => Promise<void>) => {
     setIsSaving(true);
-    setStatus('');
     try {
       await work();
     } catch (error) {
-      setStatus(errorMessage(error));
+      enqueueSnackbar(errorMessage(error), { variant: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -137,7 +136,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
     event.preventDefault();
     run(async () => {
       await updateTeacherProfile!({ displayName: name.trim() });
-      setStatus('Nombre actualizado.');
+      enqueueSnackbar('Nombre actualizado.', { variant: 'success' });
     });
   };
 
@@ -148,12 +147,12 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
     try {
       validateAvatarFile(file);
     } catch (error: any) {
-      setStatus(error.message);
+      enqueueSnackbar(error.message, { variant: 'error' });
       return;
     }
     readFileAsDataUrl(file)
       .then(setCropImageSrc)
-      .catch((error: Error) => setStatus(error.message));
+      .catch((error: Error) => enqueueSnackbar(error.message, { variant: 'error' }));
   };
 
   const cancelCrop = () => setCropImageSrc(null);
@@ -164,7 +163,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
     run(async () => {
       const updatedProfile = await uploadAvatar!(compressedFile);
       setAvatarUrl(updatedProfile.avatarUrl);
-      setStatus('Foto actualizada.');
+      enqueueSnackbar('Foto actualizada.', { variant: 'success' });
     });
   };
 
@@ -181,7 +180,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
     setIsEmailConfirmOpen(false);
     return run(async () => {
       await changeEmail!(email, currentPassword || undefined);
-      setStatus('Correo actualizado.');
+      enqueueSnackbar('Correo actualizado.', { variant: 'success' });
     });
   };
 
@@ -192,7 +191,9 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
       await changePassword!(currentPassword || undefined, newPassword);
       setCurrentPassword('');
       setNewPassword('');
-      setStatus(hasPasswordProvider ? 'Contraseña actualizada.' : 'Contraseña creada y vinculada a tu cuenta.');
+      enqueueSnackbar(hasPasswordProvider ? 'Contraseña actualizada.' : 'Contraseña creada y vinculada a tu cuenta.', {
+        variant: 'success',
+      });
     });
   };
 
@@ -236,7 +237,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
                       run(async () => {
                         const updatedProfile = await deleteAvatar!();
                         setAvatarUrl(updatedProfile.avatarUrl);
-                        setStatus('Foto eliminada.');
+                        enqueueSnackbar('Foto eliminada.', { variant: 'success' });
                       })
                     }
                   >
@@ -319,9 +320,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
             </form>
           </Paper>
         </div>
-        <Typography component="div" className={classes.status} role="status">
-          {isSaving ? <CircularProgress size={18} /> : status}
-        </Typography>
+        {isSaving && <CircularProgress size={18} role="status" />}
         <Dialog
           open={isEmailConfirmOpen}
           onClose={() => setIsEmailConfirmOpen(false)}
@@ -352,7 +351,7 @@ export default function TeacherProfilePage({ onReturnToClasses }: Props) {
           isSaving={isSaving}
           onCancel={cancelCrop}
           onConfirm={confirmCrop}
-          onError={setStatus}
+          onError={message => enqueueSnackbar(message, { variant: 'error' })}
         />
       </Container>
     </main>
