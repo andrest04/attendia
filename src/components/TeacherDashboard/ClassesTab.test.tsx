@@ -259,4 +259,51 @@ describe('ClassesTab', () => {
     expect(onCreateClass).not.toHaveBeenCalled();
     expect(wrapper.find('form').text()).toContain('No puedes programar una clase en una fecha u hora pasada.');
   });
+
+  it('does not show "Datos simulados" tags when stats/sessions are real', () => {
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-stats-mock-tag"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="dashboard-sessions-mock-tag"]').exists()).toBe(false);
+  });
+
+  it('shows the "Datos simulados" tag next to the stat cards when statsAreMock is true', () => {
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        statsAreMock
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-stats-mock-tag"]').text()).toBe('Datos simulados');
+    expect(wrapper.find('[data-testid="dashboard-sessions-mock-tag"]').exists()).toBe(false);
+  });
+
+  it('shows the "Datos simulados" tag next to "Próximas sesiones" when sessionsAreMock is true', () => {
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        sessionsAreMock
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-sessions-mock-tag"]').text()).toBe('Datos simulados');
+    expect(wrapper.find('[data-testid="dashboard-stats-mock-tag"]').exists()).toBe(false);
+  });
 });

@@ -383,6 +383,8 @@ export default function TeacherDashboard({
               onCancelExpiredClasses={handleCancelExpiredClasses}
               isCancellingExpired={isCancellingExpired}
               cancelExpiredError={cancelExpiredError}
+              statsAreMock={!hasRealStats}
+              sessionsAreMock={!hasRealClasses}
             />
           )}
           {!isQuickStartOpen && !showProfile && activeTab === 'historial' && (
