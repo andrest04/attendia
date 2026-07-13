@@ -280,6 +280,19 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         return;
       }
 
+      // Optional: the quick-start sidebar flow already showed the teacher a join
+      // code/link derived from this exact room name before hitting this endpoint —
+      // recomputing our own slug here would silently invalidate what was already
+      // shared. When provided, trust it verbatim instead of deriving one.
+      let explicitRoomName: string | undefined;
+      if (body.roomName !== undefined) {
+        if (typeof body.roomName !== 'string' || !body.roomName.trim() || body.roomName.length > MAX_TITLE_LENGTH) {
+          sendBadRequest(res, 'invalid roomName', 'El nombre de la sala no es válido.');
+          return;
+        }
+        explicitRoomName = body.roomName.trim();
+      }
+
       const docRef = db
         .collection('users')
         .doc(firebaseUser.uid)
@@ -303,7 +316,7 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         return;
       }
 
-      const roomName = buildRoomName(title, docRef.id);
+      const roomName = explicitRoomName || buildRoomName(title, docRef.id);
 
       await docRef.set({
         title,

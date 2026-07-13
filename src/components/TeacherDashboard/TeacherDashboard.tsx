@@ -6,7 +6,7 @@ import { DashboardStat, DashboardTabId, UpcomingSession } from './types';
 import { mockDashboardData } from './mockDashboardData';
 import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
-import ClassesTab from './ClassesTab';
+import ClassesTab, { createIdempotencyKey } from './ClassesTab';
 import HistoryTab from './HistoryTab';
 import ResourcesTab from './ResourcesTab';
 import CalendarTab from './CalendarTab';
@@ -331,9 +331,34 @@ export default function TeacherDashboard({
     onStartClass(session);
   };
 
-  const handleQuickStartCreate = (session: { roomName: string; name: string }) => {
+  const handleQuickStartCreate = (session: { roomName: string; name: string; title: string }) => {
     setIsQuickStartOpen(false);
-    onStartClass(session);
+
+    if (!hasRealClasses) {
+      onStartClass(session);
+      return;
+    }
+
+    createClass!({
+      title: session.title,
+      scheduledAtMs: Date.now(),
+      studentCount: 0,
+      durationMinutes: 60,
+      idempotencyKey: createIdempotencyKey(),
+      roomName: session.roomName,
+    })
+      .then(created =>
+        startClass!(created.id, created.roomName).then(() => {
+          setRealClasses(current => [created, ...current]);
+          onStartClass({ roomName: created.roomName, name: session.name, classId: created.id });
+        })
+      )
+      .catch(err => {
+        // Fail open: a Firestore hiccup here must never block the teacher from
+        // starting class — same tolerance as rejoinSession/pending-report retry.
+        console.error('TeacherDashboard: could not persist quick-started class', err);
+        onStartClass(session);
+      });
   };
 
   return (

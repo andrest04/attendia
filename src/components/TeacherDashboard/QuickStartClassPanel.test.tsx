@@ -35,6 +35,7 @@ describe('QuickStartClassPanel', () => {
     expect(onCreate).toHaveBeenCalledWith({
       roomName: 'matematicas-grupo-a',
       name: 'Andrés Torres [Profesor]',
+      title: 'Matemáticas — Grupo A',
     });
   });
 });

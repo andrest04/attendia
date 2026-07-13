@@ -55,7 +55,7 @@ const useStyles = makeStyles((theme: Theme) => ({
  */
 interface Props {
   professorName: string;
-  onCreate: (session: { roomName: string; name: string }) => void;
+  onCreate: (session: { roomName: string; name: string; title: string }) => void;
 }
 
 export default function QuickStartClassPanel({ professorName, onCreate }: Props) {
@@ -82,6 +82,7 @@ export default function QuickStartClassPanel({ professorName, onCreate }: Props)
     onCreate({
       roomName: classSessionAccess.roomName,
       name: toClassSessionDisplayName(classSessionDraft.displayName, 'teacher'),
+      title: classSessionDraft.sessionName.trim(),
     });
   };
 
