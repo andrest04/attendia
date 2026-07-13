@@ -63,12 +63,46 @@ const mockFetch = jest.fn();
 // @ts-ignore
 window.fetch = mockFetch;
 
+// Minimal fake XHR for uploadResource, which uses XMLHttpRequest (not fetch) to get
+// upload-progress events. Tests drive it by grabbing the latest instance from
+// mockXhrInstances and manually firing upload.onprogress / onload.
+class MockXHR {
+  method = '';
+  url = '';
+  requestHeaders: Record<string, string> = {};
+  upload: { onprogress?: (event: { lengthComputable: boolean; loaded: number; total: number }) => void } = {};
+  status = 0;
+  statusText = '';
+  responseText = '';
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  body: any;
+
+  open(method: string, url: string) {
+    this.method = method;
+    this.url = url;
+  }
+
+  setRequestHeader(name: string, value: string) {
+    this.requestHeaders[name] = value;
+  }
+
+  send(body: any) {
+    this.body = body;
+    mockXhrInstances.push(this);
+  }
+}
+let mockXhrInstances: MockXHR[] = [];
+// @ts-ignore
+window.XMLHttpRequest = MockXHR;
+
 describe('the useFirebaseAuth hook', () => {
   afterEach(() => {
     jest.clearAllMocks();
     window.localStorage.clear();
     mockUser.displayName = 'Test User';
     mockUser.email = 'test@example.com';
+    mockXhrInstances = [];
   });
 
   it('should expose the user and their profile once the initial auth state settles', async () => {
@@ -557,21 +591,55 @@ describe('the useFirebaseAuth hook', () => {
       );
     });
 
-    it('uploads a file as multipart form data with the idToken and classId', async () => {
+    it('uploads a file as multipart form data with the idToken and classId, reporting progress', async () => {
       const result = await signIn();
-      mockFetch.mockResolvedValueOnce(profileResponse(201, mockResource));
       const file = new File(['contenido'], 'guia.pdf', { type: 'application/pdf' });
+      const onProgress = jest.fn();
 
-      const created = await result.current.uploadResource(file, 'class-1');
+      let created: any;
+      const uploadPromise = result.current.uploadResource(file, 'class-1', onProgress).then(r => (created = r));
+
+      // Let getIdToken() resolve so the XHR is opened/sent before we grab it.
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const xhr = mockXhrInstances[mockXhrInstances.length - 1];
+      expect(xhr.method).toBe('POST');
+      expect(xhr.url).toBe('/resources');
+      expect(xhr.requestHeaders).toEqual({ Authorization: 'idToken' });
+      expect(xhr.body).toBeInstanceOf(FormData);
+      expect(xhr.body.get('classId')).toBe('class-1');
+      expect(xhr.body.get('file')).toBe(file);
+
+      xhr.upload.onprogress?.({ lengthComputable: true, loaded: 50, total: 100 });
+      expect(onProgress).toHaveBeenCalledWith(50);
+
+      xhr.status = 201;
+      xhr.responseText = JSON.stringify(mockResource);
+      xhr.onload?.();
+      await uploadPromise;
 
       expect(created).toEqual(mockResource);
-      const [url, init] = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
-      expect(url).toBe('/resources');
-      expect(init.method).toBe('POST');
-      expect(init.headers).toEqual({ Authorization: 'idToken' });
-      expect(init.body).toBeInstanceOf(FormData);
-      expect(init.body.get('classId')).toBe('class-1');
-      expect(init.body.get('file')).toBe(file);
+    });
+
+    it('rejects uploadResource with the server explanation on a non-OK response', async () => {
+      const result = await signIn();
+      const file = new File(['contenido'], 'guia.pdf', { type: 'application/pdf' });
+
+      const uploadPromise = result.current.uploadResource(file, 'class-1');
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const xhr = mockXhrInstances[mockXhrInstances.length - 1];
+      xhr.status = 400;
+      xhr.responseText = JSON.stringify({ error: { explanation: 'Debes seleccionar una clase programada.' } });
+      xhr.onload?.();
+
+      await expect(uploadPromise).rejects.toEqual(new Error('Debes seleccionar una clase programada.'));
     });
 
     it('rejects uploadResource when there is no signed-in user', async () => {
