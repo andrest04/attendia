@@ -389,9 +389,9 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
         <div className={classes.statusMessage}>Todavía no subiste recursos asociados a una clase programada.</div>
       )}
 
-      {!isLoading && activeGroup && (
+      {!isLoading && (
         <div className={classes.grid} data-testid="dashboard-resources-grid">
-          {activeGroup.files.map(file => {
+          {(activeGroup?.files || []).map(file => {
             const Icon = resourceKindIcon[file.kind];
             return (
               <div key={file.id} className={classes.fileCard} data-testid={`dashboard-resource-file-${file.id}`}>
