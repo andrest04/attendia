@@ -29,6 +29,29 @@ const WORD_MIME_TYPES = new Set([
   'application/vnd.oasis.opendocument.text',
 ]);
 
+// Hint for the <input type="file"> accept attribute, so the OS file picker
+// itself filters out unsupported files (extensions + MIME types together for
+// broadest picker compatibility). This narrows what's easy to pick, but a
+// user can still override the picker's filter or drag-drop anything — the
+// real gate is validateResourceFile() below plus the server re-check.
+export const RESOURCE_FILE_ACCEPT = [
+  '.pdf',
+  'application/pdf',
+  '.ppt',
+  '.pptx',
+  '.odp',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.oasis.opendocument.presentation',
+  '.doc',
+  '.docx',
+  '.odt',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.oasis.opendocument.text',
+  'video/*',
+].join(',');
+
 function isSupportedResourceMimeType(mimetype: string): boolean {
   return (
     mimetype === 'application/pdf' ||
