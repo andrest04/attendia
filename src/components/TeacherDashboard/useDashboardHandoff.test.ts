@@ -25,17 +25,6 @@ describe('useDashboardHandoff', () => {
     expect(result.current.pendingSession).toEqual({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
   });
 
-  it('drops into a blank prejoin flow on handleStartBlankClass', () => {
-    const { result } = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
-
-    act(() => {
-      result.current.handleStartBlankClass();
-    });
-
-    expect(result.current.dashboardActive).toBe(false);
-    expect(result.current.pendingSession).toBeNull();
-  });
-
   it('returns to the dashboard and drops the picked session once the class ends, instead of re-using it forever', () => {
     let roomState = 'disconnected';
     const { result, rerender } = renderHook(() => useDashboardHandoff('teacher', roomState));
@@ -75,22 +64,6 @@ describe('useDashboardHandoff', () => {
     expect(result.current.pendingSession).toBeNull();
   });
 
-  it('returns to the dashboard from a blank prejoin flow on handleReturnToDashboard', () => {
-    const { result } = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
-
-    act(() => {
-      result.current.handleStartBlankClass();
-    });
-    expect(result.current.dashboardActive).toBe(false);
-
-    act(() => {
-      result.current.handleReturnToDashboard();
-    });
-
-    expect(result.current.dashboardActive).toBe(true);
-    expect(result.current.pendingSession).toBeNull();
-  });
-
   it('does not reset on the initial mount, even though roomState starts disconnected', () => {
     const { result } = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
     expect(result.current.dashboardActive).toBe(true);
@@ -119,17 +92,6 @@ describe('useDashboardHandoff', () => {
     const afterRefresh = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
     expect(afterRefresh.result.current.dashboardActive).toBe(false);
     expect(afterRefresh.result.current.pendingSession).toEqual({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
-  });
-
-  it('survives a refresh on a blank prejoin flow', () => {
-    const first = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
-    act(() => {
-      first.result.current.handleStartBlankClass();
-    });
-
-    const afterRefresh = renderHook(() => useDashboardHandoff('teacher', 'disconnected'));
-    expect(afterRefresh.result.current.dashboardActive).toBe(false);
-    expect(afterRefresh.result.current.pendingSession).toBeNull();
   });
 
   it('does not resurrect a handoff after handleReturnToDashboard clears it', () => {

@@ -8,7 +8,6 @@ interface DashboardHandoff {
   dashboardActive: boolean;
   pendingSession: PendingSession;
   handleStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
-  handleStartBlankClass: () => void;
   handleReturnToDashboard: () => void;
 }
 
@@ -43,13 +42,6 @@ export default function useDashboardHandoff(initialRole: 'teacher' | 'student', 
     else clearScheduledClassSession();
   };
 
-  const handleStartBlankClass = () => {
-    setPendingSession(null);
-    setDashboardActive(false);
-    saveDashboardHandoff(null);
-    clearScheduledClassSession();
-  };
-
   // Back affordance for the prejoin lobby ("Volver al panel"): abandons the pending
   // session (if any) and re-activates the dashboard without a class having run.
   const handleReturnToDashboard = () => {
@@ -73,5 +65,5 @@ export default function useDashboardHandoff(initialRole: 'teacher' | 'student', 
     }
   }, [roomState, initialRole]);
 
-  return { dashboardActive, pendingSession, handleStartClass, handleStartBlankClass, handleReturnToDashboard };
+  return { dashboardActive, pendingSession, handleStartClass, handleReturnToDashboard };
 }
