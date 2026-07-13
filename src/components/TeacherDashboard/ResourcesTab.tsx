@@ -11,7 +11,7 @@ import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { resourceKindIcon } from './dashboardHelpers';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
-import { MAX_FILES_PER_UPLOAD, validateResourceFile } from './resourceUploadValidation';
+import { MAX_FILES_PER_UPLOAD, RESOURCE_FILE_ACCEPT, validateResourceFile } from './resourceUploadValidation';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -497,6 +497,7 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
             type="file"
             hidden
             multiple
+            accept={RESOURCE_FILE_ACCEPT}
             onChange={handleFileSelected}
             data-testid="dashboard-resources-file-input"
           />
