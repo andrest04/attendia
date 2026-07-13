@@ -139,8 +139,118 @@ describe('the ResourcesTab component', () => {
     });
     wrapper.update();
 
-    expect(uploadResource).toHaveBeenCalledWith(file, 'class-a');
+    expect(uploadResource).toHaveBeenCalledWith(file, 'class-a', expect.any(Function));
     expect(wrapper.find('[data-testid="dashboard-resource-file-file-a"]').exists()).toBe(true);
+  });
+
+  it('rejects an unsupported file type client-side without calling uploadResource, and lets it be dismissed', async () => {
+    const fetchResources = jest.fn(() => Promise.resolve([]));
+    const uploadResource = jest.fn(() => Promise.resolve(fileA));
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource,
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-resources-class-select"]')
+      .first()
+      .simulate('change', { target: { value: 'class-a' } });
+
+    const file = new File(['contenido'], 'archivo.zip', { type: 'application/zip' });
+    await act(async () => {
+      wrapper
+        .find('[data-testid="dashboard-resources-file-input"]')
+        .first()
+        .simulate('change', { target: { files: [file] } });
+    });
+    wrapper.update();
+
+    expect(uploadResource).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Tipo de archivo no admitido');
+    // The upload button stays enabled — a rejected file is not an active upload.
+    expect(
+      wrapper
+        .find('[data-testid="dashboard-upload-file-button"]')
+        .first()
+        .prop('disabled')
+    ).toBe(false);
+
+    const dismissButton = wrapper.find('[data-testid^="dashboard-resources-uploading-dismiss-"]').first();
+    dismissButton.simulate('click');
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid^="dashboard-resources-uploading-card-"]').exists()).toBe(false);
+  });
+
+  it('rejects an oversized file client-side without calling uploadResource', async () => {
+    const fetchResources = jest.fn(() => Promise.resolve([]));
+    const uploadResource = jest.fn(() => Promise.resolve(fileA));
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource,
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-resources-class-select"]')
+      .first()
+      .simulate('change', { target: { value: 'class-a' } });
+
+    const oversizedFile = new File(['contenido'], 'grande.pdf', { type: 'application/pdf' });
+    Object.defineProperty(oversizedFile, 'size', { value: 26 * 1024 * 1024 });
+    await act(async () => {
+      wrapper
+        .find('[data-testid="dashboard-resources-file-input"]')
+        .first()
+        .simulate('change', { target: { files: [oversizedFile] } });
+    });
+    wrapper.update();
+
+    expect(uploadResource).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('supera el tamaño máximo permitido');
+  });
+
+  it('rejects the whole selection when it exceeds the max files-per-upload cap', async () => {
+    const fetchResources = jest.fn(() => Promise.resolve([]));
+    const uploadResource = jest.fn(() => Promise.resolve(fileA));
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource,
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-resources-class-select"]')
+      .first()
+      .simulate('change', { target: { value: 'class-a' } });
+
+    const files = Array.from({ length: 11 }, (_, i) => new File(['contenido'], `guia${i}.pdf`, { type: 'application/pdf' }));
+    await act(async () => {
+      wrapper
+        .find('[data-testid="dashboard-resources-file-input"]')
+        .first()
+        .simulate('change', { target: { files } });
+    });
+    wrapper.update();
+
+    expect(uploadResource).not.toHaveBeenCalled();
+    expect(wrapper.text()).toContain('Puedes subir hasta 10 archivos a la vez');
   });
 
   it('blocks the upload click and shows an error when no class is selected', async () => {
