@@ -3,11 +3,15 @@ import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
 import DeleteIcon from '@material-ui/icons/Delete';
+import CloseIcon from '@material-ui/icons/Close';
+import InsertDriveFileIcon from '@material-ui/icons/InsertDriveFile';
+import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
 import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { resourceKindIcon } from './dashboardHelpers';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
+import { MAX_FILES_PER_UPLOAD, validateResourceFile } from './resourceUploadValidation';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -137,6 +141,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontWeight: 600,
     fontSize: '0.875rem',
     color: theme.palette.text.primary,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
   },
   fileMeta: {
     fontSize: '0.75rem',
@@ -169,6 +176,74 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.8125rem',
     cursor: 'pointer',
     minHeight: 140,
+  },
+  uploadingCard: {
+    backgroundColor: '#f1f4f9',
+    border: '1px solid #e2ecf9',
+    borderRadius: theme.shape.borderRadius,
+    padding: theme.spacing(2.5),
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(1.5),
+    position: 'relative',
+  },
+  uploadingCardError: {
+    backgroundColor: '#fdf1f1',
+    border: `1px solid ${theme.palette.error.main}`,
+  },
+  uploadingIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#e2e8f0',
+    color: theme.palette.text.secondary,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadingIconWrapError: {
+    backgroundColor: '#fbdede',
+    color: theme.palette.error.main,
+  },
+  dismissUploadButton: {
+    position: 'absolute',
+    top: theme.spacing(1),
+    right: theme.spacing(1),
+    color: theme.palette.text.secondary,
+    cursor: 'pointer',
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    display: 'flex',
+  },
+  uploadErrorText: {
+    fontSize: '0.75rem',
+    color: theme.palette.error.main,
+  },
+  uploadingName: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.875rem',
+    color: theme.palette.text.primary,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  progressBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#dbe4f3',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: theme.palette.primary.main,
+    transition: 'width 150ms ease-out',
+  },
+  progressLabel: {
+    fontSize: '0.75rem',
+    color: theme.palette.text.secondary,
   },
   statusMessage: {
     fontFamily: 'Inter, sans-serif',
@@ -226,7 +301,10 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeClassId, setActiveClassId] = useState<string>('');
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<
+    { id: string; name: string; progress: number; error: string | null }[]
+  >([]);
+  const uploadIdRef = useRef(0);
   // Kept separate from the dialog's open flag: MUI's Dialog plays a ~225ms exit
   // transition with its content still mounted, so clearing this at the same time
   // as closing would flash "undefined" mid-animation (see ConfirmDialog usages).
@@ -277,6 +355,7 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   const groups = groupByClass(resources);
   const activeGroup = groups.find(g => g.classId === activeClassId) || groups[0];
   const scheduledClassIds = new Set(scheduledClasses.map(classRecord => classRecord.id));
+  const activeUploadCount = uploadingFiles.filter(u => !u.error).length;
 
   const handleSelectGroup = (classId: string) => {
     setActiveClassId(classId);
@@ -290,25 +369,56 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
     fileInputRef.current?.click();
   };
 
-  const handleFileSelected: React.ChangeEventHandler<HTMLInputElement> = event => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
+  const removeUploadEntry = (id: string) => {
+    setUploadingFiles(current => current.filter(u => u.id !== id));
+  };
 
-    setIsUploading(true);
-    setErrorMessage(null);
-    uploadResource(file, activeClassId)
+  const startUpload = (file: File, classId: string) => {
+    const id = `upload-${uploadIdRef.current++}`;
+    setUploadingFiles(current => [...current, { id, name: file.name, progress: 0, error: null }]);
+
+    uploadResource(file, classId, percent => {
+      if (!isMountedRef.current) return;
+      setUploadingFiles(current => current.map(u => (u.id === id ? { ...u, progress: percent } : u)));
+    })
       .then(created => {
         if (!isMountedRef.current) return;
         setResources(current => [created, ...current]);
-        setActiveClassId(created.classId || activeClassId);
+        setActiveClassId(created.classId || classId);
+        removeUploadEntry(id);
       })
       .catch(err => {
-        if (isMountedRef.current) setErrorMessage(err.message);
-      })
-      .finally(() => {
-        if (isMountedRef.current) setIsUploading(false);
+        // Left in the grid (not auto-removed) so the teacher sees which file
+        // failed and why; dismissed manually via the card's close button.
+        if (isMountedRef.current) {
+          setUploadingFiles(current => current.map(u => (u.id === id ? { ...u, error: err.message } : u)));
+        }
       });
+  };
+
+  // Each selected file uploads independently and in parallel, its own progress
+  // tracked by id — one slow/failing file doesn't block or fail the others.
+  const handleFileSelected: React.ChangeEventHandler<HTMLInputElement> = event => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length === 0) return;
+
+    setErrorMessage(null);
+
+    if (files.length > MAX_FILES_PER_UPLOAD) {
+      setErrorMessage(`Puedes subir hasta ${MAX_FILES_PER_UPLOAD} archivos a la vez. Selecciona menos archivos e intenta de nuevo.`);
+      return;
+    }
+
+    files.forEach(file => {
+      const validationError = validateResourceFile(file);
+      if (validationError) {
+        const id = `upload-${uploadIdRef.current++}`;
+        setUploadingFiles(current => [...current, { id, name: file.name, progress: 0, error: validationError }]);
+        return;
+      }
+      startUpload(file, activeClassId);
+    });
   };
 
   const handleDownload = (resource: ResourceRecord) => {
@@ -376,16 +486,17 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
             type="button"
             className={classes.uploadButton}
             onClick={handleUploadClick}
-            disabled={isUploading}
+            disabled={activeUploadCount > 0}
             data-testid="dashboard-upload-file-button"
           >
             <AddIcon style={{ fontSize: 18 }} />
-            {isUploading ? 'Subiendo…' : 'Subir archivo'}
+            {activeUploadCount > 0 ? `Subiendo… (${activeUploadCount})` : 'Subir archivo'}
           </button>
           <input
             ref={fileInputRef}
             type="file"
             hidden
+            multiple
             onChange={handleFileSelected}
             data-testid="dashboard-resources-file-input"
           />
@@ -440,7 +551,9 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
                     <DeleteIcon style={{ fontSize: 20 }} />
                   </button>
                 </div>
-                <div className={classes.fileName}>{file.name}</div>
+                <div className={classes.fileName} title={file.name}>
+                  {file.name}
+                </div>
                 <div className={classes.fileMeta}>
                   {formatSizeLabel(file.sizeBytes)} · {formatDateLabel(file.createdAtMs)}
                 </div>
@@ -455,6 +568,45 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
               </div>
             );
           })}
+          {uploadingFiles.map(upload => (
+            <div
+              key={upload.id}
+              className={clsx(classes.uploadingCard, { [classes.uploadingCardError]: !!upload.error })}
+              data-testid={`dashboard-resources-uploading-card-${upload.id}`}
+            >
+              {upload.error && (
+                <button
+                  type="button"
+                  className={classes.dismissUploadButton}
+                  onClick={() => removeUploadEntry(upload.id)}
+                  aria-label="Descartar"
+                  data-testid={`dashboard-resources-uploading-dismiss-${upload.id}`}
+                >
+                  <CloseIcon style={{ fontSize: 18 }} />
+                </button>
+              )}
+              <span className={clsx(classes.uploadingIconWrap, { [classes.uploadingIconWrapError]: !!upload.error })}>
+                {upload.error ? (
+                  <ErrorOutlineIcon style={{ fontSize: 20 }} />
+                ) : (
+                  <InsertDriveFileIcon style={{ fontSize: 20 }} />
+                )}
+              </span>
+              <div className={classes.uploadingName} title={upload.name}>
+                {upload.name}
+              </div>
+              {upload.error ? (
+                <div className={classes.uploadErrorText}>{upload.error}</div>
+              ) : (
+                <>
+                  <div className={classes.progressBarTrack}>
+                    <div className={classes.progressBarFill} style={{ width: `${upload.progress}%` }} />
+                  </div>
+                  <div className={classes.progressLabel}>Subiendo… {upload.progress}%</div>
+                </>
+              )}
+            </div>
+          ))}
           <button
             type="button"
             className={classes.emptyTile}

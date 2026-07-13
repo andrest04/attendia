@@ -7,7 +7,8 @@ import ScheduleIcon from '@material-ui/icons/Schedule';
 import FolderIcon from '@material-ui/icons/Folder';
 import EventIcon from '@material-ui/icons/Event';
 import PictureAsPdfIcon from '@material-ui/icons/PictureAsPdf';
-import BarChartIcon from '@material-ui/icons/BarChart';
+import SlideshowIcon from '@material-ui/icons/Slideshow';
+import DescriptionIcon from '@material-ui/icons/Description';
 import VideocamIcon from '@material-ui/icons/Videocam';
 
 import { DashboardStatIcon, DashboardTabId, ResourceFileKind } from './types';
@@ -50,7 +51,8 @@ export const statCardIcon: Record<DashboardStatIcon, IconComponent> = {
 /** Resource file-card icon, by ResourceFile.kind. */
 export const resourceKindIcon: Record<ResourceFileKind, IconComponent> = {
   pdf: PictureAsPdfIcon,
-  presentation: BarChartIcon,
+  presentation: SlideshowIcon,
+  word: DescriptionIcon,
   video: VideocamIcon,
 };
 

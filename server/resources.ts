@@ -29,7 +29,7 @@ import { FileStorage } from './fileStorage';
  * returns endedAtMs instead of a formatted string.
  */
 
-export type ResourceKind = 'pdf' | 'presentation' | 'video';
+export type ResourceKind = 'pdf' | 'presentation' | 'word' | 'video';
 
 // Enforced again here even though multer is configured with the same limit in
 // index.ts — this module must not trust its wiring. No longer bounded by Firestore's
@@ -58,15 +58,28 @@ const PRESENTATION_MIME_TYPES = new Set([
   'application/vnd.oasis.opendocument.presentation',
 ]);
 
+const WORD_MIME_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/vnd.oasis.opendocument.text',
+]);
+
 function resolveKind(mimetype: string): ResourceKind | null {
   if (mimetype === 'application/pdf') return 'pdf';
   if (PRESENTATION_MIME_TYPES.has(mimetype)) return 'presentation';
+  if (WORD_MIME_TYPES.has(mimetype)) return 'word';
   if (mimetype.startsWith('video/')) return 'video';
   return null;
 }
 
 function safeContentType(contentType: unknown): string {
-  if (contentType === 'application/pdf' || PRESENTATION_MIME_TYPES.has(contentType as string)) return contentType as string;
+  if (
+    contentType === 'application/pdf' ||
+    PRESENTATION_MIME_TYPES.has(contentType as string) ||
+    WORD_MIME_TYPES.has(contentType as string)
+  ) {
+    return contentType as string;
+  }
   return typeof contentType === 'string' && /^video\/[a-z0-9!#$&^_.+-]+$/i.test(contentType)
     ? contentType
     : 'application/octet-stream';
@@ -278,7 +291,11 @@ export function createUploadResourceHandler(
 
       const kind = resolveKind(file.mimetype);
       if (!kind) {
-        sendBadRequest(res, 'unsupported file type', 'Solo se admiten PDFs, presentaciones (PPTX/ODP) y videos.');
+        sendBadRequest(
+          res,
+          'unsupported file type',
+          'Solo se admiten PDFs, presentaciones (PPTX/ODP), documentos de Word (DOCX/ODT) y videos.'
+        );
         return;
       }
 
