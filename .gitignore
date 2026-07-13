@@ -32,6 +32,7 @@ yarn-error.log*
 test-reports
 junit.xml
 serviceAccountKey.json
+scripts/deploy.config
 
 public/noisecancellation/
 public/virtualbackground/
