@@ -393,6 +393,7 @@ interface Props {
     title: string;
     scheduledAtMs: number;
     studentCount: number;
+    durationMinutes: number;
     idempotencyKey: string;
   }) => Promise<void>;
   /** Firebase-mode only: cancels (hard-deletes) a real scheduled class. Undefined
@@ -448,6 +449,7 @@ export default function ClassesTab({
   const [dateValue, setDateValue] = useState<Date | null>(null);
   const [timeValue, setTimeValue] = useState<Date | null>(null);
   const [studentCountInput, setStudentCountInput] = useState('0');
+  const [durationMinutesInput, setDurationMinutesInput] = useState('60');
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const creationIdempotencyKeyRef = useRef<string | null>(null);
@@ -474,6 +476,7 @@ export default function ClassesTab({
     setDateValue(null);
     setTimeValue(null);
     setStudentCountInput('0');
+    setDurationMinutesInput('60');
     setIsFormOpen(false);
     setFormError(null);
     creationIdempotencyKeyRef.current = null;
@@ -495,6 +498,11 @@ export default function ClassesTab({
     const studentCount = Number(studentCountInput);
     if (!Number.isFinite(studentCount) || studentCount < 0) {
       setFormError('La cantidad de alumnos esperados no es válida.');
+      return;
+    }
+    const durationMinutes = Number(durationMinutesInput);
+    if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+      setFormError('La duración de la clase no es válida.');
       return;
     }
     const scheduledAtMs = new Date(
@@ -519,6 +527,7 @@ export default function ClassesTab({
       title,
       scheduledAtMs,
       studentCount,
+      durationMinutes,
       idempotencyKey: creationIdempotencyKeyRef.current || createIdempotencyKey(),
     })
       .then(() => resetForm())
@@ -672,6 +681,22 @@ export default function ClassesTab({
                 value={studentCountInput}
                 onChange={e => setStudentCountInput(e.target.value)}
                 data-testid="dashboard-new-class-student-count-input"
+              />
+            </div>
+
+            <div className={classes.newClassField}>
+              <label className={classes.newClassLabel} htmlFor="new-class-duration">
+                Duración (minutos)
+              </label>
+              <input
+                id="new-class-duration"
+                type="number"
+                min={1}
+                max={480}
+                className={classes.newClassInput}
+                value={durationMinutesInput}
+                onChange={e => setDurationMinutesInput(e.target.value)}
+                data-testid="dashboard-new-class-duration-input"
               />
             </div>
           </div>

@@ -262,6 +262,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
       roomName: 'algebra',
       scheduledAtMs: 1751554800000,
       studentCount: 20,
+      durationMinutes: 60,
     };
     mockStartClass.mockResolvedValue(undefined);
     const wrapper = shallow(
@@ -290,16 +291,15 @@ describe('TeacherDashboard stat cards (firebase auth mode)', () => {
 
   // Shallow rendering doesn't invoke useEffect, so `reports` stays at its initial
   // empty state here — this asserts the wiring (real stats path taken, computed
-  // from an empty report list, with hours-taught still copied from the mock)
-  // rather than the fetch-on-mount call itself.
-  it('computes the three real stat values (zeros for an empty report list) and keeps hours-taught mocked', () => {
+  // from an empty report list) rather than the fetch-on-mount call itself.
+  it('computes all four real stat values as zeros for an empty report list', () => {
     const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 
     const stats = wrapper.find(ClassesTab).prop('stats');
     expect(stats[0]).toEqual({ ...mockDashboardData.stats[0], value: '0' });
     expect(stats[1]).toEqual({ ...mockDashboardData.stats[1], value: '0' });
     expect(stats[2]).toEqual({ ...mockDashboardData.stats[2], value: '0%' });
-    expect(stats[3]).toEqual(mockDashboardData.stats[3]);
+    expect(stats[3]).toEqual({ ...mockDashboardData.stats[3], value: '0h' });
   });
 
   it('flags stats as real but sessions as mock when only fetchAttentionReports is available', () => {

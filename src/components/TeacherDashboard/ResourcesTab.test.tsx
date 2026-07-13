@@ -44,6 +44,7 @@ describe('the ResourcesTab component', () => {
       roomName: 'calculo-i',
       scheduledAtMs: 1,
       studentCount: 10,
+      durationMinutes: 60,
       status: 'scheduled' as const,
     },
     {
@@ -52,6 +53,7 @@ describe('the ResourcesTab component', () => {
       roomName: 'fisica-ii',
       scheduledAtMs: 2,
       studentCount: 12,
+      durationMinutes: 60,
       status: 'scheduled' as const,
     },
   ];

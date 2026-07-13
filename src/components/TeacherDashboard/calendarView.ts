@@ -37,8 +37,10 @@ export function mondayLeadingBlanks(month: Date): number {
 export function calendarSummary(classes: ClassRecord[], month: Date) {
   const days = buildCalendarDays(classes, month);
   const scheduled = days.reduce<ClassRecord[]>((all, day) => all.concat(day.classes), []);
+  const totalMinutes = scheduled.reduce((total, classRecord) => total + classRecord.durationMinutes, 0);
   return {
     scheduledSessions: scheduled.length,
     expectedStudents: scheduled.reduce((total, classRecord) => total + classRecord.studentCount, 0),
+    classHours: `${Math.round(totalMinutes / 60)}h`,
   };
 }

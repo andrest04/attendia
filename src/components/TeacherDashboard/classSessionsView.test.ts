@@ -10,6 +10,7 @@ function makeClass(overrides: Partial<ClassRecord> = {}): ClassRecord {
     roomName: 'matematicas-grupo-a',
     scheduledAtMs: NOW_MS,
     studentCount: 28,
+    durationMinutes: 60,
     ...overrides,
   };
 }
