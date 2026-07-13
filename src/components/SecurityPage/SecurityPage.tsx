@@ -94,9 +94,9 @@ const sections: SecuritySection[] = [
     categoryPill: 'LOCAL ONLY',
     title: 'Datos faciales — Procesamiento local',
     description:
-      'El análisis de atención basado en visión por computadora (detección de rostro, análisis de postura, detección de parpadeo, dirección de mirada) se realiza exclusivamente en el dispositivo del usuario mediante TensorFlow.js. Ningún dato facial se transmite a servidores externos.',
+      'El análisis de atención basado en visión por computadora (detección de rostro, detección de parpadeo, dirección de mirada) se realiza exclusivamente en el dispositivo del usuario mediante MediaPipe FaceLandmarker. Ningún dato facial se transmite a servidores externos.',
     bullets: [
-      'TensorFlow.js ejecutado en el navegador del usuario',
+      'MediaPipe FaceLandmarker ejecutado en el navegador del usuario',
       'El procesamiento de IA nunca abandona el dispositivo',
       'Solo se transmiten índices numéricos agregados de atención',
     ],
