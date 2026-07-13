@@ -218,24 +218,53 @@ async function fetchResourcesRequest(user: User): Promise<ResourceRecord[]> {
   return response.json();
 }
 
-// POST /resources (multipart). No content-type header is set — the browser fills
-// in the multipart boundary for us when the body is a FormData.
-async function uploadResourceRequest(user: User, file: File, classId: string): Promise<ResourceRecord> {
+// POST /resources (multipart), via XMLHttpRequest instead of fetch so upload
+// progress (xhr.upload.onprogress) is observable — fetch has no cross-browser
+// way to report upload (as opposed to download) progress.
+async function uploadResourceRequest(
+  user: User,
+  file: File,
+  classId: string,
+  onProgress?: (percent: number) => void
+): Promise<ResourceRecord> {
   const idToken = await user.getIdToken();
 
   const formData = new FormData();
   formData.append('file', file);
   formData.append('classId', classId);
 
-  const response = await fetch('/resources', {
-    method: 'POST',
-    headers: { Authorization: idToken },
-    body: formData,
+  return new Promise<ResourceRecord>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/resources');
+    xhr.setRequestHeader('Authorization', idToken);
+
+    if (onProgress) {
+      xhr.upload.onprogress = event => {
+        if (event.lengthComputable) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      let body: any = {};
+      try {
+        body = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+      } catch {
+        body = {};
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(body);
+      } else {
+        reject(new Error(body.error?.explanation || body.error?.message || xhr.statusText));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('No pudimos subir el archivo. Intenta de nuevo en unos segundos.'));
+
+    xhr.send(formData);
   });
-
-  await throwOnErrorResponse(response);
-
-  return response.json();
 }
 
 // GET /resources/:id/download — streams the authenticated binary response into a Blob.
@@ -705,11 +734,11 @@ export default function useFirebaseAuth() {
   }, [user]);
 
   const uploadResource = useCallback(
-    (file: File, classId: string) => {
+    (file: File, classId: string, onProgress?: (percent: number) => void) => {
       if (!user) {
         return Promise.reject(new Error('Cannot upload a resource without an authenticated user'));
       }
-      return uploadResourceRequest(user, file, classId);
+      return uploadResourceRequest(user, file, classId, onProgress);
     },
     [user]
   );
