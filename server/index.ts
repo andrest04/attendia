@@ -109,6 +109,12 @@ app.post('/reports', authMiddleware, createPostReportHandler(firestore, serverTi
 // The download endpoint alone is ticket-authorized (no firebaseAuthMiddleware):
 // window.open cannot send a custom Authorization header.
 const { RECORDING_DOWNLOAD_SECRET } = process.env;
+if (!RECORDING_DOWNLOAD_SECRET) {
+  console.error(
+    'Missing required environment variable RECORDING_DOWNLOAD_SECRET: it signs the recording download tickets issued by /reports/:roomSid/recording/download-url and verified by /reports/:roomSid/recording/download (window.open cannot send an Authorization header, so this ticket is the only auth for that route).'
+  );
+  process.exit(1);
+}
 app.post('/reports/:roomSid/recording', authMiddleware, createRequestRecordingHandler(firestore, twilioClient));
 app.get('/reports/:roomSid/recording', authMiddleware, createGetRecordingStatusHandler(firestore, twilioClient));
 app.get(
