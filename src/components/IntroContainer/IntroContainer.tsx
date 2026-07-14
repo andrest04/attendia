@@ -1,9 +1,11 @@
-import React from 'react';
-import { makeStyles, Theme, Typography } from '@material-ui/core';
+import React, { useState } from 'react';
+import { makeStyles, MenuItem, Theme, Typography } from '@material-ui/core';
 import { useAppState } from '../../state';
-import UserMenu from './UserMenu/UserMenu';
+import DashboardHeader from '../TeacherDashboard/DashboardHeader';
+import CreatePasswordDialog from './CreatePasswordDialog/CreatePasswordDialog';
 import { useHistory, useLocation } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
+import { getProfessorInitials } from '../../utils/professorIdentity/professorIdentity';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // ── Full-page layout ─────────────────────────────────────────────────────────
@@ -112,73 +114,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 
   // ── Header ──────────────────────────────────────────────────────────────────
-  header: {
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderBottom: '1px solid #e2ecf9',
-    padding: 'clamp(7px, 1.2vh, 13px) 36px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    gap: 12,
-    position: 'relative',
-    zIndex: 10,
-    [theme.breakpoints.down('sm')]: {
-      padding: 'clamp(8px, 1.5vh, 12px) 20px',
-    },
-  },
-  logoMark: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    textDecoration: 'none',
-    // Rendered as a <button> so the logo can act as a "go home" control.
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    font: 'inherit',
-    '&:focus-visible': {
-      outline: '2px solid #1d6eed',
-      outlineOffset: 4,
-      borderRadius: 6,
-    },
-  },
-  logoIcon: {
-    width: 32,
-    height: 32,
-  },
-  logoText: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 700,
-    fontSize: 22,
-    color: '#1d2f6f',
-    letterSpacing: '-0.5px',
-    lineHeight: 1,
-  },
-  headerRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-  },
-  // Centered "Clase: X" label for the pre-session (device-check) header variant
-  headerClassLabel: {
-    position: 'absolute',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontSize: 15,
-    fontWeight: 500,
-    color: '#64748b',
-    whiteSpace: 'nowrap',
-    [theme.breakpoints.down('xs')]: {
-      display: 'none',
-    },
-  },
-  headerClassLabelStrong: {
-    fontWeight: 700,
-    color: '#1d2f6f',
-  },
   // "Pre-sesión" pill shown instead of the info chips on the device-check step
   presessionPill: {
     display: 'inline-flex',
@@ -199,9 +134,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: '50%',
     backgroundColor: '#1d6eed',
     flexShrink: 0,
-  },
-  userMenuWrapper: {
-    marginLeft: 8,
   },
 
   // ── Main content area ────────────────────────────────────────────────────────
@@ -414,11 +346,12 @@ interface IntroContainerProps {
 
 const IntroContainer = (props: IntroContainerProps) => {
   const classes = useStyles();
-  const { user } = useAppState();
+  const { user, profile } = useAppState();
   const location = useLocation();
   const history = useHistory();
   const rootRef = React.useRef<HTMLDivElement>(null);
   const isStudent = props.homeRole === 'student';
+  const [createPasswordOpen, setCreatePasswordOpen] = useState(false);
 
   // The header logo doubles as a "go home" control: it returns to the lobby (root) for the
   // current role. Navigating to '/' remounts PreJoinScreens at the room-name step, and the
@@ -426,6 +359,19 @@ const IntroContainer = (props: IntroContainerProps) => {
   const goHome = () => {
     history.push({ pathname: '/', state: props.homeRole ? { preJoinRole: props.homeRole } : undefined });
   };
+
+  const professorName = profile?.displayName || user?.displayName || undefined;
+  const professorInitials = professorName ? getProfessorInitials(professorName) : undefined;
+  const professorPhotoURL = profile?.avatarUrl || user?.photoURL || undefined;
+
+  // Hidden when "Volver al panel" is showing (roomNameStep reached from the TeacherDashboard):
+  // that link is already the way back, so the account menu here would be redundant.
+  const showProfile = Boolean(user && location.pathname !== '/login' && !props.onReturnToDashboard);
+
+  // Guard defensively because test mocks may not carry email/providerData.
+  const firebaseUser = user as { email?: string | null; providerData?: ({ providerId: string } | null)[] } | null;
+  const hasPasswordProvider = Boolean(firebaseUser?.providerData?.some(p => p?.providerId === 'password'));
+  const canCreatePassword = Boolean(firebaseUser?.email) && !hasPasswordProvider;
 
   // The root container scrolls (overflow: auto) and keeps its scroll position when the
   // prejoin flow swaps steps inside it (lobby -> device check), leaving the header
@@ -447,37 +393,43 @@ const IntroContainer = (props: IntroContainerProps) => {
         <div className={`${classes.bgCircle4}${isStudent ? ` ${classes.bgCircle4Student}` : ''}`} />
       </div>
 
-      {/* Header */}
-      <div className={classes.header}>
-        {/* attendia logo — doubles as a "go home" (lobby) control */}
-        <button type="button" className={classes.logoMark} onClick={goHome} aria-label="Ir al inicio">
-          <AttendiaLogo variant="full" size={32} />
-        </button>
-
-        {props.headerRoomName && (
-          <span className={classes.headerClassLabel}>
-            Clase: <strong className={classes.headerClassLabelStrong}>{props.headerRoomName}</strong>
-          </span>
-        )}
-
-        <div className={classes.headerRight}>
-          {props.headerRoomName ? (
-            <div className={classes.presessionPill}>
+      {/* Header — shared with Panel Docente so the profile chip looks identical everywhere */}
+      <DashboardHeader
+        professorName={professorName}
+        professorInitials={professorInitials}
+        professorPhotoURL={professorPhotoURL}
+        onLogoClick={goHome}
+        showProfile={showProfile}
+        showNotifications={false}
+        showProfileLink={false}
+        centerLabel={
+          props.headerRoomName ? (
+            <>
+              Clase: <strong>{props.headerRoomName}</strong>
+            </>
+          ) : undefined
+        }
+        badge={
+          props.headerRoomName ? (
+            <span className={classes.presessionPill}>
               <span className={classes.presessionDot} />
               Pre-sesión
-            </div>
-          ) : null}
-
-          {/* Hidden when "Volver al panel" is showing (roomNameStep reached from the
-              TeacherDashboard): that link is already the way back, so the account
-              menu (Historial de clases / Cerrar sesión) here would be redundant. */}
-          {user && location.pathname !== '/login' && !props.onReturnToDashboard && (
-            <div className={classes.userMenuWrapper}>
-              <UserMenu />
-            </div>
-          )}
-        </div>
-      </div>
+            </span>
+          ) : undefined
+        }
+        extraMenuItems={
+          showProfile && canCreatePassword ? (
+            <MenuItem
+              onClick={() => {
+                setCreatePasswordOpen(true);
+              }}
+            >
+              Crear contraseña
+            </MenuItem>
+          ) : undefined
+        }
+      />
+      <CreatePasswordDialog open={createPasswordOpen} onClose={() => setCreatePasswordOpen(false)} />
 
       {/* Main content */}
       <div className={`${classes.main}${props.noHero ? ` ${classes.mainNoHero}` : ''}`}>

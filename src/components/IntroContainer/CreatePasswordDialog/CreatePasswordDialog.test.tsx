@@ -1,9 +1,9 @@
 import React from 'react';
 import { act, fireEvent, render, waitForElement } from '@testing-library/react';
 import CreatePasswordDialog from './CreatePasswordDialog';
-import { useAppState } from '../../../../state';
+import { useAppState } from '../../../state';
 
-jest.mock('../../../../state');
+jest.mock('../../../state');
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 
