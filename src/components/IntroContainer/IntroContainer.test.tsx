@@ -1,9 +1,9 @@
 import React from 'react';
 import IntroContainer from './IntroContainer';
+import DashboardHeader from '../TeacherDashboard/DashboardHeader';
 import { shallow } from 'enzyme';
 import { useLocation } from 'react-router-dom';
 import { useAppState } from '../../state';
-import UserMenu from './UserMenu/UserMenu';
 
 const mockHistoryPush = jest.fn();
 jest.mock('react-router-dom', () => {
@@ -21,7 +21,7 @@ mockUseLocation.mockImplementation(() => ({ pathname: '/' }));
 mockUseAppState.mockImplementation(() => ({ user: undefined }));
 
 describe('the IntroContainer component', () => {
-  it('should render the UserMenu when a user object exists and the pathname is not /login', () => {
+  it('should show the profile chip when a user object exists and the pathname is not /login', () => {
     mockUseLocation.mockImplementation(() => ({ pathname: '/test' }));
     mockUseAppState.mockImplementation(() => ({ user: {} }));
 
@@ -31,10 +31,10 @@ describe('the IntroContainer component', () => {
       </IntroContainer>
     );
 
-    expect(wrapper.find(UserMenu).exists()).toBe(true);
+    expect(wrapper.find(DashboardHeader).prop('showProfile')).toBe(true);
   });
 
-  it('should not render the UserMenu when the pathname is /login', () => {
+  it('should hide the profile chip when the pathname is /login', () => {
     mockUseLocation.mockImplementation(() => ({ pathname: '/login' }));
     mockUseAppState.mockImplementation(() => ({ user: {} }));
 
@@ -44,10 +44,10 @@ describe('the IntroContainer component', () => {
       </IntroContainer>
     );
 
-    expect(wrapper.find(UserMenu).exists()).toBe(false);
+    expect(wrapper.find(DashboardHeader).prop('showProfile')).toBe(false);
   });
 
-  it('should not render the UserMenu when onReturnToDashboard is provided ("Volver al panel" is already the way back)', () => {
+  it('should hide the profile chip when onReturnToDashboard is provided ("Volver al panel" is already the way back)', () => {
     mockUseLocation.mockImplementation(() => ({ pathname: '/test' }));
     mockUseAppState.mockImplementation(() => ({ user: {} }));
 
@@ -57,10 +57,10 @@ describe('the IntroContainer component', () => {
       </IntroContainer>
     );
 
-    expect(wrapper.find(UserMenu).exists()).toBe(false);
+    expect(wrapper.find(DashboardHeader).prop('showProfile')).toBe(false);
   });
 
-  it('should not render the UserMenu when a user object does not exist', () => {
+  it('should hide the profile chip when a user object does not exist', () => {
     mockUseLocation.mockImplementation(() => ({ pathname: '/test' }));
     mockUseAppState.mockImplementation(() => ({ user: undefined }));
 
@@ -70,7 +70,7 @@ describe('the IntroContainer component', () => {
       </IntroContainer>
     );
 
-    expect(wrapper.find(UserMenu).exists()).toBe(false);
+    expect(wrapper.find(DashboardHeader).prop('showProfile')).toBe(false);
   });
 
   it('should render children', () => {
@@ -97,7 +97,7 @@ describe('the IntroContainer component', () => {
         </IntroContainer>
       );
 
-      wrapper.find('button[aria-label="Ir al inicio"]').simulate('click');
+      wrapper.find(DashboardHeader).prop('onLogoClick')!();
 
       expect(mockHistoryPush).toHaveBeenCalledWith({ pathname: '/', state: { preJoinRole: 'student' } });
     });
@@ -109,7 +109,7 @@ describe('the IntroContainer component', () => {
         </IntroContainer>
       );
 
-      wrapper.find('button[aria-label="Ir al inicio"]').simulate('click');
+      wrapper.find(DashboardHeader).prop('onLogoClick')!();
 
       expect(mockHistoryPush).toHaveBeenCalledWith({ pathname: '/', state: undefined });
     });

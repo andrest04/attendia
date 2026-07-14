@@ -16,6 +16,37 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: theme.palette.background.paper,
     borderBottom: '1px solid #e2ecf9',
     flexShrink: 0,
+    position: 'relative',
+  },
+  // Rendered as a <button> so the logo can act as a "go home" control (only
+  // when onLogoClick is passed — see the prejoin header usage).
+  logoButton: {
+    display: 'flex',
+    alignItems: 'center',
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    font: 'inherit',
+    '&:focus-visible': {
+      outline: '2px solid #1d6eed',
+      outlineOffset: 4,
+      borderRadius: 6,
+    },
+  },
+  // Centered "Clase: X" label for the pre-session (device-check) header variant.
+  centerLabel: {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontSize: 15,
+    fontWeight: 500,
+    color: '#64748b',
+    whiteSpace: 'nowrap',
+    [theme.breakpoints.down('xs')]: {
+      display: 'none',
+    },
   },
   right: {
     display: 'flex',
@@ -28,6 +59,13 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   profile: {
     cursor: 'pointer',
+  },
+  // Non-interactive fallback when the profile menu would otherwise have no items
+  // (no "Perfil" link and no extra items) — an avatar+name chip with no dropdown.
+  profileStatic: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
   },
   // MUI Button wraps children in an inner .MuiButton-label span that inherits
   // `display` from the root but not `gap` — so the gap has to live here, not on
@@ -71,15 +109,45 @@ const useStyles = makeStyles((theme: Theme) => ({
 }));
 
 interface Props {
-  professorName: string;
-  professorInitials: string;
+  professorName?: string;
+  professorInitials?: string;
   // Real user photo (e.g. Google sign-in avatar). Falls back to the initials
   // chip when absent, mirroring UserAvatar in the lobby's UserMenu.
   professorPhotoURL?: string;
+  // Wraps the logo in a "go home" button (prejoin header only — the dashboard
+  // renders the logo as a plain mark).
+  onLogoClick?: () => void;
+  // Hides the bell AND the profile chip/menu entirely (only the logo — and
+  // centerLabel/badge if present — render).
+  showProfile?: boolean;
+  // Independently controls just the bell icon.
+  showNotifications?: boolean;
+  // Centered "Clase: <name>" label (prejoin header only).
+  centerLabel?: React.ReactNode;
+  // Pill rendered before the bell/profile (e.g. the "Pre-sesión" pill).
+  badge?: React.ReactNode;
+  // Hides the "Perfil" menu item. The prejoin header sets this to false: leaving it
+  // during prejoin navigates away without releasing the local camera/mic tracks
+  // ("Cancelar" does that cleanup explicitly, plain routing doesn't) — and it's
+  // already reachable from the dashboard, so it's just dropped there.
+  showProfileLink?: boolean;
+  // Extra <MenuItem>s rendered after "Perfil" (e.g. sign-out, on the prejoin header).
+  extraMenuItems?: React.ReactNode;
 }
 
-/** Top bar shared by every Panel Docente tab: brand, notifications, profile chip. */
-export default function DashboardHeader({ professorName, professorInitials, professorPhotoURL }: Props) {
+/** Top bar shared by every Panel Docente tab and the prejoin flow: brand, notifications, profile chip. */
+export default function DashboardHeader({
+  professorName,
+  professorInitials,
+  professorPhotoURL,
+  onLogoClick,
+  showProfile = true,
+  showNotifications = true,
+  centerLabel,
+  badge,
+  showProfileLink = true,
+  extraMenuItems,
+}: Props) {
   const classes = useStyles();
   const history = useHistory();
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<HTMLElement | null>(null);
@@ -89,51 +157,87 @@ export default function DashboardHeader({ professorName, professorInitials, prof
     history.push('/profile');
   };
 
+  const logo = <AttendiaLogo variant="full" size={28} />;
+  const hasMenuItems = showProfileLink || Boolean(extraMenuItems);
+
   return (
     <header className={classes.root} data-testid="dashboard-header">
-      <AttendiaLogo variant="full" size={28} />
+      {onLogoClick ? (
+        <button type="button" className={classes.logoButton} onClick={onLogoClick} aria-label="Ir al inicio">
+          {logo}
+        </button>
+      ) : (
+        logo
+      )}
+      {centerLabel && <span className={classes.centerLabel}>{centerLabel}</span>}
       <div className={classes.right}>
-        <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
-          <NotificationsNoneIcon />
-        </span>
-        <Button
-          className={classes.profile}
-          classes={{ label: classes.profileLabel }}
-          data-testid="dashboard-header-profile"
-          aria-label="Abrir menú de perfil"
-          aria-controls={profileMenuAnchor ? 'dashboard-profile-menu' : undefined}
-          aria-haspopup="true"
-          aria-expanded={Boolean(profileMenuAnchor)}
-          onClick={event => setProfileMenuAnchor(event.currentTarget)}
-        >
-          {professorPhotoURL ? (
-            <span
-              className={`${classes.avatar} ${classes.avatarPhoto}`}
-              style={{ backgroundImage: `url(${professorPhotoURL})` }}
-              data-testid="dashboard-header-avatar-photo"
-            />
-          ) : (
-            <span className={classes.avatar} data-testid="dashboard-header-avatar-initials">
-              {professorInitials}
-            </span>
-          )}
-          <span className={classes.name}>{professorName}</span>
-          <ExpandMoreIcon className={classes.chevron} />
-        </Button>
-        <Menu
-          id="dashboard-profile-menu"
-          anchorEl={profileMenuAnchor}
-          keepMounted
-          open={Boolean(profileMenuAnchor)}
-          onClose={() => setProfileMenuAnchor(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-          getContentAnchorEl={null}
-        >
-          <MenuItem onClick={openProfile} data-testid="dashboard-profile-menu-item">
-            Perfil
-          </MenuItem>
-        </Menu>
+        {badge}
+        {showProfile && showNotifications && (
+          <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
+            <NotificationsNoneIcon />
+          </span>
+        )}
+        {showProfile && hasMenuItems && (
+          <>
+            <Button
+              className={classes.profile}
+              classes={{ label: classes.profileLabel }}
+              data-testid="dashboard-header-profile"
+              aria-label="Abrir menú de perfil"
+              aria-controls={profileMenuAnchor ? 'dashboard-profile-menu' : undefined}
+              aria-haspopup="true"
+              aria-expanded={Boolean(profileMenuAnchor)}
+              onClick={event => setProfileMenuAnchor(event.currentTarget)}
+            >
+              {professorPhotoURL ? (
+                <span
+                  className={`${classes.avatar} ${classes.avatarPhoto}`}
+                  style={{ backgroundImage: `url(${professorPhotoURL})` }}
+                  data-testid="dashboard-header-avatar-photo"
+                />
+              ) : (
+                <span className={classes.avatar} data-testid="dashboard-header-avatar-initials">
+                  {professorInitials}
+                </span>
+              )}
+              <span className={classes.name}>{professorName}</span>
+              <ExpandMoreIcon className={classes.chevron} />
+            </Button>
+            <Menu
+              id="dashboard-profile-menu"
+              anchorEl={profileMenuAnchor}
+              keepMounted
+              open={Boolean(profileMenuAnchor)}
+              onClose={() => setProfileMenuAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              getContentAnchorEl={null}
+            >
+              {showProfileLink && (
+                <MenuItem onClick={openProfile} data-testid="dashboard-profile-menu-item">
+                  Perfil
+                </MenuItem>
+              )}
+              {extraMenuItems}
+            </Menu>
+          </>
+        )}
+        {showProfile && !hasMenuItems && (
+          <span className={classes.profileStatic} data-testid="dashboard-header-profile-static">
+            {professorPhotoURL ? (
+              <span
+                className={`${classes.avatar} ${classes.avatarPhoto}`}
+                style={{ backgroundImage: `url(${professorPhotoURL})` }}
+                data-testid="dashboard-header-avatar-photo"
+              />
+            ) : (
+              <span className={classes.avatar} data-testid="dashboard-header-avatar-initials">
+                {professorInitials}
+              </span>
+            )}
+            <span className={classes.name}>{professorName}</span>
+          </span>
+        )}
       </div>
     </header>
   );

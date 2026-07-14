@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@material-ui/core';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
-import { useAppState } from '../../../../state';
+import { useAppState } from '../../../state';
 
 const MIN_PASSWORD_LENGTH = 6;
 const WEAK_PASSWORD_MESSAGE = `La contraseña es demasiado débil. Usa al menos ${MIN_PASSWORD_LENGTH} caracteres.`;
