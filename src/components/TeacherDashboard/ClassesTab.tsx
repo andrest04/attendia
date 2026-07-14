@@ -14,6 +14,7 @@ import esLocale from 'date-fns/locale/es';
 import { DashboardStat, UpcomingSession } from './types';
 import { statCardIcon } from './dashboardHelpers';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
+import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
 import baseTheme from '../../theme';
@@ -379,7 +380,24 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.8125rem',
     color: theme.palette.error.main,
   },
+  newClassDuplicateWarning: {
+    marginTop: theme.spacing(1.5),
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '0.8125rem',
+    color: '#92620a',
+    backgroundColor: '#fff8e6',
+    border: '1px solid #f0c36d',
+    borderRadius: theme.shape.borderRadius,
+    padding: theme.spacing(1, 1.5),
+  },
 }));
+
+// "15 jul" — same day/month-short convention as the rest of the dashboard
+// (ResourcesTab's formatDateLabel, CalendarTab's day labels).
+function formatDuplicateDateLabel(ms: number | null): string {
+  if (ms === null) return 'sin fecha';
+  return new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+}
 
 interface Props {
   stats: DashboardStat[];
@@ -387,6 +405,10 @@ interface Props {
   sessions: UpcomingSession[];
   professorName: string;
   onStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
+  /** Firebase-mode only: every scheduled class the teacher currently has (any date,
+   * any status), used only to warn about a same-titled class before creating a new
+   * one — not a rendering source. Undefined/empty elsewhere skips the check. */
+  existingClasses?: ClassRecord[];
   /** Firebase-mode only: creates a real scheduled class. Undefined elsewhere —
    * the "Nueva clase" button then keeps its stub (no-op) appearance. */
   onCreateClass?: (input: {
@@ -433,6 +455,7 @@ export default function ClassesTab({
   stats,
   dateLabel,
   sessions,
+  existingClasses = [],
   professorName,
   onStartClass,
   onCreateClass,
@@ -460,6 +483,18 @@ export default function ClassesTab({
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const creationIdempotencyKeyRef = useRef<string | null>(null);
+
+  // Non-blocking heads-up only: same title as another still-relevant class doesn't
+  // collide (roomName is disambiguated per class doc, see server/classes.ts), but a
+  // teacher who forgot they already scheduled "mate" for another day benefits from
+  // knowing before confirming, rather than only discovering it later in Recursos.
+  const trimmedTitleInput = titleInput.trim();
+  const duplicateClass = trimmedTitleInput
+    ? existingClasses.find(
+        classRecord =>
+          classRecord.status !== 'completed' && classRecord.title.trim().toLowerCase() === trimmedTitleInput.toLowerCase()
+      )
+    : undefined;
 
   const handleStartClass = (session: UpcomingSession) => {
     onStartClass({
@@ -724,6 +759,11 @@ export default function ClassesTab({
             </button>
           </div>
 
+          {!formError && duplicateClass && (
+            <div className={classes.newClassDuplicateWarning} data-testid="dashboard-new-class-duplicate-warning">
+              Ya tienes una clase "{duplicateClass.title}" programada para el {formatDuplicateDateLabel(duplicateClass.scheduledAtMs)}. Puedes crear esta igual si es una sesión distinta.
+            </div>
+          )}
           {formError && <div className={classes.newClassError}>{formError}</div>}
         </form>
       )}

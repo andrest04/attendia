@@ -421,6 +421,7 @@ export default function TeacherDashboard({
               stats={stats}
               dateLabel={dateLabel}
               sessions={sessions}
+              existingClasses={realClasses}
               professorName={professorName}
               onStartClass={handleStartClass}
               onCreateClass={handleCreateClass}
