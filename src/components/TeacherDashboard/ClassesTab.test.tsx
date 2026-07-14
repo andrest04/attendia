@@ -371,7 +371,7 @@ describe('ClassesTab', () => {
         sessions={mockDashboardData.upcomingSessions}
         professorName={mockDashboardData.professorName}
         onStartClass={jest.fn()}
-        startClassError="Ya hay una sesión activa con este nombre de sala. Esperá a que termine o cambiá el título de la clase."
+        startClassError="Ya hay una sesión activa con este nombre de sala. Espera a que termine o cambia el título de la clase."
       />
     );
 
