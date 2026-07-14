@@ -276,6 +276,16 @@ export default function TeacherDashboard({
       }
     : undefined;
 
+  // Recursos' own cleanup action for a vencida/completed class's pill — no confirm
+  // dialog/retry-ref plumbing here since ResourcesTab owns its own confirm dialog and
+  // error state (bulkDeleteError) around this call.
+  const handleDeleteClassFromResources = hasRealClasses
+    ? (classId: string) =>
+        deleteClass!(classId).then(() => {
+          setRealClasses(current => current.filter(c => c.id !== classId));
+        })
+    : undefined;
+
   const confirmCancelClass = () => {
     if (!cancelDialogSession) return;
     cancelClass(cancelDialogSession);
@@ -453,7 +463,13 @@ export default function TeacherDashboard({
               onGetRecordingDownloadUrl={fetchRecordingDownloadUrl}
             />
           )}
-          {!isQuickStartOpen && !showProfile && activeTab === 'recursos' && <ResourcesTab classes={realClasses} />}
+          {!isQuickStartOpen && !showProfile && activeTab === 'recursos' && (
+            <ResourcesTab
+              classes={realClasses}
+              expiredClassIds={expiredClassIds}
+              onDeleteClass={handleDeleteClassFromResources}
+            />
+          )}
           {!isQuickStartOpen && !showProfile && activeTab === 'calendario' && (
             <CalendarTab
               classes={fetchClasses ? realClasses : null}

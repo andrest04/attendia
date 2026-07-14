@@ -92,6 +92,28 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: theme.palette.text.hint,
     fontWeight: 400,
   },
+  pillDateTag: {
+    marginLeft: theme.spacing(0.75),
+    color: theme.palette.text.hint,
+    fontWeight: 400,
+  },
+  bulkDeleteRow: {
+    marginBottom: theme.spacing(2.5),
+  },
+  bulkDeleteButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    padding: theme.spacing(0.75, 1.5),
+    borderRadius: theme.shape.borderRadius,
+    border: `1px solid ${theme.palette.error.main}`,
+    backgroundColor: theme.palette.background.paper,
+    color: theme.palette.error.main,
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.8125rem',
+    cursor: 'pointer',
+  },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
@@ -301,9 +323,22 @@ function formatDateLabel(ms: number | null): string {
 /** "Recursos" tab: real per-class file lists, backed by useAppState (Firestore + Storage). */
 interface Props {
   classes: ClassRecord[];
+  /** Scheduled classes whose grace period elapsed without being started (see
+   * findExpiredClasses) — "vencida" pills get the same bulk-delete affordance as
+   * cancelled ones, since a class that never started never will either. */
+  expiredClassIds?: Set<string>;
+  /** Firebase-mode only: hard-deletes a vencida/completed class's doc (mirrors
+   * TeacherDashboard's own cancelClass). A "cancelada" pill has no doc left to
+   * delete — only expired/completed ones need this, since they're the only
+   * pills that can be empty of files and still stick around forever otherwise. */
+  onDeleteClass?: (classId: string) => Promise<void>;
 }
 
-export default function ResourcesTab({ classes: scheduledClasses }: Props) {
+export default function ResourcesTab({
+  classes: scheduledClasses,
+  expiredClassIds = new Set(),
+  onDeleteClass,
+}: Props) {
   const classes = useStyles();
   const { fetchResources, uploadResource, fetchResourceDownloadUrl, deleteResource } = useAppState();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -322,6 +357,9 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   const [pendingDeleteResource, setPendingDeleteResource] = useState<ResourceRecord | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingResource, setIsDeletingResource] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
 
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -352,13 +390,27 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   const scheduledClassIds = new Set(scheduledClasses.map(classRecord => classRecord.id));
   const pillOptions = useMemo(
     () => [
-      ...scheduledClasses.map(classRecord => ({ classId: classRecord.id, label: classRecord.title, cancelled: false })),
+      ...scheduledClasses.map(classRecord => ({
+        classId: classRecord.id,
+        label: classRecord.title,
+        cancelled: false,
+        expired: expiredClassIds.has(classRecord.id),
+        completed: classRecord.status === 'completed',
+        scheduledAtMs: classRecord.scheduledAtMs,
+      })),
       ...groups
         .filter(group => !scheduledClassIds.has(group.classId))
-        .map(group => ({ classId: group.classId, label: group.label, cancelled: true })),
+        .map(group => ({
+          classId: group.classId,
+          label: group.label,
+          cancelled: true,
+          expired: false,
+          completed: false,
+          scheduledAtMs: null as number | null,
+        })),
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scheduledClasses, groups]
+    [scheduledClasses, groups, expiredClassIds]
   );
 
   // Defaults to the first scheduled class (so a teacher can upload the moment they
@@ -381,7 +433,21 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
   }
 
   const activeGroup = groups.find(g => g.classId === activeClassId);
+  const activeOption = pillOptions.find(option => option.classId === activeClassId);
   const activeUploadCount = uploadingFiles.filter(u => !u.error).length;
+  // A cancelled pill's class doc is already gone — cleanup there can only ever remove
+  // its leftover files, so it needs at least one to be worth offering. An expired/
+  // completed pill's doc still exists, so cleanup there deletes the class itself (via
+  // onDeleteClass) plus any files, and is worth offering even with zero files — that
+  // was the whole gap: a completed class with no resources had no way to disappear.
+  // A still-upcoming/in-progress class's materials/doc stay untouched, deliberately:
+  // wiping them right before or during a real session is too easy to trigger by mistake.
+  const canCleanupActive = Boolean(
+    activeOption &&
+      (activeOption.cancelled
+        ? activeGroup && activeGroup.files.length > 0
+        : (activeOption.expired || activeOption.completed) && onDeleteClass)
+  );
 
   const handleSelectGroup = (classId: string) => {
     setActiveClassId(classId);
@@ -495,6 +561,63 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
       });
   };
 
+  const handleBulkDeleteClick = () => {
+    setBulkDeleteError(null);
+    setIsBulkDeleteDialogOpen(true);
+  };
+
+  const confirmBulkDelete = () => {
+    if (!activeOption) return;
+    const filesToDelete = activeGroup?.files || [];
+    setIsBulkDeleting(true);
+
+    const deleteFiles =
+      filesToDelete.length > 0
+        ? Promise.allSettled(filesToDelete.map(file => deleteResource(file.id).then(() => file.id)))
+        : Promise.resolve<PromiseSettledResult<string>[]>([]);
+
+    deleteFiles
+      .then(results => {
+        if (!isMountedRef.current) return undefined;
+        const deletedIds = results
+          .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
+          .map(result => result.value);
+        const failedCount = results.length - deletedIds.length;
+        if (deletedIds.length > 0) {
+          setResources(current => current.filter(r => !deletedIds.includes(r.id)));
+        }
+        if (failedCount > 0) {
+          setBulkDeleteError(
+            failedCount === 1 ? 'No pudimos eliminar 1 recurso.' : `No pudimos eliminar ${failedCount} recursos.`
+          );
+        }
+        // A cancelled pill's doc is already gone — its files were the only thing left
+        // to delete, so it only disappears once every one of them is actually gone; a
+        // failed file leaves it (and the file) right where they were. An expired/
+        // completed pill's doc is still real, so deleting it is what makes the pill
+        // disappear, independent of how its (already attempted) file cleanup went.
+        if (activeOption.cancelled) {
+          if (deletedIds.length === results.length) setActiveClassId('');
+          return undefined;
+        }
+        if (onDeleteClass) {
+          return onDeleteClass(activeOption.classId).then(() => {
+            if (isMountedRef.current) setActiveClassId('');
+          });
+        }
+        return undefined;
+      })
+      .catch(err => {
+        if (isMountedRef.current) setBulkDeleteError(err.message || 'No pudimos eliminar la clase.');
+      })
+      .finally(() => {
+        if (isMountedRef.current) {
+          setIsBulkDeleting(false);
+          setIsBulkDeleteDialogOpen(false);
+        }
+      });
+  };
+
   return (
     <div className={classes.root} data-testid="dashboard-resources-tab">
       <div className={classes.header}>
@@ -539,9 +662,24 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
               data-testid={`dashboard-resources-pill-${option.classId}`}
             >
               {option.label}
+              {!option.cancelled && option.scheduledAtMs !== null && (
+                <span className={classes.pillDateTag} data-testid={`dashboard-resources-pill-date-${option.classId}`}>
+                  · {formatDateLabel(option.scheduledAtMs)}
+                </span>
+              )}
               {option.cancelled && (
                 <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-cancelled-${option.classId}`}>
                   (clase cancelada)
+                </span>
+              )}
+              {!option.cancelled && option.expired && (
+                <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-expired-${option.classId}`}>
+                  (clase vencida)
+                </span>
+              )}
+              {!option.cancelled && !option.expired && option.completed && (
+                <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-completed-${option.classId}`}>
+                  (clase finalizada)
                 </span>
               )}
             </button>
@@ -551,6 +689,29 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
 
       {!isLoading && pillOptions.length === 0 && (
         <div className={classes.statusMessage}>Todavía no tienes clases programadas para asociar recursos.</div>
+      )}
+
+      {!isLoading && canCleanupActive && (
+        <div className={classes.bulkDeleteRow}>
+          <button
+            type="button"
+            className={classes.bulkDeleteButton}
+            onClick={handleBulkDeleteClick}
+            data-testid="dashboard-resources-bulk-delete-button"
+          >
+            <DeleteIcon style={{ fontSize: 16 }} />
+            {activeOption!.cancelled
+              ? `Eliminar ${
+                  activeGroup!.files.length === 1 ? 'el recurso' : `los ${activeGroup!.files.length} recursos`
+                } de esta clase`
+              : 'Eliminar clase'}
+          </button>
+        </div>
+      )}
+      {bulkDeleteError && (
+        <div className={clsx(classes.statusMessage, classes.errorMessage)} data-testid="dashboard-resources-bulk-delete-error">
+          {bulkDeleteError}
+        </div>
       )}
 
       {!isLoading && (
@@ -662,6 +823,26 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
         isConfirming={isDeletingResource}
         onConfirm={confirmDelete}
         onCancel={() => setIsDeleteDialogOpen(false)}
+      />
+      <ConfirmDialog
+        open={isBulkDeleteDialogOpen}
+        title={activeOption?.cancelled ? 'Eliminar recursos de la clase' : 'Eliminar clase'}
+        message={
+          activeOption?.cancelled
+            ? `¿Eliminar ${
+                activeGroup?.files.length === 1 ? 'el archivo' : `los ${activeGroup?.files.length} archivos`
+              } de "${activeOption?.label}"? Esta acción no se puede deshacer.`
+            : `¿Eliminar la clase "${activeOption?.label}"${
+                activeGroup && activeGroup.files.length > 0
+                  ? ` y ${activeGroup.files.length === 1 ? 'su recurso' : `sus ${activeGroup.files.length} recursos`}`
+                  : ''
+              }? Esta acción no se puede deshacer.`
+        }
+        confirmLabel="Eliminar todo"
+        cancelLabel="Volver"
+        isConfirming={isBulkDeleting}
+        onConfirm={confirmBulkDelete}
+        onCancel={() => setIsBulkDeleteDialogOpen(false)}
       />
     </div>
   );

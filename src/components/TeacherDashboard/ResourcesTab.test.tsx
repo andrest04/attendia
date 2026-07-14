@@ -446,4 +446,189 @@ describe('the ResourcesTab component', () => {
 
     expect(deleteResource).not.toHaveBeenCalled();
   });
+
+  it('does not offer bulk delete for a still-active, non-expired class', async () => {
+    const fetchResources = jest.fn(() => Promise.resolve([fileA]));
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').exists()).toBe(false);
+  });
+
+  it('offers bulk delete for a cancelled class and clears every one of its files at once', async () => {
+    const orphanFile = { ...fileA, id: 'file-orphan', classId: 'class-gone', classTitle: 'Historia' };
+    const fetchResources = jest.fn(() => Promise.resolve([orphanFile]));
+    const deleteResource = jest.fn(() => Promise.resolve());
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource,
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-resources-pill-class-gone"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="dashboard-resources-pill-cancelled-class-gone"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').exists()).toBe(true);
+
+    wrapper
+      .find('[data-testid="dashboard-resources-bulk-delete-button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+
+    await act(async () => {
+      wrapper
+        .find('[data-testid="dashboard-confirm-dialog-confirm"]')
+        .first()
+        .simulate('click');
+    });
+    wrapper.update();
+
+    expect(deleteResource).toHaveBeenCalledWith('file-orphan');
+    expect(wrapper.find('[data-testid="dashboard-resource-file-file-orphan"]').exists()).toBe(false);
+    // The cancelled class had no files left, so its pill stopped existing entirely.
+    expect(wrapper.find('[data-testid="dashboard-resources-pill-class-gone"]').exists()).toBe(false);
+  });
+
+  it('offers bulk delete for a vencida (expired) class, tagged the same way as cancelled ones', async () => {
+    const fetchResources = jest.fn(() => Promise.resolve([fileA]));
+    const deleteResource = jest.fn(() => Promise.resolve());
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource,
+    }));
+
+    const wrapper = mount(
+      <ResourcesTab classes={scheduledClasses} expiredClassIds={new Set(['class-a'])} onDeleteClass={jest.fn()} />
+    );
+    await flushPromises();
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="dashboard-resources-pill-expired-class-a"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').exists()).toBe(true);
+  });
+
+  it('tags an already-taught (completed) class and offers bulk delete for it too', async () => {
+    const completedClasses = [
+      { ...scheduledClasses[0], status: 'completed' as const },
+      scheduledClasses[1],
+    ];
+    const fetchResources = jest.fn(() => Promise.resolve([fileA]));
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={completedClasses} onDeleteClass={jest.fn()} />);
+    await flushPromises();
+    wrapper.update();
+
+    // Completed classes are neither "cancelada" (the doc still exists) nor "vencida"
+    // (they did happen) — they get their own tag, and the pill still isn't gone from
+    // Recursos because its docs/resources are just as real as any other class's.
+    expect(wrapper.find('[data-testid="dashboard-resources-pill-completed-class-a"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="dashboard-resources-pill-expired-class-a"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').exists()).toBe(true);
+  });
+
+  it('offers "Eliminar clase" for a completed class with zero resources, and removes it via onDeleteClass', async () => {
+    const completedClasses = [{ ...scheduledClasses[0], status: 'completed' as const }, scheduledClasses[1]];
+    const fetchResources = jest.fn(() => Promise.resolve([])); // no files at all for class-a
+    const onDeleteClass = jest.fn(() => Promise.resolve());
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={completedClasses} onDeleteClass={onDeleteClass} />);
+    await flushPromises();
+    wrapper.update();
+
+    // class-a (completed, 0 resources) is the default-selected pill.
+    expect(wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').text()).toContain('Eliminar clase');
+
+    wrapper
+      .find('[data-testid="dashboard-resources-bulk-delete-button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+
+    await act(async () => {
+      wrapper
+        .find('[data-testid="dashboard-confirm-dialog-confirm"]')
+        .first()
+        .simulate('click');
+    });
+    wrapper.update();
+
+    expect(onDeleteClass).toHaveBeenCalledWith('class-a');
+  });
+
+  it('surfaces a partial-failure message when some files fail to delete in bulk', async () => {
+    const orphanFileA = { ...fileA, id: 'file-orphan-a', classId: 'class-gone', classTitle: 'Historia' };
+    const orphanFileB = { ...fileB, id: 'file-orphan-b', classId: 'class-gone', classTitle: 'Historia' };
+    const fetchResources = jest.fn(() => Promise.resolve([orphanFileA, orphanFileB]));
+    const deleteResource = jest.fn((id: string) =>
+      id === 'file-orphan-a' ? Promise.resolve() : Promise.reject(new Error('nope'))
+    );
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource,
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-resources-pill-class-gone"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-resources-bulk-delete-button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+
+    await act(async () => {
+      wrapper
+        .find('[data-testid="dashboard-confirm-dialog-confirm"]')
+        .first()
+        .simulate('click');
+    });
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="dashboard-resource-file-file-orphan-a"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="dashboard-resource-file-file-orphan-b"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="dashboard-resources-bulk-delete-error"]').text()).toContain(
+      'No pudimos eliminar 1 recurso.'
+    );
+  });
 });
