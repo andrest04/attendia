@@ -2,11 +2,13 @@ import {
   createGetResourcesHandler,
   createUploadResourceHandler,
   createDownloadResourceHandler,
+  createPreviewResourceHandler,
   createDeleteResourceHandler,
   createResourceUploadErrorHandler,
   ResourcesDatabase,
 } from '../resources';
 import { FileStorage } from '../fileStorage';
+import { DocumentConverter } from '../documentConverter';
 
 const makeRes = () => {
   const res: any = { locals: { firebaseUser: { uid: 'uid-1', email: 'ana@example.com' } } };
@@ -61,6 +63,13 @@ const makeFileStorage = () => {
   const del = jest.fn(() => Promise.resolve());
   const fileStorage = ({ upload, download, delete: del } as unknown) as FileStorage;
   return { fileStorage, upload, download, del };
+};
+
+// Fake DocumentConverter test double — no libreoffice-convert import anywhere in this test file.
+const makeDocumentConverter = () => {
+  const convertToPdf = jest.fn(() => Promise.resolve(Buffer.from('pdf-bytes')));
+  const documentConverter = ({ convertToPdf } as unknown) as DocumentConverter;
+  return { documentConverter, convertToPdf };
 };
 
 const makeUploadedFile = (
@@ -438,8 +447,139 @@ describe('createDownloadResourceHandler', () => {
   });
 });
 
+describe('createPreviewResourceHandler', () => {
+  afterEach(jest.clearAllMocks);
+
+  it('converts a presentation to PDF, caches the result, and returns the PDF bytes', async () => {
+    const { db, userGet, docGet, set } = makeDb();
+    const { fileStorage, download, upload } = makeFileStorage();
+    const { documentConverter, convertToPdf } = makeDocumentConverter();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ fileId: 'file-1', kind: 'presentation', name: 'derivadas.pptx' }),
+    });
+    const handler = createPreviewResourceHandler(db, fileStorage, documentConverter);
+    const res = makeRes();
+
+    await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(download).toHaveBeenCalledWith('file-1');
+    expect(convertToPdf).toHaveBeenCalledWith(Buffer.from('YmFzZTY0...', 'utf8'), 'derivadas.pptx');
+    expect(res.type).toHaveBeenCalledWith('application/pdf');
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.send).toHaveBeenCalledWith(Buffer.from('pdf-bytes'));
+    expect(upload).toHaveBeenCalledWith({
+      buffer: Buffer.from('pdf-bytes'),
+      contentType: 'application/pdf',
+      fileName: 'derivadas.pptx.pdf',
+    });
+    expect(set).toHaveBeenCalledWith({ previewFileId: 'file-1' }, { merge: true });
+  });
+
+  it('serves the cached preview without reconverting when previewFileId is already set', async () => {
+    const { db, userGet, docGet } = makeDb();
+    const { fileStorage, download } = makeFileStorage();
+    download.mockResolvedValue(Buffer.from('cached-pdf'));
+    const { documentConverter, convertToPdf } = makeDocumentConverter();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({
+      exists: true,
+      data: () => ({ fileId: 'file-1', previewFileId: 'preview-1', kind: 'word', name: 'guia.docx' }),
+    });
+    const handler = createPreviewResourceHandler(db, fileStorage, documentConverter);
+    const res = makeRes();
+
+    await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
+
+    expect(download).toHaveBeenCalledWith('preview-1');
+    expect(convertToPdf).not.toHaveBeenCalled();
+    expect(res.type).toHaveBeenCalledWith('application/pdf');
+    expect(res.send).toHaveBeenCalledWith(Buffer.from('cached-pdf'));
+  });
+
+  it('returns 400 for a kind with no preview support (e.g. zip)', async () => {
+    const { db, userGet, docGet } = makeDb();
+    const { fileStorage, download } = makeFileStorage();
+    const { documentConverter, convertToPdf } = makeDocumentConverter();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ fileId: 'file-1', kind: 'zip', name: 'materiales.zip' }) });
+    const handler = createPreviewResourceHandler(db, fileStorage, documentConverter);
+    const res = makeRes();
+
+    await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(download).not.toHaveBeenCalled();
+    expect(convertToPdf).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the resource does not exist', async () => {
+    const { db, userGet, docGet } = makeDb();
+    const { fileStorage } = makeFileStorage();
+    const { documentConverter } = makeDocumentConverter();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({ exists: false, data: () => undefined });
+    const handler = createPreviewResourceHandler(db, fileStorage, documentConverter);
+    const res = makeRes();
+
+    await handler({ params: { id: 'missing' } } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it('returns 403 without reading when the caller is a student', async () => {
+    const { db, userGet, docGet } = makeDb();
+    const { fileStorage } = makeFileStorage();
+    const { documentConverter } = makeDocumentConverter();
+    userGet.mockResolvedValue({ exists: true, data: () => studentProfile });
+    const handler = createPreviewResourceHandler(db, fileStorage, documentConverter);
+    const res = makeRes();
+
+    await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(docGet).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when the conversion fails', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { db, userGet, docGet } = makeDb();
+    const { fileStorage } = makeFileStorage();
+    const { documentConverter, convertToPdf } = makeDocumentConverter();
+    convertToPdf.mockRejectedValue(new Error('soffice crashed'));
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ fileId: 'file-1', kind: 'word', name: 'guia.docx' }) });
+    const handler = createPreviewResourceHandler(db, fileStorage, documentConverter);
+    const res = makeRes();
+
+    await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    consoleError.mockRestore();
+  });
+});
+
 describe('createDeleteResourceHandler', () => {
   afterEach(jest.clearAllMocks);
+
+  it('also best-effort deletes the cached preview PDF when the doc has one', async () => {
+    const { db, userGet, docGet } = makeDb();
+    const { fileStorage, del: storageDelete } = makeFileStorage();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ fileId: 'file-1', previewFileId: 'preview-1' }) });
+    const handler = createDeleteResourceHandler(db, fileStorage);
+    const res = makeRes();
+
+    await handler({ params: { id: 'res-1' } } as any, res, jest.fn());
+    await Promise.resolve();
+
+    expect(storageDelete).toHaveBeenCalledWith('file-1');
+    expect(storageDelete).toHaveBeenCalledWith('preview-1');
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
 
   it('deletes the Firestore doc and best-effort deletes the stored file, returning 200', async () => {
     const { db, userGet, docGet, del } = makeDb();

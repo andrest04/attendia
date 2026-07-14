@@ -29,6 +29,7 @@ const SecurityPage = lazy(() => import('./components/SecurityPage/SecurityPage')
 const ClassHistoryPage = lazy(() => import('./components/ClassHistoryPage/ClassHistoryPage'));
 const ManualPage = lazy(() => import('./components/ManualPage/ManualPage'));
 const ReportPage = lazy(() => import('./components/ReportPage/ReportPage'));
+const ResourceViewerPage = lazy(() => import('./components/ResourceViewerPage/ResourceViewerPage'));
 
 // DashboardHeader (Panel Docente, including /profile) is a fixed 64px top bar; without
 // this offset, top-right toasts render underneath it and cover the profile name/photo.
@@ -110,6 +111,11 @@ export const AppRoutes = () => (
     </PrivateRoute>
     <PrivateRoute exact path={dashboardTabPath.recursos}>
       <VideoApp />
+    </PrivateRoute>
+    {/* Document viewer, opened in a NEW TAB from the "Ver" button on Recursos — plain
+                  standalone page (no SDK providers), same shape as /report. */}
+    <PrivateRoute exact path={`${dashboardTabPath.recursos}/:resourceId/ver`}>
+      <ResourceViewerPage />
     </PrivateRoute>
     <PrivateRoute exact path={dashboardTabPath.calendario}>
       <VideoApp />

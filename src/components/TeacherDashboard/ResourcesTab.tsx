@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
@@ -6,9 +6,10 @@ import DeleteIcon from '@material-ui/icons/Delete';
 import CloseIcon from '@material-ui/icons/Close';
 import InsertDriveFileIcon from '@material-ui/icons/InsertDriveFile';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
+import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { resourceKindIcon } from './dashboardHelpers';
+import { dashboardTabPath, resourceKindIcon } from './dashboardHelpers';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
 import { MAX_FILES_PER_UPLOAD, RESOURCE_FILE_ACCEPT, validateResourceFile } from './resourceUploadValidation';
@@ -44,14 +45,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     gap: theme.spacing(1),
     flexWrap: 'wrap',
-  },
-  roomLabelInput: {
-    padding: theme.spacing(1, 1.5),
-    borderRadius: theme.shape.borderRadius,
-    border: '1px solid #e2ecf9',
-    fontFamily: 'Inter, sans-serif',
-    fontSize: '0.8125rem',
-    minWidth: 160,
   },
   uploadButton: {
     display: 'flex',
@@ -149,7 +142,15 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: '0.75rem',
     color: theme.palette.text.secondary,
   },
+  fileActions: {
+    display: 'flex',
+    gap: theme.spacing(1),
+    flexWrap: 'wrap',
+  },
   downloadButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
     padding: theme.spacing(0.75, 1.5),
     borderRadius: theme.shape.borderRadius,
     border: '1px solid #e2ecf9',
@@ -159,7 +160,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontWeight: 600,
     fontSize: '0.75rem',
     cursor: 'pointer',
-    alignSelf: 'flex-start',
+  },
+  viewButton: {
+    borderColor: theme.palette.primary.main,
+    color: theme.palette.primary.main,
   },
   emptyTile: {
     border: '2px dashed #cbd5e1',
@@ -276,6 +280,13 @@ function groupByClass(resources: ResourceRecord[]): ResourceGroup[] {
   return groups;
 }
 
+// PDF and video render natively; presentations and Word docs go through the server's
+// on-the-fly PDF conversion (see ResourceViewerPage). Zips have no in-browser
+// renderer for either format, so they stay download-only.
+function isViewableKind(kind: ResourceRecord['kind']): boolean {
+  return kind !== 'zip';
+}
+
 function formatSizeLabel(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -328,10 +339,6 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
       .then(fetched => {
         if (!isMountedRef.current) return;
         setResources(fetched);
-        if (fetched.length > 0) {
-          const firstAssociated = fetched.find(resource => resource.classId);
-          if (firstAssociated) setActiveClassId(current => current || firstAssociated.classId!);
-        }
       })
       .catch(err => {
         if (isMountedRef.current) setErrorMessage(err.message);
@@ -340,6 +347,27 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
         if (isMountedRef.current) setIsLoading(false);
       });
   }, [fetchResources]);
+
+  const groups = useMemo(() => groupByClass(resources), [resources]);
+  const scheduledClassIds = new Set(scheduledClasses.map(classRecord => classRecord.id));
+  const pillOptions = useMemo(
+    () => [
+      ...scheduledClasses.map(classRecord => ({ classId: classRecord.id, label: classRecord.title, cancelled: false })),
+      ...groups
+        .filter(group => !scheduledClassIds.has(group.classId))
+        .map(group => ({ classId: group.classId, label: group.label, cancelled: true })),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scheduledClasses, groups]
+  );
+
+  // Defaults to the first scheduled class (so a teacher can upload the moment they
+  // land here, no dropdown needed) and only falls back to an orphaned/cancelled
+  // class's group when there are no scheduled classes at all.
+  useEffect(() => {
+    if (activeClassId) return;
+    if (pillOptions.length > 0) setActiveClassId(pillOptions[0].classId);
+  }, [activeClassId, pillOptions]);
 
   if (!fetchResources || !uploadResource || !fetchResourceDownloadUrl || !deleteResource) {
     return (
@@ -352,9 +380,7 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
     );
   }
 
-  const groups = groupByClass(resources);
-  const activeGroup = groups.find(g => g.classId === activeClassId) || groups[0];
-  const scheduledClassIds = new Set(scheduledClasses.map(classRecord => classRecord.id));
+  const activeGroup = groups.find(g => g.classId === activeClassId);
   const activeUploadCount = uploadingFiles.filter(u => !u.error).length;
 
   const handleSelectGroup = (classId: string) => {
@@ -436,6 +462,15 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
       });
   };
 
+  // A real, bookmarkable/refreshable route (ResourceViewerPage) instead of a raw
+  // blob: URL — that page does its own authenticated fetch (download or, for
+  // presentations/Word, the converted-PDF preview) and renders it in an <iframe>/
+  // <video>, which also sidesteps blob: URLs' unreliable top-level-navigation
+  // rendering in some browsers.
+  const handleView = (resource: ResourceRecord) => {
+    window.open(`${dashboardTabPath.recursos}/${resource.id}/ver`, '_blank');
+  };
+
   const handleDelete = (resource: ResourceRecord) => {
     setPendingDeleteResource(resource);
     setIsDeleteDialogOpen(true);
@@ -468,20 +503,6 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
           <div className={classes.subtitle}>Materiales asociados a clases programadas</div>
         </div>
         <div className={classes.uploadControls}>
-          <select
-            className={classes.roomLabelInput}
-            aria-label="Clase asociada"
-            value={activeClassId}
-            onChange={e => setActiveClassId(e.target.value)}
-            data-testid="dashboard-resources-class-select"
-          >
-            <option value="">Seleccionar clase</option>
-            {scheduledClasses.map(classRecord => (
-              <option key={classRecord.id} value={classRecord.id}>
-                {classRecord.title}
-              </option>
-            ))}
-          </select>
           <button
             type="button"
             className={classes.uploadButton}
@@ -507,19 +528,19 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
       {isLoading && <div className={classes.statusMessage}>Cargando recursos…</div>}
       {errorMessage && <div className={clsx(classes.statusMessage, classes.errorMessage)}>{errorMessage}</div>}
 
-      {!isLoading && groups.length > 0 && (
+      {!isLoading && pillOptions.length > 0 && (
         <div className={classes.pillTabs}>
-          {groups.map(group => (
+          {pillOptions.map(option => (
             <button
-              key={group.classId}
+              key={option.classId}
               type="button"
-              className={clsx(classes.pill, { [classes.pillActive]: group.classId === activeGroup?.classId })}
-              onClick={() => handleSelectGroup(group.classId)}
-              data-testid={`dashboard-resources-pill-${group.classId}`}
+              className={clsx(classes.pill, { [classes.pillActive]: option.classId === activeClassId })}
+              onClick={() => handleSelectGroup(option.classId)}
+              data-testid={`dashboard-resources-pill-${option.classId}`}
             >
-              {group.label}
-              {!scheduledClassIds.has(group.classId) && (
-                <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-cancelled-${group.classId}`}>
+              {option.label}
+              {option.cancelled && (
+                <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-cancelled-${option.classId}`}>
                   (clase cancelada)
                 </span>
               )}
@@ -528,8 +549,8 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
         </div>
       )}
 
-      {!isLoading && groups.length === 0 && (
-        <div className={classes.statusMessage}>Todavía no subiste recursos asociados a una clase programada.</div>
+      {!isLoading && pillOptions.length === 0 && (
+        <div className={classes.statusMessage}>Todavía no tenés clases programadas para asociar recursos.</div>
       )}
 
       {!isLoading && (
@@ -558,14 +579,27 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
                 <div className={classes.fileMeta}>
                   {formatSizeLabel(file.sizeBytes)} · {formatDateLabel(file.createdAtMs)}
                 </div>
-                <button
-                  type="button"
-                  className={classes.downloadButton}
-                  onClick={() => handleDownload(file)}
-                  data-testid="dashboard-resource-download"
-                >
-                  Descargar
-                </button>
+                <div className={classes.fileActions}>
+                  {isViewableKind(file.kind) && (
+                    <button
+                      type="button"
+                      className={clsx(classes.downloadButton, classes.viewButton)}
+                      onClick={() => handleView(file)}
+                      data-testid="dashboard-resource-view"
+                    >
+                      <OpenInNewIcon style={{ fontSize: 14 }} />
+                      Ver
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className={classes.downloadButton}
+                    onClick={() => handleDownload(file)}
+                    data-testid="dashboard-resource-download"
+                  >
+                    Descargar
+                  </button>
+                </div>
               </div>
             );
           })}

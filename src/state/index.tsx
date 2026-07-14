@@ -47,6 +47,10 @@ export interface StateContextType {
   fetchResources?(): Promise<ResourceRecord[]>;
   uploadResource?(file: File, classId: string, onProgress?: (percent: number) => void): Promise<ResourceRecord>;
   fetchResourceDownloadUrl?(id: string): Promise<Blob>;
+  // A LibreOffice-converted PDF rendition of a presentation/Word resource, for
+  // in-browser viewing (see server/resources.ts createPreviewResourceHandler). The
+  // original bytes served by fetchResourceDownloadUrl are never touched.
+  fetchResourcePreviewUrl?(id: string): Promise<Blob>;
   deleteResource?(id: string): Promise<void>;
   // Real persistence for the "Clases" tab (scheduled upcoming sessions).
   fetchClasses?(): Promise<ClassRecord[]>;

@@ -280,6 +280,21 @@ async function fetchResourceDownloadRequest(user: User, id: string): Promise<Blo
   return response.blob();
 }
 
+// GET /resources/:id/preview — a LibreOffice-converted PDF rendition of a
+// presentation/Word resource, for in-browser viewing. The original bytes served by
+// fetchResourceDownloadRequest are never touched.
+async function fetchResourcePreviewRequest(user: User, id: string): Promise<Blob> {
+  const idToken = await user.getIdToken();
+
+  const response = await fetch(`/resources/${encodeURIComponent(id)}/preview`, {
+    headers: { Authorization: idToken },
+  });
+
+  await throwOnErrorResponse(response);
+
+  return response.blob();
+}
+
 // DELETE /resources/:id
 async function deleteResourceRequest(user: User, id: string): Promise<void> {
   const idToken = await user.getIdToken();
@@ -753,6 +768,16 @@ export default function useFirebaseAuth() {
     [user]
   );
 
+  const fetchResourcePreviewUrl = useCallback(
+    (id: string) => {
+      if (!user) {
+        return Promise.reject(new Error('Cannot preview a resource without an authenticated user'));
+      }
+      return fetchResourcePreviewRequest(user, id);
+    },
+    [user]
+  );
+
   const deleteResource = useCallback(
     (id: string) => {
       if (!user) {
@@ -862,6 +887,7 @@ export default function useFirebaseAuth() {
     fetchResources,
     uploadResource,
     fetchResourceDownloadUrl,
+    fetchResourcePreviewUrl,
     deleteResource,
     uploadAvatar,
     deleteAvatar,

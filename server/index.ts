@@ -31,10 +31,12 @@ import {
   createGetResourcesHandler,
   createUploadResourceHandler,
   createDownloadResourceHandler,
+  createPreviewResourceHandler,
   createDeleteResourceHandler,
   createResourceUploadErrorHandler,
   MAX_FILE_SIZE_BYTES,
 } from './resources';
+import { createGotenbergDocumentConverter } from './gotenbergDocumentConverter';
 import {
   createGetClassesHandler,
   createCreateClassHandler,
@@ -142,6 +144,18 @@ app.post(
   createUploadResourceHandler(firestore, serverTimestamp, resourceStorage)
 );
 app.get('/resources/:id/download', authMiddleware, createDownloadResourceHandler(firestore, resourceStorage));
+// Presentations/Word docs have no native browser renderer, so "Ver" previews a
+// PDF rendition instead — the original above is never touched. Conversion runs in a
+// separate Gotenberg container (self-hosted, has LibreOffice baked in) reached over
+// HTTP, so neither this app's image nor any dev machine needs LibreOffice installed
+// — see gotenbergDocumentConverter.ts. Locally: `docker run --rm -p 3010:3000
+// gotenberg/gotenberg:8` and set GOTENBERG_URL=http://localhost:3010.
+const documentConverter = createGotenbergDocumentConverter(process.env.GOTENBERG_URL);
+app.get(
+  '/resources/:id/preview',
+  authMiddleware,
+  createPreviewResourceHandler(firestore, resourceStorage, documentConverter)
+);
 app.delete('/resources/:id', authMiddleware, createDeleteResourceHandler(firestore, resourceStorage));
 
 // Teacher-only "Clases" tab: users/{uid}/classes/{classId} scheduled-session

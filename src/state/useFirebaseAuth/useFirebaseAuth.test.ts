@@ -672,6 +672,27 @@ describe('the useFirebaseAuth hook', () => {
       );
     });
 
+    it('resolves the converted-preview binary response as a Blob with the idToken', async () => {
+      const result = await signIn();
+      const blob = new Blob(['pdf-bytes'], { type: 'application/pdf' });
+      mockFetch.mockResolvedValueOnce({ ...profileResponse(200), blob: () => Promise.resolve(blob) });
+
+      const preview = await result.current.fetchResourcePreviewUrl('res-1');
+
+      expect(mockFetch).toHaveBeenLastCalledWith('/resources/res-1/preview', {
+        headers: { Authorization: 'idToken' },
+      });
+      expect(preview).toBe(blob);
+    });
+
+    it('rejects fetchResourcePreviewUrl when there is no signed-in user', async () => {
+      const { result } = renderHook(() => useFirebaseAuth());
+
+      await expect(result.current.fetchResourcePreviewUrl('res-1')).rejects.toEqual(
+        new Error('Cannot preview a resource without an authenticated user')
+      );
+    });
+
     it('deletes a resource with the idToken', async () => {
       const result = await signIn();
       mockFetch.mockResolvedValueOnce(profileResponse(200, { deleted: true }));
