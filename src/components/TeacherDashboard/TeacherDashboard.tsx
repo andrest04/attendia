@@ -14,6 +14,7 @@ import ConfirmDialog from './ConfirmDialog';
 import QuickStartClassPanel from './QuickStartClassPanel';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { toClassSessionDisplayName } from '../PreJoinScreens/classSessionTypes';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
 import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
 import { buildReportStats, computeTotalHoursTaught } from './reportStats';
@@ -319,7 +320,7 @@ export default function TeacherDashboard({
 
   const startScheduledClass = (classId: string, roomName: string) => {
     startClass!(classId, roomName)
-      .then(() => onStartClass({ roomName, name: professorName, classId }))
+      .then(() => onStartClass({ roomName, name: toClassSessionDisplayName(professorName, 'teacher'), classId }))
       .catch(err => setClassesError(err.message || 'No pudimos iniciar la clase programada.'));
   };
 
