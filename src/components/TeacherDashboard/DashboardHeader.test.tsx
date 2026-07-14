@@ -22,6 +22,16 @@ describe('DashboardHeader profile menu', () => {
     expect(push).toHaveBeenCalledWith('/profile');
   });
 
+  it('uses the supplied profile callback instead of routing directly', () => {
+    const onProfileClick = jest.fn();
+    const wrapper = shallow(<DashboardHeader onProfileClick={onProfileClick} />);
+
+    wrapper.find(MenuItem).simulate('click');
+
+    expect(onProfileClick).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it('renders the default (dashboard) behavior unmodified when no new props are passed', () => {
     const wrapper = shallow(<DashboardHeader professorName="Ana" professorInitials="A" />);
 

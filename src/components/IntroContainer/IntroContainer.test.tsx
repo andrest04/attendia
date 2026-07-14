@@ -73,6 +73,45 @@ describe('the IntroContainer component', () => {
     expect(wrapper.find(DashboardHeader).prop('showProfile')).toBe(false);
   });
 
+  it('gives students the shared profile menu, amber identity treatment, and sign-out action', () => {
+    const signOut = jest.fn();
+    mockUseLocation.mockImplementation(() => ({ pathname: '/room/prueba' }));
+    mockUseAppState.mockImplementation(() => ({ user: {}, signOut }));
+
+    const wrapper = shallow(
+      <IntroContainer homeRole="student">
+        <span>Test Content</span>
+      </IntroContainer>
+    );
+
+    const header = wrapper.find(DashboardHeader);
+    expect(header.prop('showProfileLink')).toBe(true);
+    expect(header.prop('identityColor')).toBe('student');
+    const menuItems = header.prop('extraMenuItems') as React.ReactElement;
+    const signOutItem = React.Children.toArray(menuItems.props.children).find(
+      item => React.isValidElement(item) && item.props['data-testid'] === 'student-header-sign-out'
+    ) as React.ReactElement<any>;
+    signOutItem.props.onClick();
+    expect(signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the optional profile callback before navigating without requiring VideoProvider', () => {
+    const onProfileClick = jest.fn();
+    mockUseLocation.mockReturnValue({ pathname: '/room/prueba' });
+    mockUseAppState.mockReturnValue({ user: {} });
+
+    const wrapper = shallow(
+      <IntroContainer homeRole="student" headerRoomName="prueba" onProfileClick={onProfileClick}>
+        <span>Test Content</span>
+      </IntroContainer>
+    );
+
+    wrapper.find(DashboardHeader).prop('onProfileClick')!();
+
+    expect(onProfileClick).toHaveBeenCalledTimes(1);
+    expect(mockHistoryPush).toHaveBeenCalledWith('/profile');
+  });
+
   it('should render children', () => {
     const wrapper = shallow(
       <IntroContainer>

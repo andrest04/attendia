@@ -342,11 +342,13 @@ interface IntroContainerProps {
   // When set (teacher only), renders a "Volver al panel" link above the content card
   // that abandons the prejoin flow and returns to the TeacherDashboard.
   onReturnToDashboard?: () => void;
+  // Optional pre-navigation cleanup supplied by a parent that owns local media.
+  onProfileClick?: () => void;
 }
 
 const IntroContainer = (props: IntroContainerProps) => {
   const classes = useStyles();
-  const { user, profile } = useAppState();
+  const { user, profile, signOut } = useAppState();
   const location = useLocation();
   const history = useHistory();
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -358,6 +360,11 @@ const IntroContainer = (props: IntroContainerProps) => {
   // role is preserved via location.state (mirrors how LoginPage seeds the role).
   const goHome = () => {
     history.push({ pathname: '/', state: props.homeRole ? { preJoinRole: props.homeRole } : undefined });
+  };
+
+  const openProfile = () => {
+    props.onProfileClick?.();
+    history.push('/profile');
   };
 
   const professorName = profile?.displayName || user?.displayName || undefined;
@@ -398,10 +405,12 @@ const IntroContainer = (props: IntroContainerProps) => {
         professorName={professorName}
         professorInitials={professorInitials}
         professorPhotoURL={professorPhotoURL}
+        identityColor={isStudent ? 'student' : 'teacher'}
         onLogoClick={goHome}
         showProfile={showProfile}
         showNotifications={false}
-        showProfileLink={false}
+        showProfileLink={isStudent && showProfile}
+        onProfileClick={openProfile}
         centerLabel={
           props.headerRoomName ? (
             <>
@@ -418,14 +427,23 @@ const IntroContainer = (props: IntroContainerProps) => {
           ) : undefined
         }
         extraMenuItems={
-          showProfile && canCreatePassword ? (
-            <MenuItem
-              onClick={() => {
-                setCreatePasswordOpen(true);
-              }}
-            >
-              Crear contraseña
-            </MenuItem>
+          showProfile ? (
+            <>
+              {canCreatePassword && (
+                <MenuItem
+                  onClick={() => {
+                    setCreatePasswordOpen(true);
+                  }}
+                >
+                  Crear contraseña
+                </MenuItem>
+              )}
+              {isStudent && (
+                <MenuItem onClick={() => signOut?.()} data-testid="student-header-sign-out">
+                  Cerrar sesión
+                </MenuItem>
+              )}
+            </>
           ) : undefined
         }
       />

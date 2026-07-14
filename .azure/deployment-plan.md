@@ -1,6 +1,6 @@
 # Azure Deployment Plan — twilio-video-app-react
 
-Status: Deployed — 2026-07-14, image v20260714010635. Recursos document-preview feature (Gotenberg
+Status: Deployed — 2026-07-14, image v20260714161238. Recursos document-preview feature (Gotenberg
 sidecar) is live at attendia.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io (verified 200
 OK). New sibling Container App "attendia-gotenberg" (internal ingress only, gotenberg/gotenberg:8,
 min-replicas 0) provisioned in the same eduspace-api-env; GOTENBERG_URL on attendia confirmed live as
@@ -110,3 +110,33 @@ Bicep-specific steps (compile/what-if/template validate) are N/A, no `infra/` di
 
 All applicable checks pass → proceeding to **azure-deploy** to run `scripts/deploy.sh` for real
 (build+push the fixed image, update `attendia`, ensure the `attendia-gotenberg` sidecar).
+
+## 8. Deployment Validation (2026-07-14)
+
+1. **Target confirmation**: authenticated Azure CLI subscription is `Azure for Students`
+   (`bc45953f-1681-43e0-baee-e6ceaecaf462`). The target resource group, Container Apps environment,
+   ACR, and `attendia` app were all present and provisioned successfully before deployment.
+2. **Deployment**: executed `scripts/deploy.sh` through Git for Windows' POSIX shell. The script built
+   locally, pushed `ca1e77e4bf38acr.azurecr.io/attendia:v20260714161238`, refreshed secrets/env vars,
+   and routed 100% of traffic to its latest revision.
+3. **Revision health**: `attendia--0000006` is `Provisioned`, `Running`, and `Healthy`; it references
+   `ca1e77e4bf38acr.azurecr.io/attendia:v20260714161238`.
+4. **Safe runtime check**: `GET https://attendia.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io/`
+   returned `200 OK` with HTML. No Cypress or live Twilio E2E traffic was run.
+5. **Sidecar confirmation**: `attendia-gotenberg` remains provisioned with internal-only ingress on
+   port 3000.
+
+## 9. Production Signaling Correction (2026-07-14)
+
+1. **Build correction**: set the gitignored production build value
+   `REACT_APP_TWILIO_ENVIRONMENT=prod` in `scripts/deploy.config`. CRA inlines this value into the
+   frontend bundle; no application source was changed.
+2. **Deployment**: executed `scripts/deploy.sh`, which built and pushed
+   `ca1e77e4bf38acr.azurecr.io/attendia:v20260714202334` and updated the Container App.
+3. **Revision health and traffic**: `attendia--0000008` is `Provisioned`, `Running`, and `Healthy`,
+   with 100% traffic, and references that image.
+4. **Safe frontend inspection**: the public root returned HTTP 200. Its main bundle
+   (`/static/js/main.b5c9396d.js`) contains `environment:"prod"` and does not contain
+   `global.vss..twilio.com`; `useConnectionOptions` passes that production environment to the Twilio
+   Video SDK, which selects `wss://global.vss.twilio.com/signaling`. No Cypress run, room join, or
+   `Video.connect` call was performed.

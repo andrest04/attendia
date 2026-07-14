@@ -4,9 +4,11 @@ import { act } from 'react-dom/test-utils';
 import { Redirect } from 'react-router-dom';
 import TeacherProfilePage from './TeacherProfilePage';
 import { useAppState } from '../../state';
+import DashboardHeader from '../TeacherDashboard/DashboardHeader';
 
 jest.mock('../../state');
 jest.mock('react-router-dom', () => ({
+  Link: () => null,
   Redirect: () => null,
 }));
 
@@ -22,7 +24,7 @@ const teacherState = (overrides = {}) => ({
     displayName: 'Ana',
     email: 'ana@example.com',
     photoURL: 'https://google.example/avatar.jpg',
-    providerData: [],
+    providerData: [{ providerId: 'password' }],
   },
   profile: {
     displayName: 'Ana',
@@ -90,7 +92,7 @@ describe('TeacherProfilePage', () => {
       'Nuevo correo',
       'Guardar correo',
       'Nueva contraseña',
-      'Crear contraseña',
+      'Actualizar contraseña',
     ].forEach(control => {
       expect(wrapper.text()).toContain(control);
     });
@@ -104,17 +106,47 @@ describe('TeacherProfilePage', () => {
     );
   });
 
-  it('redirects users who are not teachers', () => {
+  it('renders an editable student profile', () => {
     mockUseAppState.mockReturnValue({
       user: { displayName: 'Student', email: 'student@example.com', providerData: [] },
       profile: { displayName: 'Student', email: 'student@example.com', role: 'student' },
     });
 
-    expect(
-      shallow(<TeacherProfilePage />)
-        .find(Redirect)
-        .prop('to')
-    ).toBe('/');
+    const wrapper = shallow(<TeacherProfilePage />);
+
+    expect(wrapper.find(Redirect).exists()).toBe(false);
+    expect(wrapper.text()).toContain('Perfil estudiante');
+  });
+
+  it('shows a student-only room entry control that preserves the student prejoin flow', () => {
+    const signOut = jest.fn();
+    mockUseAppState.mockReturnValue(
+      teacherState({
+        profile: { displayName: 'Student', email: 'student@example.com', role: 'student' },
+        signOut,
+      })
+    );
+
+    const studentWrapper = shallow(<TeacherProfilePage />);
+    const roomEntry = studentWrapper.find('[data-testid="student-room-entry"]');
+    const header = studentWrapper.find(DashboardHeader);
+    const pageShell = studentWrapper.find('[data-testid="profile-page-shell"]');
+
+    expect(roomEntry.text()).toBe('Volver a ingresar a una sala');
+    expect(roomEntry.prop('to')).toEqual({ pathname: '/', state: { preJoinRole: 'student' } });
+    expect(pageShell.children().filter(DashboardHeader)).toHaveLength(1);
+    expect(pageShell.children().filter('main[data-testid="teacher-profile-page"]')).toHaveLength(1);
+    expect(header.prop('identityColor')).toBe('student');
+    expect(header.prop('showNotifications')).toBe(false);
+    const signOutItem = header.prop('extraMenuItems') as React.ReactElement<any>;
+    signOutItem.props.onClick();
+    expect(signOut).toHaveBeenCalledTimes(1);
+
+    mockUseAppState.mockReturnValue(teacherState());
+
+    const teacherWrapper = shallow(<TeacherProfilePage />);
+    expect(teacherWrapper.find('[data-testid="student-room-entry"]').exists()).toBe(false);
+    expect(teacherWrapper.find(DashboardHeader).exists()).toBe(false);
   });
 
   it('removes the avatar through deleteAvatar and keeps the loading action disabled', async () => {
@@ -133,8 +165,14 @@ describe('TeacherProfilePage', () => {
     mockUseAppState.mockReturnValue(state);
     const wrapper = shallow(<TeacherProfilePage />);
     const emailField = wrapper.findWhere((node: any) => node.prop('label') === 'Nuevo correo').first();
+    const currentPasswordField = wrapper
+      .find('form')
+      .at(1)
+      .findWhere((node: any) => node.prop('label') === 'Contraseña actual')
+      .first();
 
     (emailField.prop('onChange') as any)({ target: { value: 'nueva@example.com' } });
+    (currentPasswordField.prop('onChange') as any)({ target: { value: 'current-password' } });
     (wrapper
       .find('form')
       .at(1)
@@ -156,8 +194,14 @@ describe('TeacherProfilePage', () => {
     mockUseAppState.mockReturnValue(state);
     const wrapper = shallow(<TeacherProfilePage />);
     const emailField = wrapper.findWhere((node: any) => node.prop('label') === 'Nuevo correo').first();
+    const currentPasswordField = wrapper
+      .find('form')
+      .at(1)
+      .findWhere((node: any) => node.prop('label') === 'Contraseña actual')
+      .first();
 
     (emailField.prop('onChange') as any)({ target: { value: 'nueva@example.com' } });
+    (currentPasswordField.prop('onChange') as any)({ target: { value: 'current-password' } });
     (wrapper
       .find('form')
       .at(1)
@@ -166,7 +210,7 @@ describe('TeacherProfilePage', () => {
     await (wrapper.find('[data-testid="email-confirm-accept"]').prop('onClick') as any)({});
     wrapper.update();
 
-    expect(state.changeEmail).toHaveBeenCalledWith('nueva@example.com', undefined);
+    expect(state.changeEmail).toHaveBeenCalledWith('nueva@example.com', 'current-password');
     expect(wrapper.find('[data-testid="email-confirm-dialog"]').prop('open')).toBe(false);
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Correo actualizado.', { variant: 'success' });
   });
@@ -181,6 +225,42 @@ describe('TeacherProfilePage', () => {
       .first();
     expect(saveEmailButton.prop('disabled')).toBe(true);
 
+    (wrapper
+      .find('form')
+      .at(1)
+      .prop('onSubmit') as any)({ preventDefault: jest.fn() });
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="email-confirm-dialog"]').prop('open')).toBe(false);
+    expect(state.changeEmail).not.toHaveBeenCalled();
+  });
+
+  it('blocks email changes for Google-only accounts until a password is linked', async () => {
+    const state = teacherState({ user: { ...teacherState().user, providerData: [{ providerId: 'google.com' }] } });
+    mockUseAppState.mockReturnValue(state);
+    const wrapper = shallow(<TeacherProfilePage />);
+    const emailField = wrapper.findWhere((node: any) => node.prop('label') === 'Nuevo correo').first();
+
+    expect(emailField.prop('disabled')).toBe(true);
+    expect(emailField.prop('inputProps')).toEqual({ 'aria-describedby': 'email-password-setup-hint' });
+    expect(wrapper.find('#email-password-setup-hint').text()).toContain('Primero crea una contraseña');
+    expect(
+      wrapper
+        .findWhere((node: any) => node.prop('type') === 'submit' && node.text() === 'Guardar correo')
+        .first()
+        .prop('disabled')
+    ).toBe(true);
+    const passwordField = wrapper.findWhere((node: any) => node.prop('label') === 'Nueva contraseña').first();
+    (passwordField.prop('onChange') as any)({ target: { value: 'new-password' } });
+    wrapper.update();
+    expect(
+      wrapper
+        .findWhere((node: any) => node.prop('type') === 'submit' && node.text() === 'Crear contraseña')
+        .first()
+        .prop('disabled')
+    ).toBe(false);
+
+    (emailField.prop('onChange') as any)({ target: { value: 'nueva@example.com' } });
     (wrapper
       .find('form')
       .at(1)
@@ -227,8 +307,14 @@ describe('TeacherProfilePage', () => {
     mockUseAppState.mockReturnValue(state);
     const wrapper = shallow(<TeacherProfilePage />);
     const emailField = wrapper.findWhere((node: any) => node.prop('label') === 'Nuevo correo').first();
+    const currentPasswordField = wrapper
+      .find('form')
+      .at(1)
+      .findWhere((node: any) => node.prop('label') === 'Contraseña actual')
+      .first();
 
     (emailField.prop('onChange') as any)({ target: { value: 'otra@example.com' } });
+    (currentPasswordField.prop('onChange') as any)({ target: { value: 'current-password' } });
     (wrapper
       .find('form')
       .at(1)
@@ -243,7 +329,7 @@ describe('TeacherProfilePage', () => {
   });
 
   it('creates a password from the profile form', async () => {
-    const state = teacherState();
+    const state = teacherState({ user: { ...teacherState().user, providerData: [{ providerId: 'google.com' }] } });
     mockUseAppState.mockReturnValue(state);
     const wrapper = shallow(<TeacherProfilePage />);
     const passwordField = wrapper.findWhere((node: any) => node.prop('label') === 'Nueva contraseña').first();
@@ -255,6 +341,13 @@ describe('TeacherProfilePage', () => {
       .prop('onSubmit') as any)({ preventDefault: jest.fn() });
 
     expect(state.changePassword).toHaveBeenCalledWith(undefined, 'new-password');
+    expect(
+      wrapper
+        .findWhere((node: any) => node.prop('label') === 'Nuevo correo')
+        .first()
+        .prop('disabled')
+    ).toBe(false);
+    expect(wrapper.findWhere((node: any) => node.prop('label') === 'Contraseña actual')).toHaveLength(2);
   });
 
   it('surfaces a failed profile action', async () => {

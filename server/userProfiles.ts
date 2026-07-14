@@ -67,7 +67,7 @@ const MAX_DISPLAY_NAME_LENGTH = 100;
 // PATCH validation capped this field at 96 kB; keep that bound so it can be
 // removed safely after legacy avatars have been migrated or expired.
 const MAX_LEGACY_AVATAR_DATA_URL_LENGTH = 96000;
-const LEGACY_AVATAR_DATA_URL = /^data:image\/(jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+const LEGACY_AVATAR_DATA_URL = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
 function legacyAvatarUrl(data: { [key: string]: any }): string | undefined {
   const avatarDataUrl = data.avatarDataUrl;
@@ -96,8 +96,8 @@ function toProfileResponse(data: { [key: string]: any }): UserProfile {
 export const MAX_AVATAR_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 const ALLOWED_AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/webp']);
 
-function isTeacherProfile(data: { [key: string]: any } | undefined): boolean {
-  return data?.role === 'teacher';
+function isProfileOwnerRole(data: { [key: string]: any } | undefined): boolean {
+  return data?.role === 'teacher' || data?.role === 'student';
 }
 
 // multer's req.file shape — declared locally to avoid an @types/multer dependency on
@@ -215,7 +215,7 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
   };
 }
 
-// Updates only a verified teacher's own presentation fields. Email is never accepted
+// Updates only a verified user's own presentation fields. Email is never accepted
 // from the request: syncEmail copies it from a freshly verified Firebase ID token.
 export function createPatchProfileHandler(db: ProfileDatabase): RequestHandler {
   return async (req, res) => {
@@ -252,8 +252,8 @@ export function createPatchProfileHandler(db: ProfileDatabase): RequestHandler {
       const docRef = db.collection('users').doc(firebaseUser.uid);
       const snapshot = await docRef.get();
       const profile = snapshot.data();
-      if (!snapshot.exists || !isTeacherProfile(profile)) {
-        res.status(403).json({ error: { message: 'teacher role required', explanation: 'Esta sección es exclusiva para docentes.' } });
+      if (!snapshot.exists || !isProfileOwnerRole(profile)) {
+        res.status(403).json({ error: { message: 'profile role required', explanation: 'No tienes permiso para modificar este perfil.' } });
         return;
       }
 
@@ -267,8 +267,8 @@ export function createPatchProfileHandler(db: ProfileDatabase): RequestHandler {
 }
 
 // POST /profile/avatar (multipart). Uploads the file to Appwrite Storage (public-read
-// bucket) and stores the resulting view URL + fileId on the profile doc. Teacher-only,
-// same role guard as the PATCH handler.
+// bucket) and stores the resulting view URL + fileId on the profile doc. Same role guard
+// as the PATCH handler.
 export function createUploadAvatarHandler(db: ProfileDatabase, fileStorage: FileStorage): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
@@ -282,8 +282,8 @@ export function createUploadAvatarHandler(db: ProfileDatabase, fileStorage: File
       const docRef = db.collection('users').doc(firebaseUser.uid);
       const snapshot = await docRef.get();
       const profile = snapshot.data();
-      if (!snapshot.exists || !isTeacherProfile(profile)) {
-        res.status(403).json({ error: { message: 'teacher role required', explanation: 'Esta sección es exclusiva para docentes.' } });
+      if (!snapshot.exists || !isProfileOwnerRole(profile)) {
+        res.status(403).json({ error: { message: 'profile role required', explanation: 'No tienes permiso para modificar este perfil.' } });
         return;
       }
 
@@ -332,8 +332,8 @@ export function createUploadAvatarHandler(db: ProfileDatabase, fileStorage: File
   };
 }
 
-// DELETE /profile/avatar. Clears the stored avatar and best-effort deletes the file
-// from storage. Teacher-only, same role guard as the PATCH handler.
+// DELETE /profile/avatar. Deletes the stored file before clearing its profile fields.
+// Same role guard as the PATCH handler.
 export const createAvatarUploadErrorHandler = (): ErrorRequestHandler => (err, _req, res, next) => {
   if (err && err.code === 'LIMIT_FILE_SIZE') {
     res.status(400).json({
@@ -359,21 +359,18 @@ export function createDeleteAvatarHandler(db: ProfileDatabase, fileStorage: File
       const docRef = db.collection('users').doc(firebaseUser.uid);
       const snapshot = await docRef.get();
       const profile = snapshot.data();
-      if (!snapshot.exists || !isTeacherProfile(profile)) {
-        res.status(403).json({ error: { message: 'teacher role required', explanation: 'Esta sección es exclusiva para docentes.' } });
+      if (!snapshot.exists || !isProfileOwnerRole(profile)) {
+        res.status(403).json({ error: { message: 'profile role required', explanation: 'No tienes permiso para modificar este perfil.' } });
         return;
       }
 
       const fileId = typeof profile?.avatarFileId === 'string' ? profile.avatarFileId : undefined;
 
-      await docRef.set({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null }, { merge: true });
-
       if (fileId) {
-        fileStorage.delete(fileId).catch(error =>
-          logOperationalFailure({ event: 'avatar_delete_storage_failed', operation: 'avatar_delete', uid: firebaseUser.uid, error })
-        );
+        await fileStorage.delete(fileId);
       }
 
+      await docRef.set({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null }, { merge: true });
       res.status(200).json(toProfileResponse({ ...profile, avatarUrl: undefined, avatarDataUrl: undefined }));
     } catch (err) {
       logOperationalFailure({ event: 'avatar_delete_failed', operation: 'avatar_delete', uid: firebaseUser.uid, error: err });

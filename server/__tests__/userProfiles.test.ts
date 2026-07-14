@@ -83,15 +83,29 @@ describe('createGetProfileHandler', () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: 'https://appwrite.example/avatar-1' }));
   });
 
-  it('maps a validated legacy avatarDataUrl to avatarUrl when there is no Appwrite URL', async () => {
+  it('maps a validated PNG legacy avatarDataUrl to avatarUrl when there is no Appwrite URL', async () => {
     const { db, get } = makeDb();
-    const avatarDataUrl = 'data:image/jpeg;base64,AA==';
+    const avatarDataUrl = 'data:image/png;base64,AA==';
     get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, avatarDataUrl }) });
     const res = makeRes();
 
     await createGetProfileHandler(db)({} as any, res, jest.fn());
 
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: avatarDataUrl }));
+  });
+
+  it.each([
+    ['malformed base64', 'data:image/png;base64,AA*'],
+    ['unsupported image format', 'data:image/gif;base64,AA=='],
+    ['oversized data URL', `data:image/png;base64,${'A'.repeat(100000)}`],
+  ])('omits a %s legacy avatarDataUrl', async (_description, avatarDataUrl) => {
+    const { db, get } = makeDb();
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, avatarDataUrl }) });
+    const res = makeRes();
+
+    await createGetProfileHandler(db)({} as any, res, jest.fn());
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: undefined }));
   });
 
   it('returns 404 when there is no profile document', async () => {
@@ -337,7 +351,7 @@ describe('createPatchProfileHandler', () => {
     expect(set).toHaveBeenCalledWith({ email: 'ana@example.com' }, { merge: true });
   });
 
-  it('rejects non-teachers server-side', async () => {
+  it('updates the verified student own name', async () => {
     const { db, get, set } = makeDb();
     get.mockResolvedValue({ exists: true, data: () => storedProfile });
     const handler = createPatchProfileHandler(db);
@@ -345,8 +359,8 @@ describe('createPatchProfileHandler', () => {
 
     await handler({ body: { displayName: 'Ana docente' } } as any, res, jest.fn());
 
-    expect(set).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(403);
+    expect(set).toHaveBeenCalledWith({ displayName: 'Ana docente' }, { merge: true });
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });
 
@@ -412,7 +426,7 @@ describe('createUploadAvatarHandler', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('returns 403 for a non-teacher before touching storage', async () => {
+  it('uploads a verified student avatar to their own profile', async () => {
     const { db, get } = makeDb();
     const { fileStorage, upload } = makeFileStorage();
     get.mockResolvedValue({ exists: true, data: () => storedProfile });
@@ -421,8 +435,8 @@ describe('createUploadAvatarHandler', () => {
 
     await handler({ file: makeAvatarFile() } as any, res, jest.fn());
 
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(upload).not.toHaveBeenCalled();
+    expect(upload).toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 
   it('returns 400 when no file is attached', async () => {
@@ -519,23 +533,24 @@ describe('createDeleteAvatarHandler', () => {
     expect(doc).toHaveBeenCalledWith('uid-1');
     expect(set).toHaveBeenCalledWith({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null }, { merge: true });
     expect(del).toHaveBeenCalledWith('file-x');
+    expect(del.mock.invocationCallOrder[0]).toBeLessThan(set.mock.invocationCallOrder[0]);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: undefined }));
   });
 
-  it('logs a failed avatar cleanup without changing the successful Firestore response', async () => {
+  it('does not clear the profile when Appwrite avatar deletion fails', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const { db, get } = makeDb();
+    const { db, get, set } = makeDb();
     const { fileStorage, del } = makeFileStorage();
     del.mockRejectedValue(new Error('appwrite down'));
     get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher', avatarFileId: 'file-x' }) });
     const res = makeRes();
 
     await createDeleteAvatarHandler(db, fileStorage)({} as any, res, jest.fn());
-    await Promise.resolve();
 
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('avatar_delete_storage_failed'));
+    expect(set).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('avatar_delete_failed'));
     consoleError.mockRestore();
   });
 
@@ -567,7 +582,7 @@ describe('createDeleteAvatarHandler', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
-  it('returns 403 for a non-teacher before touching storage', async () => {
+  it('deletes a verified student avatar from their own profile', async () => {
     const { db, get } = makeDb();
     const { fileStorage, del } = makeFileStorage();
     get.mockResolvedValue({ exists: true, data: () => storedProfile });
@@ -576,8 +591,7 @@ describe('createDeleteAvatarHandler', () => {
 
     await handler({} as any, res, jest.fn());
 
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(del).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 
   it('returns 503 when Firestore fails', async () => {

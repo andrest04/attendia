@@ -5,6 +5,7 @@ import PreJoinScreens from './components/PreJoinScreens/PreJoinScreens';
 import Room from './components/Room/Room';
 import SessionEndedScreen from './components/SessionEndedScreen/SessionEndedScreen';
 import TeacherDashboard from './components/TeacherDashboard';
+import TeacherProfilePage from './components/TeacherProfilePage/TeacherProfilePage';
 import useInitialRole from './components/TeacherDashboard/useInitialRole';
 import { saveDashboardHandoff, clearDashboardHandoff } from './components/TeacherDashboard/dashboardHandoffSession';
 import { shallow } from 'enzyme';
@@ -101,11 +102,21 @@ describe('the App component', () => {
 
   describe('the teacher landing dashboard', () => {
     it('mounts Perfil within the dashboard shell for the protected profile route', () => {
+      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
       mockUseRoomState.mockImplementation(() => 'disconnected');
       mockUseLocation.mockImplementationOnce(() => ({ pathname: '/profile' }));
       const wrapper = shallow(<App />);
 
       expect(wrapper.find(TeacherDashboard).prop('showProfile')).toBe(true);
+    });
+
+    it('mounts the shared profile page without the teacher dashboard for students', () => {
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      mockUseLocation.mockImplementationOnce(() => ({ pathname: '/profile' }));
+      const wrapper = shallow(<App />);
+
+      expect(wrapper.find(TeacherProfilePage).exists()).toBe(true);
+      expect(wrapper.find(TeacherDashboard).exists()).toBe(false);
     });
 
     it('derives the active tab from a /dashboard/* route, even without dashboardActive', () => {
