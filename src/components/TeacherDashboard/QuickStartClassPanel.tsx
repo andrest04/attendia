@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import RoomNameScreen from '../PreJoinScreens/RoomNameScreen/RoomNameScreen';
+import { createCollisionSafeClassSessionAccess } from '../PreJoinScreens/createCollisionSafeClassSessionAccess';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
-  createClassSessionAccess,
   createDefaultClassSessionDraft,
   toClassSessionDisplayName,
 } from '../PreJoinScreens/classSessionTypes';
@@ -66,14 +66,21 @@ export default function QuickStartClassPanel({ professorName, onCreate }: Props)
     role: 'teacher',
   }));
   const [classSessionAccess, setClassSessionAccess] = useState<ClassSessionAccess | null>(null);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
   const handleNameChange = (value: string) => {
     setName(value);
     setClassSessionDraft(draft => ({ ...draft, displayName: value }));
   };
 
-  const handleCreateClassSession = () => {
-    const access = createClassSessionAccess(classSessionDraft, window.location.origin, window.location.search || '');
+  const handleCreateClassSession = async () => {
+    setIsCreatingRoom(true);
+    const access = await createCollisionSafeClassSessionAccess(
+      classSessionDraft,
+      window.location.origin,
+      window.location.search || ''
+    );
+    setIsCreatingRoom(false);
     setClassSessionAccess(access);
   };
 
@@ -97,6 +104,7 @@ export default function QuickStartClassPanel({ professorName, onCreate }: Props)
             classSessionDraft={classSessionDraft}
             classSessionAccess={classSessionAccess}
             studentJoinCode=""
+            isCreatingRoom={isCreatingRoom}
             setName={handleNameChange}
             setStudentJoinCode={() => {}}
             setClassSessionDraft={setClassSessionDraft}
