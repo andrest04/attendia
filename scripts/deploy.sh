@@ -14,6 +14,12 @@
 # UnicodeEncodeError and aborts the whole command. See
 # https://github.com/Azure/azure-cli/issues for the upstream bug. Building
 # locally sidesteps that streaming code path entirely.
+#
+# Also ensures a sibling "$AZURE_CONTAINERAPP_NAME-gotenberg" Container App exists
+# (internal ingress, public gotenberg/gotenberg:8 image, no build needed) and wires
+# its internal URL into GOTENBERG_URL on the main app — see
+# server/gotenbergDocumentConverter.ts. Override the sibling's name with
+# AZURE_GOTENBERG_APP_NAME in deploy.config if you ever need to.
 set -e
 
 CONFIG_FILE="scripts/deploy.config"
@@ -78,6 +84,28 @@ else
     --registry-identity system
 fi
 
+GOTENBERG_APP_NAME="${AZURE_GOTENBERG_APP_NAME:-${AZURE_CONTAINERAPP_NAME}-gotenberg}"
+
+echo "==> Ensuring Gotenberg container app (document preview conversion, see server/gotenbergDocumentConverter.ts)..."
+if az containerapp show --name "$GOTENBERG_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
+  echo "    already exists, leaving image as-is (nothing to build/push — it's the public gotenberg/gotenberg:8 image)"
+else
+  echo "    creating (internal ingress only — no auth of its own, must not be reachable from the public internet)..."
+  az containerapp create \
+    --name "$GOTENBERG_APP_NAME" \
+    --resource-group "$AZURE_RESOURCE_GROUP" \
+    --environment "$AZURE_CONTAINERAPP_ENV" \
+    --image docker.io/gotenberg/gotenberg:8 \
+    --target-port 3000 \
+    --ingress internal \
+    --min-replicas 0 \
+    --max-replicas 1
+fi
+
+GOTENBERG_FQDN=$(az containerapp show --name "$GOTENBERG_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+  --query "properties.configuration.ingress.fqdn" -o tsv)
+GOTENBERG_URL="http://${GOTENBERG_FQDN}"
+
 echo "==> Syncing server-side secrets..."
 az containerapp secret set \
   --name "$AZURE_CONTAINERAPP_NAME" \
@@ -106,6 +134,7 @@ az containerapp update \
     APPWRITE_PROJECT_ID="$APPWRITE_PROJECT_ID" \
     APPWRITE_AVATARS_BUCKET_ID="$APPWRITE_AVATARS_BUCKET_ID" \
     APPWRITE_RESOURCES_BUCKET_ID="$APPWRITE_RESOURCES_BUCKET_ID" \
+    GOTENBERG_URL="$GOTENBERG_URL" \
     FIREBASE_SERVICE_ACCOUNT_BASE64=secretref:firebase-service-account \
     TWILIO_ACCOUNT_SID=secretref:twilio-account-sid \
     TWILIO_API_KEY_SID=secretref:twilio-api-key-sid \
