@@ -601,7 +601,7 @@ export default function RoomNameScreen({
               onChange={handleNameChange}
               className={classes.textInput}
             />
-            <span className={classes.fieldHelper}>No requiere crear una cuenta</span>
+            <span className={classes.fieldHelper}>Te unirás con tu cuenta.</span>
           </div>
 
           {/* Privacy notice */}

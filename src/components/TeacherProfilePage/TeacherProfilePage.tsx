@@ -9,20 +9,36 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  MenuItem,
   Paper,
   TextField,
   Typography,
 } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
-import { Redirect } from 'react-router-dom';
+import { Link, Redirect } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useAppState } from '../../state';
+import { getProfessorInitials } from '../../utils/professorIdentity/professorIdentity';
+import DashboardHeader from '../TeacherDashboard/DashboardHeader';
 import AvatarCropModal from './AvatarCropModal';
 
 const MAX_INPUT_AVATAR_BYTES = 2 * 1024 * 1024;
 
 const useStyles = makeStyles((theme: Theme) => ({
-  page: { minHeight: '100%', padding: theme.spacing(4), backgroundColor: '#f6f9fd' },
+  root: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    minHeight: 0,
+  },
+  page: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: 'auto',
+    padding: theme.spacing(4),
+    backgroundColor: '#f6f9fd',
+    [theme.breakpoints.down('sm')]: { padding: theme.spacing(3) },
+  },
   container: { maxWidth: 1280, margin: '0 auto' },
   header: { marginBottom: theme.spacing(3) },
   layout: {
@@ -48,6 +64,12 @@ const useStyles = makeStyles((theme: Theme) => ({
   avatarRow: { display: 'flex', alignItems: 'center', gap: theme.spacing(2), flexWrap: 'wrap' },
   avatar: { width: 72, height: 72 },
   button: { whiteSpace: 'nowrap' },
+  studentRoomEntry: {
+    marginTop: theme.spacing(2),
+    backgroundColor: '#d97706',
+    color: '#ffffff',
+    '&:hover': { backgroundColor: '#b45309' },
+  },
 }));
 
 // Any raster format the browser can decode into an <img> and draw to canvas works here —
@@ -93,6 +115,7 @@ export default function TeacherProfilePage() {
     deleteAvatar,
     changeEmail,
     changePassword,
+    signOut,
   } = useAppState();
   const firebaseUser = user && 'email' in user ? user : null;
   const [name, setName] = useState(profile?.displayName || firebaseUser?.displayName || '');
@@ -110,8 +133,10 @@ export default function TeacherProfilePage() {
   const [nameSubmitted, setNameSubmitted] = useState(false);
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [passwordSubmitted, setPasswordSubmitted] = useState(false);
+  const [hasLinkedPassword, setHasLinkedPassword] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
-  const hasPasswordProvider = Boolean(firebaseUser?.providerData.some(provider => provider.providerId === 'password'));
+  const hasPasswordProvider =
+    hasLinkedPassword || Boolean(firebaseUser?.providerData.some(provider => provider.providerId === 'password'));
 
   useEffect(() => setName(profile?.displayName || firebaseUser?.displayName || ''), [
     profile?.displayName,
@@ -120,7 +145,7 @@ export default function TeacherProfilePage() {
   useEffect(() => setEmail(firebaseUser?.email || profile?.email || ''), [profile?.email, firebaseUser?.email]);
   useEffect(() => setAvatarUrl(profile?.avatarUrl), [profile?.avatarUrl]);
 
-  if (!firebaseUser || profile?.role !== 'teacher') return <Redirect to="/" />;
+  if (!firebaseUser || (profile?.role !== 'teacher' && profile?.role !== 'student')) return <Redirect to="/" />;
 
   const run = async (action: 'name' | 'email' | 'password' | 'avatar' | 'deleteAvatar', work: () => Promise<void>) => {
     setSavingAction(action);
@@ -153,8 +178,10 @@ export default function TeacherProfilePage() {
     if (!file) return;
     try {
       validateAvatarFile(file);
-    } catch (error: any) {
-      enqueueSnackbar(error.message, { variant: 'error' });
+    } catch (error) {
+      enqueueSnackbar(error instanceof Error ? error.message : 'No pudimos validar la imagen. Intenta de nuevo.', {
+        variant: 'error',
+      });
       return;
     }
     readFileAsDataUrl(file)
@@ -177,16 +204,19 @@ export default function TeacherProfilePage() {
   const isEmailUnchanged = email.trim().toLowerCase() === (firebaseUser.email || '').trim().toLowerCase();
   const isEmailEmpty = !email.trim();
   const isEmailInvalid = !isEmailEmpty && !isValidEmail(email);
+  const isEmailChangeLocked = !hasPasswordProvider;
   const isCurrentPasswordEmptyForEmail = hasPasswordProvider && !emailCurrentPassword;
 
   const saveEmail = (event: FormEvent) => {
     event.preventDefault();
     setEmailSubmitted(true);
-    if (isEmailUnchanged || isEmailEmpty || isEmailInvalid || isCurrentPasswordEmptyForEmail) return;
+    if (isEmailChangeLocked || isEmailUnchanged || isEmailEmpty || isEmailInvalid || isCurrentPasswordEmptyForEmail)
+      return;
     setIsEmailConfirmOpen(true);
   };
 
   const confirmSaveEmail = () => {
+    if (isEmailChangeLocked) return;
     setIsEmailConfirmOpen(false);
     return run('email', async () => {
       await changeEmail!(email, emailCurrentPassword || undefined);
@@ -205,6 +235,7 @@ export default function TeacherProfilePage() {
     if (isCurrentPasswordEmptyForPassword || isNewPasswordInvalid) return;
     run('password', async () => {
       await changePassword!(currentPassword || undefined, newPassword);
+      if (!hasPasswordProvider) setHasLinkedPassword(true);
       setCurrentPassword('');
       setNewPassword('');
       enqueueSnackbar(hasPasswordProvider ? 'Contraseña actualizada.' : 'Contraseña creada y vinculada a tu cuenta.', {
@@ -214,193 +245,244 @@ export default function TeacherProfilePage() {
   };
 
   const photo = avatarUrl || firebaseUser.photoURL || undefined;
+  const profileName = profile.displayName || firebaseUser.displayName || '';
   return (
-    <main className={classes.page} data-testid="teacher-profile-page">
-      <Container maxWidth={false} className={classes.container}>
-        <div className={classes.header}>
-          <Typography variant="h4">Perfil docente</Typography>
-          <Typography color="textSecondary">Administra tu identidad y acceso.</Typography>
-        </div>
-        <div className={classes.layout} data-testid="teacher-profile-layout">
-          <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-photo">
-            <section className={classes.section} aria-labelledby="photo-heading">
-              <Typography id="photo-heading" variant="h6">
-                Foto
-              </Typography>
-              <div className={classes.avatarRow}>
-                <Avatar className={classes.avatar} src={photo}>
-                  {name.slice(0, 1).toUpperCase()}
-                </Avatar>
-                <Button className={classes.button} component="label" variant="outlined" disabled={isSaving}>
-                  {savingAction === 'avatar' ? <CircularProgress size={18} color="inherit" /> : 'Cambiar foto'}
-                  <input
-                    hidden
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif,image/bmp"
-                    onChange={selectAvatar}
-                    data-testid="profile-avatar-input"
-                  />
-                </Button>
-                {avatarUrl && (
-                  <Button
-                    className={classes.button}
-                    disabled={isSaving}
-                    onClick={() =>
-                      run('deleteAvatar', async () => {
-                        const updatedProfile = await deleteAvatar!();
-                        setAvatarUrl(updatedProfile.avatarUrl);
-                        enqueueSnackbar('Foto eliminada.', { variant: 'success' });
-                      })
-                    }
-                  >
-                    {savingAction === 'deleteAvatar' ? <CircularProgress size={18} color="inherit" /> : 'Usar foto de Google'}
+    <div className={classes.root} data-testid="profile-page-shell">
+      {profile.role === 'student' && (
+        <DashboardHeader
+          professorName={profileName}
+          professorInitials={getProfessorInitials(profileName)}
+          professorPhotoURL={photo}
+          identityColor="student"
+          showNotifications={false}
+          extraMenuItems={
+            <MenuItem onClick={() => signOut?.()} data-testid="student-profile-header-sign-out">
+              Cerrar sesión
+            </MenuItem>
+          }
+        />
+      )}
+      <main className={classes.page} data-testid="teacher-profile-page">
+        <Container maxWidth={false} className={classes.container}>
+          <div className={classes.header}>
+            <Typography variant="h4">Perfil {profile.role === 'student' ? 'estudiante' : 'docente'}</Typography>
+            <Typography color="textSecondary">Administra tu identidad y acceso.</Typography>
+            {profile.role === 'student' && (
+              <Button
+                className={classes.studentRoomEntry}
+                component={Link}
+                to={{ pathname: '/', state: { preJoinRole: 'student' } }}
+                variant="contained"
+                data-testid="student-room-entry"
+              >
+                Volver a ingresar a una sala
+              </Button>
+            )}
+          </div>
+          <div className={classes.layout} data-testid="teacher-profile-layout">
+            <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-photo">
+              <section className={classes.section} aria-labelledby="photo-heading">
+                <Typography id="photo-heading" variant="h6">
+                  Foto
+                </Typography>
+                <div className={classes.avatarRow}>
+                  <Avatar className={classes.avatar} src={photo}>
+                    {name.slice(0, 1).toUpperCase()}
+                  </Avatar>
+                  <Button className={classes.button} component="label" variant="outlined" disabled={isSaving}>
+                    {savingAction === 'avatar' ? <CircularProgress size={18} color="inherit" /> : 'Cambiar foto'}
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif,image/bmp"
+                      onChange={selectAvatar}
+                      data-testid="profile-avatar-input"
+                    />
                   </Button>
-                )}
-              </div>
-            </section>
-          </Paper>
-          <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-name">
-            <form className={classes.section} onSubmit={saveName} noValidate>
-              <Typography variant="h6">Nombre</Typography>
-              <TextField
-                label="Nombre"
-                value={name}
-                onChange={event => setName(event.target.value)}
-                required
-                inputProps={{ maxLength: 100 }}
-                error={nameSubmitted && isNameEmpty}
-                helperText={nameSubmitted && isNameEmpty ? 'Ingresa un nombre.' : ' '}
-              />
-              <Button
-                className={classes.button}
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={isSaving || isNameEmpty || isNameUnchanged}
-              >
-                {savingAction === 'name' ? <CircularProgress size={18} color="inherit" /> : 'Guardar nombre'}
-              </Button>
-            </form>
-          </Paper>
-          <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-email">
-            <form className={classes.section} onSubmit={saveEmail} noValidate>
-              <Typography variant="h6">Correo</Typography>
-              <TextField
-                label="Nuevo correo"
-                type="email"
-                value={email}
-                onChange={event => setEmail(event.target.value)}
-                required
-                error={(emailSubmitted && isEmailEmpty) || isEmailInvalid}
-                helperText={
-                  emailSubmitted && isEmailEmpty
-                    ? 'Ingresa un correo.'
-                    : isEmailInvalid
-                    ? 'El formato del correo no es válido.'
-                    : ' '
-                }
-              />
-              {hasPasswordProvider && (
+                  {avatarUrl && (
+                    <Button
+                      className={classes.button}
+                      disabled={isSaving}
+                      onClick={() =>
+                        run('deleteAvatar', async () => {
+                          const updatedProfile = await deleteAvatar!();
+                          setAvatarUrl(updatedProfile.avatarUrl);
+                          enqueueSnackbar('Foto eliminada.', { variant: 'success' });
+                        })
+                      }
+                    >
+                      {savingAction === 'deleteAvatar' ? (
+                        <CircularProgress size={18} color="inherit" />
+                      ) : (
+                        'Usar foto de Google'
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </section>
+            </Paper>
+            <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-name">
+              <form className={classes.section} onSubmit={saveName} noValidate>
+                <Typography variant="h6">Nombre</Typography>
                 <TextField
-                  label="Contraseña actual"
-                  type="password"
-                  value={emailCurrentPassword}
-                  onChange={event => setEmailCurrentPassword(event.target.value)}
+                  label="Nombre"
+                  value={name}
+                  onChange={event => setName(event.target.value)}
                   required
-                  error={emailSubmitted && isCurrentPasswordEmptyForEmail}
-                  helperText={emailSubmitted && isCurrentPasswordEmptyForEmail ? 'Ingresa tu contraseña actual.' : ' '}
+                  inputProps={{ maxLength: 100 }}
+                  error={nameSubmitted && isNameEmpty}
+                  helperText={nameSubmitted && isNameEmpty ? 'Ingresa un nombre.' : ' '}
                 />
-              )}
-              <Button
-                className={classes.button}
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={isSaving || isEmailUnchanged || isEmailInvalid || isCurrentPasswordEmptyForEmail}
-              >
-                {savingAction === 'email' ? <CircularProgress size={18} color="inherit" /> : 'Guardar correo'}
-              </Button>
-            </form>
-          </Paper>
-          <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-password">
-            <form className={classes.section} onSubmit={savePassword} noValidate>
-              <Typography variant="h6">{hasPasswordProvider ? 'Contraseña' : 'Crear contraseña'}</Typography>
-              {hasPasswordProvider && (
+                <Button
+                  className={classes.button}
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  disabled={isSaving || isNameEmpty || isNameUnchanged}
+                >
+                  {savingAction === 'name' ? <CircularProgress size={18} color="inherit" /> : 'Guardar nombre'}
+                </Button>
+              </form>
+            </Paper>
+            <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-email">
+              <form className={classes.section} onSubmit={saveEmail} noValidate>
+                <Typography variant="h6">Correo</Typography>
                 <TextField
-                  label="Contraseña actual"
-                  type="password"
-                  value={currentPassword}
-                  onChange={event => setCurrentPassword(event.target.value)}
+                  label="Nuevo correo"
+                  type="email"
+                  value={email}
+                  onChange={event => setEmail(event.target.value)}
                   required
-                  error={passwordSubmitted && isCurrentPasswordEmptyForPassword}
+                  disabled={isEmailChangeLocked}
+                  inputProps={{ 'aria-describedby': isEmailChangeLocked ? 'email-password-setup-hint' : undefined }}
+                  error={(emailSubmitted && isEmailEmpty) || isEmailInvalid}
                   helperText={
-                    passwordSubmitted && isCurrentPasswordEmptyForPassword ? 'Ingresa tu contraseña actual.' : ' '
+                    isEmailChangeLocked
+                      ? 'Crea una contraseña para habilitar el cambio de correo.'
+                      : emailSubmitted && isEmailEmpty
+                      ? 'Ingresa un correo.'
+                      : isEmailInvalid
+                      ? 'El formato del correo no es válido.'
+                      : ' '
                   }
                 />
-              )}
-              <TextField
-                label="Nueva contraseña"
-                type="password"
-                value={newPassword}
-                onChange={event => setNewPassword(event.target.value)}
-                required
-                inputProps={{ minLength: 8 }}
-                error={passwordSubmitted && isNewPasswordInvalid}
-                helperText={
-                  passwordSubmitted && isNewPasswordInvalid ? 'La nueva contraseña debe tener al menos 8 caracteres.' : ' '
-                }
-              />
-              <Button
-                className={classes.button}
-                type="submit"
-                variant="contained"
-                color="primary"
-                disabled={isSaving || isNewPasswordEmpty || isCurrentPasswordEmptyForPassword}
-              >
-                {savingAction === 'password' ? (
-                  <CircularProgress size={18} color="inherit" />
-                ) : hasPasswordProvider ? (
-                  'Actualizar contraseña'
-                ) : (
-                  'Crear contraseña'
+                {isEmailChangeLocked && (
+                  <Typography id="email-password-setup-hint" color="textSecondary" aria-live="polite">
+                    Tu cuenta usa Google. Primero crea una contraseña para cambiar el correo.
+                  </Typography>
                 )}
+                {hasPasswordProvider && (
+                  <TextField
+                    label="Contraseña actual"
+                    type="password"
+                    value={emailCurrentPassword}
+                    onChange={event => setEmailCurrentPassword(event.target.value)}
+                    required
+                    error={emailSubmitted && isCurrentPasswordEmptyForEmail}
+                    helperText={
+                      emailSubmitted && isCurrentPasswordEmptyForEmail ? 'Ingresa tu contraseña actual.' : ' '
+                    }
+                  />
+                )}
+                <Button
+                  className={classes.button}
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  disabled={
+                    isSaving ||
+                    isEmailChangeLocked ||
+                    isEmailUnchanged ||
+                    isEmailInvalid ||
+                    isCurrentPasswordEmptyForEmail
+                  }
+                >
+                  {savingAction === 'email' ? <CircularProgress size={18} color="inherit" /> : 'Guardar correo'}
+                </Button>
+              </form>
+            </Paper>
+            <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-password">
+              <form className={classes.section} onSubmit={savePassword} noValidate>
+                <Typography variant="h6">{hasPasswordProvider ? 'Contraseña' : 'Crear contraseña'}</Typography>
+                {hasPasswordProvider && (
+                  <TextField
+                    label="Contraseña actual"
+                    type="password"
+                    value={currentPassword}
+                    onChange={event => setCurrentPassword(event.target.value)}
+                    required
+                    error={passwordSubmitted && isCurrentPasswordEmptyForPassword}
+                    helperText={
+                      passwordSubmitted && isCurrentPasswordEmptyForPassword ? 'Ingresa tu contraseña actual.' : ' '
+                    }
+                  />
+                )}
+                <TextField
+                  label="Nueva contraseña"
+                  type="password"
+                  value={newPassword}
+                  onChange={event => setNewPassword(event.target.value)}
+                  required
+                  inputProps={{ minLength: 8 }}
+                  error={passwordSubmitted && isNewPasswordInvalid}
+                  helperText={
+                    passwordSubmitted && isNewPasswordInvalid
+                      ? 'La nueva contraseña debe tener al menos 8 caracteres.'
+                      : ' '
+                  }
+                />
+                <Button
+                  className={classes.button}
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  disabled={isSaving || isNewPasswordEmpty || isCurrentPasswordEmptyForPassword}
+                >
+                  {savingAction === 'password' ? (
+                    <CircularProgress size={18} color="inherit" />
+                  ) : hasPasswordProvider ? (
+                    'Actualizar contraseña'
+                  ) : (
+                    'Crear contraseña'
+                  )}
+                </Button>
+              </form>
+            </Paper>
+          </div>
+          <Dialog
+            open={isEmailConfirmOpen}
+            onClose={() => setIsEmailConfirmOpen(false)}
+            data-testid="email-confirm-dialog"
+          >
+            <DialogTitle>¿Confirmar el cambio de correo?</DialogTitle>
+            <DialogContent>
+              <DialogContentText>Nuevo correo:</DialogContentText>
+              <DialogContentText>
+                <strong>{email}</strong>
+              </DialogContentText>
+              <DialogContentText>
+                Se actualizará de inmediato, sin un paso de verificación previo. Este correo se utilizará para iniciar
+                sesión a partir de ahora.
+              </DialogContentText>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setIsEmailConfirmOpen(false)} data-testid="email-confirm-cancel">
+                Cancelar
               </Button>
-            </form>
-          </Paper>
-        </div>
-        <Dialog
-          open={isEmailConfirmOpen}
-          onClose={() => setIsEmailConfirmOpen(false)}
-          data-testid="email-confirm-dialog"
-        >
-          <DialogTitle>¿Confirmar el cambio de correo?</DialogTitle>
-          <DialogContent>
-            <DialogContentText>Nuevo correo:</DialogContentText>
-            <DialogContentText>
-              <strong>{email}</strong>
-            </DialogContentText>
-            <DialogContentText>
-              Se actualizará de inmediato, sin un paso de verificación previo. Este correo se utilizará para iniciar
-              sesión a partir de ahora.
-            </DialogContentText>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setIsEmailConfirmOpen(false)} data-testid="email-confirm-cancel">
-              Cancelar
-            </Button>
-            <Button onClick={confirmSaveEmail} color="primary" variant="contained" data-testid="email-confirm-accept">
-              Confirmar
-            </Button>
-          </DialogActions>
-        </Dialog>
-        <AvatarCropModal
-          imageSrc={cropImageSrc}
-          isSaving={isSaving}
-          onCancel={cancelCrop}
-          onConfirm={confirmCrop}
-          onError={message => enqueueSnackbar(message, { variant: 'error' })}
-        />
-      </Container>
-    </main>
+              <Button onClick={confirmSaveEmail} color="primary" variant="contained" data-testid="email-confirm-accept">
+                Confirmar
+              </Button>
+            </DialogActions>
+          </Dialog>
+          <AvatarCropModal
+            imageSrc={cropImageSrc}
+            isSaving={isSaving}
+            onCancel={cancelCrop}
+            onConfirm={confirmCrop}
+            onError={message => enqueueSnackbar(message, { variant: 'error' })}
+          />
+        </Container>
+      </main>
+    </div>
   );
 }

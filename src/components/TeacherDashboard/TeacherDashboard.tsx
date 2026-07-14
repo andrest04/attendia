@@ -38,9 +38,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     flex: 1,
     minHeight: 0,
     overflow: 'hidden',
-    // Below 'sm' (600px, this app's real mobile switch — see Room.tsx's isMobile) the
-    // sidebar becomes a horizontal top strip (DashboardSidebar), so the body stacks
-    // vertically instead of splitting the width into a rail + content pane.
+    // The app theme maps `sm` to 960px. DashboardSidebar becomes a horizontal top
+    // strip below it, so content keeps the full viewport width.
     [theme.breakpoints.down('sm')]: {
       flexDirection: 'column',
       overflow: 'auto',
@@ -57,6 +56,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   content: {
     flex: 1,
+    minWidth: 0,
     overflowY: 'auto',
   },
 }));

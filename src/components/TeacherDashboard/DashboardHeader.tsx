@@ -114,6 +114,9 @@ interface Props {
   // Real user photo (e.g. Google sign-in avatar). Falls back to the initials
   // chip when absent, mirroring UserAvatar in the lobby's UserMenu.
   professorPhotoURL?: string;
+  // Students use the same control model but retain their amber identity in the
+  // shared header rather than inheriting the teacher's blue avatar treatment.
+  identityColor?: 'teacher' | 'student';
   // Wraps the logo in a "go home" button (prejoin header only — the dashboard
   // renders the logo as a plain mark).
   onLogoClick?: () => void;
@@ -126,11 +129,10 @@ interface Props {
   centerLabel?: React.ReactNode;
   // Pill rendered before the bell/profile (e.g. the "Pre-sesión" pill).
   badge?: React.ReactNode;
-  // Hides the "Perfil" menu item. The prejoin header sets this to false: leaving it
-  // during prejoin navigates away without releasing the local camera/mic tracks
-  // ("Cancelar" does that cleanup explicitly, plain routing doesn't) — and it's
-  // already reachable from the dashboard, so it's just dropped there.
+  // Hides the "Perfil" menu item when that navigation is unavailable in the current flow.
   showProfileLink?: boolean;
+  // Lets prejoin release acquired media before navigating to the profile.
+  onProfileClick?: () => void;
   // Extra <MenuItem>s rendered after "Perfil" (e.g. sign-out, on the prejoin header).
   extraMenuItems?: React.ReactNode;
 }
@@ -140,12 +142,14 @@ export default function DashboardHeader({
   professorName,
   professorInitials,
   professorPhotoURL,
+  identityColor = 'teacher',
   onLogoClick,
   showProfile = true,
   showNotifications = true,
   centerLabel,
   badge,
   showProfileLink = true,
+  onProfileClick,
   extraMenuItems,
 }: Props) {
   const classes = useStyles();
@@ -154,7 +158,8 @@ export default function DashboardHeader({
 
   const openProfile = () => {
     setProfileMenuAnchor(null);
-    history.push('/profile');
+    if (onProfileClick) onProfileClick();
+    else history.push('/profile');
   };
 
   const logo = <AttendiaLogo variant="full" size={28} />;
@@ -192,11 +197,18 @@ export default function DashboardHeader({
               {professorPhotoURL ? (
                 <span
                   className={`${classes.avatar} ${classes.avatarPhoto}`}
-                  style={{ backgroundImage: `url(${professorPhotoURL})` }}
+                  style={{
+                    backgroundImage: `url(${professorPhotoURL})`,
+                    border: `2px solid ${identityColor === 'student' ? '#d97706' : '#1d6eed'}`,
+                  }}
                   data-testid="dashboard-header-avatar-photo"
                 />
               ) : (
-                <span className={classes.avatar} data-testid="dashboard-header-avatar-initials">
+                <span
+                  className={classes.avatar}
+                  style={identityColor === 'student' ? { backgroundColor: '#d97706' } : undefined}
+                  data-testid="dashboard-header-avatar-initials"
+                >
                   {professorInitials}
                 </span>
               )}
@@ -227,11 +239,18 @@ export default function DashboardHeader({
             {professorPhotoURL ? (
               <span
                 className={`${classes.avatar} ${classes.avatarPhoto}`}
-                style={{ backgroundImage: `url(${professorPhotoURL})` }}
+                style={{
+                  backgroundImage: `url(${professorPhotoURL})`,
+                    border: `2px solid ${identityColor === 'student' ? '#d97706' : '#1d6eed'}`,
+                }}
                 data-testid="dashboard-header-avatar-photo"
               />
             ) : (
-              <span className={classes.avatar} data-testid="dashboard-header-avatar-initials">
+              <span
+                className={classes.avatar}
+                style={identityColor === 'student' ? { backgroundColor: '#d97706' } : undefined}
+                data-testid="dashboard-header-avatar-initials"
+              >
                 {professorInitials}
               </span>
             )}

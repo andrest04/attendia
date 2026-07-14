@@ -67,6 +67,8 @@ describe('the PreJoinScreens component', () => {
     mockUseVideoContext.mockImplementation(() => ({
       getAudioAndVideoTracks: () => Promise.resolve(),
       connect: jest.fn(() => Promise.resolve()),
+      removeLocalAudioTrack: jest.fn(),
+      removeLocalVideoTrack: jest.fn(),
     }));
     // Default: no persisted rejoin session (the common deep-link / fresh-lobby case).
     mockGetResumableSession.mockReturnValue(null);
@@ -494,6 +496,25 @@ describe('the PreJoinScreens component', () => {
     const error = wrapper.find(MediaErrorSnackbar).prop('error');
     expect(error).toBe('testError');
     expect(mockGetAudioAndVideoTracks).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases local media before device selection navigates to the profile', () => {
+    const removeLocalAudioTrack = jest.fn();
+    const removeLocalVideoTrack = jest.fn();
+    mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    mockUseVideoContext.mockReturnValue({
+      getAudioAndVideoTracks: jest.fn(() => Promise.resolve()),
+      removeLocalAudioTrack,
+      removeLocalVideoTrack,
+    });
+
+    const wrapper = shallow(<PreJoinScreens initialClassSession={{ roomName: 'mat-a', name: 'Ana' }} />);
+    const onProfileClick = wrapper.find(IntroContainer).prop('onProfileClick');
+
+    expect(onProfileClick).toBeInstanceOf(Function);
+    onProfileClick!();
+    expect(removeLocalAudioTrack).toHaveBeenCalledTimes(1);
+    expect(removeLocalVideoTrack).toHaveBeenCalledTimes(1);
   });
 
   // ── Back-to-dashboard handoff ─────────────────────────────────────────────────

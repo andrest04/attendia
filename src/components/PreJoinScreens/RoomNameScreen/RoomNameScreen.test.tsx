@@ -468,6 +468,8 @@ describe('the RoomNameScreen component', () => {
     expect(wrapper.text()).toContain('Acceso de Estudiante');
     expect(wrapper.text()).toContain('Código o enlace de sala');
     expect(wrapper.text()).toContain('Tu nombre o alias');
+    expect(wrapper.text()).toContain('Te unirás con tu cuenta.');
+    expect(wrapper.text()).not.toContain('No requiere crear una cuenta');
     expect(wrapper.text()).toContain('Aviso de privacidad');
     expect(wrapper.text()).toContain('No se almacenan datos faciales.');
 

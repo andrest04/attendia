@@ -11,6 +11,7 @@ import RecordingNotifications from './components/RecordingNotifications/Recordin
 import Room from './components/Room/Room';
 import SessionEndedScreen from './components/SessionEndedScreen/SessionEndedScreen';
 import TeacherDashboard from './components/TeacherDashboard';
+import TeacherProfilePage from './components/TeacherProfilePage/TeacherProfilePage';
 import useDashboardHandoff from './components/TeacherDashboard/useDashboardHandoff';
 import useDashboardRouteSync from './components/TeacherDashboard/useDashboardRouteSync';
 import useInitialRole from './components/TeacherDashboard/useInitialRole';
@@ -80,6 +81,8 @@ export default function App() {
     <Container style={{ height }}>
       {sessionEndedByProfessor ? (
         <SessionEndedScreen />
+      ) : isProfileRoute && initialRole === 'student' ? (
+        <TeacherProfilePage />
       ) : dashboardActive || isProfileRoute || isDashboardTabRoute ? (
         <TeacherDashboard
           onStartClass={startClass}

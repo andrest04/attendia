@@ -7,26 +7,21 @@ import { DashboardTabId } from './types';
 import { dashboardTabIcon, dashboardTabLabel } from './dashboardHelpers';
 
 const useStyles = makeStyles((theme: Theme) => ({
-  // Below 'md' (960px) this still is the desktop rail — just narrower, mirroring the
-  // ProfessorRoomShell/StudentRoomShell "narrow desktop" tier. Below 'sm' (600px, the app's
-  // actual mobile switch — see Room.tsx's isMobile) it flips to a horizontal top strip
-  // instead: a fixed 240px left rail has no room on a phone-width viewport.
+  // This theme's `sm` boundary is 960px. A fixed rail leaves too little room for
+  // dashboard cards and forms below it, so switch to a compact top navigation.
   root: {
     width: 240,
+    boxSizing: 'border-box',
     flexShrink: 0,
     display: 'flex',
     flexDirection: 'column',
     backgroundColor: theme.palette.background.paper,
     borderRight: '1px solid #e2ecf9',
     padding: theme.spacing(3, 2),
-    [theme.breakpoints.down('md')]: {
-      width: 200,
-    },
     [theme.breakpoints.down('sm')]: {
       width: '100%',
       flexDirection: 'row',
       alignItems: 'center',
-      flexWrap: 'wrap',
       borderRight: 'none',
       borderBottom: '1px solid #e2ecf9',
       padding: theme.spacing(1, 1.5),
@@ -53,9 +48,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     flex: 1,
     [theme.breakpoints.down('sm')]: {
       flexDirection: 'row',
-      flex: 'unset',
+      minWidth: 0,
       overflowX: 'auto',
-      width: '100%',
     },
   },
   navItem: {

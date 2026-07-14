@@ -1,5 +1,5 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount, shallow } from 'enzyme';
 import DashboardSidebar from './DashboardSidebar';
 
 describe('DashboardSidebar', () => {
@@ -61,5 +61,26 @@ describe('DashboardSidebar', () => {
     const button = wrapper.find('[data-testid="dashboard-sidebar-sign-out"]');
     expect(button.prop('disabled')).toBe(true);
     expect(button.prop('title')).toBeTruthy();
+  });
+
+  it('switches to a compact horizontal navigation below the desktop breakpoint', () => {
+    const wrapper = mount(
+      <DashboardSidebar
+        activeTab="clases"
+        onTabChange={jest.fn()}
+        onStartBlankClass={jest.fn()}
+        onSignOut={jest.fn()}
+      />
+    );
+    const rootClass = String(wrapper.find('[data-testid="dashboard-sidebar"]').prop('className') || '').split(' ')[0];
+    const generatedStyles = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+
+    expect(generatedStyles).toMatch(
+      new RegExp(
+        `@media \\(max-width:959.95px\\)\\s*\\{\\s*\\.${rootClass}\\s*\\{[^}]*width:\\s*100%;[^}]*flex-direction:\\s*row`
+      )
+    );
   });
 });

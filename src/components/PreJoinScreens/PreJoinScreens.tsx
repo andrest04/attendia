@@ -38,7 +38,7 @@ interface PreJoinScreensProps {
 
 export default function PreJoinScreens({ initialClassSession, onReturnToDashboard }: PreJoinScreensProps = {}) {
   const { user, profile } = useAppState();
-  const { getAudioAndVideoTracks } = useVideoContext();
+  const { getAudioAndVideoTracks, removeLocalAudioTrack, removeLocalVideoTrack } = useVideoContext();
   const { URLRoomName } = useParams<{ URLRoomName?: string }>();
   const isRejoining = useAutoRejoin(URLRoomName);
   // A refresh on /room/:name destroys the live Room; if a session was persisted for this exact
@@ -164,6 +164,11 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
     setStep(nextStep);
   };
 
+  const handleProfileNavigation = () => {
+    removeLocalAudioTrack();
+    removeLocalVideoTrack();
+  };
+
   const goToDeviceSelection = async () => {
     const normalizedStudentRoomName = normalizeStudentJoinInputToRoomName(studentJoinCode);
 
@@ -258,6 +263,7 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
         noHero={step === Steps.deviceSelectionStep}
         headerRoomName={step === Steps.deviceSelectionStep ? roomName : undefined}
         homeRole={classSessionDraft.role}
+        onProfileClick={step === Steps.deviceSelectionStep ? handleProfileNavigation : undefined}
         // Only surfaced on the room-name step: the device-selection step's own
         // "Cancelar" already routes back to the dashboard for this handoff (see
         // handleSetStep above), so a second identical control there would be redundant.
