@@ -336,6 +336,7 @@ interface RoomNameScreenProps {
   classSessionAccess: ClassSessionAccess | null;
   studentJoinCode: string;
   isCheckingRoom?: boolean;
+  isCreatingRoom?: boolean;
   roomClosedError?: boolean;
   setName: (name: string) => void;
   setStudentJoinCode: (joinCode: string) => void;
@@ -356,6 +357,7 @@ export default function RoomNameScreen({
   classSessionAccess,
   studentJoinCode,
   isCheckingRoom = false,
+  isCreatingRoom = false,
   roomClosedError = false,
   setName,
   setStudentJoinCode,
@@ -517,11 +519,12 @@ export default function RoomNameScreen({
                 variant="contained"
                 color="primary"
                 fullWidth
-                disabled={!canCreateTeacherSession}
+                disabled={!canCreateTeacherSession || isCreatingRoom}
                 onClick={onCreateClassSession}
                 className={classes.teacherPrimaryButton}
+                startIcon={isCreatingRoom ? <CircularProgress size={16} color="inherit" /> : undefined}
               >
-                Crear sala →
+                {isCreatingRoom ? 'Creando sala…' : 'Crear sala →'}
               </Button>
             ) : (
               <Button

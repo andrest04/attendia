@@ -383,6 +383,17 @@ describe('the RoomNameScreen component', () => {
     expect(joinButton.prop('disabled')).toBe(true);
   });
 
+  it('shows a creating state and disables the create button while resolving a collision-safe room name', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
+    const wrapper = shallow(
+      <RoomNameScreen {...baseProps} classSessionDraft={{ ...baseTeacherDraft, sessionName: 'Ready Session' }} isCreatingRoom />
+    );
+
+    const createButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Creando sala…');
+    expect(createButton.exists()).toBe(true);
+    expect(createButton.prop('disabled')).toBe(true);
+  });
+
   // ── Keyboard submit (Enter) ─────────────────────────────────────────────────────
 
   it('wraps the teacher card in a form whose primary action is a submit button (Enter creates)', () => {

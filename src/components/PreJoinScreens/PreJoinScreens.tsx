@@ -10,11 +10,11 @@ import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAutoRejoin from './useAutoRejoin';
 import useInitialRole from '../TeacherDashboard/useInitialRole';
 import { checkRoomOpen } from './checkRoomOpen';
+import { createCollisionSafeClassSessionAccess } from './createCollisionSafeClassSessionAccess';
 import { getResumableSession } from './rejoinSession';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
-  createClassSessionAccess,
   createDefaultClassSessionDraft,
   normalizeStudentJoinInputToRoomName,
   stripTeacherSuffix,
@@ -79,6 +79,7 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   // instead of sending them through the device-selection waiting room for nothing).
   const [isCheckingRoom, setIsCheckingRoom] = useState(false);
   const [roomClosed, setRoomClosed] = useState(false);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
   const [mediaError, setMediaError] = useState<Error>();
 
@@ -209,8 +210,14 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
     setStep(Steps.deviceSelectionStep);
   };
 
-  const handleCreateClassSession = () => {
-    const access = createClassSessionAccess(classSessionDraft, window.location.origin, window.location.search || '');
+  const handleCreateClassSession = async () => {
+    setIsCreatingRoom(true);
+    const access = await createCollisionSafeClassSessionAccess(
+      classSessionDraft,
+      window.location.origin,
+      window.location.search || ''
+    );
+    setIsCreatingRoom(false);
     setClassSessionAccess(access);
     setRoomName(access.roomName);
     setName(toClassSessionDisplayName(classSessionDraft.displayName, 'teacher'));
@@ -265,6 +272,7 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
             classSessionAccess={classSessionAccess}
             studentJoinCode={studentJoinCode}
             isCheckingRoom={isCheckingRoom}
+            isCreatingRoom={isCreatingRoom}
             roomClosedError={roomClosed}
             setName={setName}
             setStudentJoinCode={setStudentJoinCode}

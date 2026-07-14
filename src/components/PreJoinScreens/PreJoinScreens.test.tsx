@@ -78,8 +78,10 @@ describe('the PreJoinScreens component', () => {
     window.location = { ...window.location, origin: '', search: '' };
   });
 
-  it('updates the URL with teacher roomName after create+continue handoff', () => {
+  it('updates the URL with teacher roomName after create+continue handoff', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    // No collision for the teacher's chosen slug, so it comes back unchanged.
+    mockCheckRoomOpen.mockResolvedValue(false);
     const wrapper = shallow(<PreJoinScreens />);
 
     const setClassSessionDraft = wrapper.find(RoomNameScreen).prop('setClassSessionDraft');
@@ -91,7 +93,9 @@ describe('the PreJoinScreens component', () => {
     }));
 
     const onCreateClassSession = wrapper.find(RoomNameScreen).prop('onCreateClassSession');
-    onCreateClassSession();
+    await act(async () => {
+      await onCreateClassSession();
+    });
 
     const onContinueToDeviceSelection = wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection');
     onContinueToDeviceSelection();
@@ -99,8 +103,9 @@ describe('the PreJoinScreens component', () => {
     expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '/room/sesion-fisica-101');
   });
 
-  it('does not update URL for twilio function origin in teacher handoff', () => {
+  it('does not update URL for twilio function origin in teacher handoff', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    mockCheckRoomOpen.mockResolvedValue(false);
     // @ts-ignore
     window.location = { ...window.location, origin: 'https://video-app-1234-twil.io' };
     const wrapper = shallow(<PreJoinScreens />);
@@ -110,14 +115,17 @@ describe('the PreJoinScreens component', () => {
       sessionName: 'Session 1',
       monitoringSensitivity: 'high',
     }));
-    wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    });
     wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
 
     expect(window.history.replaceState).not.toHaveBeenCalled();
   });
 
-  it('switches to DeviceSelection after teacher continue post-create', () => {
+  it('switches to DeviceSelection after teacher continue post-create', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    mockCheckRoomOpen.mockResolvedValue(false);
     const wrapper = shallow(<PreJoinScreens />);
 
     expect(wrapper.find(RoomNameScreen).exists()).toBe(true);
@@ -128,7 +136,9 @@ describe('the PreJoinScreens component', () => {
       sessionName: 'Session 1',
       monitoringSensitivity: 'medium',
     }));
-    wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    });
     wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
 
     expect(wrapper.find(RoomNameScreen).exists()).toBe(false);
@@ -277,8 +287,9 @@ describe('the PreJoinScreens component', () => {
     expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('testroom');
   });
 
-  it('does not probe room existence for the teacher flow', async () => {
+  it('does not probe room existence again on teacher continue (only the create-time collision check runs)', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    mockCheckRoomOpen.mockResolvedValue(false);
     const wrapper = shallow(<PreJoinScreens />);
 
     wrapper.find(RoomNameScreen).prop('setClassSessionDraft')((draft: any) => ({
@@ -286,7 +297,12 @@ describe('the PreJoinScreens component', () => {
       sessionName: 'Session 1',
       monitoringSensitivity: 'medium',
     }));
-    wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    });
+    expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+
+    mockCheckRoomOpen.mockClear();
     await act(async () => {
       await wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
     });
@@ -295,8 +311,9 @@ describe('the PreJoinScreens component', () => {
     expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(true);
   });
 
-  it('invalidates a created session when the teacher edits the session name', () => {
+  it('invalidates a created session when the teacher edits the session name', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    mockCheckRoomOpen.mockResolvedValue(false);
     const wrapper = mount(<PreJoinScreens />);
 
     act(() => {
@@ -308,8 +325,8 @@ describe('the PreJoinScreens component', () => {
       }));
     });
     wrapper.update();
-    act(() => {
-      wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
     });
     wrapper.update();
 
@@ -405,8 +422,9 @@ describe('the PreJoinScreens component', () => {
     expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').displayName).toBe('Profile Name');
   });
 
-  it('resolves teacher visible identity with suffix after creating class session', () => {
+  it('resolves teacher visible identity with suffix after creating class session', async () => {
     mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    mockCheckRoomOpen.mockResolvedValue(false);
     const wrapper = shallow(<PreJoinScreens />);
 
     wrapper.find(RoomNameScreen).prop('setName')('Andres Torres');
@@ -416,7 +434,9 @@ describe('the PreJoinScreens component', () => {
       sessionName: 'Clase de algebra',
       monitoringSensitivity: 'low',
     }));
-    wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    });
     wrapper.find(RoomNameScreen).prop('onContinueToDeviceSelection')();
 
     expect(wrapper.find(DeviceSelectionScreen).prop('name')).toBe('Andres Torres [Profesor]');

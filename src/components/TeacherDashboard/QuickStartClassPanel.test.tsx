@@ -1,9 +1,17 @@
 import React from 'react';
+import { act } from 'react-dom/test-utils';
 import { shallow } from 'enzyme';
 import QuickStartClassPanel from './QuickStartClassPanel';
 import RoomNameScreen from '../PreJoinScreens/RoomNameScreen/RoomNameScreen';
 
 describe('QuickStartClassPanel', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.resetAllMocks();
+  });
+
   it('reuses the same RoomNameScreen teacher card the standalone prejoin lobby uses', () => {
     const wrapper = shallow(<QuickStartClassPanel professorName="Andrés Torres" onCreate={jest.fn()} />);
 
@@ -11,7 +19,10 @@ describe('QuickStartClassPanel', () => {
     expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('teacher');
   });
 
-  it('only calls onCreate with the resolved room/name after create + continue', () => {
+  it('only calls onCreate with the resolved room/name after create + continue', async () => {
+    // No collision: the collision-safe probe reports the room is not open, so the clean slug is kept.
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ open: false }) }) as any;
+
     const onCreate = jest.fn();
     const wrapper = shallow(<QuickStartClassPanel professorName="Andrés Torres" onCreate={onCreate} />);
 
@@ -20,7 +31,9 @@ describe('QuickStartClassPanel', () => {
     wrapper.update();
 
     // "Crear sala" — creates the access but must not navigate yet.
-    wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    });
     wrapper.update();
     expect(onCreate).not.toHaveBeenCalled();
     expect(wrapper.find(RoomNameScreen).prop('classSessionAccess')).toEqual({
