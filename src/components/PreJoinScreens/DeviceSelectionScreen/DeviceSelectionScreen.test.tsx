@@ -33,6 +33,8 @@ mockUseVideoContext.mockImplementation(() => ({
   isAcquiringLocalTracks: false,
   isConnecting: false,
   localTracks: [],
+  removeLocalAudioTrack: jest.fn(),
+  removeLocalVideoTrack: jest.fn(),
 }));
 
 describe('the DeviceSelectionScreen component', () => {
@@ -163,6 +165,26 @@ describe('the DeviceSelectionScreen component', () => {
       .filterWhere(b => b.prop('children') === 'Cancelar')
       .simulate('click');
     expect(mockSetStep).toHaveBeenCalledWith(Steps.roomNameStep);
+  });
+
+  it('should release the acquired camera/mic tracks when the Cancel button is clicked', () => {
+    const mockRemoveLocalAudioTrack = jest.fn();
+    const mockRemoveLocalVideoTrack = jest.fn();
+    mockUseVideoContext.mockReturnValueOnce({
+      connect: mockConnect,
+      isAcquiringLocalTracks: false,
+      isConnecting: false,
+      localTracks: [],
+      removeLocalAudioTrack: mockRemoveLocalAudioTrack,
+      removeLocalVideoTrack: mockRemoveLocalVideoTrack,
+    });
+    const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);
+    wrapper
+      .find(Button)
+      .filterWhere(b => b.prop('children') === 'Cancelar')
+      .simulate('click');
+    expect(mockRemoveLocalAudioTrack).toHaveBeenCalled();
+    expect(mockRemoveLocalVideoTrack).toHaveBeenCalled();
   });
 
   it('should fetch a token and connect to the Video SDK and Conversations SDK when the Join Now button is clicked', done => {

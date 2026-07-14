@@ -449,7 +449,14 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   const classes = useStyles();
   const { getToken, isFetching, isKrispEnabled, isKrispInstalled, startClass } = useAppState();
   const { connect: chatConnect } = useChatContext();
-  const { connect: videoConnect, isAcquiringLocalTracks, isConnecting, localTracks } = useVideoContext();
+  const {
+    connect: videoConnect,
+    isAcquiringLocalTracks,
+    isConnecting,
+    localTracks,
+    removeLocalAudioTrack,
+    removeLocalVideoTrack,
+  } = useVideoContext();
   const { toggleKrisp } = useKrispToggle();
 
   // Consent modal state: shown when the CV pipeline is enabled, the user is a student,
@@ -564,6 +571,15 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   const handleConsentDecline = () => {
     setConsentModalOpen(false);
     // Student chose not to consent — stay on the device-selection screen.
+  };
+
+  // "Cancelar" leaves the device-selection preview without connecting to a room, so the
+  // acquired camera/mic tracks must be released here — otherwise the browser keeps the
+  // capture indicator on and the device held even though nothing is using it anymore.
+  const handleCancel = () => {
+    removeLocalAudioTrack();
+    removeLocalVideoTrack();
+    setStep(Steps.roomNameStep);
   };
 
   if (isFetching || isConnecting) {
@@ -755,7 +771,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
                 variant="outlined"
                 color="primary"
                 className={classes.cancelButton}
-                onClick={() => setStep(Steps.roomNameStep)}
+                onClick={handleCancel}
               >
                 Cancelar
               </Button>
