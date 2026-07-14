@@ -550,7 +550,7 @@ export default function ResourcesTab({ classes: scheduledClasses }: Props) {
       )}
 
       {!isLoading && pillOptions.length === 0 && (
-        <div className={classes.statusMessage}>Todavía no tenés clases programadas para asociar recursos.</div>
+        <div className={classes.statusMessage}>Todavía no tienes clases programadas para asociar recursos.</div>
       )}
 
       {!isLoading && (
