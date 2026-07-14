@@ -1,8 +1,10 @@
 # Azure Deployment Plan — twilio-video-app-react
 
-Status: Validated — re-validated 2026-07-14 ahead of redeploying the Recursos document-preview
-feature (Gotenberg sidecar). Previously deployed at
-attendia.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io (live, verified 200 OK).
+Status: Deployed — 2026-07-14, image v20260714010635. Recursos document-preview feature (Gotenberg
+sidecar) is live at attendia.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io (verified 200
+OK). New sibling Container App "attendia-gotenberg" (internal ingress only, gotenberg/gotenberg:8,
+min-replicas 0) provisioned in the same eduspace-api-env; GOTENBERG_URL on attendia confirmed live as
+http://attendia-gotenberg.internal.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io.
 
 ## 0. CORRECTION — infra already exists, do NOT re-provision
 Discovered via `az resource list -g rg-eduspace-academic` and reading `scripts/deploy.sh` /
