@@ -281,7 +281,11 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     await Promise.resolve();
 
     expect(mockStartClass).toHaveBeenCalledWith('class-1', 'algebra');
-    expect(onStartClass).toHaveBeenCalledWith({ roomName: 'algebra', name: 'Andrés Torres', classId: 'class-1' });
+    expect(onStartClass).toHaveBeenCalledWith({
+      roomName: 'algebra',
+      name: 'Andrés Torres [Profesor]',
+      classId: 'class-1',
+    });
   });
 
   it('persists a sidebar quick-start as a real class, starts it, then navigates with its classId', async () => {
