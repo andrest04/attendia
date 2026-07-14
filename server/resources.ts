@@ -1,6 +1,7 @@
 import { ErrorRequestHandler, RequestHandler } from 'express';
 import { logOperationalFailure } from './operationalEvents';
 import { FileStorage } from './fileStorage';
+import { DocumentConverter } from './documentConverter';
 
 /*
  * Teacher "Recursos" (class materials): the file bytes live in Appwrite Storage (a
@@ -132,7 +133,7 @@ export interface ResourceDocumentSnapshot {
 export interface ResourceDocumentReference {
   id: string;
   get(): Promise<ResourceDocumentSnapshot>;
-  set(data: { [key: string]: any }): Promise<unknown>;
+  set(data: { [key: string]: any }, options?: { merge?: boolean }): Promise<unknown>;
   delete(): Promise<unknown>;
 }
 
@@ -454,6 +455,97 @@ export function createDownloadResourceHandler(db: ResourcesDatabase, fileStorage
   };
 }
 
+// GET /resources/:id/preview — presentations and Word docs have no native in-browser
+// renderer, so this returns a PDF rendition instead of the original bytes. The
+// original itself is never touched: GET /resources/:id/download keeps returning it
+// unchanged, same as a virtual classroom that previews a converted PDF but downloads
+// the source file. The first request converts via LibreOffice and caches the result
+// (previewFileId) on the resource doc so later "Ver" clicks are instant.
+export function createPreviewResourceHandler(
+  db: ResourcesDatabase,
+  fileStorage: FileStorage,
+  documentConverter: DocumentConverter
+): RequestHandler {
+  return async (req, res) => {
+    const firebaseUser = getVerifiedUser(res);
+
+    if (!firebaseUser) {
+      res.status(401).send();
+      return;
+    }
+
+    try {
+      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
+        sendTeacherOnly(res);
+        return;
+      }
+
+      const docRef = db
+        .collection('users')
+        .doc(firebaseUser.uid)
+        .collection('resources')
+        .doc(req.params.id);
+      const snapshot = await docRef.get();
+
+      if (!snapshot.exists) {
+        res.status(404).json({
+          error: { message: 'resource not found', explanation: 'El recurso solicitado no existe.' },
+        });
+        return;
+      }
+
+      const data = snapshot.data() || {};
+
+      if (data.kind !== 'presentation' && data.kind !== 'word') {
+        sendBadRequest(res, 'not previewable', 'Este tipo de archivo no admite vista previa.');
+        return;
+      }
+
+      const cachedPreviewFileId =
+        typeof data.previewFileId === 'string' && data.previewFileId.trim() ? data.previewFileId : undefined;
+      if (cachedPreviewFileId) {
+        const cachedPdf = await fileStorage.download(cachedPreviewFileId);
+        res.type('application/pdf').status(200).send(cachedPdf);
+        return;
+      }
+
+      const fileId = typeof data.fileId === 'string' && data.fileId.trim() ? data.fileId : undefined;
+      if (!fileId) {
+        sendBadRequest(res, 'not previewable', 'Este archivo no admite vista previa.');
+        return;
+      }
+
+      const original = await fileStorage.download(fileId);
+      const originalName = typeof data.name === 'string' && data.name ? data.name : 'documento';
+      const pdfBuffer = await documentConverter.convertToPdf(original, originalName);
+
+      // Caching is best-effort: a failed cache write must not fail the preview the
+      // teacher is already waiting on — it just means the next "Ver" reconverts.
+      fileStorage
+        .upload({ buffer: pdfBuffer, contentType: 'application/pdf', fileName: `${data.name || 'documento'}.pdf` })
+        .then(stored => docRef.set({ previewFileId: stored.fileId }, { merge: true }))
+        .catch(err =>
+          logOperationalFailure({
+            event: 'resource_preview_cache_failed',
+            operation: 'GET /resources/:id/preview',
+            uid: firebaseUser.uid,
+            error: err,
+          })
+        );
+
+      res.type('application/pdf').status(200).send(pdfBuffer);
+    } catch (err) {
+      logOperationalFailure({ event: 'resource_preview_failed', operation: 'GET /resources/:id/preview', uid: firebaseUser.uid, error: err });
+      res.status(503).json({
+        error: {
+          message: 'resource preview failed',
+          explanation: 'No pudimos preparar la vista previa. Intenta de nuevo en unos segundos.',
+        },
+      });
+    }
+  };
+}
+
 export function createDeleteResourceHandler(db: ResourcesDatabase, fileStorage: FileStorage): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
@@ -485,6 +577,7 @@ export function createDeleteResourceHandler(db: ResourcesDatabase, fileStorage: 
 
       const data = snapshot.data() || {};
       const fileId = typeof data.fileId === 'string' ? data.fileId : undefined;
+      const previewFileId = typeof data.previewFileId === 'string' ? data.previewFileId : undefined;
 
       await docRef.delete();
 
@@ -492,6 +585,17 @@ export function createDeleteResourceHandler(db: ResourcesDatabase, fileStorage: 
         fileStorage.delete(fileId).catch(error =>
           logOperationalFailure({
             event: 'resource_delete_storage_failed',
+            operation: 'DELETE /resources/:id',
+            uid: firebaseUser.uid,
+            error,
+          })
+        );
+      }
+
+      if (previewFileId) {
+        fileStorage.delete(previewFileId).catch(error =>
+          logOperationalFailure({
+            event: 'resource_delete_preview_storage_failed',
             operation: 'DELETE /resources/:id',
             uid: firebaseUser.uid,
             error,

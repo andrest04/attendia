@@ -124,9 +124,10 @@ describe('the ResourcesTab component', () => {
     wrapper.update();
 
     wrapper
-      .find('[data-testid="dashboard-resources-class-select"]')
+      .find('[data-testid="dashboard-resources-pill-class-a"]')
       .first()
-      .simulate('change', { target: { value: 'class-a' } });
+      .simulate('click');
+    wrapper.update();
 
     const file = new File(['contenido'], 'guia.pdf', { type: 'application/pdf' });
     await act(async () => {
@@ -158,9 +159,10 @@ describe('the ResourcesTab component', () => {
     wrapper.update();
 
     wrapper
-      .find('[data-testid="dashboard-resources-class-select"]')
+      .find('[data-testid="dashboard-resources-pill-class-a"]')
       .first()
-      .simulate('change', { target: { value: 'class-a' } });
+      .simulate('click');
+    wrapper.update();
 
     const file = new File(['contenido'], 'instalador.exe', { type: 'application/x-msdownload' });
     await act(async () => {
@@ -203,9 +205,10 @@ describe('the ResourcesTab component', () => {
     wrapper.update();
 
     wrapper
-      .find('[data-testid="dashboard-resources-class-select"]')
+      .find('[data-testid="dashboard-resources-pill-class-a"]')
       .first()
-      .simulate('change', { target: { value: 'class-a' } });
+      .simulate('click');
+    wrapper.update();
 
     const oversizedFile = new File(['contenido'], 'grande.pdf', { type: 'application/pdf' });
     Object.defineProperty(oversizedFile, 'size', { value: 26 * 1024 * 1024 });
@@ -236,9 +239,10 @@ describe('the ResourcesTab component', () => {
     wrapper.update();
 
     wrapper
-      .find('[data-testid="dashboard-resources-class-select"]')
+      .find('[data-testid="dashboard-resources-pill-class-a"]')
       .first()
-      .simulate('change', { target: { value: 'class-a' } });
+      .simulate('click');
+    wrapper.update();
 
     const files = Array.from({ length: 11 }, (_, i) => new File(['contenido'], `guia${i}.pdf`, { type: 'application/pdf' }));
     await act(async () => {
@@ -263,7 +267,8 @@ describe('the ResourcesTab component', () => {
       deleteResource: jest.fn(),
     }));
 
-    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    // No scheduled classes means no pill can be auto-selected as the upload target.
+    const wrapper = mount(<ResourcesTab classes={[]} />);
     await flushPromises();
     wrapper.update();
 
@@ -275,6 +280,71 @@ describe('the ResourcesTab component', () => {
 
     expect(uploadResource).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain('Selecciona una clase programada');
+  });
+
+  it('opens a viewable resource in a new tab pointed at its ResourceViewerPage route', async () => {
+    const fetchResources = jest.fn(() => Promise.resolve([fileA]));
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+    const openSpy = jest.spyOn(window, 'open').mockReturnValue(null);
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-resource-view"]')
+      .first()
+      .simulate('click');
+
+    expect(openSpy).toHaveBeenCalledWith('/dashboard/recursos/file-a/ver', '_blank');
+    openSpy.mockRestore();
+  });
+
+  it('does not offer a "Ver" button for zip, the only kind with no preview', async () => {
+    const zipFile = { ...fileA, id: 'file-zip', kind: 'zip' as const };
+    const fetchResources = jest.fn(() => Promise.resolve([zipFile]));
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    expect(wrapper.find('[data-testid="dashboard-resource-view"]').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="dashboard-resource-download"]').exists()).toBe(true);
+  });
+
+  it('offers a "Ver" button for a word/presentation resource too (viewer page handles the conversion)', async () => {
+    const wordFile = { ...fileA, id: 'file-word', kind: 'word' as const };
+    const fetchResources = jest.fn(() => Promise.resolve([wordFile]));
+    mockUseAppState.mockImplementation(() => ({
+      fetchResources,
+      uploadResource: jest.fn(),
+      fetchResourceDownloadUrl: jest.fn(),
+      deleteResource: jest.fn(),
+    }));
+    const openSpy = jest.spyOn(window, 'open').mockReturnValue(null);
+
+    const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
+    await flushPromises();
+    wrapper.update();
+
+    wrapper
+      .find('[data-testid="dashboard-resource-view"]')
+      .first()
+      .simulate('click');
+
+    expect(openSpy).toHaveBeenCalledWith('/dashboard/recursos/file-word/ver', '_blank');
+    openSpy.mockRestore();
   });
 
   it('downloads the binary Blob using the original resource filename', async () => {
