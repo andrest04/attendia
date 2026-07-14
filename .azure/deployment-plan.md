@@ -1,6 +1,8 @@
 # Azure Deployment Plan — twilio-video-app-react
 
-Status: Deployed — attendia.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io (live, verified 200 OK)
+Status: Validated — re-validated 2026-07-14 ahead of redeploying the Recursos document-preview
+feature (Gotenberg sidecar). Previously deployed at
+attendia.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io (live, verified 200 OK).
 
 ## 0. CORRECTION — infra already exists, do NOT re-provision
 Discovered via `az resource list -g rg-eduspace-academic` and reading `scripts/deploy.sh` /
@@ -73,3 +75,36 @@ Rationale: fastest path to `azd up`/`azd deploy` with built-in Container Apps su
 
 ## Next steps
 - On approval: proceed to Phase 2 (research server env vars, generate azure.yaml + infra/, harden secrets, functional verification, then hand off to azure-validate → azure-deploy)
+
+## 7. Validation Proof (2026-07-14, AZCLI recipe — no Bicep in this repo, bespoke `az containerapp` script)
+
+Deploy path is `scripts/deploy.sh` (imperative `az containerapp` calls, not azd/Bicep/Terraform —
+confirmed in section 0 above), so the AZCLI recipe's Docker-build check is the applicable one; the
+Bicep-specific steps (compile/what-if/template validate) are N/A, no `infra/` dir exists.
+
+1. **Azure CLI installed**: `az version` — present (`C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az`).
+2. **Authenticated**: `az account show` — subscription "Azure for Students" (`bc45953f-...`), tenant
+   `upc.edu.pe`, user `u202220528@upc.edu.pe`. Already the active/default subscription.
+3. **Docker build — first attempt failed**: `sh scripts/deploy.sh` failed the `RUN npm ci` layer with
+   `Missing: @types/node@26.1.1, undici-types@8.3.0, yaml@2.9.0 from lock file`. Root cause: the
+   Dockerfile's `node:22-alpine` base bundles npm 10.9.8, but package-lock.json had last been written
+   by npm 12.0.1 (local host, node 24.18.0) — the two npm versions resolve optional peer deps
+   (`@types/node` under `inquirer`, `yaml` under `tailwindcss`) differently, so npm 10's strict `npm ci`
+   rejected the lockfile as out of sync even though `npm install --package-lock-only` on the host
+   reported "up to date" (npm 12 sees no drift; npm 10 does).
+4. **Fix**: regenerated package-lock.json using the exact base image instead of the host npm —
+   `docker run --rm -v "<repo>:/app" -w /app node:22-alpine npm install --package-lock-only`
+   — added the 3 missing lockfile entries. Verified the host toolchain still works after
+   (`tsc --noEmit`, one Jest suite) since that container run bind-mounted the live node_modules.
+5. **Docker build — retry, clean (no bind mount, matches the real Dockerfile build exactly)**:
+   `docker build -t attendia:validate-test .` — succeeded end to end (deps → build → runtime stages),
+   image exported and unpacked successfully. Only pre-existing `docker scout` warnings
+   (`SecretsUsedInArgOrEnv` on the REACT_APP_FIREBASE_*/REACT_APP_TOKEN_ENDPOINT build args — these are
+   public Firebase client config and a public endpoint URL, not secrets, and were already ARGs before
+   this change). Test image removed after (`docker rmi attendia:validate-test`).
+6. **Azure Policy validation**: not run — no new resource types introduced (the Gotenberg sidecar is
+   the same Container App resource type already in use by `attendia`/`eduspace-api` in this
+   environment), so no new policy surface.
+
+All applicable checks pass → proceeding to **azure-deploy** to run `scripts/deploy.sh` for real
+(build+push the fixed image, update `attendia`, ensure the `attendia-gotenberg` sidecar).
