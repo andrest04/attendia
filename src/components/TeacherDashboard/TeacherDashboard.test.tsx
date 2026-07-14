@@ -11,11 +11,14 @@ import CalendarTab from './CalendarTab';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { useAppState } from '../../state';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
+import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
 import { mockDashboardData } from './mockDashboardData';
 
 jest.mock('../../state');
+jest.mock('../PreJoinScreens/checkRoomOpen');
 
 const mockUseAppState = useAppState as jest.Mock<any>;
+const mockCheckRoomOpen = checkRoomOpen as jest.Mock;
 const mockSignOut = jest.fn(() => Promise.resolve());
 
 describe('TeacherDashboard', () => {
@@ -234,6 +237,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     mockDeleteClass.mockReset();
     mockStartClass.mockReset();
     mockFetchAttentionReports.mockReset().mockResolvedValue([]);
+    mockCheckRoomOpen.mockReset().mockResolvedValue(false);
     mockUseAppState.mockImplementation(() => ({
       signOut: mockSignOut,
       user: { displayName: 'Andrés Torres' },
@@ -278,6 +282,141 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     );
 
     wrapper.find(CalendarTab).prop('onStartClass')(classRecord);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockCheckRoomOpen).toHaveBeenCalledWith('algebra');
+    expect(mockStartClass).toHaveBeenCalledWith('class-1', 'algebra');
+    expect(onStartClass).toHaveBeenCalledWith({
+      roomName: 'algebra',
+      name: 'Andrés Torres [Profesor]',
+      classId: 'class-1',
+    });
+  });
+
+  it('blocks starting when a live room already uses this name, without calling startClass', async () => {
+    const onStartClass = jest.fn();
+    mockCheckRoomOpen.mockResolvedValue(true);
+    const classRecord = {
+      id: 'class-1',
+      title: 'Álgebra',
+      roomName: 'algebra',
+      scheduledAtMs: 1751554800000,
+      studentCount: 20,
+      durationMinutes: 60,
+    };
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} activeTab="calendario" />);
+
+    wrapper.find(CalendarTab).prop('onStartClass')(classRecord);
+    await Promise.resolve();
+    await Promise.resolve();
+    wrapper.update();
+
+    expect(mockStartClass).not.toHaveBeenCalled();
+    expect(onStartClass).not.toHaveBeenCalled();
+
+    wrapper.setProps({ activeTab: 'clases' });
+    expect(wrapper.find(ClassesTab).prop('startClassError')).toEqual(expect.any(String));
+  });
+
+  it('resumes the teacher\'s own already-started class instead of blocking on a room-name collision', async () => {
+    const onStartClass = jest.fn();
+    mockCheckRoomOpen.mockResolvedValue(true);
+    const ownOpenClass = {
+      id: 'class-2',
+      title: 'Mate (sesión anterior)',
+      roomName: 'algebra',
+      scheduledAtMs: 1751554800000,
+      studentCount: 20,
+      durationMinutes: 60,
+      status: 'started' as const,
+    };
+    mockFetchClasses.mockResolvedValue([ownOpenClass]);
+    const classRecord = {
+      id: 'class-1',
+      title: 'Álgebra',
+      roomName: 'algebra',
+      scheduledAtMs: 1751554800000,
+      studentCount: 20,
+      durationMinutes: 60,
+    };
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} activeTab="calendario" />);
+
+    // Shallow rendering skips useEffect, so drive the same fetch loadClasses
+    // wires to CalendarTab's onRetry to seed realClasses deterministically.
+    wrapper.find(CalendarTab).prop('onRetry')();
+    await Promise.resolve();
+    await Promise.resolve();
+    wrapper.update();
+
+    wrapper.find(CalendarTab).prop('onStartClass')(classRecord);
+    await Promise.resolve();
+    await Promise.resolve();
+    wrapper.update();
+
+    expect(mockStartClass).not.toHaveBeenCalled();
+    expect(onStartClass).toHaveBeenCalledWith({
+      roomName: 'algebra',
+      name: 'Andrés Torres [Profesor]',
+      classId: 'class-2',
+    });
+
+    wrapper.setProps({ activeTab: 'clases' });
+    expect(wrapper.find(ClassesTab).prop('startClassError')).toBeNull();
+  });
+
+  it('resolves a re-click on an already-started class via the resume branch, not the block branch', async () => {
+    const onStartClass = jest.fn();
+    mockCheckRoomOpen.mockResolvedValue(true);
+    const alreadyStartedClass = {
+      id: 'class-1',
+      title: 'Álgebra',
+      roomName: 'algebra',
+      scheduledAtMs: 1751554800000,
+      studentCount: 20,
+      durationMinutes: 60,
+      status: 'started' as const,
+    };
+    mockFetchClasses.mockResolvedValue([alreadyStartedClass]);
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} activeTab="calendario" />);
+
+    wrapper.find(CalendarTab).prop('onRetry')();
+    await Promise.resolve();
+    await Promise.resolve();
+    wrapper.update();
+
+    wrapper.find(CalendarTab).prop('onStartClass')(alreadyStartedClass);
+    await Promise.resolve();
+    await Promise.resolve();
+    wrapper.update();
+
+    expect(mockStartClass).not.toHaveBeenCalled();
+    expect(onStartClass).toHaveBeenCalledWith({
+      roomName: 'algebra',
+      name: 'Andrés Torres [Profesor]',
+      classId: 'class-1',
+    });
+
+    wrapper.setProps({ activeTab: 'clases' });
+    expect(wrapper.find(ClassesTab).prop('startClassError')).toBeNull();
+  });
+
+  it('proceeds to start when checkRoomOpen is inconclusive (null)', async () => {
+    const onStartClass = jest.fn();
+    mockCheckRoomOpen.mockResolvedValue(null);
+    const classRecord = {
+      id: 'class-1',
+      title: 'Álgebra',
+      roomName: 'algebra',
+      scheduledAtMs: 1751554800000,
+      studentCount: 20,
+      durationMinutes: 60,
+    };
+    mockStartClass.mockResolvedValue(undefined);
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} activeTab="calendario" />);
+
+    wrapper.find(CalendarTab).prop('onStartClass')(classRecord);
+    await Promise.resolve();
     await Promise.resolve();
 
     expect(mockStartClass).toHaveBeenCalledWith('class-1', 'algebra');
