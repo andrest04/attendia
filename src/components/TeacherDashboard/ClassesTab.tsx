@@ -395,6 +395,7 @@ interface Props {
     studentCount: number;
     durationMinutes: number;
     idempotencyKey: string;
+    roomName: string;
   }) => Promise<void>;
   /** Firebase-mode only: cancels (hard-deletes) a real scheduled class. Undefined
    * elsewhere — the secondary button stays the "Ver detalles" stub. */
@@ -412,6 +413,10 @@ interface Props {
    * real backend — each flag is independent since they can fall back separately. */
   statsAreMock?: boolean;
   sessionsAreMock?: boolean;
+  /** Set when a pre-start collision check finds a live Twilio room already using this name. */
+  startClassError?: string | null;
+  /** True while the pre-start collision check is in flight. */
+  isStartingClass?: boolean;
 }
 
 export function createIdempotencyKey(): string {
@@ -441,6 +446,8 @@ export default function ClassesTab({
   cancelExpiredError,
   statsAreMock = false,
   sessionsAreMock = false,
+  startClassError,
+  isStartingClass,
 }: Props) {
   const classes = useStyles();
 
@@ -491,6 +498,7 @@ export default function ClassesTab({
       setFormError('Indica un título para la clase.');
       return;
     }
+    const roomName = toClassSessionRoomName(title);
     if (!dateValue || isNaN(dateValue.getTime()) || !timeValue || isNaN(timeValue.getTime())) {
       setFormError('Indica la fecha y la hora de la clase.');
       return;
@@ -529,6 +537,7 @@ export default function ClassesTab({
       studentCount,
       durationMinutes,
       idempotencyKey: creationIdempotencyKeyRef.current || createIdempotencyKey(),
+      roomName,
     })
       .then(() => resetForm())
       .catch(err => setFormError(err.message))
@@ -747,10 +756,11 @@ export default function ClassesTab({
                 type="button"
                 className={classes.primaryButton}
                 onClick={() => handleStartClass(session)}
+                disabled={isStartingClass}
                 data-testid="dashboard-start-session-button"
               >
                 <PlayArrowIcon style={{ fontSize: 18 }} />
-                Iniciar sesión
+                {isStartingClass ? 'Verificando…' : 'Iniciar sesión'}
               </button>
             ) : onCancelClass ? (
               <button
@@ -783,6 +793,11 @@ export default function ClassesTab({
       {cancelExpiredError && (
         <div className={classes.newClassError} data-testid="dashboard-cancel-expired-error">
           {cancelExpiredError}
+        </div>
+      )}
+      {startClassError && (
+        <div className={classes.newClassError} data-testid="dashboard-start-error">
+          {startClassError}
         </div>
       )}
     </div>

@@ -230,6 +230,7 @@ describe('ClassesTab', () => {
         studentCount: 15,
         durationMinutes: 90,
         idempotencyKey: expect.any(String),
+        roomName: 'fisica-101',
       })
     );
   });
@@ -343,5 +344,51 @@ describe('ClassesTab', () => {
 
     expect(wrapper.find('[data-testid="dashboard-sessions-mock-tag"]').text()).toBe('Datos simulados');
     expect(wrapper.find('[data-testid="dashboard-stats-mock-tag"]').exists()).toBe(false);
+  });
+
+  it('disables "Iniciar sesión" and shows "Verificando…" while isStartingClass is true', () => {
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        isStartingClass
+      />
+    );
+
+    const button = wrapper.find('[data-testid="dashboard-start-session-button"]');
+    expect(button.prop('disabled')).toBe(true);
+    expect(button.text()).toContain('Verificando…');
+  });
+
+  it('renders startClassError in a dedicated banner, and nothing when unset', () => {
+    const wrapperWithError = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        startClassError="Ya hay una sesión activa con este nombre de sala. Esperá a que termine o cambiá el título de la clase."
+      />
+    );
+
+    expect(wrapperWithError.find('[data-testid="dashboard-start-error"]').text()).toContain(
+      'Ya hay una sesión activa con este nombre de sala.'
+    );
+
+    const wrapperWithoutError = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+      />
+    );
+
+    expect(wrapperWithoutError.find('[data-testid="dashboard-start-error"]').exists()).toBe(false);
   });
 });

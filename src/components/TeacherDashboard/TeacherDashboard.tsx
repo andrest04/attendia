@@ -15,6 +15,8 @@ import QuickStartClassPanel from './QuickStartClassPanel';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { toClassSessionDisplayName } from '../PreJoinScreens/classSessionTypes';
+import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
+import { getProfessorInitials } from '../../utils/professorIdentity/professorIdentity';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
 import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
 import { buildReportStats, computeTotalHoursTaught } from './reportStats';
@@ -69,14 +71,6 @@ interface Props {
   onTabChange?: (tab: DashboardTabId) => void;
 }
 
-// Up to 2 uppercase initials from a full name (first + last word), matching the
-// avatar convention used elsewhere in the app (e.g. professorShellHelpers.getInitials).
-function getProfessorInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
 // es-AR lowercases the weekday ("miércoles, 8 de julio de 2026"); the mock data's
 // label convention capitalizes it, so we match that by hand.
 function capitalizeFirst(value: string): string {
@@ -127,6 +121,8 @@ export default function TeacherDashboard({
   const cancelRetrySessionRef = useRef<{ id: string; title: string } | null>(null);
   const [isCancellingExpired, setIsCancellingExpired] = useState(false);
   const [cancelExpiredError, setCancelExpiredError] = useState<string | null>(null);
+  const [startClassError, setStartClassError] = useState<string | null>(null);
+  const [isStartingClass, setIsStartingClass] = useState(false);
   // The dialog's target data is kept separate from its open flag: MUI's Dialog
   // plays a ~225ms exit transition with its content still mounted, so clearing
   // the data at the same time as closing would flash "undefined" mid-animation.
@@ -251,6 +247,7 @@ export default function TeacherDashboard({
         studentCount: number;
         durationMinutes: number;
         idempotencyKey: string;
+        roomName: string;
       }) =>
         createClass!(input).then(created => {
           setRealClasses(current => [created, ...current]);
@@ -318,10 +315,33 @@ export default function TeacherDashboard({
     });
   };
 
-  const startScheduledClass = (classId: string, roomName: string) => {
+  const startScheduledClass = async (classId: string, roomName: string) => {
+    setStartClassError(null);
+    setIsStartingClass(true);
+    const open = await checkRoomOpen(roomName);
+    if (open === true) {
+      // The collision may be the teacher's own leftover/recurring session (same
+      // title reused, previous class never closed) rather than someone else's —
+      // resume that instead of dead-ending on a message they can't act on.
+      const ownOpenSession = realClasses.find(c => c.roomName === roomName && c.status === 'started');
+      setIsStartingClass(false);
+      if (ownOpenSession) {
+        onStartClass({
+          roomName: ownOpenSession.roomName,
+          name: toClassSessionDisplayName(professorName, 'teacher'),
+          classId: ownOpenSession.id,
+        });
+        return;
+      }
+      setStartClassError(
+        'Ya hay una sesión activa con este nombre de sala. Esperá a que termine o cambiá el título de la clase.'
+      );
+      return;
+    }
     startClass!(classId, roomName)
       .then(() => onStartClass({ roomName, name: toClassSessionDisplayName(professorName, 'teacher'), classId }))
-      .catch(err => setClassesError(err.message || 'No pudimos iniciar la clase programada.'));
+      .catch(err => setStartClassError(err.message || 'No pudimos iniciar la clase programada.'))
+      .finally(() => setIsStartingClass(false));
   };
 
   const handleStartClass = (session: { roomName: string; name: string; classId?: string }) => {
@@ -414,6 +434,8 @@ export default function TeacherDashboard({
               cancelExpiredError={cancelExpiredError}
               statsAreMock={!hasRealStats}
               sessionsAreMock={!hasRealClasses}
+              startClassError={startClassError}
+              isStartingClass={isStartingClass}
             />
           )}
           {!isQuickStartOpen && !showProfile && activeTab === 'historial' && (
