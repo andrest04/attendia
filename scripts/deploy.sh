@@ -15,11 +15,9 @@
 # https://github.com/Azure/azure-cli/issues for the upstream bug. Building
 # locally sidesteps that streaming code path entirely.
 #
-# Also ensures a sibling "$AZURE_CONTAINERAPP_NAME-gotenberg" Container App exists
-# (internal ingress, public gotenberg/gotenberg:8 image, no build needed) and wires
-# its internal URL into GOTENBERG_URL on the main app — see
-# server/gotenbergDocumentConverter.ts. Override the sibling's name with
-# AZURE_GOTENBERG_APP_NAME in deploy.config if you ever need to.
+# Also reconciles Gotenberg as a private sidecar in the same revision as Attendia.
+# It shares Attendia's scale-to-zero lifecycle and is reached through localhost — see
+# server/gotenbergDocumentConverter.ts.
 set -e
 
 CONFIG_FILE="scripts/deploy.config"
@@ -84,28 +82,6 @@ else
     --registry-identity system
 fi
 
-GOTENBERG_APP_NAME="${AZURE_GOTENBERG_APP_NAME:-${AZURE_CONTAINERAPP_NAME}-gotenberg}"
-
-echo "==> Ensuring Gotenberg container app (document preview conversion, see server/gotenbergDocumentConverter.ts)..."
-if az containerapp show --name "$GOTENBERG_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
-  echo "    already exists, leaving image as-is (nothing to build/push — it's the public gotenberg/gotenberg:8 image)"
-else
-  echo "    creating (internal ingress only — no auth of its own, must not be reachable from the public internet)..."
-  az containerapp create \
-    --name "$GOTENBERG_APP_NAME" \
-    --resource-group "$AZURE_RESOURCE_GROUP" \
-    --environment "$AZURE_CONTAINERAPP_ENV" \
-    --image docker.io/gotenberg/gotenberg:8 \
-    --target-port 3000 \
-    --ingress internal \
-    --min-replicas 0 \
-    --max-replicas 1
-fi
-
-GOTENBERG_FQDN=$(az containerapp show --name "$GOTENBERG_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
-  --query "properties.configuration.ingress.fqdn" -o tsv)
-GOTENBERG_URL="http://${GOTENBERG_FQDN}"
-
 echo "==> Syncing server-side secrets..."
 az containerapp secret set \
   --name "$AZURE_CONTAINERAPP_NAME" \
@@ -134,7 +110,7 @@ az containerapp update \
     APPWRITE_PROJECT_ID="$APPWRITE_PROJECT_ID" \
     APPWRITE_AVATARS_BUCKET_ID="$APPWRITE_AVATARS_BUCKET_ID" \
     APPWRITE_RESOURCES_BUCKET_ID="$APPWRITE_RESOURCES_BUCKET_ID" \
-    GOTENBERG_URL="$GOTENBERG_URL" \
+    GOTENBERG_URL=http://localhost:3000 \
     FIREBASE_SERVICE_ACCOUNT_BASE64=secretref:firebase-service-account \
     TWILIO_ACCOUNT_SID=secretref:twilio-account-sid \
     TWILIO_API_KEY_SID=secretref:twilio-api-key-sid \
@@ -142,6 +118,34 @@ az containerapp update \
     TWILIO_CONVERSATIONS_SERVICE_SID=secretref:twilio-conversations-service-sid \
     RECORDING_DOWNLOAD_SECRET=secretref:recording-download-secret \
     APPWRITE_API_KEY=secretref:appwrite-api-key
+
+echo "==> Reconciling Gotenberg sidecar (private localhost:3000, 0.5 vCPU / 1 GiB)..."
+SIDECAR_PATCH=$(mktemp)
+trap 'rm -f "$SIDECAR_PATCH"' EXIT
+az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+  --query "properties.template.containers" -o json | \
+  node -e '
+    const chunks = [];
+    process.stdin.on("data", chunk => chunks.push(chunk));
+    process.stdin.on("end", () => {
+      const containers = JSON.parse(Buffer.concat(chunks).toString()).map(({ imageType, ...container }) => container);
+      const sidecar = {
+        name: "gotenberg",
+        image: "docker.io/gotenberg/gotenberg:8",
+        resources: { cpu: 0.5, memory: "1Gi" },
+        probes: [
+          { type: "Readiness", httpGet: { path: "/health", port: 3000 }, initialDelaySeconds: 5, periodSeconds: 5 },
+          { type: "Liveness", httpGet: { path: "/health", port: 3000 }, initialDelaySeconds: 10, periodSeconds: 10 }
+        ]
+      };
+      const index = containers.findIndex(container => container.name === sidecar.name);
+      if (index === -1) containers.push(sidecar);
+      else containers[index] = sidecar;
+      process.stdout.write(JSON.stringify({ properties: { template: { containers } } }));
+    });
+  ' > "$SIDECAR_PATCH"
+APP_ID=$(az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --query id -o tsv)
+az rest --method patch --uri "https://management.azure.com${APP_ID}?api-version=2024-03-01" --body "@$SIDECAR_PATCH" >/dev/null
 
 echo "==> Done."
 az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \

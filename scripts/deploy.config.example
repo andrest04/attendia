@@ -6,9 +6,8 @@ AZURE_RESOURCE_GROUP=rg-eduspace-academic
 AZURE_CONTAINERAPP_ENV=eduspace-api-env
 AZURE_CONTAINERAPP_NAME=attendia
 AZURE_ACR_NAME=ca1e77e4bf38acr
-# Optional: name of the sibling Gotenberg Container App (document preview
-# conversion). Defaults to "$AZURE_CONTAINERAPP_NAME-gotenberg" if unset.
-# AZURE_GOTENBERG_APP_NAME=
+# Gotenberg is reconciled as an internal sidecar of this Container App. It uses
+# http://localhost:3000 and shares this app's min/max replica lifecycle.
 
 # --- Build-time (inlined into the React bundle) ---
 REACT_APP_FIREBASE_API_KEY=
