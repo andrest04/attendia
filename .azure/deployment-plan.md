@@ -1,10 +1,10 @@
 # Azure Deployment Plan — twilio-video-app-react
 
-Status: Deployed — 2026-07-14, image v20260714161238. Recursos document-preview feature (Gotenberg
-sidecar) is live at attendia.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io (verified 200
-OK). New sibling Container App "attendia-gotenberg" (internal ingress only, gotenberg/gotenberg:8,
-min-replicas 0) provisioned in the same eduspace-api-env; GOTENBERG_URL on attendia confirmed live as
-http://attendia-gotenberg.internal.purplemushroom-1f6e5ae3.brazilsouth.azurecontainerapps.io.
+Status: Deployed — 2026-07-15. Gotenberg now runs as a sidecar in Attendia revision
+`attendia--0000012` at 0.5 vCPU / 1 GiB. The durable deploy path configures
+`GOTENBERG_URL=http://localhost:3000`; Attendia retains min-replicas 0 and max-replicas 3.
+The former sibling `attendia-gotenberg` was deleted only after the main process reached the
+sidecar health endpoint successfully.
 
 ## 0. CORRECTION — infra already exists, do NOT re-provision
 Discovered via `az resource list -g rg-eduspace-academic` and reading `scripts/deploy.sh` /
@@ -139,4 +139,22 @@ All applicable checks pass → proceeding to **azure-deploy** to run `scripts/de
    (`/static/js/main.b5c9396d.js`) contains `environment:"prod"` and does not contain
    `global.vss..twilio.com`; `useConnectionOptions` passes that production environment to the Twilio
    Video SDK, which selects `wss://global.vss.twilio.com/signaling`. No Cypress run, room join, or
-   `Video.connect` call was performed.
+    `Video.connect` call was performed.
+
+## 10. Gotenberg Sidecar Migration (2026-07-15)
+
+1. **Deployment**: `scripts/deploy.sh` built and pushed
+   `ca1e77e4bf38acr.azurecr.io/attendia:v20260715002138`, then reconciled the Gotenberg 8
+   sidecar through an ARM template patch. The script strips CLI response-only fields before
+   submitting the patch so future deploys are idempotent.
+2. **Revision health**: `attendia--0000012` is Provisioned, Running, and Healthy. Its replica
+   reports both `attendia` and `gotenberg` as Running and ready.
+3. **Configuration**: Attendia remains min-replicas 0 / max-replicas 3. The `gotenberg` sidecar
+   has 0.5 vCPU / 1 GiB, no ingress, and readiness/liveness probes against `GET /health` on
+   port 3000. The backend uses `http://localhost:3000`.
+4. **Runtime verification**: public `GET /` returned 200. `az containerapp exec` in the Attendia
+   container ran `wget -qO- http://localhost:3000/health`; it returned `status:"up"` with both
+   Chromium and LibreOffice healthy.
+5. **Retirement**: after the checks above, `az containerapp delete --name attendia-gotenberg`
+   completed successfully. No authenticated DOCX/PPTX preview was issued because that requires
+   a real Firebase user and stored resource; the local dependency boundary was verified instead.

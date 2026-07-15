@@ -6,6 +6,7 @@ describe('createGotenbergDocumentConverter', () => {
   afterEach(() => {
     global.fetch = originalFetch;
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   it('posts the buffer as a multipart file to the LibreOffice route and returns the PDF bytes', async () => {
@@ -43,11 +44,51 @@ describe('createGotenbergDocumentConverter', () => {
   });
 
   it('rejects when Gotenberg returns a non-OK status', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     global.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 502 })) as any;
 
     await expect(
-      createGotenbergDocumentConverter('http://localhost:3010').convertToPdf(Buffer.from('x'), 'guia.docx')
+      createGotenbergDocumentConverter('http://localhost:3010', 0).convertToPdf(Buffer.from('x'), 'guia.docx')
     ).rejects.toThrow('Gotenberg conversion failed with status 502');
+  });
+
+  it('retries a temporary sidecar connection failure and logs the retry', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('connect ECONNREFUSED 127.0.0.1:3000'))
+      .mockResolvedValueOnce({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) });
+    const warnMock = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    global.fetch = fetchMock as any;
+
+    await expect(
+      createGotenbergDocumentConverter('http://localhost:3000', 0).convertToPdf(Buffer.from('x'), 'guia.docx')
+    ).resolves.toEqual(Buffer.alloc(0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(warnMock).toHaveBeenCalledWith(
+      'Gotenberg connection failed; retrying preview (1/5)',
+      expect.any(Error)
+    );
+  });
+
+  it('retries a 503 while the sidecar starts but does not retry permanent conversion errors', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) });
+    global.fetch = fetchMock as any;
+
+    await expect(
+      createGotenbergDocumentConverter('http://localhost:3000', 0).convertToPdf(Buffer.from('x'), 'guia.docx')
+    ).resolves.toEqual(Buffer.alloc(0));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    global.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 400 })) as any;
+    await expect(
+      createGotenbergDocumentConverter('http://localhost:3000', 0).convertToPdf(Buffer.from('x'), 'guia.docx')
+    ).rejects.toThrow('Gotenberg conversion failed with status 400');
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('rejects without calling fetch when GOTENBERG_URL is not configured', async () => {
