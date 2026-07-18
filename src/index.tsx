@@ -30,6 +30,7 @@ const ClassHistoryPage = lazy(() => import('./components/ClassHistoryPage/ClassH
 const ManualPage = lazy(() => import('./components/ManualPage/ManualPage'));
 const ReportPage = lazy(() => import('./components/ReportPage/ReportPage'));
 const ResourceViewerPage = lazy(() => import('./components/ResourceViewerPage/ResourceViewerPage'));
+const RecordingViewerPage = lazy(() => import('./components/RecordingViewerPage/RecordingViewerPage'));
 
 // DashboardHeader (Panel Docente, including /profile) is a fixed 64px top bar; without
 // this offset, top-right toasts render underneath it and cover the profile name/photo.
@@ -116,6 +117,11 @@ export const AppRoutes = () => (
                   standalone page (no SDK providers), same shape as /report. */}
     <PrivateRoute exact path={`${dashboardTabPath.recursos}/:resourceId/ver`}>
       <ResourceViewerPage />
+    </PrivateRoute>
+    {/* Recording player, opened in a NEW TAB from "Ver grabación" on Historial — plain
+                  standalone page (no SDK providers), same shape as /report. */}
+    <PrivateRoute exact path="/recording/:roomSid">
+      <RecordingViewerPage />
     </PrivateRoute>
     <PrivateRoute exact path={dashboardTabPath.calendario}>
       <VideoApp />

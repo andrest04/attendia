@@ -1,5 +1,5 @@
 import { AttentionReportViewData } from './AttentionReportView';
-import { averageOverTime, percentTimeAboveThreshold } from './reportMath';
+import { averageOverTime, downsampleTimeline, MAX_REPORT_TIMELINE_POINTS, percentTimeAboveThreshold } from './reportMath';
 import {
   AttentionLevel,
   AttentionTimelinePoint,
@@ -20,6 +20,7 @@ export interface LiveReportSource {
   groupAttention: number;
   groupDataAvailable: boolean;
   attentionThreshold: number;
+  /** Full-session series (AttentionData.fullTimeline, not the 90-point live-chart window). */
   timeline: AttentionTimelinePoint[];
   participants: ParticipantAttention[];
   proctoringAlerts: ProctoringAlert[];
@@ -62,7 +63,10 @@ export function buildReportViewData(input: LiveReportSource): AttentionReportVie
     studentCount,
     source,
     attentionThreshold,
-    timeline,
+    // Downsampled only if the session exceeded MAX_REPORT_TIMELINE_POINTS
+    // (a no-op for any realistic class length — see reportMath.ts). Stats
+    // below are computed from the full-resolution `timeline` param first.
+    timeline: downsampleTimeline(timeline, MAX_REPORT_TIMELINE_POINTS),
     hasGroupData: timeline.length > 0 || groupDataAvailable,
     groupAverage: timeline.length > 0 ? averageOverTime(timeline) : groupAttention,
     percentAboveThreshold: percentTimeAboveThreshold(timeline, attentionThreshold),

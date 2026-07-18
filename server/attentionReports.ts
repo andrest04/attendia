@@ -24,8 +24,11 @@ const VALID_END_REASONS = ['ended-for-all', 'left'];
 const ROOM_SID_PATTERN = /^RM[a-zA-Z0-9]{32}$/;
 
 // Defensive caps on incoming arrays — the client-side producers already cap far
-// lower (timeline ≤90, alerts ≤3), so anything above these is a malformed payload.
-const MAX_TIMELINE_POINTS = 200;
+// lower (alerts ≤3), so anything above these is a malformed payload.
+// Mirrors src/components/AttentionReport/reportMath.ts MAX_REPORT_TIMELINE_POINTS
+// structurally (not by import — server and client build separately): 3h @ 1Hz,
+// full per-second resolution for any realistic class length.
+const MAX_TIMELINE_POINTS = 10800;
 const MAX_PARTICIPANTS = 200;
 const MAX_ALERTS = 10;
 

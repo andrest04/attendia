@@ -111,7 +111,6 @@ export default function TeacherDashboard({
     saveAttentionReport,
     requestRecordingArtifact,
     fetchRecordingArtifactStatus,
-    fetchRecordingDownloadUrl,
   } = useAppState();
   const [realClasses, setRealClasses] = useState<ClassRecord[]>([]);
   const [isClassesLoading, setIsClassesLoading] = useState(false);
@@ -460,7 +459,6 @@ export default function TeacherDashboard({
               }}
               onRequestRecording={requestRecordingArtifact}
               onCheckRecordingStatus={fetchRecordingArtifactStatus}
-              onGetRecordingDownloadUrl={fetchRecordingDownloadUrl}
             />
           )}
           {!isQuickStartOpen && !showProfile && activeTab === 'recursos' && (

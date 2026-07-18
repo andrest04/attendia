@@ -154,7 +154,7 @@ describe('createPostReportHandler', () => {
     ['a missing roomName', { roomName: '   ' }],
     ['an unknown endReason', { endReason: 'crashed' }],
     ['a non-array timeline', { timeline: 'nope' }],
-    ['an oversized timeline', { timeline: new Array(201).fill({ time: 't', value: 1 }) }],
+    ['an oversized timeline', { timeline: new Array(10801).fill({ time: 't', value: 1 }) }],
     ['a non-array participants', { participants: 42 }],
     ['oversized proctoringAlerts', { proctoringAlerts: new Array(11).fill({ identity: 'x' }) }],
     ['a non-numeric groupAverage', { groupAverage: 'high' }],

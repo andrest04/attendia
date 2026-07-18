@@ -3,17 +3,15 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import useAttentionReportSaver from './useAttentionReportSaver';
 import { AttentionContext } from '../../components/AttentionProvider';
 import { useAppState } from '../../state';
-import useParticipants from '../useParticipants/useParticipants';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import { getPendingAttentionReports } from '../../components/AttentionReport/pendingAttentionReports';
 import { saveScheduledClassSession } from '../../components/TeacherDashboard/classSessionContext';
+import { MAX_REPORT_TIMELINE_POINTS } from '../../components/AttentionReport/reportMath';
 
 jest.mock('../../state');
-jest.mock('../useParticipants/useParticipants');
 jest.mock('../useVideoContext/useVideoContext');
 
 const mockUseAppState = useAppState as jest.Mock<any>;
-const mockUseParticipants = useParticipants as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 
 const attentionLevel = (score: number): 'high' | 'medium' | 'low' => {
@@ -29,6 +27,12 @@ const baseAttention = {
   groupDataAvailable: true,
   attentionThreshold: 60,
   timeline: [
+    { time: '10:00:00', value: 40 },
+    { time: '10:00:01', value: 80 },
+    { time: '10:00:02', value: 90 },
+    { time: '10:00:03', value: 90 },
+  ],
+  fullTimeline: [
     { time: '10:00:00', value: 40 },
     { time: '10:00:01', value: 80 },
     { time: '10:00:02', value: 90 },
@@ -66,7 +70,6 @@ describe('useAttentionReportSaver', () => {
     window.sessionStorage.clear();
     mockSave = jest.fn(() => Promise.resolve());
     mockUseAppState.mockImplementation(() => ({ saveAttentionReport: mockSave }));
-    mockUseParticipants.mockImplementation(() => [{ identity: 'Ana García' }, { identity: 'Beto Díaz' }]);
     mockUseVideoContext.mockImplementation(() => ({
       room: { sid: 'RM00000000000000000000000000000abc', name: 'matematicas-2a', isRecording: true },
     }));
@@ -146,7 +149,7 @@ describe('useAttentionReportSaver', () => {
   });
 
   it('falls back to the live group snapshot when the timeline is empty but data is available', async () => {
-    const attention = { ...baseAttention, timeline: [], groupAttention: 62, groupDataAvailable: true };
+    const attention = { ...baseAttention, timeline: [], fullTimeline: [], groupAttention: 62, groupDataAvailable: true };
     const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(attention) });
 
     await act(async () => {
@@ -169,7 +172,7 @@ describe('useAttentionReportSaver', () => {
   });
 
   it('still saves when there is genuinely no attention data (e.g. zero students joined)', async () => {
-    const attention = { ...baseAttention, timeline: [], groupDataAvailable: false };
+    const attention = { ...baseAttention, timeline: [], fullTimeline: [], groupDataAvailable: false };
     const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(attention) });
 
     await act(async () => {
@@ -227,5 +230,58 @@ describe('useAttentionReportSaver', () => {
     });
 
     expect(mockSave).not.toHaveBeenCalled();
+  });
+
+  it('studentCount reflects the cumulative attendance roster, not a live room participant list', async () => {
+    // data.participants is the AttentionProvider's cumulative roster (includes
+    // students who already left) — this hook no longer reads the live Room at all.
+    const attention = {
+      ...baseAttention,
+      participants: [
+        ...baseAttention.participants,
+        { identity: 'Carla Ruiz (left already)', index: 50, level: 'medium' as const, multiface: false },
+      ],
+    };
+    const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(attention) });
+
+    await act(async () => {
+      await result.current.saveReport('ended-for-all');
+    });
+
+    expect(mockSave.mock.calls[0][0].studentCount).toBe(3);
+  });
+
+  it('persists a full-resolution timeline unchanged when under the report cap', async () => {
+    const attention = { ...baseAttention };
+    const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(attention) });
+
+    await act(async () => {
+      await result.current.saveReport('ended-for-all');
+    });
+
+    expect(mockSave.mock.calls[0][0].timeline).toEqual(baseAttention.fullTimeline);
+  });
+
+  it('downsamples an over-cap fullTimeline while computing stats from full resolution', async () => {
+    // Build a fullTimeline of MAX_REPORT_TIMELINE_POINTS + 1000 points, alternating
+    // 0/100 so the true mean is 50 — a value that would visibly differ from what a
+    // handful of downsampled buckets would produce if computed from the WRONG array.
+    const size = MAX_REPORT_TIMELINE_POINTS + 1000;
+    const bigTimeline = Array.from({ length: size }, (_, i) => ({
+      time: `t${i}`,
+      value: i % 2 === 0 ? 0 : 100,
+    }));
+    const attention = { ...baseAttention, fullTimeline: bigTimeline, timeline: [] };
+    const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(attention) });
+
+    await act(async () => {
+      await result.current.saveReport('ended-for-all');
+    });
+
+    const report = mockSave.mock.calls[0][0];
+    expect(report.timeline.length).toBeLessThanOrEqual(MAX_REPORT_TIMELINE_POINTS);
+    expect(report.timeline.length).toBeGreaterThan(0);
+    // Full-resolution 0/100 alternation averages to 50, regardless of downsampling.
+    expect(report.groupAverage).toBe(50);
   });
 });

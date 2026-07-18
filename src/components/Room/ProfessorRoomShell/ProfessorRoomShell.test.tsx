@@ -6,14 +6,13 @@ import { useAttention } from '../../AttentionProvider';
 
 jest.mock('../../AttentionProvider');
 // recharts' ResponsiveContainer needs a measurable parent; stub it out for jsdom.
+// (AttentionTimelineChart, the live "Grupo" tab chart, still uses recharts.)
 jest.mock('recharts', () => {
   const Stub = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
   return {
     ResponsiveContainer: Stub,
     AreaChart: Stub,
     Area: Stub,
-    LineChart: Stub,
-    Line: Stub,
     XAxis: Stub,
     YAxis: Stub,
     CartesianGrid: Stub,
@@ -21,6 +20,12 @@ jest.mock('recharts', () => {
     ReferenceLine: Stub,
   };
 });
+// AttentionReportView's zoom/scrub chart (rendered inside the live report modal)
+// uses echarts, which needs a real canvas/SVG renderer jsdom doesn't provide.
+jest.mock('echarts-for-react', () => ({
+  __esModule: true,
+  default: () => <div data-testid="attention-report-echarts-stub" />,
+}));
 
 const mockEnqueue = jest.fn();
 jest.mock('notistack', () => ({
@@ -41,6 +46,10 @@ const baseAttention = {
   groupDataAvailable: true,
   attentionThreshold: 70,
   timeline: [
+    { time: '0:00', value: 88 },
+    { time: '0:05', value: 64 },
+  ],
+  fullTimeline: [
     { time: '0:00', value: 88 },
     { time: '0:05', value: 64 },
   ],

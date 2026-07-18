@@ -95,6 +95,13 @@ export interface AttentionData {
   attentionThreshold: number;
   /** Group attention over time, ready for recharts. */
   timeline: AttentionTimelinePoint[];
+  /**
+   * Untruncated (up to a generous defensive ceiling) full-session series —
+   * report generation persists/displays this, downsampled only if a session
+   * exceeds the ceiling (see reportMath.MAX_REPORT_TIMELINE_POINTS). `timeline`
+   * above stays a 90-point rolling window for the live in-room chart only.
+   */
+  fullTimeline: AttentionTimelinePoint[];
   self: SelfAttention;
   participants: ParticipantAttention[];
   proctoringAlerts: ProctoringAlert[];

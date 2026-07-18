@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
 import DescriptionIcon from '@material-ui/icons/Description';
 import EventIcon from '@material-ui/icons/Event';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
-import { LineChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
+import ReactECharts from 'echarts-for-react';
 
 import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/types';
 import { levelColor, levelLabel } from '../AttentionProvider/attentionLabels';
@@ -243,7 +243,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     lineHeight: '16.5px',
   },
   chartBox: {
-    height: 240,
+    // Room for the ECharts plot plus its bottom dataZoom slider strip.
+    height: 274,
     marginTop: theme.spacing(3),
   },
   // ── Table card ───────────────────────────────────────────────────────────
@@ -497,6 +498,98 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
     },
   ];
 
+  // ECharts option for the "Evolución de atención grupal" chart: a smoothed,
+  // gradient-filled line plus a dual zoom control — an `inside` handler for
+  // scroll/pinch zoom directly on the plot, and a `slider` strip below it for
+  // drag-to-select — the "video editor timeline" zoom/scrub UX. Recomputed only
+  // when the underlying data changes (ECharts re-renders on option identity).
+  const chartOption = useMemo(
+    () => ({
+      backgroundColor: 'transparent',
+      grid: { left: 36, right: 12, top: 16, bottom: 56 },
+      xAxis: {
+        type: 'category' as const,
+        data: timeline.map(p => p.time),
+        boundaryGap: false,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: '#94a3b8', fontSize: 10, fontFamily: 'Poppins, sans-serif' },
+      },
+      yAxis: {
+        type: 'value' as const,
+        min: 0,
+        max: 100,
+        splitLine: { lineStyle: { color: '#e2ecf9' } },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: '#94a3b8', fontSize: 10, fontFamily: 'Poppins, sans-serif' },
+      },
+      tooltip: {
+        trigger: 'axis' as const,
+        backgroundColor: '#ffffff',
+        borderColor: '#e2ecf9',
+        borderWidth: 1,
+        textStyle: { color: '#1d2f6f', fontSize: 11 },
+        extraCssText: 'border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.08);',
+      },
+      dataZoom: [
+        { type: 'inside' as const, zoomOnMouseWheel: true, moveOnMouseMove: true, moveOnMouseWheel: false },
+        {
+          type: 'slider' as const,
+          height: 22,
+          bottom: 6,
+          borderColor: 'transparent',
+          backgroundColor: '#f0f5ff',
+          fillerColor: 'rgba(29,110,237,0.15)',
+          handleStyle: { color: '#1d6eed', borderColor: '#1d6eed' },
+          moveHandleStyle: { color: '#1d6eed' },
+          dataBackground: {
+            lineStyle: { color: '#1d6eed', opacity: 0.4 },
+            areaStyle: { color: '#1d6eed', opacity: 0.08 },
+          },
+          selectedDataBackground: {
+            lineStyle: { color: '#1d6eed' },
+            areaStyle: { color: '#1d6eed', opacity: 0.15 },
+          },
+          textStyle: { color: '#94a3b8', fontSize: 9 },
+        },
+      ],
+      series: [
+        {
+          type: 'line' as const,
+          data: timeline.map(p => p.value),
+          showSymbol: false,
+          smooth: true,
+          lineStyle: { color: '#1d6eed', width: 2.5 },
+          areaStyle: {
+            color: {
+              type: 'linear' as const,
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(29,110,237,0.25)' },
+                { offset: 1, color: 'rgba(29,110,237,0)' },
+              ],
+            },
+          },
+          // The "Umbral mínimo" reference line — drawn on the series so it always
+          // spans the full plot width regardless of the current zoom window.
+          markLine: {
+            symbol: 'none',
+            silent: true,
+            lineStyle: { color: KPI_COLORS.threshold, type: 'dashed' as const, width: 1.5, opacity: 0.6 },
+            label: { show: false },
+            data: [{ yAxis: attentionThreshold }],
+          },
+          z: 2,
+        },
+      ],
+    }),
+    [timeline, attentionThreshold]
+  );
+
   return (
     <div className={classes.page}>
       {/* ── Header ─────────────────────────────────────────────────── */}
@@ -561,49 +654,13 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
           </div>
         </div>
         <div className={classes.chartBox}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={timeline} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-              <CartesianGrid stroke="#e2ecf9" strokeDasharray="0" vertical={false} />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'Poppins, sans-serif' }}
-                axisLine={false}
-                tickLine={false}
-                minTickGap={48}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                domain={[0, 100]}
-                tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'Poppins, sans-serif' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  fontSize: 11,
-                  borderRadius: 8,
-                  border: '1px solid #e2ecf9',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                }}
-              />
-              <ReferenceLine
-                y={attentionThreshold}
-                stroke={KPI_COLORS.threshold}
-                strokeWidth={1.5}
-                strokeDasharray="5 5"
-                strokeOpacity={0.5}
-              />
-              <Line
-                type="monotone"
-                dataKey="value"
-                stroke="#1d6eed"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{ r: 4, fill: '#1d6eed' }}
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <ReactECharts
+            option={chartOption}
+            style={{ height: '100%', width: '100%' }}
+            notMerge
+            lazyUpdate
+            opts={{ renderer: 'canvas' }}
+          />
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { Button, CircularProgress } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import SearchIcon from '@material-ui/icons/Search';
 import BarChartIcon from '@material-ui/icons/BarChart';
-import GetAppIcon from '@material-ui/icons/GetApp';
+import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline';
 import { RecordingArtifact, RecordingArtifactStatus, StoredAttentionReport } from '../AttentionProvider/reportTypes';
 import { attentionLevelColor, attentionLevelFromPercent } from './dashboardHelpers';
 import { storedReportDate } from '../AttentionReport/storedReportViewData';
@@ -124,7 +124,6 @@ interface Props {
   // to end (see server/recordings.ts). Undefined only outside firebase mode.
   onRequestRecording?: (roomSid: string) => Promise<RecordingArtifact>;
   onCheckRecordingStatus?: (roomSid: string) => Promise<RecordingArtifact>;
-  onGetRecordingDownloadUrl?: (roomSid: string) => Promise<string>;
 }
 
 function formatDate(report: StoredAttentionReport): string {
@@ -151,21 +150,17 @@ interface RecordingCellProps {
   report: StoredAttentionReport;
   onRequestRecording?: (roomSid: string) => Promise<RecordingArtifact>;
   onCheckRecordingStatus?: (roomSid: string) => Promise<RecordingArtifact>;
-  onGetRecordingDownloadUrl?: (roomSid: string) => Promise<string>;
 }
 
 /**
  * One row's "GRABACIÓN" cell — state-driven on the Twilio Composition lifecycle
  * (not_requested -> enqueued/processing -> completed/failed/expired). Owns its own
- * request/poll/download state so a slow Twilio composition on one row never
- * re-renders the whole table.
+ * request/poll state so a slow Twilio composition on one row never re-renders the
+ * whole table. A completed recording opens the standalone player at /recording/:roomSid
+ * (RecordingViewerPage) in a new tab instead of downloading the file straight from
+ * this row — that page owns fetching the download ticket and playing/downloading it.
  */
-function RecordingCell({
-  report,
-  onRequestRecording,
-  onCheckRecordingStatus,
-  onGetRecordingDownloadUrl,
-}: RecordingCellProps) {
+function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: RecordingCellProps) {
   const classes = useStyles();
   const roomSid = report.roomSid;
   const [recording, setRecording] = useState<RecordingArtifact | undefined>(report.recording);
@@ -208,17 +203,9 @@ function RecordingCell({
       .finally(() => setIsBusy(false));
   }, [onRequestRecording, roomSid]);
 
-  const handleDownload = useCallback(() => {
-    if (!onGetRecordingDownloadUrl) return;
-    setIsBusy(true);
-    setActionError(null);
-    onGetRecordingDownloadUrl(roomSid)
-      .then(downloadUrl => {
-        window.open(downloadUrl, '_blank', 'noopener');
-      })
-      .catch(err => setActionError(err.message || 'No pudimos descargar la grabación.'))
-      .finally(() => setIsBusy(false));
-  }, [onGetRecordingDownloadUrl, roomSid]);
+  const handleView = useCallback(() => {
+    window.open(`/recording/${encodeURIComponent(roomSid)}`, '_blank', 'noopener');
+  }, [roomSid]);
 
   if (!report.recordingWasActiveAtEnd) {
     return <span className={classes.noRecording}>No disponible</span>;
@@ -254,11 +241,10 @@ function RecordingCell({
           <button
             type="button"
             className={classes.recordingButton}
-            onClick={handleDownload}
-            disabled={isBusy || !onGetRecordingDownloadUrl}
-            data-testid={`dashboard-history-recording-download-${roomSid}`}
+            onClick={handleView}
+            data-testid={`dashboard-history-recording-view-${roomSid}`}
           >
-            <GetAppIcon style={{ fontSize: 14 }} /> Ver grabación
+            <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> Ver grabación
           </button>
           {expiryHint && <span className={classes.recordingHint}>{expiryHint}</span>}
         </>
@@ -298,7 +284,6 @@ export default function HistoryTab({
   onOpenReport,
   onRequestRecording,
   onCheckRecordingStatus,
-  onGetRecordingDownloadUrl,
 }: Props) {
   const classes = useStyles();
   const [query, setQuery] = useState('');
@@ -391,7 +376,6 @@ export default function HistoryTab({
                         report={report}
                         onRequestRecording={onRequestRecording}
                         onCheckRecordingStatus={onCheckRecordingStatus}
-                        onGetRecordingDownloadUrl={onGetRecordingDownloadUrl}
                       />
                     </td>
                     <td className={classes.td}>
