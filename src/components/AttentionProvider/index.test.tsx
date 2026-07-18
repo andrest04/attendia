@@ -93,6 +93,11 @@ describe('useAttention inside AttentionProvider — mock fallback (no room)', ()
     expect(result.current.timeline.length).toBeGreaterThanOrEqual(8);
   });
 
+  it('exposes fullTimeline mirroring the mock timeline (no live/full distinction in mock mode)', () => {
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.fullTimeline).toEqual(mockAttentionData.timeline);
+  });
+
   it('exposes participants array with the expected length', () => {
     const { result } = renderHook(useAttention, { wrapper });
     expect(result.current.participants.length).toBe(mockAttentionData.participants.length);
@@ -111,9 +116,31 @@ describe('useAttention inside AttentionProvider — mock fallback (no room)', ()
   });
 });
 
+// Minimal Twilio Room stub: a real EventEmitter-like object so the
+// attendedIdentitiesRef effect (room.participants / room.on / room.off) has
+// something to call. `participants` is a Map (matches the real SDK shape:
+// keyed by participant SID, but only `.forEach`/`.values` are used here).
+function createFakeRoom(name = 'test-room', identity = 'student-a') {
+  const listeners: Record<string, Array<(...args: any[]) => void>> = {};
+  return {
+    name,
+    localParticipant: { identity },
+    participants: new Map(),
+    on: jest.fn((event: string, handler: (...args: any[]) => void) => {
+      (listeners[event] = listeners[event] || []).push(handler);
+    }),
+    off: jest.fn((event: string, handler: (...args: any[]) => void) => {
+      listeners[event] = (listeners[event] || []).filter(h => h !== handler);
+    }),
+    emit(event: string, ...args: any[]) {
+      (listeners[event] || []).forEach(h => h(...args));
+    },
+  };
+}
+
 // ─── LIVE: room present + desktop → real data ─────────────────────────────────
 describe('useAttention inside AttentionProvider — live mode (room present, desktop)', () => {
-  const fakeRoom = { name: 'test-room', localParticipant: { identity: 'student-a' } };
+  const fakeRoom = createFakeRoom();
 
   beforeEach(() => {
     // Live pipeline requires the production kill-switch flag to be ON.
@@ -362,6 +389,27 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     expect(Array.isArray(result.current.timeline)).toBe(true);
   });
 
+  it('fullTimeline keeps growing past the 90-point live-chart cap', () => {
+    // `timeline` (the live in-room chart) is a 90-point rolling window; `fullTimeline`
+    // (report generation's source of truth) must NOT be capped at 90 — otherwise the
+    // "Evolución temporal" report chart only ever shows the last ~90 seconds.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-23T10:00:00Z'));
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+
+      act(() => {
+        jest.advanceTimersByTime(95_000); // 95 ticks — past the 90-point cap
+      });
+
+      expect(result.current.timeline.length).toBeLessThanOrEqual(90);
+      expect(result.current.fullTimeline.length).toBeGreaterThan(90);
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('accumulates timeline points at ~1 Hz so the chart moves fluidly, not in 5 s steps', () => {
     // Fluidity #2: the render cadence drives a new point every second (not every
     // 5 s). Denser points + monotone interpolation make the curve advance smoothly.
@@ -449,11 +497,10 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     }
   });
 
-  it("drops a departed student's history so a same-identity rejoin starts fresh", () => {
-    // A student who leaves and later rejoins with the SAME identity must NOT
-    // resume accumulating onto their old min/max/avg. The per-student history is
-    // reconciled against current telemetry each tick: an identity that vanishes
-    // is evicted, so a rejoin is a clean slate.
+  it('keeps a departed student in participants[] with their accumulated history (report accuracy)', () => {
+    // A student who disconnects before the professor builds/saves the report must
+    // still appear (with their historical min/max/avg) — the report must not
+    // collapse to 0 just because everyone already left.
     jest.useFakeTimers();
     try {
       jest.setSystemTime(new Date('2026-06-22T10:00:00Z'));
@@ -472,25 +519,96 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
       mockUseAttentionTelemetry.mockReturnValue([]);
       rerender();
       act(() => {
-        jest.advanceTimersByTime(1000); // tick reconciles → student-x history evicted
+        jest.advanceTimersByTime(1000);
+      });
+
+      const sx = result.current.participants.find(p => p.identity === 'student-x')!;
+      expect(sx).toBeDefined();
+      expect(sx.indexMin).toBe(50);
+      expect(sx.indexMax).toBe(90);
+      expect(sx.indexAvg).toBe(70); // (50 + 90) / 2
+      expect(sx.cameraOff).toBe(true); // honestly excluded from the live gauge
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('a same-identity rejoin CONTINUES the same history instead of resetting it', () => {
+    // The opposite of double-counting: a student who leaves and rejoins with the
+    // same identity must extend their existing min/max/avg, not start fresh (which
+    // would also make them look like a second, separate student in the report).
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-22T10:00:00Z'));
+      const one = (index: number) => [{ identity: 'student-x', index, multiface: false, faces: 1, cameraOff: false }];
+
+      mockUseAttentionTelemetry.mockReturnValue(one(50));
+      const { result, rerender, unmount } = renderHook(useAttention, { wrapper }); // seed sample: 50
+
+      mockUseAttentionTelemetry.mockReturnValue(one(90));
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(1000); // sample: 90 → history { min:50, max:90 }
+      });
+
+      // student-x leaves.
+      mockUseAttentionTelemetry.mockReturnValue([]);
+      rerender();
+      act(() => {
+        jest.advanceTimersByTime(1000);
       });
 
       // student-x rejoins with the same identity at a fresh index.
       mockUseAttentionTelemetry.mockReturnValue(one(70));
       rerender();
       act(() => {
-        jest.advanceTimersByTime(1000); // sample: 70 → fresh history { min:70, max:70 }
+        jest.advanceTimersByTime(1000); // sample: 70 → history extends to { min:50, max:90, +70 }
       });
 
       const sx = result.current.participants.find(p => p.identity === 'student-x')!;
-      // Stale 50/90 must be gone — rejoin accumulates from scratch.
-      expect(sx.indexMin).toBe(70);
-      expect(sx.indexMax).toBe(70);
-      expect(sx.indexAvg).toBe(70);
+      // Old 50/90 must survive the rejoin — history continues, doesn't reset.
+      expect(sx.indexMin).toBe(50);
+      expect(sx.indexMax).toBe(90);
+      expect(sx.indexAvg).toBe(70); // (50 + 90 + 70) / 3
+      // And critically: only ONE row for student-x, not two.
+      expect(result.current.participants.filter(p => p.identity === 'student-x').length).toBe(1);
       unmount();
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('counts a student who joined the Room but was never measured by the CV pipeline', () => {
+    // e.g. mobile/unsupported, or camera off the whole session — they must still
+    // show up in the attendance roster, just with no measured attention data.
+    const room = createFakeRoom();
+    mockUseVideoContext.mockReturnValue({ room, localTracks: [] });
+    mockUseAttentionTelemetry.mockReturnValue([]); // never produced a telemetry sample
+
+    const { result, rerender } = renderHook(useAttention, { wrapper });
+
+    room.emit('participantConnected', { identity: 'student-never-measured' });
+    // Mutating the ref doesn't itself trigger a re-render (same pattern as the
+    // "reads latest telemetry ref" test above) — force one to observe it.
+    rerender();
+
+    const row = result.current.participants.find(p => p.identity === 'student-never-measured');
+    expect(row).toBeDefined();
+    expect(row!.faces).toBe(0); // never measured → UI renders "sin medición"
+    expect(row!.indexMin).toBeUndefined();
+  });
+
+  it('a student already in room.participants at mount is counted without a participantConnected event', () => {
+    const room = createFakeRoom();
+    room.participants.set('SID123', { identity: 'student-already-there' });
+    mockUseVideoContext.mockReturnValue({ room, localTracks: [] });
+    mockUseAttentionTelemetry.mockReturnValue([]);
+
+    const { result, rerender } = renderHook(useAttention, { wrapper });
+    rerender();
+
+    expect(result.current.participants.some(p => p.identity === 'student-already-there')).toBe(true);
   });
 
   it('labels live timeline points with second-level resolution (HH:MM:SS)', () => {
@@ -638,7 +756,7 @@ describe('useAttention inside AttentionProvider — mobile (room present, isMobi
     // Mobile = useMediaQuery returns true
     mockUseMediaQuery.mockReturnValue(true);
     mockUseVideoContext.mockReturnValue({
-      room: { name: 'test-room', localParticipant: { identity: 'student-a' } },
+      room: createFakeRoom(),
       localTracks: [],
     });
     mockUseAttentionCapture.mockReturnValue({

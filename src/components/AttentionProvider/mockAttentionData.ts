@@ -14,6 +14,20 @@ import { ATTENTION_RANGES, ATTENTION_THRESHOLD, computeAttentionIndex } from './
 const selfComponents = { eyes: 80, posture: 75, head: 70 };
 // 0.40*80 + 0.30*75 + 0.30*70 = 32 + 22.5 + 21 = 75.5 → 76
 
+const mockTimeline = [
+  { time: '10:00', value: 68 },
+  { time: '10:05', value: 71 },
+  { time: '10:10', value: 74 },
+  { time: '10:15', value: 69 },
+  { time: '10:20', value: 72 },
+  { time: '10:25', value: 78 },
+  { time: '10:30', value: 75 },
+  { time: '10:35', value: 80 },
+  { time: '10:40', value: 76 },
+  { time: '10:45', value: 73 },
+  { time: '10:50', value: 70 },
+];
+
 export const mockAttentionData: AttentionData = {
   source: 'mock',
   ranges: ATTENTION_RANGES,
@@ -21,19 +35,9 @@ export const mockAttentionData: AttentionData = {
   groupDataAvailable: true,
   attentionThreshold: ATTENTION_THRESHOLD,
 
-  timeline: [
-    { time: '10:00', value: 68 },
-    { time: '10:05', value: 71 },
-    { time: '10:10', value: 74 },
-    { time: '10:15', value: 69 },
-    { time: '10:20', value: 72 },
-    { time: '10:25', value: 78 },
-    { time: '10:30', value: 75 },
-    { time: '10:35', value: 80 },
-    { time: '10:40', value: 76 },
-    { time: '10:45', value: 73 },
-    { time: '10:50', value: 70 },
-  ],
+  timeline: mockTimeline,
+  // No live/full-session distinction when the pipeline is off — same series.
+  fullTimeline: mockTimeline,
 
   self: {
     index: computeAttentionIndex(selfComponents),

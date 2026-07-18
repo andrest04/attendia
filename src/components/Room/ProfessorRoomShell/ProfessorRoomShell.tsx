@@ -161,6 +161,7 @@ export default function ProfessorRoomShell({
     groupDataAvailable,
     attentionThreshold,
     timeline,
+    fullTimeline,
     participants: attentionParticipants,
     proctoringAlerts,
     source,
@@ -194,12 +195,16 @@ export default function ProfessorRoomShell({
   const liveReportViewData = isLiveReportOpen
     ? buildReportViewData({
         sessionName,
-        studentCount,
+        // The cumulative attendance roster, so the live "Ver reporte" overlay
+        // agrees with the final persisted report even after students have left
+        // — distinct from `studentCount` above, which is the "who's here right
+        // now" count fed to the live SessionStatusBar header.
+        studentCount: attentionParticipants.length,
         source,
         groupAttention,
         groupDataAvailable,
         attentionThreshold,
-        timeline,
+        timeline: fullTimeline,
         participants: attentionParticipants,
         proctoringAlerts,
         attentionLevel,

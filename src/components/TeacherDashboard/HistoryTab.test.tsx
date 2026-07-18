@@ -72,7 +72,6 @@ describe('HistoryTab', () => {
     onOpenReport: jest.fn(),
     onRequestRecording: jest.fn(() => Promise.resolve({ status: 'enqueued' as const })),
     onCheckRecordingStatus: jest.fn(() => Promise.resolve({ status: 'processing' as const })),
-    onGetRecordingDownloadUrl: jest.fn(() => Promise.resolve('/reports/x/recording/download?ticket=abc')),
   };
 
   afterEach(() => jest.clearAllMocks());
@@ -94,7 +93,7 @@ describe('HistoryTab', () => {
       wrapper.find('[data-testid="dashboard-history-row-RM00000000000000000000000000000ghi"]').text()
     ).toContain('5s');
     expect(
-      wrapper.find('[data-testid="dashboard-history-recording-download-RM00000000000000000000000000000abc"]').exists()
+      wrapper.find('[data-testid="dashboard-history-recording-view-RM00000000000000000000000000000abc"]').exists()
     ).toBe(false);
   });
 
@@ -117,22 +116,21 @@ describe('HistoryTab', () => {
     ).toBe(true);
   });
 
-  it('opens the download URL for a completed recording', async () => {
+  it('opens the standalone recording player for a completed recording', async () => {
     const completedReports = [{ ...reports[0], recording: { status: 'completed', mediaExpiresAt: Date.now() + 1000 } }];
     const windowOpen = jest.spyOn(window, 'open').mockImplementation(() => null);
     const wrapper = mount(<HistoryTab {...props} reports={completedReports as any} />);
 
-    await act(async () => {
-      wrapper
-        .find('[data-testid="dashboard-history-recording-download-RM00000000000000000000000000000abc"]')
-        .first()
-        .simulate('click');
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+    wrapper
+      .find('[data-testid="dashboard-history-recording-view-RM00000000000000000000000000000abc"]')
+      .first()
+      .simulate('click');
 
-    expect(props.onGetRecordingDownloadUrl).toHaveBeenCalledWith('RM00000000000000000000000000000abc');
-    expect(windowOpen).toHaveBeenCalledWith('/reports/x/recording/download?ticket=abc', '_blank', 'noopener');
+    expect(windowOpen).toHaveBeenCalledWith(
+      '/recording/RM00000000000000000000000000000abc',
+      '_blank',
+      'noopener'
+    );
     windowOpen.mockRestore();
   });
 

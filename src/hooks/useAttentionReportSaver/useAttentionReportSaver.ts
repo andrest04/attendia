@@ -1,9 +1,13 @@
 import { useCallback, useContext, useRef } from 'react';
 import { AttentionContext } from '../../components/AttentionProvider';
 import { AttentionReport, ReportEndReason } from '../../components/AttentionProvider/reportTypes';
-import { averageOverTime, percentTimeAboveThreshold } from '../../components/AttentionReport/reportMath';
+import {
+  averageOverTime,
+  downsampleTimeline,
+  MAX_REPORT_TIMELINE_POINTS,
+  percentTimeAboveThreshold,
+} from '../../components/AttentionReport/reportMath';
 import { useAppState } from '../../state';
-import useParticipants from '../useParticipants/useParticipants';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import { savePendingAttentionReport } from '../../components/AttentionReport/pendingAttentionReports';
 import { readScheduledClassSession } from '../../components/TeacherDashboard/classSessionContext';
@@ -39,7 +43,6 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
   // as GalleryView, and what lets Room render in tests without the provider.
   const attention = useContext(AttentionContext);
   const { room } = useVideoContext();
-  const participants = useParticipants();
   const { saveAttentionReport, user } = useAppState();
 
   // Latest-value refs (same pattern as remoteAttentionRef in AttentionProvider):
@@ -48,8 +51,6 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
   attentionRef.current = attention;
   const roomRef = useRef(room);
   roomRef.current = room;
-  const participantsRef = useRef(participants);
-  participantsRef.current = participants;
   const saveRef = useRef(saveAttentionReport);
   saveRef.current = saveAttentionReport;
   // A Room is only rendered after Video.connect succeeds. Capture that observed
@@ -88,14 +89,21 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
       ...(scheduledClass ? { classId: scheduledClass.classId } : {}),
       endReason,
       source: data.source,
-      studentCount: participantsRef.current.length,
+      // data.participants is the cumulative attendance roster (identities ever
+      // seen, not just currently connected) — see AttentionProvider — so this
+      // stays accurate even after every student has already left the room.
+      studentCount: data.participants.length,
       attentionThreshold: data.attentionThreshold,
       ranges: data.ranges,
       // Same derivations as the in-room report view: session time-average with a
       // live-snapshot fallback, and the real share of time at/above the threshold.
-      groupAverage: data.timeline.length > 0 ? averageOverTime(data.timeline) : data.groupAttention,
-      percentAboveThreshold: percentTimeAboveThreshold(data.timeline, data.attentionThreshold),
-      timeline: data.timeline,
+      // Computed from the full-resolution session series (not the persisted,
+      // possibly-downsampled one) for accuracy.
+      groupAverage: data.fullTimeline.length > 0 ? averageOverTime(data.fullTimeline) : data.groupAttention,
+      percentAboveThreshold: percentTimeAboveThreshold(data.fullTimeline, data.attentionThreshold),
+      // Downsampled only if the session exceeded MAX_REPORT_TIMELINE_POINTS
+      // (a no-op for any realistic class length — see reportMath.ts).
+      timeline: downsampleTimeline(data.fullTimeline, MAX_REPORT_TIMELINE_POINTS),
       participants: data.participants.map(participant => {
         const avg = participant.indexAvg ?? participant.index;
         return {

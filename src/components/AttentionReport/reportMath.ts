@@ -26,3 +26,29 @@ export function percentTimeAboveThreshold(timeline: AttentionTimelinePoint[], th
   const above = timeline.filter(p => p.value >= threshold).length;
   return Math.round((above * 100) / timeline.length);
 }
+
+// Mirrors server/attentionReports.ts MAX_TIMELINE_POINTS structurally — the
+// server hard-rejects any persisted report whose timeline exceeds this.
+// 3h @ 1Hz: full per-second resolution for any realistic class length, so the
+// report's zoom/scrub timeline (AttentionReportView's Brush) has real detail
+// to zoom into. Downsampling only kicks in for a session longer than this.
+export const MAX_REPORT_TIMELINE_POINTS = 10800;
+
+/**
+ * Bucket-average a timeline down to at most `maxPoints`, preserving the full
+ * session span — unlike naive every-Nth-point sampling, every input point
+ * contributes to its bucket's average, so no data is silently dropped.
+ * Returns `points` unchanged when already within budget (the common case).
+ */
+export function downsampleTimeline(points: AttentionTimelinePoint[], maxPoints: number): AttentionTimelinePoint[] {
+  if (points.length <= maxPoints || maxPoints <= 0) return points;
+  const result: AttentionTimelinePoint[] = [];
+  for (let b = 0; b < maxPoints; b++) {
+    const start = Math.floor((b * points.length) / maxPoints);
+    const end = Math.floor(((b + 1) * points.length) / maxPoints);
+    const bucket = points.slice(start, end);
+    const avg = Math.round(bucket.reduce((sum, p) => sum + p.value, 0) / bucket.length);
+    result.push({ time: bucket[bucket.length - 1].time, value: avg });
+  }
+  return result;
+}

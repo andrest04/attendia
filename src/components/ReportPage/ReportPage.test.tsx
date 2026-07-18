@@ -4,21 +4,12 @@ import ReportPage from './ReportPage';
 import { MemoryRouter, Route } from 'react-router-dom';
 import { useAppState } from '../../state';
 
-// recharts' ResponsiveContainer needs a measurable parent; stub it for jsdom.
-jest.mock('recharts', () => {
-  const Stub = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
-  const VoidStub = () => null;
-  return {
-    ResponsiveContainer: Stub,
-    LineChart: Stub,
-    Line: VoidStub,
-    CartesianGrid: VoidStub,
-    XAxis: VoidStub,
-    YAxis: VoidStub,
-    Tooltip: VoidStub,
-    ReferenceLine: VoidStub,
-  };
-});
+// AttentionReportView's chart uses echarts, which needs a real canvas/SVG
+// renderer jsdom doesn't provide — stub it out.
+jest.mock('echarts-for-react', () => ({
+  __esModule: true,
+  default: () => <div data-testid="attention-report-echarts-stub" />,
+}));
 
 jest.mock('../../state');
 

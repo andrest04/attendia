@@ -57,7 +57,9 @@ export interface AttentionReport {
   classId?: string;
   endReason: ReportEndReason;
   source: 'mock' | 'live';
-  /** Remote participants connected at snapshot time (professor excluded). */
+  /** Cumulative count of distinct remote identities that ever attended (professor
+   *  excluded) — not just those still connected at snapshot time; a same-identity
+   *  rejoin is never double-counted (see AttentionProvider's attendedIdentitiesRef). */
   studentCount: number;
   attentionThreshold: number;
   ranges: AttentionRanges;
@@ -65,7 +67,11 @@ export interface AttentionReport {
   groupAverage: number;
   /** percentTimeAboveThreshold(timeline, attentionThreshold). */
   percentAboveThreshold: number;
-  /** Capped by the provider at 90 points (1.5-minute sliding window). */
+  /** Full-session series (1 point/sec), downsampled via reportMath.downsampleTimeline
+   *  only if the session exceeds reportMath.MAX_REPORT_TIMELINE_POINTS (10800 = 3h) —
+   *  a no-op for any realistic class length. groupAverage/percentAboveThreshold above
+   *  are derived from the full-resolution series before any downsampling. The report
+   *  view renders this with a zoom/scrub Brush (recharts), video-editor-timeline style. */
   timeline: AttentionTimelinePoint[];
   participants: AttentionReportParticipant[];
   /** Capped by the provider at the last 3 events. */

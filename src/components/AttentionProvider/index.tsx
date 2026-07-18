@@ -46,7 +46,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useMediaQuery, useTheme } from '@material-ui/core';
-import { LocalVideoTrack } from 'twilio-video';
+import { LocalVideoTrack, RemoteParticipant } from 'twilio-video';
 import { AttentionContextValue, AttentionLevel, AttentionTimelinePoint, ProctoringAlert } from './types';
 import { mockAttentionData } from './mockAttentionData';
 import { attentionLevelFromScore } from './attentionFormula';
@@ -60,7 +60,16 @@ export const AttentionContext = createContext<AttentionContextValue>(null!);
 // Maximum timeline points kept in memory before the oldest are evicted.
 // 90 points at 1-second intervals covers a 1.5-minute sliding window — enough
 // density that the curve advances smoothly instead of jumping in coarse steps.
+// This is the LIVE in-room "Grupo" tab's rolling-recent-window chart only —
+// report generation reads `fullTimeline` (below) instead.
 const TIMELINE_MAX_POINTS = 90;
+
+// Defensive-only ceiling on the full-session timeline (report generation's
+// source of truth) — 6h at 1Hz. Should never be hit in practice; a real class
+// is downsampled at the report-save boundary well before this (see
+// reportMath.MAX_REPORT_TIMELINE_POINTS), this just bounds memory for a room
+// left open pathologically long.
+const FULL_TIMELINE_HARD_CAP = 6 * 60 * 60;
 
 // Interval (ms) at which a group-attention snapshot is pushed to the timeline.
 // 1 s (aligned with the 1 Hz capture cadence) keeps the chart fluid: each tick
@@ -203,6 +212,31 @@ export const AttentionProvider: React.FC = ({ children }) => {
   const timelineRef = useRef<AttentionTimelinePoint[]>([]);
   const [timeline, setTimeline] = useState<AttentionTimelinePoint[]>([]);
 
+  // Full-session timeline (report generation's source of truth) — same push
+  // cadence as `timeline` above but capped only defensively, not for display.
+  const fullTimelineRef = useRef<AttentionTimelinePoint[]>([]);
+  const [fullTimeline, setFullTimeline] = useState<AttentionTimelinePoint[]>([]);
+
+  // Every identity that has ever joined the Twilio Room, for as long as this
+  // Room is connected — used to build a cumulative attendance roster for the
+  // report even for students who never produced a single measured CV sample
+  // (mobile/unsupported, camera off the whole time, or the CV pipeline
+  // disabled). Never shrinks: a student who leaves stays counted, and a
+  // rejoin under the same identity is a no-op on a Set (no double count).
+  const attendedIdentitiesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    attendedIdentitiesRef.current = new Set();
+    if (!room) return;
+    room.participants.forEach(p => attendedIdentitiesRef.current.add(p.identity));
+    const onConnected = (p: RemoteParticipant) => attendedIdentitiesRef.current.add(p.identity);
+    room.on('participantConnected', onConnected);
+    // Intentionally no participantDisconnected handler — the roster must never shrink.
+    return () => {
+      room.off('participantConnected', onConnected);
+    };
+  }, [room]);
+
   // Per-student index history (min/max + running sum/count for the average),
   // accumulated at the timeline sampling cadence from camera-on samples only.
   // Lives in a ref because it mutates on the interval, not per render; the 1 Hz
@@ -230,22 +264,18 @@ export const AttentionProvider: React.FC = ({ children }) => {
       // Reset timeline + per-student history when we go back to fallback.
       timelineRef.current = [];
       setTimeline([]);
+      fullTimelineRef.current = [];
+      setFullTimeline([]);
       participantHistoryRef.current.clear();
       return;
     }
 
     const push = () => {
-      // Reconcile the per-student history against the CURRENT telemetry: evict any
-      // identity that is no longer present (the student disconnected). Without this,
-      // a student who leaves and rejoins with the same identity would resume onto
-      // their stale min/max/avg. Done before the early return so eviction happens
-      // even on a tick with no measured participants.
-      const presentIdentities = new Set(remoteAttentionRef.current.map(r => r.identity));
-      participantHistoryRef.current.forEach((_, identity) => {
-        if (!presentIdentities.has(identity)) {
-          participantHistoryRef.current.delete(identity);
-        }
-      });
+      // participantHistoryRef is intentionally NEVER evicted on disconnect: it is
+      // keyed by identity, so a student who leaves and rejoins naturally continues
+      // the same entry instead of starting over — and a report built after a
+      // student has left still has their min/max/avg to show. See the `participants`
+      // construction below, which reads this Map for identities no longer live.
 
       // Read the latest telemetry from the ref — NOT the captured remoteAttention,
       // which would be stale (see remoteAttentionRef above).
@@ -284,6 +314,13 @@ export const AttentionProvider: React.FC = ({ children }) => {
       const next = [...timelineRef.current, point].slice(-TIMELINE_MAX_POINTS);
       timelineRef.current = next;
       setTimeline(next);
+
+      // Full-session series (uncapped in practice — only a generous defensive
+      // ceiling) that report generation persists/displays, distinct from the
+      // 90-point rolling window above which stays the live in-room chart's UX.
+      const nextFull = [...fullTimelineRef.current, point].slice(-FULL_TIMELINE_HARD_CAP);
+      fullTimelineRef.current = nextFull;
+      setFullTimeline(nextFull);
     };
 
     // Seed one point immediately so the chart is never empty on first render.
@@ -368,6 +405,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
     // Fallback: mock data (tests, mobile, no room).
     const value: AttentionContextValue = {
       ...mockAttentionData,
+      fullTimeline: mockAttentionData.timeline,
       attentionLevel,
     };
     return <AttentionContext.Provider value={value}>{children}</AttentionContext.Provider>;
@@ -375,23 +413,49 @@ export const AttentionProvider: React.FC = ({ children }) => {
 
   // Live path — pipeline is active.
 
-  // Participant list: map RemoteAttention[] → ParticipantAttention[], decorating
-  // each with its session history (min/max/avg). A student with no accumulated
-  // samples yet (just joined, or camera off the whole time) falls back to the
-  // current index so the report never shows an empty cell mid-session.
-  const participants = remoteAttention.map(r => {
-    const h = participantHistoryRef.current.get(r.identity);
+  // Participant list: the union of every identity ever attended (roster),
+  // ever measured (history), and currently live (remoteAttention) — so a
+  // student who has already left the room still has a row, decorated with
+  // whatever data survives them. Still-connected students keep today's
+  // exact live-value behavior; departed students fall back to their
+  // accumulated history (or, if never measured at all, an honest
+  // "sin medición" row via faces:0).
+  const liveByIdentity = new Map(remoteAttention.map(r => [r.identity, r]));
+  const allIdentities = new Set<string>([
+    ...attendedIdentitiesRef.current,
+    ...participantHistoryRef.current.keys(),
+    ...remoteAttention.map(r => r.identity),
+  ]);
+  const participants = Array.from(allIdentities).map(identity => {
+    const r = liveByIdentity.get(identity);
+    const h = participantHistoryRef.current.get(identity);
+    if (r) {
+      return {
+        identity,
+        index: r.index,
+        multiface: r.multiface,
+        level: attentionLevel(r.index),
+        cameraOff: r.cameraOff,
+        faces: r.faces,
+        unsupported: r.unsupported,
+        indexMin: h ? h.min : r.index,
+        indexMax: h ? h.max : r.index,
+        indexAvg: h ? Math.round(h.sum / h.count) : r.index,
+      };
+    }
+    // Disconnected before this snapshot was built: historical-only row.
+    const avg = h ? Math.round(h.sum / h.count) : 0;
     return {
-      identity: r.identity,
-      index: r.index,
-      multiface: r.multiface,
-      level: attentionLevel(r.index),
-      cameraOff: r.cameraOff,
-      faces: r.faces,
-      unsupported: r.unsupported,
-      indexMin: h ? h.min : r.index,
-      indexMax: h ? h.max : r.index,
-      indexAvg: h ? Math.round(h.sum / h.count) : r.index,
+      identity,
+      index: avg,
+      multiface: false,
+      level: attentionLevel(avg),
+      cameraOff: true, // honestly excluded from the live group gauge below
+      faces: h ? 1 : 0, // 0 = never measured at all → UI renders "sin medición"
+      unsupported: false,
+      indexMin: h ? h.min : undefined,
+      indexMax: h ? h.max : undefined,
+      indexAvg: h ? avg : undefined,
     };
   });
 
@@ -436,6 +500,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
     groupDataAvailable,
     attentionThreshold: mockAttentionData.attentionThreshold,
     timeline,
+    fullTimeline,
     self,
     participants,
     proctoringAlerts,
