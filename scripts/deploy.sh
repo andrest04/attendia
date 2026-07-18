@@ -65,6 +65,7 @@ if az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZU
   az containerapp update \
     --name "$AZURE_CONTAINERAPP_NAME" \
     --resource-group "$AZURE_RESOURCE_GROUP" \
+    --container-name "$AZURE_CONTAINERAPP_NAME" \
     --image "$IMAGE"
 else
   echo "==> Creating container app..."
@@ -99,6 +100,7 @@ echo "==> Wiring env vars (min-replicas 0 = scale to zero)..."
 az containerapp update \
   --name "$AZURE_CONTAINERAPP_NAME" \
   --resource-group "$AZURE_RESOURCE_GROUP" \
+  --container-name "$AZURE_CONTAINERAPP_NAME" \
   --min-replicas 0 \
   --max-replicas 3 \
   --set-env-vars \
