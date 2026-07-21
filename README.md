@@ -1,18 +1,18 @@
-# Twilio Video React App
+# Attendia
 
-[![CircleCI](https://circleci.com/gh/twilio/twilio-video-app-react.svg?style=svg)](https://circleci.com/gh/twilio/twilio-video-app-react)
+A Spanish-language virtual classroom app, built on top of [Twilio's Programmable Video JS SDK](https://github.com/twilio/twilio-video.js), [Twilio's Conversations JS SDK](https://www.npmjs.com/package/@twilio/conversations), and [Create React App](https://github.com/facebook/create-react-app).
 
-## What is it
+Attendia started as Twilio's reference video app and grew a full classroom domain on top of it: teacher/student roles, dedicated room layouts, real-time student attention tracking via on-device computer vision, class recording, and a teacher dashboard backed by Firestore. The base Twilio SDK-as-state architecture is untouched — the classroom layer is additive.
 
-This application demonstrates a multi-party video application built with [Twilio's Programmable Video JS SDK](https://github.com/twilio/twilio-video.js), [Twilio's Conversations JS SDK](https://www.npmjs.com/package/@twilio/conversations), and [Create React App](https://github.com/facebook/create-react-app).
+## What it does
 
-- Deploy to [Twilio Serverless](https://www.twilio.com/docs/runtime/functions-assets-api) in just a few minutes
-- No other infrastructure is required
-- No code changes are required before your first deploy
-- There is no cost associated with deploying the app
-- [Standard usage charges](https://www.twilio.com/video/pricing) apply for Twilio Video when using the app for video calls. The chat feature is built using the Conversations API and is free-of-cost up to 200 monthly active users, [standard usage charges](https://www.twilio.com/conversations/pricing) apply thereafter.
-
-![App Preview](https://user-images.githubusercontent.com/12685223/94631109-cfca1c80-0284-11eb-8b72-c97276cf34e4.png)
+- **Video + chat** for a class session, powered by Twilio Programmable Video and Conversations.
+- **Role-aware room UI** — a three-rail teacher layout (`ProfessorRoomShell`) with a live attention gauge, roster, recording controls, and raise-hand queue; a three-column student layout (`StudentRoomShell`) with chat and the same view controls, no attention surface at all (students never see or control the analysis).
+- **Real-time attention tracking** (opt-in via `REACT_APP_ENABLE_ATTENTION_CV`) — an on-device MediaPipe FaceLandmarker pipeline scores gaze and head pose locally on each student's device, broadcasts only the resulting number over a Twilio DataTrack, and never sends video or images anywhere. Off by default; falls back to deterministic mock data for demos/tests. Teachers can open a point-in-time attention report in a new tab.
+- **Class recording** with the Twilio Recording Rules API, plus a teacher-requested recording download flow with signed, short-lived tickets.
+- **Firebase authentication** (Google sign-in or email/password) — the only supported auth mode; the ID token is verified server-side and required on every API route.
+- **Teacher dashboard** (profile, class history, resources, attention reports) backed by Firestore, served by the same Express server that issues Twilio access tokens.
+- **Room-access guardrail** — a student can't create a class session by requesting a token first; only an already-open room (created by a teacher) will hand out a student token.
 
 ## Prerequisites
 
@@ -21,196 +21,105 @@ You must have the following installed:
 - [Node.js v22+](https://nodejs.org/en/download/)
 - NPM v10+ (comes installed with newer Node versions)
 
-### Operational logging
-
-The Firebase profile flows emit structured `operational_failure` events to the application process log, including verified uid, operation, and failure code but never credentials or requested email addresses. Production hosting must collect process logs and configure alerts for `event=operational_failure`; this repository does not provide an alerting service.
-
-You can check which versions of Node.js and NPM you currently have installed with the following commands:
+Check your versions with:
 
     node --version
     npm --version
 
 ## Clone the repository
 
-Clone this repository and cd into the project directory:
-
-    git clone https://github.com/twilio/twilio-video-app-react.git
+    git clone <this-repo-url>
     cd twilio-video-app-react
 
-## Install Dependencies
+## Install dependencies
 
-Run `npm install` inside the main project folder to install all dependencies from NPM.
+    npm install
 
-If you want to use `yarn` to install dependencies, first run the [yarn import](https://classic.yarnpkg.com/en/docs/cli/import/) command. This will ensure that yarn installs the package versions that are specified in `package-lock.json`.
+`postinstall` also copies `@twilio/video-processors` build artifacts into `public/virtualbackground` — required for virtual backgrounds to load at runtime.
 
-### Add Noise Cancellation
+### Optional: noise cancellation
 
-Twilio Video has partnered with [Krisp Technologies Inc.](https://krisp.ai/) to add [noise cancellation](https://www.twilio.com/docs/video/noise-cancellation) to the local audio track. This feature is licensed under the [Krisp Plugin for Twilio](https://twilio.github.io/krisp-audio-plugin/LICENSE.html). In order to add this feature to your application, please run `npm run noisecancellation:krisp` immediately after the [previous step](#install-dependencies).
+Twilio Video partners with [Krisp Technologies Inc.](https://krisp.ai/) for noise cancellation on the local audio track. Enable it with:
 
-### Add Captions
+    npm run noisecancellation:krisp
 
-The on-screen Captions functionality is provided by the [Real-Time Transcriptions for Video(beta)](https://www.twilio.com/docs/video/api/transcriptions) feature. To use captions in this reference application Real-Time Transcriptions must be enabled by default in the [Room settings page](https://console.twilio.com/us1/develop/video/manage/room-settings) on the Twilio Console. Note that usage charges will apply.
+Run this once, right after `npm install`.
 
-## Deploying the app
+### Optional: captions
 
-This application authenticates every user through Firebase (Google sign-in or email/password), which requires `firebase-admin` and a service account running inside the Express server. Twilio Serverless Functions cannot run `firebase-admin`, so this app is **not** deployed via the Twilio CLI/Serverless plugin — it is deployed as the Express server (see [server/index.ts](server/index.ts)) to whatever Node.js hosting you use (a VM, container platform, Cloud Run, etc). The Express server reuses the token/recording-rules serverless functions shipped inside `@twilio-labs/plugin-rtc` directly from `node_modules`, so that dependency stays even though there is no separate Twilio Serverless deploy step.
+On-screen captions use [Real-Time Transcriptions for Video (beta)](https://www.twilio.com/docs/video/api/transcriptions). Enable Real-Time Transcriptions on your [Room settings page](https://console.twilio.com/us1/develop/video/manage/room-settings) in the Twilio Console to use them. Usage charges apply.
 
-To deploy:
+## Environment variables
 
-1. Run `npm run build` to produce the production React build (served by the Express server, see [server/index.ts](server/index.ts)).
-2. Configure the Firebase and Twilio environment variables described in [.env.example](.env.example) on your hosting platform.
-3. Run `npm run server` (or your process manager's equivalent) to start the Express server, which serves both the built app and the `/token`, `/recordingrules`, and Firestore-backed API routes.
+Copy `.env.example` to `.env` and fill in:
 
-## Features
+- **Twilio**: `TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET`, `TWILIO_CONVERSATIONS_SERVICE_SID` — get these from the [Twilio Console](https://www.twilio.com/console) (Account SID, an [API Key](https://www.twilio.com/console/video/project/api-keys), and a [Conversations service](https://www.twilio.com/console/conversations/services)).
+- **Firebase**: web app config + a service account for `firebase-admin` (server-side ID token verification). See `.env.example` for the exact variable names.
+- **`REACT_APP_DISABLE_TWILIO_CONVERSATIONS`** — set to `true` to skip chat entirely.
+- **`REACT_APP_ENABLE_ATTENTION_CV`** — set to `true` to turn on the real attention pipeline (default off → mock data). When on, students see a one-time consent modal before joining.
+- **`RECORDING_DOWNLOAD_SECRET`** — any long random string; required for the "Solicitar grabación" recording-download flow to work (otherwise it fails closed with a 503).
 
-The Video app has the following features:
+See `.env.example` for the full list.
 
-- [x] Video calling with real-time video and audio
-- [x] Chat support for textual and file-based messaging
-- [x] Enable/disable camera
-- [x] Mute/unmute mic
-- [x] Screen sharing
-- [x] [Dominant speaker](https://www.twilio.com/docs/video/detecting-dominant-speaker) indicator
-- [x] [Network quality](https://www.twilio.com/docs/video/using-network-quality-api) indicator
-- [x] Defines participant bandwidth usage with the [Bandwidth Profile API](https://www.twilio.com/docs/video/tutorials/using-bandwidth-profile-api)
-- [x] Start and stop recording with the [Recording Rules API](https://www.twilio.com/docs/video/api/recording-rules)
-- [x] Virtual backgrounds with [Video Processor library](https://www.twilio.com/docs/video/video-processors)
-
-## Browser Support
-
-See browser support table for [twilio-video.js SDK](https://github.com/twilio/twilio-video.js/tree/master/#browser-support).
-
-## Deeper dive
-
-### Running a local token server
-
-This application requires an access token to connect to a Room for Video and a Conversation for Chat. The included local token [server](server/index.ts) provides the application with access tokens. This token server can be used to run the app locally, and it is the server that is used when this app is run in development mode with `npm start`. Perform the following steps to setup the local token server:
-
-- Create an account in the [Twilio Console](https://www.twilio.com/console).
-- Click on 'Settings' and take note of your Account SID.
-- Create a new API Key in the [API Keys Section](https://www.twilio.com/console/video/project/api-keys) under Programmable Video Tools in the Twilio Console. Take note of the SID and Secret of the new API key.
-- Create a new Conversations service in the [Services section](https://www.twilio.com/console/conversations/services) under the Conversations tab in the Twilio Console. Take note of the SID generated.
-- Store your Account SID, API Key SID, API Key Secret, and Conversations Service SID in a new file called `.env` in the root level of the application (example below).
-
-```
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_API_KEY_SID=SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_API_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_CONVERSATIONS_SERVICE_SID=ISxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-Now the local token server (see [server/index.ts](server/index.ts)) can dispense Access Tokens to connect to a Room and a Conversation. See [.env.example](.env.example) for information on additional environment variables that can be used.
-
-**Note:** the use of Twilio Conversations is optional. If you wish to opt out, simply run or build this app with the `REACT_APP_DISABLE_TWILIO_CONVERSATIONS` environment variable set to `true`.
-
-**Recording downloads:** the teacher-requested class recording feature (`server/recordings.ts`) signs short-lived download tickets with the `RECORDING_DOWNLOAD_SECRET` environment variable — set it to any long random string in your `.env` before using "Solicitar grabación" in the dashboard's class history. Without it, the download-ticket and download endpoints fail closed with a 503 instead of serving an unsigned link.
-
-### Running the App locally
-
-Run the app locally with
+## Running the app locally
 
     npm start
 
-This will start the local token server and run the app in the development mode. Open [http://localhost:3000](http://localhost:3000) to see the application in the browser.
+This runs the local token/API server (`server/index.ts`, port 8081) and the CRA dev server (port 3000) concurrently — CRA proxies API calls to the token server. Open [http://localhost:3000](http://localhost:3000).
 
-The page will reload if you make changes to the source code in `src/`.
-You will also see any linting errors in the console. Start the token server locally with
+Other useful scripts:
 
-    npm run server
+    npm run dev              # CRA dev server only, no token server
+    npm run server           # token/API server only
+    npm run build            # production build (via scripts/build.js)
+    npm run lint             # ESLint on src and server
+    npm run typescript:server  # type-check the server only (client is type-checked by CRA)
 
-The token server runs on port 8081 and expects a `POST` request at the `/token` route with the following JSON parameters:
+### Multiple participants
+
+Open `localhost:3000` in multiple tabs (or on multiple machines using the same Account SID) and join the same room with different names to see multi-participant behavior. Append `[Profesor]` semantics are handled automatically by the prejoin flow based on which entry point you use — there's no separate "role" field on the server, the role lives entirely in the Twilio identity string.
+
+## Testing
+
+- **Unit tests**: Jest + jsdom + `ts-jest`, with Enzyme (`enzyme-adapter-react-16`).
+
+      npm test
+      npm test -- src/path/to/file.test.tsx     # single file
+      npm test -- -t "test name pattern"        # by name
+      npm run test:ci                           # single run, coverage, JUnit output (CI)
+
+- **Server tests** live under `server/__tests__/`.
+- **E2E tests** (Cypress) hit **real Twilio rooms and conversations** and can incur charges:
+
+      npm run cypress:open
+      npm run cypress:run
+
+- **Storybook**: `npm run storybook` (port 6006).
+
+## Deployment
+
+This app authenticates every user through Firebase, which requires `firebase-admin` and a service account running server-side — something Twilio Serverless Functions cannot run. Because of that, Attendia does **not** deploy via the Twilio CLI/Serverless plugin; it deploys as a container running the Express server (`server/index.ts`), which serves both the built React app and the API routes (`/token`, `/recordingrules`, and the Firestore-backed profile/reports/resources/classes routes).
+
+The live deployment runs on **Azure Container Apps**, driven by a bespoke script (`scripts/deploy.sh`) rather than `azd`/Bicep/Terraform — it builds and pushes the Docker image locally and updates the Container App. See `scripts/deploy.config.example` for the config template.
+
+    npm run build   # production build, served by the Express server
+
+## Application architecture
+
+The Twilio Video SDK's `Room` object **is** the state — there's no Redux. Components subscribe to it and its child event emitters through hooks in `src/hooks/` (general-purpose) and `src/components/VideoProvider/` (VideoProvider-internal only). When connected, the room is exposed as `window.twilioRoom` for debugging; the chat client as `window.chatClient` / `window.chatConversation`.
 
 ```
-{
-  "user_identity": string, // the user's identity
-  "room_name": string, // the room name
-}
+MuiThemeProvider
+└─ Router
+   └─ AppStateProvider          // auth, settings, recording, gallery, captions
+      └─ VideoProvider          // Room, local tracks, screen share, backgrounds
+         └─ ParticipantProvider
+            └─ ChatProvider     // Conversations client + active conversation
+               └─ AttentionProvider  // classroom attention telemetry
+                  └─ App
 ```
 
-The response will be a token that can be used to connect to a room. The server provided with this application uses the same endpoints as the [plugin-rtc](https://github.com/twilio-labs/plugin-rtc) Twilio CLI plugin that is used to deploy the app. For more detailed information on the server endpoints, please see the [plugin-rtc README](https://github.com/twilio-labs/plugin-rtc#twilio-labsplugin-rtc).
-
-### Multiple Participants in a Room
-
-If you want to see how the application behaves with multiple participants, you can simply open `localhost:3000` in multiple tabs in your browser and connect to the same room using different user names.
-
-Additionally, if you would like to invite other participants to a room, each participant would need to have their own installation of this application and use the same room name and Account SID (the API Key and Secret can be different).
-
-### Building
-
-Build the React app with
-
-    npm run build
-
-This script will build the static assets for the application in the `build/` directory.
-
-### Tests
-
-This application has unit tests (using [Jest](https://jestjs.io/)) and end-to-end tests (using [Cypress](https://www.cypress.io/)). You can run the tests with the following scripts.
-
-#### Unit Tests
-
-Run unit tests with
-
-    npm test
-
-This will run all unit tests with Jest and output the results to the console.
-
-#### E2E Tests
-
-Run end to end tests with
-
-    npm run cypress:open
-
-This will open the Cypress test runner. When it's open, select a test file to run.
-
-**Note:** Be sure to complete the 'Getting Started' section before running these tests. These Cypress tests will connect to real Twilio rooms and real Twilio conversations, so you may be billed for any time that is used.
-
-### Application Architecture
-
-The state of this application (with a few exceptions) is managed by the [room object](https://sdk.twilio.com/js/video/releases/2.13.0/docs/Room.html) that is supplied by the SDK. The `room` object contains all information about the room that the user is connected to. The class hierarchy of the `room` object can be viewed [here](https://www.twilio.com/docs/video/migrating-1x-2x#object-model).
-
-One great way to learn about the room object is to explore it in the browser console. When you are connected to a room, the application will expose the room object as a window variable: `window.twilioRoom`.
-
-Since the Twilio Video SDK manages the `room` object state, it can be used as the source of truth. It isn't necessary to use a tool like Redux to track the room state. The `room` object and most child properties are [event emitters](https://nodejs.org/api/events.html#events_class_eventemitter), which means that we can subscribe to these events to update React components as the room state changes.
-
-[React hooks](https://reactjs.org/docs/hooks-intro.html) can be used to subscribe to events and trigger component re-renders. This application frequently uses the `useState` and `useEffect` hooks to subscribe to changes in room state. Here is a simple example:
-
-```javascript
-import { useEffect, useState } from 'react';
-
-export default function useDominantSpeaker(room) {
-  const [dominantSpeaker, setDominantSpeaker] = useState(room.dominantSpeaker);
-
-  useEffect(() => {
-    room.on('dominantSpeakerChanged', setDominantSpeaker);
-    return () => {
-      room.off('dominantSpeakerChanged', setDominantSpeaker);
-    };
-  }, [room]);
-
-  return dominantSpeaker;
-}
-```
-
-In this hook, the `useEffect` hook is used to subscribe to the `dominantSpeakerChanged` event emitted by the `room` object. When this event is emitted, the `setDominantSpeaker` function is called which will update the `dominantSpeaker` variable and trigger a re-render of any components that are consuming this hook.
-
-For more information on how React hooks can be used with the Twilio Video SDK, see this tutorial: https://www.twilio.com/blog/video-chat-react-hooks. To see all of the hooks used by this application, look in the `src/hooks` directory.
-
-The [VideoProvider](src/components/VideoProvider/index.tsx) component contains much of the logic that relates to connecting to video rooms and acquiring local input devices. The VideoProvider component exposes many properties and methods to the rest of the application through the [useVideoContext](src/hooks/useVideoContext/useVideoContext.ts) hook. Similarly, the [ChatProvider](src/components/ChatProvider/index.tsx) contains logic that relates to connecting to a Twilio Conversation, and it exposes properties and methods through the [useChatContext](src/hooks/useChatContext/useChatContext.ts) hook.
-
-### Configuration
-
-The `connect` function from the SDK accepts a [configuration object](https://sdk.twilio.com/js/video/releases/2.13.0/docs/global.html#ConnectOptions). The configuration object for this application can be found in [src/utils/useConnectionOptions/useConnectionOptions.ts](src/utils/useConnectionOptions/useConnectionOptions.ts). In this object, we 1) enable dominant speaker detection, 2) enable the network quality API, and 3) supply various options to configure the [bandwidth profile](https://www.twilio.com/docs/video/tutorials/using-bandwidth-profile-api).
-
-#### Track Priority Settings
-
-This application dynamically changes the priority of remote video tracks to provide an optimal collaboration experience. Any video track that will be displayed in the main video area will have `track.setPriority('high')` called on it (see the [VideoTrack](https://github.com/twilio/twilio-video-app-react/blob/master/src/components/VideoTrack/VideoTrack.tsx#L29) component) when the component is mounted. This higher priority enables the track to be rendered at a high resolution. `track.setPriority(null)` is called when the component is unmounted so that the track's priority is set to its publish priority (low).
-
-### Authentication using Firebase
-
-Firebase is the only supported authentication mode: every user signs in with a Google account or an email/password before using the app. Once a user signs in, their Firebase ID Token is included in the Authorization header of the HTTP requests used to obtain an access token and to call the Firestore-backed API routes (profile, attention reports, resources, classes). The Firebase ID Token is [verified](https://firebase.google.com/docs/auth/admin/verify-id-tokens) server-side by [server/firebaseAuthMiddleware.ts](server/firebaseAuthMiddleware.ts).
-
-See [.env.example](.env.example) for an explanation of the environment variables that must be set for Firebase authentication.
+For the full breakdown of the classroom layer (roles, room shells, the attention CV pipeline, raise-hand, auto-rejoin, the room-access guard, etc.), see [CLAUDE.md](CLAUDE.md) — it documents the codebase in depth for both contributors and AI coding assistants.
 
 ## Related
 
