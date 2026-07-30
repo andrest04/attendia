@@ -147,6 +147,28 @@ describe('the useFirebaseAuth hook', () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it('should reject a non-OK recording-rules response before treating its body as success', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+    const { result } = renderHook(() => useFirebaseAuth());
+
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      json: () => Promise.resolve({ error: { explanation: 'No tienes permiso para cambiar la grabación.' } }),
+    });
+
+    await act(async () => {
+      await expect(result.current.updateRecordingRules('RM123', [])).rejects.toThrow(
+        'No tienes permiso para cambiar la grabación.'
+      );
+    });
+  });
+
   it('should set the user and profile after a Google signIn', async () => {
     const { result } = renderHook(() => useFirebaseAuth());
     await act(async () => {

@@ -26,40 +26,7 @@ export interface UpcomingSession {
   classId?: string;
 }
 
-export type RecordingStatus = 'lista' | 'no-disponible';
-
-export interface HistoryRow {
-  id: string;
-  className: string;
-  date: string;
-  duration: string;
-  studentCount: number;
-  /** Attention percentage 0-100, colored via attentionLevelFromPercent. */
-  attentionPercent: number;
-  recordingStatus: RecordingStatus;
-  hasDownload: boolean;
-}
-
 export type ResourceFileKind = 'pdf' | 'presentation' | 'word' | 'zip' | 'video';
-
-/** One day of the July 2026 grid. sessionCount 0 renders no dots. */
-export interface CalendarDaySession {
-  day: number;
-  sessionCount: number;
-}
-
-export interface CalendarSessionCard {
-  id: string;
-  title: string;
-  time: string;
-  studentCount: number;
-}
-
-export interface CalendarSummary {
-  scheduledSessions: number;
-  expectedStudents: number;
-  classHours: string;
-}
 
 export interface DashboardData {
   professorName: string;
@@ -68,13 +35,4 @@ export interface DashboardData {
 
   upcomingSessionsDateLabel: string;
   upcomingSessions: UpcomingSession[];
-
-  historyRows: HistoryRow[];
-
-  calendarMonthLabel: string;
-  /** Days 1-31 of July 2026, in order. */
-  calendarDays: CalendarDaySession[];
-  selectedDay: number;
-  calendarSessionsForSelectedDay: CalendarSessionCard[];
-  calendarSummary: CalendarSummary;
 }

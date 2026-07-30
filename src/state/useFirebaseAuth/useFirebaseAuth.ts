@@ -481,17 +481,8 @@ export default function useFirebaseAuth() {
         headers,
         body: JSON.stringify({ room_sid, rules }),
       }).then(async res => {
-        const jsonResponse = await res.json();
-
-        if (!res.ok) {
-          const recordingError = new Error(
-            jsonResponse.error?.message || 'There was an error updating recording rules'
-          );
-          recordingError.code = jsonResponse.error?.code;
-          return Promise.reject(recordingError);
-        }
-
-        return jsonResponse;
+        await throwOnErrorResponse(res);
+        return res.json();
       });
     },
     [user]

@@ -2,12 +2,13 @@ rules_version='2'
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // No collections are defined yet (Firestore isn't used in the app code
-    // as of this writing). Default-deny everything except authenticated
-    // reads, so the database isn't wide open while it's unused.
-    // Replace with per-collection rules as soon as real data model lands.
+    // Browser clients do not access Firestore directly. Profiles, reports,
+    // resources, and classes are authorized by the Express server using the
+    // verified Firebase UID and firebase-admin, which bypasses these rules.
+    // Keep direct client access denied until a client data model has explicit
+    // ownership and teacher/student authorization rules.
     match /{document=**} {
-      allow read: if request.auth != null;
+      allow read: if false;
       allow write: if false;
     }
   }

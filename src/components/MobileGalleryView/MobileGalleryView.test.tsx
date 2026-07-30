@@ -12,7 +12,7 @@ jest.mock('swiper/react', () => ({
   SwiperSlide: jest.fn(),
 }));
 
-jest.mock('swiper', () => ({
+jest.mock('swiper/modules', () => ({
   Pagination: jest.fn(),
 }));
 

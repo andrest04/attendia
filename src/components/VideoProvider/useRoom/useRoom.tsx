@@ -24,7 +24,9 @@ export default function useRoom(localTracks: LocalTrack[], onError: Callback, op
   // reference captured before media was acquired still publishes the current tracks. This
   // is essential for auto-rejoin, where connect is invoked from a closure created at mount
   // (localTracks = []) right after media acquisition setStates the real tracks.
-  localTracksRef.current = localTracks;
+  useEffect(() => {
+    localTracksRef.current = localTracks;
+  }, [localTracks]);
 
   const connect = useCallback(
     token => {

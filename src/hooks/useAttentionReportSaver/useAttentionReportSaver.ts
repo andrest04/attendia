@@ -1,4 +1,4 @@
-import { useCallback, useContext, useRef } from 'react';
+import { useCallback, useContext, useEffect, useRef } from 'react';
 import { AttentionContext } from '../../components/AttentionProvider';
 import { AttentionReport, ReportEndReason } from '../../components/AttentionProvider/reportTypes';
 import {
@@ -48,17 +48,20 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
   // Latest-value refs (same pattern as remoteAttentionRef in AttentionProvider):
   // saveReport stays referentially stable while snapshotting fresh values.
   const attentionRef = useRef(attention);
-  attentionRef.current = attention;
   const roomRef = useRef(room);
-  roomRef.current = room;
   const saveRef = useRef(saveAttentionReport);
-  saveRef.current = saveAttentionReport;
   // A Room is only rendered after Video.connect succeeds. Capture that observed
   // connection time once, rather than deriving duration from the capped timeline.
-  const startedAtRef = useRef<number | null>(room?.sid ? Date.now() : null);
-  if (room?.sid && startedAtRef.current === null) {
-    startedAtRef.current = Date.now();
-  }
+  const startedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    attentionRef.current = attention;
+    roomRef.current = room;
+    saveRef.current = saveAttentionReport;
+    if (room?.sid && startedAtRef.current === null) {
+      startedAtRef.current = Date.now();
+    }
+  }, [attention, room, saveAttentionReport]);
 
   const buildReport = useCallback((endReason: ReportEndReason): AttentionReport | null => {
     const currentRoom = roomRef.current;

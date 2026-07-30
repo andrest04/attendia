@@ -20,13 +20,15 @@ export default function useLocalTracks() {
   const [videoTrack, setVideoTrack] = useState<LocalVideoTrack>();
   const [isAcquiringLocalTracks, setIsAcquiringLocalTracks] = useState(false);
 
-  // Kept in sync on every render so the unmount cleanup below always stops whatever
-  // tracks are currently held, without re-registering the effect (and without it
-  // capturing stale, already-replaced track instances) on every acquire/toggle.
+  // Kept in sync after each commit so the unmount cleanup below always stops whatever
+  // tracks are currently held, without re-registering that cleanup on every acquire/toggle.
   const audioTrackRef = useRef<LocalAudioTrack>();
   const videoTrackRef = useRef<LocalVideoTrack>();
-  audioTrackRef.current = audioTrack;
-  videoTrackRef.current = videoTrack;
+
+  useEffect(() => {
+    audioTrackRef.current = audioTrack;
+    videoTrackRef.current = videoTrack;
+  }, [audioTrack, videoTrack]);
 
   // If this hook ever unmounts (e.g. a dev hot-reload of VideoProvider) while a track is
   // still live, the MediaStreamTrack must be stopped here. Otherwise the browser keeps the

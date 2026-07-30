@@ -203,9 +203,12 @@ export const AttentionProvider: React.FC = ({ children }) => {
   // would otherwise close over the remoteAttention from the render where isActive
   // flipped true — empty at that instant, so every tick wrote 0 forever while the
   // gauge (computed each render) showed the real average. Mirror the latest value
-  // into a ref, updated every render, so push() always reads fresh telemetry.
+  // into a ref after each commit, so push() always reads fresh telemetry.
   const remoteAttentionRef = useRef(remoteAttention);
-  remoteAttentionRef.current = remoteAttention;
+
+  useEffect(() => {
+    remoteAttentionRef.current = remoteAttention;
+  }, [remoteAttention]);
 
   // Live timeline: accumulated group-attention snapshots, capped at TIMELINE_MAX_POINTS.
   // A ref holds the mutable list; state triggers re-renders only when a point is added.

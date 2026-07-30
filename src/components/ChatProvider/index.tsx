@@ -38,11 +38,7 @@ export const ChatProvider: React.FC = ({ children }) => {
         }
       };
 
-      client.on('stateChanged', handleClientInitialized);
-
-      return () => {
-        client.off('stateChanged', handleClientInitialized);
-      };
+      client.once('stateChanged', handleClientInitialized);
     },
     [onError]
   );

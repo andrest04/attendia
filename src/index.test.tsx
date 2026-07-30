@@ -5,7 +5,7 @@ import PrivateRoute from './components/PrivateRoute/PrivateRoute';
 
 jest.mock('react-dom', () => ({ render: jest.fn() }));
 jest.mock('swiper/react', () => ({ Swiper: jest.fn(), SwiperSlide: jest.fn() }));
-jest.mock('swiper', () => ({ Pagination: jest.fn() }));
+jest.mock('swiper/modules', () => ({ Pagination: jest.fn() }));
 
 describe('AppRoutes', () => {
   it('registers the private teacher profile route', () => {

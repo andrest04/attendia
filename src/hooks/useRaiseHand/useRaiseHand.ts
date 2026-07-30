@@ -61,8 +61,8 @@ export default function useRaiseHand(): RaiseHandApi {
     isHandRaisedRef.current = isHandRaised;
   }, [isHandRaised]);
 
-  const { send } = useClassDataChannel<ClassMessage>({
-    onMessage: (message, participant) => {
+  const onMessage = useCallback(
+    (message: ClassMessage, participant) => {
       if (message.type === 'raise-hand' && typeof message.raised === 'boolean') {
         const { raised } = message;
         const identity = participant.identity;
@@ -85,17 +85,29 @@ export default function useRaiseHand(): RaiseHandApi {
         sendRef.current({ type: 'raise-hand', raised: false });
       }
     },
-    onParticipantConnected: () => {
+    [room]
+  );
+
+  const onParticipantConnected = useCallback(() => {
       // Re-announce our raised hand to the late joiner — see the file header note.
       if (isHandRaisedRef.current) {
         sendRef.current({ type: 'raise-hand', raised: true });
       }
-    },
-    onParticipantDisconnected: participant => {
-      setRaisedHands(prev => prev.filter(id => id !== participant.identity));
-    },
+    }, []);
+
+  const onParticipantDisconnected = useCallback(participant => {
+    setRaisedHands(prev => prev.filter(id => id !== participant.identity));
+  }, []);
+
+  const { send } = useClassDataChannel<ClassMessage>({
+    onMessage,
+    onParticipantConnected,
+    onParticipantDisconnected,
   });
-  sendRef.current = send;
+
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
 
   const setHandRaised = useCallback(
     (raised: boolean) => {
