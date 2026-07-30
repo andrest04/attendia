@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import { useAppState } from '../../state';
@@ -58,7 +58,10 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   const [isEnding, setIsEnding] = useState(false);
   const sendRef = useRef<(message: SessionEndedMessage) => void>(() => undefined);
   const onProfessorEndRef = useRef<SessionEndOptions['onProfessorEnd']>(undefined);
-  onProfessorEndRef.current = options.onProfessorEnd;
+
+  useEffect(() => {
+    onProfessorEndRef.current = options.onProfessorEnd;
+  }, [options.onProfessorEnd]);
 
   const leaveAsEnded = useCallback(() => {
     clearRejoinSession();
@@ -66,14 +69,20 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
     room?.disconnect();
   }, [room, setSessionEndedByProfessor]);
 
-  const { send } = useClassDataChannel<SessionEndedMessage>({
-    onMessage: message => {
+  const onMessage = useCallback(
+    (message: SessionEndedMessage) => {
       if (message.type === 'session-ended') {
         leaveAsEnded();
       }
     },
-  });
-  sendRef.current = send;
+    [leaveAsEnded]
+  );
+
+  const { send } = useClassDataChannel<SessionEndedMessage>({ onMessage });
+
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
 
   const endSessionForAll = useCallback(async () => {
     const identity = room?.localParticipant?.identity;

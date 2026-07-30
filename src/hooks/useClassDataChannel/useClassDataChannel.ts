@@ -68,10 +68,13 @@ export default function useClassDataChannel<T>({
   const onParticipantConnectedRef = useRef(onParticipantConnected);
   const onParticipantDisconnectedRef = useRef(onParticipantDisconnected);
   const trackOptionsRef = useRef(trackOptions);
-  onMessageRef.current = onMessage;
-  onParticipantConnectedRef.current = onParticipantConnected;
-  onParticipantDisconnectedRef.current = onParticipantDisconnected;
-  trackOptionsRef.current = trackOptions;
+
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+    onParticipantConnectedRef.current = onParticipantConnected;
+    onParticipantDisconnectedRef.current = onParticipantDisconnected;
+    trackOptionsRef.current = trackOptions;
+  });
 
   const send = useCallback((payload: T) => {
     try {
@@ -85,7 +88,7 @@ export default function useClassDataChannel<T>({
   // publish promise so a fast unmount/remount never unpublishes a track Twilio is
   // still in the middle of publishing (which would leave a dangling publication).
   useEffect(() => {
-    if (!room || !room.localParticipant) return;
+    if (!room || !room.localParticipant) return () => {};
     const localParticipant = room.localParticipant;
     const options = trackOptionsRef.current;
     const dataTrack = options ? new LocalDataTrack(options) : new LocalDataTrack();
@@ -105,8 +108,8 @@ export default function useClassDataChannel<T>({
 
   // Receive loop: decode every remote message and dispatch it to onMessage.
   useEffect(() => {
-    if (!room || !room.localParticipant) return;
     const cleanups: Array<() => void> = [];
+    if (!room || !room.localParticipant) return () => cleanups.forEach(off => off());
     const attachedTracks = new Set<unknown>();
     // Per-participant bookkeeping so a disconnect can prune just that participant's
     // listeners/tracks, keeping attachedTracks and the listener set bounded across

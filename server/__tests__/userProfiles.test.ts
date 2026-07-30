@@ -584,7 +584,7 @@ describe('createDeleteAvatarHandler', () => {
 
   it('deletes a verified student avatar from their own profile', async () => {
     const { db, get } = makeDb();
-    const { fileStorage, del } = makeFileStorage();
+    const { fileStorage } = makeFileStorage();
     get.mockResolvedValue({ exists: true, data: () => storedProfile });
     const handler = createDeleteAvatarHandler(db, fileStorage);
     const res = makeRes();

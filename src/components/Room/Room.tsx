@@ -157,12 +157,10 @@ export default function Room() {
   const notifications = useShellNotifications(participants);
 
   const toggleLeftRail = useCallback(() => {
-    setLeftOpen(open => {
-      const next = !open;
-      if (next && isNarrowDesktop) setRightOpen(false);
-      return next;
-    });
-  }, [isNarrowDesktop]);
+    const next = !leftOpen;
+    setLeftOpen(next);
+    if (next && isNarrowDesktop) setRightOpen(false);
+  }, [isNarrowDesktop, leftOpen]);
   const openRightRail = useCallback(() => {
     if (isNarrowDesktop) setLeftOpen(false);
     setRightOpen(true);
@@ -206,11 +204,14 @@ export default function Room() {
   // Latest-value refs (same idiom as useAttentionReportSaver/useSessionEnd) keep
   // the listener registered once while always reading fresh values.
   const isTeacherRef = useRef(isTeacher);
-  isTeacherRef.current = isTeacher;
   const buildReportRef = useRef(buildReport);
-  buildReportRef.current = buildReport;
   const userRef = useRef(user);
-  userRef.current = user;
+
+  useEffect(() => {
+    isTeacherRef.current = isTeacher;
+    buildReportRef.current = buildReport;
+    userRef.current = user;
+  }, [isTeacher, buildReport, user]);
 
   useEffect(() => {
     const handleUnload = () => {

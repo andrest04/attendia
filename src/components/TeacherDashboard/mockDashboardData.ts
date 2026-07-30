@@ -5,37 +5,10 @@ import { DashboardData } from './types';
  *
  * Rules (same convention as AttentionProvider/mockAttentionData.ts):
  * - NO Math.random(), NO Date.now() — every value is hard-coded so tests are stable.
- * - The one date construction below, `new Date(2026, 6, day)`, is a FIXED calendar
- *   fact (July 2026's weekday alignment) rather than a read of the current time, so
- *   it is still fully deterministic across every run.
  * - Replace this module with real /classes, /history and /calendar endpoints when
  *   a backend for the rest of the dashboard exists. "Recursos" is no longer mocked
  *   here — see ResourcesTab, which fetches real data from useAppState().fetchResources.
  */
-
-// Session-count dots shown per day in the Calendario tab grid. Days not listed have 0.
-const JULY_2026_SESSION_COUNTS: Record<number, number> = {
-  1: 1,
-  3: 2,
-  6: 1,
-  8: 2,
-  10: 1,
-  13: 1,
-  15: 2,
-  17: 1,
-  20: 1,
-  22: 2,
-  24: 1,
-  27: 1,
-  29: 2,
-  31: 1,
-};
-
-/** 0 = Monday … 6 = Sunday, for a given day-of-month in July 2026. */
-export function getJulyWeekdayIndex(day: number): number {
-  const jsDay = new Date(2026, 6, day).getDay(); // 0 = Sunday … 6 = Saturday
-  return (jsDay + 6) % 7;
-}
 
 export const mockDashboardData: DashboardData = {
   professorName: 'Prof. García',
@@ -91,83 +64,4 @@ export const mockDashboardData: DashboardData = {
       highlighted: false,
     },
   ],
-
-  historyRows: [
-    {
-      id: 'hist-1',
-      className: 'Matemáticas — Grupo A',
-      date: '7 jul 2026',
-      duration: '1h 05min',
-      studentCount: 28,
-      attentionPercent: 72,
-      recordingStatus: 'lista',
-      hasDownload: true,
-    },
-    {
-      id: 'hist-2',
-      className: 'Álgebra Lineal',
-      date: '5 jul 2026',
-      duration: '1h 28min',
-      studentCount: 30,
-      attentionPercent: 85,
-      recordingStatus: 'lista',
-      hasDownload: true,
-    },
-    {
-      id: 'hist-3',
-      className: 'Cálculo III',
-      date: '4 jul 2026',
-      duration: '58min',
-      studentCount: 24,
-      attentionPercent: 45,
-      recordingStatus: 'no-disponible',
-      hasDownload: false,
-    },
-    {
-      id: 'hist-4',
-      className: 'Estadística Avanzada',
-      date: '3 jul 2026',
-      duration: '1h 10min',
-      studentCount: 29,
-      attentionPercent: 78,
-      recordingStatus: 'lista',
-      hasDownload: true,
-    },
-    {
-      id: 'hist-5',
-      className: 'Matemáticas — Grupo B',
-      date: '2 jul 2026',
-      duration: '1h 02min',
-      studentCount: 26,
-      attentionPercent: 91,
-      recordingStatus: 'lista',
-      hasDownload: true,
-    },
-    {
-      id: 'hist-6',
-      className: 'Álgebra Lineal',
-      date: '30 jun 2026',
-      duration: '1h 35min',
-      studentCount: 31,
-      attentionPercent: 67,
-      recordingStatus: 'lista',
-      hasDownload: true,
-    },
-  ],
-
-  calendarMonthLabel: 'Julio 2026',
-  calendarDays: Array.from({ length: 31 }, (_, i) => ({
-    day: i + 1,
-    sessionCount: JULY_2026_SESSION_COUNTS[i + 1] || 0,
-  })),
-  selectedDay: 8,
-  calendarSessionsForSelectedDay: [
-    { id: 'cal-session-1', title: 'Matemáticas — Gr. A', time: '10:00am', studentCount: 28 },
-    { id: 'cal-session-2', title: 'Cálculo III', time: '10:00am', studentCount: 25 },
-  ],
-  calendarSummary: {
-    scheduledSessions: 18,
-    expectedStudents: 115,
-    classHours: '22h',
-  },
 };

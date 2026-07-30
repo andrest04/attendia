@@ -70,9 +70,9 @@ export default function ToggleChatButton() {
   };
 
   useEffect(() => {
-    if (shouldAnimate) {
-      setTimeout(() => setShouldAnimate(false), ANIMATION_DURATION);
-    }
+    if (!shouldAnimate) return;
+    const timeoutId = window.setTimeout(() => setShouldAnimate(false), ANIMATION_DURATION);
+    return () => window.clearTimeout(timeoutId);
   }, [shouldAnimate]);
 
   useEffect(() => {

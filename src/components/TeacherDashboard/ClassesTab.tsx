@@ -506,10 +506,8 @@ export default function ClassesTab({
 
   const handleNewClassClick = () => {
     if (!onCreateClass) return;
-    setIsFormOpen(current => {
-      if (!current) creationIdempotencyKeyRef.current = createIdempotencyKey();
-      return !current;
-    });
+    if (!isFormOpen) creationIdempotencyKeyRef.current = createIdempotencyKey();
+    setIsFormOpen(!isFormOpen);
     setFormError(null);
   };
 
