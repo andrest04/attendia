@@ -33,6 +33,10 @@ export interface UserProfile {
   email: string;
   role: UserRole;
   avatarUrl?: string;
+  // True once the user has explicitly removed their photo (see createDeleteAvatarHandler).
+  // Distinct from simply having no avatarUrl: it tells the client to stop falling back to
+  // the auth provider's photo (e.g. Google) too. Cleared back to false on the next upload.
+  avatarRemoved?: boolean;
 }
 
 // Minimal structural slice of the Firestore API used below — keeps this unit
@@ -86,6 +90,7 @@ function toProfileResponse(data: { [key: string]: any }): UserProfile {
     // Prefer Appwrite for every new profile; only expose the validated legacy
     // data URL when the document has no Appwrite URL yet.
     avatarUrl: typeof data.avatarUrl === 'string' ? data.avatarUrl : legacyAvatarUrl(data),
+    avatarRemoved: data.avatarRemoved === true,
   };
 }
 
@@ -227,7 +232,7 @@ export function createPatchProfileHandler(db: ProfileDatabase): RequestHandler {
 
     const body = req.body ?? {};
     const fields = Object.keys(body);
-    const allowedFields = ['displayName', 'syncEmail'];
+    const allowedFields = ['displayName', 'syncEmail', 'restorePhoto'];
     if (!fields.length || fields.some(field => allowedFields.indexOf(field) === -1)) {
       res.status(400).json({ error: { message: 'invalid profile fields', explanation: 'Los datos del perfil no son válidos.' } });
       return;
@@ -247,6 +252,13 @@ export function createPatchProfileHandler(db: ProfileDatabase): RequestHandler {
       return;
     }
     if (body.syncEmail === true) update.email = firebaseUser.email || '';
+    // Clears the "I don't want a photo" flag set by DELETE /profile/avatar, so the
+    // client falls back to the auth provider's photo (e.g. Google) again.
+    if ('restorePhoto' in body && body.restorePhoto !== true) {
+      res.status(400).json({ error: { message: 'invalid restorePhoto', explanation: 'No pudimos restaurar la foto.' } });
+      return;
+    }
+    if (body.restorePhoto === true) update.avatarRemoved = false;
 
     try {
       const docRef = db.collection('users').doc(firebaseUser.uid);
@@ -310,7 +322,7 @@ export function createUploadAvatarHandler(db: ProfileDatabase, fileStorage: File
       });
       uploadedFileId = stored.fileId;
 
-      await docRef.set({ avatarUrl: stored.url, avatarFileId: stored.fileId }, { merge: true });
+      await docRef.set({ avatarUrl: stored.url, avatarFileId: stored.fileId, avatarRemoved: false }, { merge: true });
       uploadedFileId = undefined;
 
       if (previousFileId && previousFileId !== stored.fileId) {
@@ -319,7 +331,7 @@ export function createUploadAvatarHandler(db: ProfileDatabase, fileStorage: File
         );
       }
 
-      res.status(200).json(toProfileResponse({ ...profile, avatarUrl: stored.url }));
+      res.status(200).json(toProfileResponse({ ...profile, avatarUrl: stored.url, avatarRemoved: false }));
     } catch (err) {
       if (uploadedFileId) {
         fileStorage.delete(uploadedFileId).catch(cleanupError =>
@@ -332,7 +344,9 @@ export function createUploadAvatarHandler(db: ProfileDatabase, fileStorage: File
   };
 }
 
-// DELETE /profile/avatar. Deletes the stored file before clearing its profile fields.
+// DELETE /profile/avatar. Deletes the stored file before clearing its profile fields, and
+// marks avatarRemoved so the client stops falling back to the auth provider's photo too
+// (an explicit "I don't want a photo" state, not just "no custom avatar uploaded").
 // Same role guard as the PATCH handler.
 export const createAvatarUploadErrorHandler = (): ErrorRequestHandler => (err, _req, res, next) => {
   if (err && err.code === 'LIMIT_FILE_SIZE') {
@@ -370,8 +384,10 @@ export function createDeleteAvatarHandler(db: ProfileDatabase, fileStorage: File
         await fileStorage.delete(fileId);
       }
 
-      await docRef.set({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null }, { merge: true });
-      res.status(200).json(toProfileResponse({ ...profile, avatarUrl: undefined, avatarDataUrl: undefined }));
+      await docRef.set({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null, avatarRemoved: true }, { merge: true });
+      res
+        .status(200)
+        .json(toProfileResponse({ ...profile, avatarUrl: undefined, avatarDataUrl: undefined, avatarRemoved: true }));
     } catch (err) {
       logOperationalFailure({ event: 'avatar_delete_failed', operation: 'avatar_delete', uid: firebaseUser.uid, error: err });
       res.status(503).json({ error: { message: 'avatar delete failed', explanation: 'No pudimos eliminar la foto. Intenta de nuevo en unos segundos.' } });

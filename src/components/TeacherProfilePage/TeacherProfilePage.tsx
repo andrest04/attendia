@@ -1,6 +1,5 @@
 import React, { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import {
-  Avatar,
   Button,
   CircularProgress,
   Container,
@@ -15,10 +14,11 @@ import {
   Typography,
 } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
+import PersonIcon from '@material-ui/icons/Person';
 import { Link, Redirect } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import { useAppState } from '../../state';
-import { getProfessorInitials } from '../../utils/professorIdentity/professorIdentity';
+import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
 import DashboardHeader from '../TeacherDashboard/DashboardHeader';
 import AvatarCropModal from './AvatarCropModal';
 
@@ -62,7 +62,21 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   section: { display: 'grid', gap: theme.spacing(2) },
   avatarRow: { display: 'flex', alignItems: 'center', gap: theme.spacing(2), flexWrap: 'wrap' },
-  avatar: { width: 72, height: 72 },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: '50%',
+    backgroundColor: theme.palette.primary.main,
+    color: theme.palette.primary.contrastText,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarPhoto: {
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  },
   button: { whiteSpace: 'nowrap' },
   studentRoomEntry: {
     marginTop: theme.spacing(2),
@@ -113,6 +127,7 @@ export default function TeacherProfilePage() {
     updateTeacherProfile,
     uploadAvatar,
     deleteAvatar,
+    restoreProviderPhoto,
     changeEmail,
     changePassword,
     signOut,
@@ -124,10 +139,11 @@ export default function TeacherProfilePage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null | undefined>(profile?.avatarUrl);
+  const [avatarRemoved, setAvatarRemoved] = useState<boolean>(Boolean(profile?.avatarRemoved));
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
-  const [savingAction, setSavingAction] = useState<'name' | 'email' | 'password' | 'avatar' | 'deleteAvatar' | null>(
-    null
-  );
+  const [savingAction, setSavingAction] = useState<
+    'name' | 'email' | 'password' | 'avatar' | 'deleteAvatar' | 'restorePhoto' | null
+  >(null);
   const isSaving = savingAction !== null;
   const [isEmailConfirmOpen, setIsEmailConfirmOpen] = useState(false);
   const [nameSubmitted, setNameSubmitted] = useState(false);
@@ -144,10 +160,14 @@ export default function TeacherProfilePage() {
   ]);
   useEffect(() => setEmail(firebaseUser?.email || profile?.email || ''), [profile?.email, firebaseUser?.email]);
   useEffect(() => setAvatarUrl(profile?.avatarUrl), [profile?.avatarUrl]);
+  useEffect(() => setAvatarRemoved(Boolean(profile?.avatarRemoved)), [profile?.avatarRemoved]);
 
   if (!firebaseUser || (profile?.role !== 'teacher' && profile?.role !== 'student')) return <Redirect to="/" />;
 
-  const run = async (action: 'name' | 'email' | 'password' | 'avatar' | 'deleteAvatar', work: () => Promise<void>) => {
+  const run = async (
+    action: 'name' | 'email' | 'password' | 'avatar' | 'deleteAvatar' | 'restorePhoto',
+    work: () => Promise<void>
+  ) => {
     setSavingAction(action);
     try {
       await work();
@@ -197,6 +217,7 @@ export default function TeacherProfilePage() {
     run('avatar', async () => {
       const updatedProfile = await uploadAvatar!(compressedFile);
       setAvatarUrl(updatedProfile.avatarUrl);
+      setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
       enqueueSnackbar('Foto actualizada.', { variant: 'success' });
     });
   };
@@ -244,7 +265,7 @@ export default function TeacherProfilePage() {
     });
   };
 
-  const photo = avatarUrl || firebaseUser.photoURL || undefined;
+  const photo = resolveProfilePhotoURL(avatarUrl, avatarRemoved, firebaseUser.photoURL);
   const profileName = profile.displayName || firebaseUser.displayName || '';
   return (
     <div className={classes.root} data-testid="profile-page-shell">
@@ -286,9 +307,13 @@ export default function TeacherProfilePage() {
                   Foto
                 </Typography>
                 <div className={classes.avatarRow}>
-                  <Avatar className={classes.avatar} src={photo}>
-                    {name.slice(0, 1).toUpperCase()}
-                  </Avatar>
+                  <span
+                    className={photo ? `${classes.avatar} ${classes.avatarPhoto}` : classes.avatar}
+                    style={photo ? { backgroundImage: `url(${photo})` } : undefined}
+                    data-testid="teacher-profile-avatar"
+                  >
+                    {!photo && <PersonIcon style={{ fontSize: 40 }} />}
+                  </span>
                   <Button className={classes.button} component="label" variant="outlined" disabled={isSaving}>
                     {savingAction === 'avatar' ? <CircularProgress size={18} color="inherit" /> : 'Cambiar foto'}
                     <input
@@ -299,7 +324,7 @@ export default function TeacherProfilePage() {
                       data-testid="profile-avatar-input"
                     />
                   </Button>
-                  {avatarUrl && (
+                  {photo ? (
                     <Button
                       className={classes.button}
                       disabled={isSaving}
@@ -307,16 +332,35 @@ export default function TeacherProfilePage() {
                         run('deleteAvatar', async () => {
                           const updatedProfile = await deleteAvatar!();
                           setAvatarUrl(updatedProfile.avatarUrl);
+                          setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
                           enqueueSnackbar('Foto eliminada.', { variant: 'success' });
                         })
                       }
                     >
-                      {savingAction === 'deleteAvatar' ? (
-                        <CircularProgress size={18} color="inherit" />
-                      ) : (
-                        'Usar foto de Google'
-                      )}
+                      {savingAction === 'deleteAvatar' ? <CircularProgress size={18} color="inherit" /> : 'Eliminar foto'}
                     </Button>
+                  ) : (
+                    avatarRemoved &&
+                    firebaseUser.photoURL && (
+                      <Button
+                        className={classes.button}
+                        disabled={isSaving}
+                        onClick={() =>
+                          run('restorePhoto', async () => {
+                            const updatedProfile = await restoreProviderPhoto!();
+                            setAvatarUrl(updatedProfile.avatarUrl);
+                            setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
+                            enqueueSnackbar('Foto restaurada.', { variant: 'success' });
+                          })
+                        }
+                      >
+                        {savingAction === 'restorePhoto' ? (
+                          <CircularProgress size={18} color="inherit" />
+                        ) : (
+                          'Usar foto de Google'
+                        )}
+                      </Button>
+                    )
                   )}
                 </div>
               </section>

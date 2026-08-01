@@ -3,6 +3,7 @@ import { Button, Menu, MenuItem } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import NotificationsNoneIcon from '@material-ui/icons/NotificationsNone';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import PersonIcon from '@material-ui/icons/Person';
 import { useHistory } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 
@@ -208,8 +209,9 @@ export default function DashboardHeader({
                   className={classes.avatar}
                   style={identityColor === 'student' ? { backgroundColor: '#d97706' } : undefined}
                   data-testid="dashboard-header-avatar-initials"
+                  aria-label={professorInitials}
                 >
-                  {professorInitials}
+                  <PersonIcon style={{ fontSize: 20 }} />
                 </span>
               )}
               <span className={classes.name}>{professorName}</span>
@@ -250,8 +252,9 @@ export default function DashboardHeader({
                 className={classes.avatar}
                 style={identityColor === 'student' ? { backgroundColor: '#d97706' } : undefined}
                 data-testid="dashboard-header-avatar-initials"
+                aria-label={professorInitials}
               >
-                {professorInitials}
+                <PersonIcon style={{ fontSize: 20 }} />
               </span>
             )}
             <span className={classes.name}>{professorName}</span>

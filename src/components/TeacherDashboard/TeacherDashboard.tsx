@@ -16,7 +16,7 @@ import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { toClassSessionDisplayName } from '../PreJoinScreens/classSessionTypes';
 import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
-import { getProfessorInitials } from '../../utils/professorIdentity/professorIdentity';
+import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
 import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
 import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
 import { buildReportStats, computeTotalHoursTaught } from './reportStats';
@@ -396,7 +396,7 @@ export default function TeacherDashboard({
       <DashboardHeader
         professorName={professorName}
         professorInitials={professorInitials}
-        professorPhotoURL={profile?.avatarUrl || user?.photoURL || undefined}
+        professorPhotoURL={resolveProfilePhotoURL(profile?.avatarUrl, profile?.avatarRemoved, user?.photoURL)}
       />
       <div className={classes.body}>
         <DashboardSidebar

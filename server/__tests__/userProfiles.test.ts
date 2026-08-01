@@ -67,6 +67,7 @@ describe('createGetProfileHandler', () => {
       displayName: 'Ana García',
       email: 'ana@example.com',
       role: 'student',
+      avatarRemoved: false,
     });
   });
 
@@ -211,6 +212,7 @@ describe('createPostProfileHandler', () => {
       displayName: 'Ana García',
       email: 'ana@example.com',
       role: 'student',
+      avatarRemoved: false,
     });
   });
 
@@ -362,6 +364,31 @@ describe('createPatchProfileHandler', () => {
     expect(set).toHaveBeenCalledWith({ displayName: 'Ana docente' }, { merge: true });
     expect(res.status).toHaveBeenCalledWith(200);
   });
+
+  it('clears avatarRemoved when restorePhoto is true', async () => {
+    const { db, get, set } = makeDb();
+    get.mockResolvedValue({ exists: true, data: () => ({ ...storedProfile, role: 'teacher', avatarRemoved: true }) });
+    const handler = createPatchProfileHandler(db);
+    const res = makeRes();
+
+    await handler({ body: { restorePhoto: true } } as any, res, jest.fn());
+
+    expect(set).toHaveBeenCalledWith({ avatarRemoved: false }, { merge: true });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarRemoved: false }));
+  });
+
+  it('rejects a falsy restorePhoto value before touching Firestore', async () => {
+    const { db, get, set } = makeDb();
+    const handler = createPatchProfileHandler(db);
+    const res = makeRes();
+
+    await handler({ body: { restorePhoto: false } } as any, res, jest.fn());
+
+    expect(get).not.toHaveBeenCalled();
+    expect(set).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(400);
+  });
 });
 
 describe('createUploadAvatarHandler', () => {
@@ -385,7 +412,7 @@ describe('createUploadAvatarHandler', () => {
       fileName: expect.stringContaining('uid-1-avatar-'),
     });
     expect(set).toHaveBeenCalledWith(
-      { avatarUrl: 'https://appwrite.example/avatar-file-1', avatarFileId: 'avatar-file-1' },
+      { avatarUrl: 'https://appwrite.example/avatar-file-1', avatarFileId: 'avatar-file-1', avatarRemoved: false },
       { merge: true }
     );
     expect(res.status).toHaveBeenCalledWith(200);
@@ -531,11 +558,14 @@ describe('createDeleteAvatarHandler', () => {
     await Promise.resolve();
 
     expect(doc).toHaveBeenCalledWith('uid-1');
-    expect(set).toHaveBeenCalledWith({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null }, { merge: true });
+    expect(set).toHaveBeenCalledWith(
+      { avatarUrl: null, avatarFileId: null, avatarDataUrl: null, avatarRemoved: true },
+      { merge: true }
+    );
     expect(del).toHaveBeenCalledWith('file-x');
     expect(del.mock.invocationCallOrder[0]).toBeLessThan(set.mock.invocationCallOrder[0]);
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: undefined }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: undefined, avatarRemoved: true }));
   });
 
   it('does not clear the profile when Appwrite avatar deletion fails', async () => {
@@ -564,7 +594,10 @@ describe('createDeleteAvatarHandler', () => {
 
     await handler({} as any, res, jest.fn());
 
-    expect(set).toHaveBeenCalledWith({ avatarUrl: null, avatarFileId: null, avatarDataUrl: null }, { merge: true });
+    expect(set).toHaveBeenCalledWith(
+      { avatarUrl: null, avatarFileId: null, avatarDataUrl: null, avatarRemoved: true },
+      { merge: true }
+    );
     expect(del).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
   });

@@ -5,7 +5,7 @@ import DashboardHeader from '../TeacherDashboard/DashboardHeader';
 import CreatePasswordDialog from './CreatePasswordDialog/CreatePasswordDialog';
 import { useHistory, useLocation } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
-import { getProfessorInitials } from '../../utils/professorIdentity/professorIdentity';
+import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // ── Full-page layout ─────────────────────────────────────────────────────────
@@ -369,7 +369,7 @@ const IntroContainer = (props: IntroContainerProps) => {
 
   const professorName = profile?.displayName || user?.displayName || undefined;
   const professorInitials = professorName ? getProfessorInitials(professorName) : undefined;
-  const professorPhotoURL = profile?.avatarUrl || user?.photoURL || undefined;
+  const professorPhotoURL = resolveProfilePhotoURL(profile?.avatarUrl, profile?.avatarRemoved, user?.photoURL);
 
   // Hidden when "Volver al panel" is showing (roomNameStep reached from the TeacherDashboard):
   // that link is already the way back, so the account menu here would be redundant.
