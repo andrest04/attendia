@@ -41,6 +41,18 @@ describe('calendarView', () => {
 });
 
 describe('CalendarTab', () => {
+  // CalendarTab defaults its visible month to the real current date (see
+  // useState(() => monthStart(new Date())) in CalendarTab.tsx). Pin "today" to the
+  // fixture classes' month so the test doesn't silently rot once the real calendar
+  // moves past July 2026.
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 6, 8));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('renders real class cards and starts the selected persisted class', () => {
     const onStartClass = jest.fn();
     const wrapper = shallow(

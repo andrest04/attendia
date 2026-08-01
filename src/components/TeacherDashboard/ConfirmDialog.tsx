@@ -1,5 +1,13 @@
 import React from 'react';
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@material-ui/core';
+import {
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+} from '@material-ui/core';
 
 interface Props {
   open: boolean;
@@ -43,7 +51,7 @@ export default function ConfirmDialog({
           autoFocus
           data-testid="dashboard-confirm-dialog-confirm"
         >
-          {confirmLabel}
+          {isConfirming ? <CircularProgress size={18} color="inherit" /> : confirmLabel}
         </Button>
       </DialogActions>
     </Dialog>
