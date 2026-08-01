@@ -104,6 +104,16 @@ const useStyles = makeStyles((theme: Theme) => ({
     lineHeight: '18px',
     marginBottom: 24,
   },
+  signedInAs: {
+    fontFamily: 'Inter, sans-serif',
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 20,
+  },
+  signedInAsEmail: {
+    fontWeight: 600,
+    color: '#1d2f6f',
+  },
 
   // ── Auth form elements ───────────────────────────────────────────────────────
   formTitle: {
@@ -455,6 +465,10 @@ export default function LoginPage() {
             </Typography>
             <Typography className={classes.formSubtitle}>
               Selecciona tu rol para terminar de configurar tu cuenta.
+            </Typography>
+            <Typography className={classes.signedInAs}>
+              Conectado como{' '}
+              <span className={classes.signedInAsEmail}>{user?.displayName || user?.email}</span>
             </Typography>
             <form onSubmit={handleCompleteProfile}>
               <RoleSelector value={completionRole} onChange={setCompletionRole} />
