@@ -88,9 +88,12 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: theme.palette.text.primary,
     border: 0,
     background: 'transparent',
+    transition: theme.transitions.create('background-color', { duration: 120 }),
+    '&:hover': { backgroundColor: '#eef2f9' },
   },
   dayCellEmpty: { cursor: 'default' },
-  dayCellSelected: { backgroundColor: '#0f1e45', color: '#ffffff' },
+  dayCellSelected: { backgroundColor: '#0f1e45', color: '#ffffff', '&:hover': { backgroundColor: '#0f1e45' } },
+  dayCellMuted: { color: theme.palette.text.disabled, cursor: 'default' },
   dots: { display: 'flex', gap: 2 },
   dot: { width: 4, height: 4, borderRadius: '50%', backgroundColor: theme.palette.primary.main },
   dotSelected: { backgroundColor: '#ffffff' },
@@ -289,10 +292,11 @@ export default function CalendarTab({
       </div>
     );
 
-  const cells: Array<typeof days[0] | null> = [
-    ...Array.from({ length: mondayLeadingBlanks(visibleMonth) }, () => null),
-    ...days,
-  ];
+  const leadingCount = mondayLeadingBlanks(visibleMonth);
+  const prevMonthLastDay = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 0).getDate();
+  const leadingDays = Array.from({ length: leadingCount }, (_, index) => prevMonthLastDay - leadingCount + 1 + index);
+  const trailingCount = (7 - ((leadingCount + days.length) % 7)) % 7;
+  const trailingDays = Array.from({ length: trailingCount }, (_, index) => index + 1);
   return (
     <div className={styles.root} data-testid="dashboard-calendar-tab">
       <div className={styles.calendarCard}>
@@ -338,33 +342,39 @@ export default function CalendarTab({
           ))}
         </div>
         <div className={styles.daysGrid} data-testid="dashboard-calendar-grid">
-          {cells.map((day, index) =>
-            !day ? (
-              <div key={`blank-${index}`} className={clsx(styles.dayCell, styles.dayCellEmpty)} />
-            ) : (
-              <button
-                key={day.day}
-                type="button"
-                aria-label={`${day.day} de ${monthLabel}`}
-                onClick={() => setSelectedDay(day.day)}
-                className={clsx(styles.dayCell, { [styles.dayCellSelected]: day.day === effectiveDay })}
-                data-testid={`dashboard-calendar-day-${day.day}`}
-                data-session-count={day.classes.length}
-              >
-                {day.day}
-                {day.classes.length > 0 && (
-                  <span className={styles.dots}>
-                    {day.classes.map(classRecord => (
-                      <span
-                        key={classRecord.id}
-                        className={clsx(styles.dot, { [styles.dotSelected]: day.day === effectiveDay })}
-                      />
-                    ))}
-                  </span>
-                )}
-              </button>
-            )
-          )}
+          {leadingDays.map(day => (
+            <div key={`prev-${day}`} className={clsx(styles.dayCell, styles.dayCellMuted)}>
+              {day}
+            </div>
+          ))}
+          {days.map(day => (
+            <button
+              key={day.day}
+              type="button"
+              aria-label={`${day.day} de ${monthLabel}`}
+              onClick={() => setSelectedDay(day.day)}
+              className={clsx(styles.dayCell, { [styles.dayCellSelected]: day.day === effectiveDay })}
+              data-testid={`dashboard-calendar-day-${day.day}`}
+              data-session-count={day.classes.length}
+            >
+              {day.day}
+              {day.classes.length > 0 && (
+                <span className={styles.dots}>
+                  {day.classes.map(classRecord => (
+                    <span
+                      key={classRecord.id}
+                      className={clsx(styles.dot, { [styles.dotSelected]: day.day === effectiveDay })}
+                    />
+                  ))}
+                </span>
+              )}
+            </button>
+          ))}
+          {trailingDays.map(day => (
+            <div key={`next-${day}`} className={clsx(styles.dayCell, styles.dayCellMuted)}>
+              {day}
+            </div>
+          ))}
         </div>
       </div>
       <div className={styles.sidePanel}>
