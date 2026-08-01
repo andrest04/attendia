@@ -167,6 +167,20 @@ describe('TeacherDashboard', () => {
     expect(onTabChange).toHaveBeenCalledWith('historial');
   });
 
+  it('sends the header logo click to "clases" so it works as a "go home" control', () => {
+    const onTabChange = jest.fn();
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onTabChange={onTabChange} />);
+
+    wrapper.find(DashboardHeader).prop('onLogoClick')!();
+    expect(onTabChange).toHaveBeenCalledWith('clases');
+  });
+
+  it('leaves the header logo non-clickable when there is no onTabChange to navigate with', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
+
+    expect(wrapper.find(DashboardHeader).prop('onLogoClick')).toBeUndefined();
+  });
+
   it('opens the embedded quick-start panel (sidebar stays put) on "Iniciar clase", instead of navigating away', () => {
     const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
 

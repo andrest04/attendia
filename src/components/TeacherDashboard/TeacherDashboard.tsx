@@ -397,6 +397,7 @@ export default function TeacherDashboard({
         professorName={professorName}
         professorInitials={professorInitials}
         professorPhotoURL={resolveProfilePhotoURL(profile?.avatarUrl, profile?.avatarRemoved, user?.photoURL)}
+        onLogoClick={onTabChange ? () => onTabChange('clases') : undefined}
       />
       <div className={classes.body}>
         <DashboardSidebar
