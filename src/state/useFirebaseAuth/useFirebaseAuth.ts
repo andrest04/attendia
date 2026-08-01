@@ -55,6 +55,8 @@ export interface UserProfile {
   email: string;
   role: ClassSessionRole;
   avatarUrl?: string;
+  // True once the user explicitly removed their photo — see server/userProfiles.ts.
+  avatarRemoved?: boolean;
 }
 
 // Shared non-OK handling for the /profile and /reports requests: surface the
@@ -104,7 +106,7 @@ async function postProfileRequest(user: User, displayName: string, role: ClassSe
 
 async function patchProfileRequest(
   user: User,
-  input: { displayName?: string; syncEmail?: true }
+  input: { displayName?: string; syncEmail?: true; restorePhoto?: true }
 ): Promise<UserProfile> {
   const idToken = await user.getIdToken(true);
   const response = await fetch('/profile', {
@@ -803,6 +805,17 @@ export default function useFirebaseAuth() {
     return updatedProfile;
   }, [user, applyProfile]);
 
+  // Clears avatarRemoved so the client resumes falling back to the auth provider's
+  // photo (e.g. Google) — the counterpart to deleteAvatar's opt-out.
+  const restoreProviderPhoto = useCallback(async () => {
+    if (!user) {
+      return Promise.reject(new Error('Cannot restore a photo without an authenticated user'));
+    }
+    const updatedProfile = await patchProfileRequest(user, { restorePhoto: true });
+    applyProfile(updatedProfile);
+    return updatedProfile;
+  }, [user, applyProfile]);
+
   const fetchClasses = useCallback(() => {
     if (!user) {
       return Promise.reject(new Error('Cannot fetch classes without an authenticated user'));
@@ -882,6 +895,7 @@ export default function useFirebaseAuth() {
     deleteResource,
     uploadAvatar,
     deleteAvatar,
+    restoreProviderPhoto,
     fetchClasses,
     createClass,
     deleteClass,

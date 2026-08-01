@@ -31,6 +31,7 @@ export interface StateContextType {
   // FileStorage port on the server — see server/fileStorage.ts).
   uploadAvatar?(file: File): Promise<UserProfile>;
   deleteAvatar?(): Promise<UserProfile>;
+  restoreProviderPhoto?(): Promise<UserProfile>;
   changeEmail?(email: string, currentPassword?: string): Promise<UserProfile>;
   changePassword?(currentPassword: string | undefined, newPassword: string): Promise<void>;
   // Persistence of per-class attention reports (teacher-only, enforced server-side).

@@ -35,6 +35,9 @@ const teacherState = (overrides = {}) => ({
   updateTeacherProfile: jest.fn(() => Promise.resolve()),
   uploadAvatar: jest.fn(() => Promise.resolve({ displayName: 'Ana', email: 'ana@example.com', role: 'teacher' })),
   deleteAvatar: jest.fn(() => Promise.resolve({ displayName: 'Ana', email: 'ana@example.com', role: 'teacher' })),
+  restoreProviderPhoto: jest.fn(() =>
+    Promise.resolve({ displayName: 'Ana', email: 'ana@example.com', role: 'teacher' })
+  ),
   changeEmail: jest.fn(() => Promise.resolve()),
   changePassword: jest.fn(() => Promise.resolve()),
   ...overrides,
@@ -154,10 +157,46 @@ describe('TeacherProfilePage', () => {
     mockUseAppState.mockReturnValue(state);
     const wrapper = shallow(<TeacherProfilePage />);
 
-    await button(wrapper, 'Usar foto de Google').prop('onClick')!({});
+    await button(wrapper, 'Eliminar foto').prop('onClick')!({});
 
     expect(state.deleteAvatar).toHaveBeenCalled();
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Foto eliminada.', { variant: 'success' });
+  });
+
+  it('offers to remove a Google-only photo too, then offers to bring it back without re-uploading', async () => {
+    const state = teacherState({
+      profile: { displayName: 'Ana', email: 'ana@example.com', role: 'teacher' }, // no avatarUrl
+      deleteAvatar: jest.fn(() =>
+        Promise.resolve({ displayName: 'Ana', email: 'ana@example.com', role: 'teacher', avatarRemoved: true })
+      ),
+      restoreProviderPhoto: jest.fn(() =>
+        Promise.resolve({ displayName: 'Ana', email: 'ana@example.com', role: 'teacher', avatarRemoved: false })
+      ),
+    });
+    mockUseAppState.mockReturnValue(state);
+    const wrapper = shallow(<TeacherProfilePage />);
+
+    expect(wrapper.find('[data-testid="teacher-profile-avatar"]').prop('style')).toEqual({
+      backgroundImage: 'url(https://google.example/avatar.jpg)',
+    });
+
+    await button(wrapper, 'Eliminar foto').prop('onClick')!({});
+    wrapper.update();
+
+    expect(state.deleteAvatar).toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="teacher-profile-avatar"]').prop('style')).toBeUndefined();
+    expect(wrapper.findWhere((node: any) => typeof node.prop('onClick') === 'function' && node.text() === 'Eliminar foto').exists()).toBe(
+      false
+    );
+
+    await button(wrapper, 'Usar foto de Google').prop('onClick')!({});
+    wrapper.update();
+
+    expect(state.restoreProviderPhoto).toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="teacher-profile-avatar"]').prop('style')).toEqual({
+      backgroundImage: 'url(https://google.example/avatar.jpg)',
+    });
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Foto restaurada.', { variant: 'success' });
   });
 
   it('asks for confirmation before saving an email change, and does nothing on cancel', () => {
