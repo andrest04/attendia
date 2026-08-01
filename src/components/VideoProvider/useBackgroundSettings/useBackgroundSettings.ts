@@ -175,6 +175,7 @@ export default function useBackgroundSettings(videoTrack: LocalVideoTrack | unde
       if (!blurProcessor) {
         blurProcessor = new GaussianBlurBackgroundProcessor({
           assetsPath: virtualBackgroundAssets,
+          blurFilterRadius: 15,
         });
         await blurProcessor.loadModel();
       }

@@ -1,0 +1,30 @@
+diff --git a/node_modules/@twilio/video-processors/es5/utils/TwilioTFLite.js b/node_modules/@twilio/video-processors/es5/utils/TwilioTFLite.js
+index 37c665b..77aa0c2 100644
+--- a/node_modules/@twilio/video-processors/es5/utils/TwilioTFLite.js
++++ b/node_modules/@twilio/video-processors/es5/utils/TwilioTFLite.js
+@@ -41,6 +41,7 @@ var isWebWorker = typeof WorkerGlobalScope !== 'undefined'
+     && self instanceof WorkerGlobalScope;
+ var loadedScripts = new Set();
+ var model;
++var silentModuleConfig = { print: function () { }, printErr: function () { } };
+ /**
+  * @private
+  */
+@@ -162,7 +163,7 @@ var TwilioTFLite = /** @class */ (function () {
+                     case 1:
+                         _d.sent();
+                         _a = this;
+-                        return [4 /*yield*/, createTwilioTFLiteSIMDModule()];
++                        return [4 /*yield*/, createTwilioTFLiteSIMDModule(silentModuleConfig)];
+                     case 2:
+                         _a._tflite = _d.sent();
+                         this._isSimdEnabled = true;
+@@ -173,7 +174,7 @@ var TwilioTFLite = /** @class */ (function () {
+                     case 4:
+                         _d.sent();
+                         _c = this;
+-                        return [4 /*yield*/, createTwilioTFLiteModule()];
++                        return [4 /*yield*/, createTwilioTFLiteModule(silentModuleConfig)];
+                     case 5:
+                         _c._tflite = _d.sent();
+                         this._isSimdEnabled = false;
