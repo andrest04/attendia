@@ -343,7 +343,7 @@ export function createPatchNotificationReadHandler(
           throw notFound;
         }
         res.status(200).json({
-          notification: toResponse({ id, data: committedItem.data }, millis(committedState.readBefore)),
+          notification: toResponse({ id, data: () => committedItem.data() }, millis(committedState.readBefore)),
           unreadCount: Number.isSafeInteger(committedState.unreadCount) ? committedState.unreadCount : 0,
         });
         return true;
