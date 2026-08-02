@@ -1,4 +1,4 @@
-import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
+import { buildExpiredSessions, buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
 const NOW_MS = new Date(2026, 6, 8, 10, 0, 0).getTime();
@@ -168,5 +168,46 @@ describe('findExpiredClasses', () => {
     const upcoming = makeClass({ id: 'upcoming', scheduledAtMs: NOW_MS + 60 * 60 * 1000 });
 
     expect(findExpiredClasses([upcoming], NOW_MS)).toEqual([]);
+  });
+});
+
+describe('buildExpiredSessions', () => {
+  it('returns an empty array for an empty input', () => {
+    expect(buildExpiredSessions([], NOW_MS)).toEqual([]);
+  });
+
+  it('excludes upcoming, started, and completed classes', () => {
+    const upcoming = makeClass({ id: 'upcoming', scheduledAtMs: NOW_MS + 60 * 60 * 1000 });
+    const started = makeClass({ id: 'started', scheduledAtMs: NOW_MS - 20 * 60 * 1000, status: 'started' });
+    const completed = makeClass({ id: 'completed', scheduledAtMs: NOW_MS - 20 * 60 * 1000, status: 'completed' });
+
+    expect(buildExpiredSessions([upcoming, started, completed], NOW_MS)).toEqual([]);
+  });
+
+  it('sorts by scheduledAtMs ascending (most overdue first), never highlights, and maps the same fields', () => {
+    const recent = makeClass({ id: 'recent', title: 'Historia', roomName: 'historia', studentCount: 12, scheduledAtMs: NOW_MS - 20 * 60 * 1000 });
+    const oldest = makeClass({ id: 'oldest', scheduledAtMs: NOW_MS - 2 * 24 * 60 * 60 * 1000 });
+
+    const result = buildExpiredSessions([recent, oldest], NOW_MS);
+
+    expect(result.map(s => s.id)).toEqual(['oldest', 'recent']);
+    expect(result.every(s => s.highlighted === false)).toBe(true);
+    const historia = result.find(s => s.id === 'recent')!;
+    expect(historia.title).toBe('Historia');
+    expect(historia.code).toBe('historia');
+    expect(historia.studentCount).toBe(12);
+  });
+
+  it('formats relativeLabel in minutes, hours, and days overdue', () => {
+    const minutesAgo = makeClass({ id: 'minutes-ago', scheduledAtMs: NOW_MS - 20 * 60 * 1000 });
+    const hoursAgo = makeClass({ id: 'hours-ago', scheduledAtMs: NOW_MS - 5 * 60 * 60 * 1000 });
+    const daysAgo = makeClass({ id: 'days-ago', scheduledAtMs: NOW_MS - 3 * 24 * 60 * 60 * 1000 });
+
+    const result = buildExpiredSessions([minutesAgo, hoursAgo, daysAgo], NOW_MS);
+    const byId = Object.fromEntries(result.map(s => [s.id, s.relativeLabel]));
+
+    expect(byId['minutes-ago']).toBe('Venció hace 20 min');
+    expect(byId['hours-ago']).toBe('Venció hace 5h');
+    expect(byId['days-ago']).toBe('Venció hace 3d');
   });
 });

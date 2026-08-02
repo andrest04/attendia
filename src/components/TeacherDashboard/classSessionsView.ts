@@ -61,6 +61,49 @@ export function findExpiredClasses(classes: ClassRecord[], nowMs: number): Class
   );
 }
 
+function formatOverdueLabel(scheduledAtMs: number, nowMs: number): string {
+  const diffMinutes = Math.max(0, Math.round((nowMs - scheduledAtMs) / 60000));
+  if (diffMinutes < 60) return `Venció hace ${diffMinutes} min`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `Venció hace ${diffHours}h`;
+  return `Venció hace ${Math.floor(diffHours / 24)}d`;
+}
+
+/**
+ * Same UpcomingSession shape as buildUpcomingSessions, but for the expired set
+ * findExpiredClasses returns — lets ClassesTab render them with the same card,
+ * grayed out, instead of only exposing them through the bulk-cancel count.
+ */
+export function buildExpiredSessions(classes: ClassRecord[], nowMs: number): UpcomingSession[] {
+  const now = new Date(nowMs);
+
+  const expired = classes
+    .filter(
+      (classRecord): classRecord is ClassRecord & { scheduledAtMs: number } =>
+        classRecord.scheduledAtMs !== null &&
+        classRecord.status !== 'started' &&
+        classRecord.status !== 'completed' &&
+        classRecord.scheduledAtMs < nowMs - GRACE_PERIOD_MS
+    )
+    .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs);
+
+  return expired.map(classRecord => {
+    const sessionDate = new Date(classRecord.scheduledAtMs);
+    return {
+      id: classRecord.id,
+      title: classRecord.title,
+      code: classRecord.roomName,
+      roomName: classRecord.roomName,
+      classId: classRecord.id,
+      studentCount: classRecord.studentCount,
+      time: formatTimeLabel(sessionDate),
+      dayLabel: formatDayLabel(sessionDate, now),
+      relativeLabel: formatOverdueLabel(classRecord.scheduledAtMs, nowMs),
+      highlighted: false,
+    };
+  });
+}
+
 /**
  * Pure transform from real ClassRecord[] + an injected clock into the
  * UpcomingSession[] shape ClassesTab renders. Never reads Date.now() itself —

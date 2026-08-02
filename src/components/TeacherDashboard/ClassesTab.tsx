@@ -193,6 +193,30 @@ const useStyles = makeStyles((theme: Theme) => ({
   sessionCardHighlighted: {
     border: `2px solid ${theme.palette.primary.main}`,
   },
+  sessionCardExpired: {
+    filter: 'grayscale(1)',
+    opacity: 0.75,
+  },
+  expiredCancelButton: {
+    transition: 'background-color 0.15s ease, border-color 0.15s ease',
+    '&:hover:not(:disabled)': {
+      backgroundColor: '#f1f5f9',
+      borderColor: '#cbd5e1',
+    },
+    '&:disabled': {
+      cursor: 'default',
+    },
+  },
+  expiredSection: {
+    marginTop: theme.spacing(3),
+  },
+  expiredSectionTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 700,
+    fontSize: '1rem',
+    color: theme.palette.text.secondary,
+    marginBottom: theme.spacing(2),
+  },
   sessionBadges: {
     display: 'flex',
     gap: theme.spacing(1),
@@ -428,6 +452,9 @@ interface Props {
   /** Firebase-mode only: count of scheduled classes whose grace period elapsed
    * without being started — the "Cancelar vencidas" button only renders above 0. */
   expiredClassesCount?: number;
+  /** Same expired set as expiredClassesCount, in the same card shape as `sessions` —
+   * rendered grayed out in their own "Sesiones vencidas" section below. */
+  expiredSessions?: UpcomingSession[];
   onCancelExpiredClasses?: () => void;
   isCancellingExpired?: boolean;
   cancelExpiredError?: string | null;
@@ -464,6 +491,7 @@ export default function ClassesTab({
   cancelError,
   onRetryCancel,
   expiredClassesCount = 0,
+  expiredSessions = [],
   onCancelExpiredClasses,
   isCancellingExpired,
   cancelExpiredError,
@@ -820,6 +848,51 @@ export default function ClassesTab({
           </div>
         ))}
       </div>
+
+      {expiredSessions.length > 0 && (
+        <div className={classes.expiredSection} data-testid="dashboard-expired-sessions-section">
+          <div className={classes.expiredSectionTitle}>Sesiones vencidas</div>
+          <div className={classes.sessionsGrid}>
+            {expiredSessions.map(session => (
+              <div
+                key={session.id}
+                className={clsx(classes.sessionCard, classes.sessionCardExpired)}
+                data-testid={`dashboard-expired-session-card-${session.id}`}
+              >
+                <div className={classes.sessionBadges}>
+                  <span className={classes.badgeToday}>{session.dayLabel}</span>
+                  <span className={classes.badgeRelative}>{session.relativeLabel}</span>
+                </div>
+                <div className={classes.sessionTitle}>{session.title}</div>
+                <div className={classes.sessionCode}>{session.code}</div>
+                <div className={classes.sessionMeta}>
+                  <span className={classes.metaItem}>
+                    <AccessTimeIcon style={{ fontSize: 16 }} />
+                    {session.time}
+                  </span>
+                  <span className={classes.metaItem}>
+                    <PeopleAltIcon style={{ fontSize: 16 }} />
+                    {session.studentCount}
+                  </span>
+                </div>
+                {onCancelClass && (
+                  <button
+                    type="button"
+                    className={clsx(classes.secondaryButton, classes.expiredCancelButton)}
+                    onClick={() => onCancelClass(session)}
+                    disabled={cancellingClassId === session.id}
+                    data-testid="dashboard-cancel-expired-session-button"
+                  >
+                    <DeleteIcon style={{ fontSize: 16 }} />
+                    {cancellingClassId === session.id ? 'Cancelando…' : 'Cancelar'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {cancelError && (
         <div className={classes.newClassError} data-testid="dashboard-cancel-error">
           {cancelError}{' '}

@@ -164,6 +164,7 @@ export default function TeacherDashboard({
     sessions,
     dateLabel,
     expiredClasses,
+    expiredSessions,
     expiredClassIds,
     loadClasses,
     handleCreateClass,
@@ -305,6 +306,7 @@ export default function TeacherDashboard({
               cancelError={cancelError}
               onRetryCancel={retryCancelClass}
               expiredClassesCount={expiredClasses.length}
+              expiredSessions={expiredSessions}
               onCancelExpiredClasses={handleCancelExpiredClasses}
               isCancellingExpired={isCancellingExpired}
               cancelExpiredError={cancelExpiredError}
