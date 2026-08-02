@@ -26,6 +26,7 @@ import {
   createGetRecordingStatusHandler,
   createIssueRecordingDownloadTicketHandler,
   createDownloadRecordingHandler,
+  refreshManualRecordingRequest,
 } from './recordings';
 import {
   createGetResourcesHandler,
@@ -45,10 +46,19 @@ import {
 } from './classes';
 import multer from 'multer';
 import authMiddleware from './firebaseAuthMiddleware';
+import {
+  createClearNotificationsHandler,
+  createGetNotificationsHandler,
+  createMarkAllNotificationsReadHandler,
+  createPatchNotificationReadHandler,
+} from './notifications';
+import { createDrainOneClearBatch } from './notificationsMaintenance';
+import { createReconcileNotificationsHandler } from './notificationReconciliation';
 
 const PORT = process.env.PORT ?? 8081;
 
 const app = express();
+const drainOneClearBatch = createDrainOneClearBatch(firestore, serverTimestamp);
 app.use(express.json());
 
 // This server reuses the serverless functions shipped inside the "plugin-rtc" Twilio
@@ -117,8 +127,16 @@ if (!RECORDING_DOWNLOAD_SECRET) {
   );
   process.exit(1);
 }
-app.post('/reports/:roomSid/recording', authMiddleware, createRequestRecordingHandler(firestore, twilioClient));
-app.get('/reports/:roomSid/recording', authMiddleware, createGetRecordingStatusHandler(firestore, twilioClient));
+app.post(
+  '/reports/:roomSid/recording',
+  authMiddleware,
+  createRequestRecordingHandler(firestore, twilioClient, serverTimestamp)
+);
+app.get(
+  '/reports/:roomSid/recording',
+  authMiddleware,
+  createGetRecordingStatusHandler(firestore, twilioClient, serverTimestamp)
+);
 app.get(
   '/reports/:roomSid/recording/download-url',
   authMiddleware,
@@ -165,6 +183,36 @@ app.get('/classes', authMiddleware, createGetClassesHandler(firestore));
 app.post('/classes', authMiddleware, createCreateClassHandler(firestore, serverTimestamp));
 app.post('/classes/:id/start', authMiddleware, createStartClassHandler(firestore, serverTimestamp));
 app.delete('/classes/:id', authMiddleware, createDeleteClassHandler(firestore));
+
+app.get('/notifications', authMiddleware, createGetNotificationsHandler(firestore, drainOneClearBatch));
+app.delete(
+  '/notifications',
+  authMiddleware,
+  createClearNotificationsHandler(firestore, serverTimestamp, drainOneClearBatch)
+);
+app.patch(
+  '/notifications/:id/read',
+  authMiddleware,
+  createPatchNotificationReadHandler(firestore, serverTimestamp, drainOneClearBatch)
+);
+app.post(
+  '/notifications/mark-all-read',
+  authMiddleware,
+  createMarkAllNotificationsReadHandler(firestore, serverTimestamp, drainOneClearBatch)
+);
+app.post(
+  '/notifications/reconcile',
+  authMiddleware,
+  createReconcileNotificationsHandler(
+    firestore,
+    serverTimestamp,
+    drainOneClearBatch,
+    Date.now,
+    (uid, roomSid, manualRequestId) => refreshManualRecordingRequest(
+      firestore, twilioClient, serverTimestamp, uid, roomSid, manualRequestId
+    )
+  )
+);
 
 // Teacher-only "end the session for everyone": completes the Twilio room so all
 // participants are disconnected and the class can no longer be rejoined. The
