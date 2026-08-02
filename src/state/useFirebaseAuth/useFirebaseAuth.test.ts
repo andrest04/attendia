@@ -735,4 +735,130 @@ describe('the useFirebaseAuth hook', () => {
       );
     });
   });
+
+  describe('the teacher notification endpoints', () => {
+    async function signInTeacher() {
+      mockFetch.mockResolvedValueOnce(profileResponse(200, { ...mockProfile, role: 'teacher' }));
+      const { result } = renderHook(() => useFirebaseAuth());
+      await act(async () => {
+        await mockAuthStateCallback(mockUser);
+      });
+      return result;
+    }
+
+    it('lists a page with an encoded cursor and exposes structured 404 errors', async () => {
+      const result = await signInTeacher();
+      const page = { items: [], unreadCount: 3, nextCursor: null, hasMore: false };
+      mockFetch.mockResolvedValueOnce(profileResponse(200, page));
+
+      await expect(result.current.fetchNotifications('generation/1+older')).resolves.toEqual(page);
+      expect(mockFetch).toHaveBeenLastCalledWith('/notifications?cursor=generation%2F1%2Bolder', {
+        headers: { Authorization: 'idToken' },
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ...profileResponse(404, { error: { message: 'notifications unavailable' } }),
+        statusText: 'Not Found',
+      });
+      await expect(result.current.fetchNotifications()).rejects.toEqual(
+        expect.objectContaining({
+          message: 'notifications unavailable',
+          status: 404,
+          code: 'notifications unavailable',
+        })
+      );
+
+      mockFetch.mockResolvedValueOnce({
+        ...profileResponse(409, { error: { message: 'stale_cursor', explanation: 'Refresh page one.' } }),
+        statusText: 'Conflict',
+      });
+      await expect(result.current.fetchNotifications('retired')).rejects.toEqual(
+        expect.objectContaining({ message: 'Refresh page one.', status: 409, code: 'stale_cursor' })
+      );
+    });
+
+    it('marks one encoded notification read without sending client authority', async () => {
+      const result = await signInTeacher();
+      const response = { notification: { notificationId: 'item/1', readAtMs: 500 }, unreadCount: 2 };
+      mockFetch.mockResolvedValueOnce(profileResponse(200, response));
+
+      await expect(result.current.markNotificationRead('item/1')).resolves.toEqual(response);
+      expect(mockFetch).toHaveBeenLastCalledWith('/notifications/item%2F1/read', {
+        method: 'PATCH',
+        headers: { Authorization: 'idToken' },
+      });
+    });
+
+    it('sends stable idempotency keys for mark-all and clear', async () => {
+      const result = await signInTeacher();
+      mockFetch
+        .mockResolvedValueOnce(profileResponse(200, { acceptedAtMs: 700, unreadCount: 0 }))
+        .mockResolvedValueOnce(profileResponse(200, { acceptedAtMs: 800, unreadCount: 0 }));
+
+      await expect(result.current.markAllNotificationsRead('mark/key')).resolves.toEqual({ acceptedAtMs: 700, unreadCount: 0 });
+      expect(mockFetch).toHaveBeenLastCalledWith('/notifications/mark-all-read', {
+        method: 'POST', headers: { Authorization: 'idToken', 'Idempotency-Key': 'mark/key' },
+      });
+
+      await expect(result.current.clearNotifications('clear/key')).resolves.toEqual({ acceptedAtMs: 800, unreadCount: 0 });
+      expect(mockFetch).toHaveBeenLastCalledWith('/notifications', {
+        method: 'DELETE', headers: { Authorization: 'idToken', 'Idempotency-Key': 'clear/key' },
+      });
+    });
+
+    it('reconciles a trusted scope with report failure episode claims', async () => {
+      const result = await signInTeacher();
+      const claims = [{ reportId: 'RM123', failureEpisodeId: 'episode_12345678', firstFailedAtMs: 12 }];
+      mockFetch.mockResolvedValueOnce(profileResponse(200, { unreadCount: 4, changed: true }));
+
+      await expect(result.current.reconcileNotifications('all', claims)).resolves.toEqual({ unreadCount: 4, changed: true });
+      expect(mockFetch).toHaveBeenLastCalledWith('/notifications/reconcile', {
+        method: 'POST',
+        headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+        body: JSON.stringify({ scope: 'all', pendingReportFailures: claims }),
+      });
+    });
+
+    it('transports durable recording request and report failure episode identities', async () => {
+      const result = await signInTeacher();
+      const recording = { status: 'enqueued', manualRequestId: 'manual_12345678' };
+      mockFetch.mockResolvedValueOnce(profileResponse(200, { recording })).mockResolvedValueOnce(profileResponse(204));
+
+      await expect(result.current.requestRecordingArtifact('RM123', 'manual_12345678')).resolves.toEqual(recording);
+      expect(mockFetch).toHaveBeenLastCalledWith('/reports/RM123/recording', {
+        method: 'POST',
+        headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+        body: JSON.stringify({ manualRequestId: 'manual_12345678' }),
+      });
+
+      const report = { roomSid: 'RM123' } as any;
+      await result.current.saveAttentionReport(report, 'episode_12345678');
+      expect(mockFetch).toHaveBeenLastCalledWith('/reports', {
+        method: 'POST',
+        headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+        body: JSON.stringify({ ...report, failureEpisodeId: 'episode_12345678' }),
+      });
+    });
+
+    it('reuses an auto-generated manual request identity after an ambiguous response', async () => {
+      const result = await signInTeacher();
+      mockFetch
+        .mockResolvedValueOnce({
+          ...profileResponse(409, { error: { message: 'recording request ambiguous' } }),
+          statusText: 'Conflict',
+        })
+        .mockResolvedValueOnce(profileResponse(200, { recording: { status: 'processing' } }));
+
+      await expect(result.current.requestRecordingArtifact('RM456')).rejects.toEqual(
+        expect.objectContaining({ status: 409, code: 'recording request ambiguous' })
+      );
+      await expect(result.current.requestRecordingArtifact('RM456')).resolves.toEqual({ status: 'processing' });
+
+      const recordingCalls = mockFetch.mock.calls.filter(([url]) => url === '/reports/RM456/recording');
+      expect(recordingCalls).toHaveLength(2);
+      expect(JSON.parse(recordingCalls[0][1].body).manualRequestId).toMatch(/^manual_[a-z0-9]+_[a-z0-9]+$/);
+      expect(recordingCalls[1][1].body).toBe(recordingCalls[0][1].body);
+    });
+  });
+
 });
