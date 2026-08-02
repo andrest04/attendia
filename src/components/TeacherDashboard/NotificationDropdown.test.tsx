@@ -1,6 +1,6 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { Button, CircularProgress, ListItem, ListItemText } from '@material-ui/core';
+import { Button, CircularProgress, IconButton, ListItem, ListItemText, MenuItem } from '@material-ui/core';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import NotificationDropdown from './NotificationDropdown';
 
@@ -69,15 +69,16 @@ describe('NotificationDropdown', () => {
     expect(baseProps.onLoadMore).toHaveBeenCalledTimes(1);
   });
 
-  it('offers mark-all and immediate clear with an unread warning and no dialog', () => {
+  it('offers mark-all and immediate clear from the overflow menu with an unread warning and no dialog', () => {
     const wrapper = shallow(
       <NotificationDropdown {...baseProps} notifications={[notification('one')]} unreadCount={1} />
     );
 
     expect(wrapper.text()).toContain('Tienes notificaciones sin leer');
     expect(wrapper.find('Dialog').exists()).toBe(false);
-    wrapper.find(Button).filterWhere(button => button.text() === 'Marcar todas como leídas').simulate('click');
-    wrapper.find(Button).filterWhere(button => button.text() === 'Vaciar notificaciones').simulate('click');
+    wrapper.find(IconButton).simulate('click', { currentTarget: document.createElement('button') });
+    wrapper.find(MenuItem).filterWhere(item => item.text() === 'Marcar todas como leídas').simulate('click');
+    wrapper.find(MenuItem).filterWhere(item => item.text() === 'Vaciar notificaciones').simulate('click');
     expect(baseProps.onMarkAllRead).toHaveBeenCalledTimes(1);
     expect(baseProps.onClearAll).toHaveBeenCalledTimes(1);
 
@@ -116,7 +117,7 @@ describe('NotificationDropdown', () => {
     ]);
     expect(wrapper.find('[data-testid="notification-row-kept"]').prop('disabled')).toBe(true);
     expect(wrapper.find(Button).filterWhere(button => button.text() === 'Cargar más').prop('disabled')).toBe(true);
-    expect(wrapper.find(Button).filterWhere(button => button.text() === 'Marcar todas como leídas').prop('disabled')).toBe(true);
-    expect(wrapper.find(Button).filterWhere(button => button.text() === 'Vaciar notificaciones').prop('disabled')).toBe(true);
+    expect(wrapper.find(MenuItem).filterWhere(item => item.text() === 'Marcar todas como leídas').prop('disabled')).toBe(true);
+    expect(wrapper.find(MenuItem).filterWhere(item => item.text() === 'Vaciar notificaciones').prop('disabled')).toBe(true);
   });
 });
