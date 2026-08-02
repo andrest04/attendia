@@ -167,6 +167,86 @@ describe('ClassesTab', () => {
     );
   });
 
+  it('does not render the expired-sessions section when there are no expired sessions', () => {
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        expiredSessions={[]}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-expired-sessions-section"]').exists()).toBe(false);
+  });
+
+  it('renders each expired session grayed out with its own cancel button wired to onCancelClass', () => {
+    const onCancelClass = jest.fn();
+    const expiredSessions = [
+      {
+        id: 'expired-1',
+        title: 'Química — Grupo B',
+        code: 'quimica-grupo-b',
+        time: '9:00 am',
+        studentCount: 10,
+        dayLabel: 'Hoy',
+        relativeLabel: 'Venció hace 2h',
+        highlighted: false,
+      },
+    ];
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        onCancelClass={onCancelClass}
+        expiredSessions={expiredSessions}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-expired-sessions-section"]').exists()).toBe(true);
+    const card = wrapper.find('[data-testid="dashboard-expired-session-card-expired-1"]');
+    expect(card.exists()).toBe(true);
+    expect(card.text()).toContain('Venció hace 2h');
+
+    wrapper.find('[data-testid="dashboard-cancel-expired-session-button"]').simulate('click');
+    expect(onCancelClass).toHaveBeenCalledWith(expiredSessions[0]);
+  });
+
+  it('disables an expired session\'s cancel button while it is the one cancelling', () => {
+    const expiredSessions = [
+      {
+        id: 'expired-1',
+        title: 'Química — Grupo B',
+        code: 'quimica-grupo-b',
+        time: '9:00 am',
+        studentCount: 10,
+        dayLabel: 'Hoy',
+        relativeLabel: 'Venció hace 2h',
+        highlighted: false,
+      },
+    ];
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+        onCancelClass={jest.fn()}
+        expiredSessions={expiredSessions}
+        cancellingClassId="expired-1"
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-cancel-expired-session-button"]').prop('disabled')).toBe(true);
+    expect(wrapper.find('[data-testid="dashboard-cancel-expired-session-button"]').text()).toContain('Cancelando…');
+  });
+
   it('does nothing when "Nueva clase" is clicked without onCreateClass', () => {
     const wrapper = shallow(
       <ClassesTab

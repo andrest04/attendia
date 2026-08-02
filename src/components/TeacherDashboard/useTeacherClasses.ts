@@ -5,7 +5,7 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StateContextType } from '../../state';
 import { toClassSessionDisplayName } from '../PreJoinScreens/classSessionTypes';
 import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
-import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
+import { buildExpiredSessions, buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
 
 export interface UseTeacherClassesParams {
   fetchClasses?: StateContextType['fetchClasses'];
@@ -74,6 +74,7 @@ export default function useTeacherClasses({
   const sessions: UpcomingSession[] = hasRealClasses
     ? buildUpcomingSessions(realClasses, Date.now())
     : data.upcomingSessions;
+  const expiredSessions: UpcomingSession[] = hasRealClasses ? buildExpiredSessions(realClasses, Date.now()) : [];
   const dateLabel = hasRealClasses
     ? capitalizeFirst(
         new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
@@ -230,6 +231,7 @@ export default function useTeacherClasses({
     sessions,
     dateLabel,
     expiredClasses,
+    expiredSessions,
     expiredClassIds,
     loadClasses,
     handleCreateClass,
