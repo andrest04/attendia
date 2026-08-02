@@ -412,20 +412,15 @@ export function createDeleteClassHandler(
 
         if (!snapshot.exists) return tombstone.exists ? 'replayed' : 'not-found';
         const data = snapshot.data() || {};
-        if (!tombstone.exists && data.status !== 'started' && data.status !== 'completed') {
-          await transaction.set(tombstoneRef, {
-            scheduledAt: data.scheduledAt,
-            canceledAt: serverTimestamp(),
-            reason,
-            wasStarted: false,
-          });
-        }
 
         // A canceled/deleted class occurrence must not leave a stale
         // "class.upcoming"/"class.not_started" notification behind for the
         // teacher — the periodic reconcile sweep would eventually catch it, but
         // deleting it here in the same transaction gives immediate consistency
         // (mirrors the report-recovery notification cleanup in attentionReports.ts).
+        // Firestore transactions require every read before any write, so all the
+        // lookups below (state, then each notification item) happen before the
+        // tombstone/item/state/class writes further down.
         const stateRef = userRef.collection('notificationState').doc('inbox');
         const stateSnapshot = await transaction.get(stateRef);
         const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
@@ -435,10 +430,23 @@ export function createDeleteClassHandler(
           { eventType: 'class.upcoming', eventKey: `class:${req.params.id}:upcoming` },
           { eventType: 'class.not_started', eventKey: `class:${req.params.id}:not-started` },
         ];
+        const itemSnapshots = [];
+        for (const key of classNotificationKeys) {
+          const itemRef = items.doc(canonicalNotificationId(key.eventType, key.eventKey));
+          itemSnapshots.push({ itemRef, itemSnapshot: await transaction.get(itemRef) });
+        }
+
+        if (!tombstone.exists && data.status !== 'started' && data.status !== 'completed') {
+          await transaction.set(tombstoneRef, {
+            scheduledAt: data.scheduledAt,
+            canceledAt: serverTimestamp(),
+            reason,
+            wasStarted: false,
+          });
+        }
+
         let unreadDelta = 0;
-        for (const { eventType, eventKey } of classNotificationKeys) {
-          const itemRef = items.doc(canonicalNotificationId(eventType, eventKey));
-          const itemSnapshot = await transaction.get(itemRef);
+        for (const { itemRef, itemSnapshot } of itemSnapshots) {
           if (!itemSnapshot.exists) continue;
           if (effectivelyUnread(itemSnapshot.data() || {}, state.readBefore)) unreadDelta++;
           transaction.delete(itemRef);
