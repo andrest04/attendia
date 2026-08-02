@@ -92,3 +92,10 @@ export interface AttentionReport {
 export interface StoredAttentionReport extends AttentionReport {
   endedAtMs: number | null;
 }
+
+/** Durable retry claim. Client time is diagnostic only; the server owns ordering time. */
+export interface PendingAttentionReport extends AttentionReport {
+  report: AttentionReport;
+  failureEpisodeId: string;
+  firstFailedAtMs: number;
+}
