@@ -59,15 +59,73 @@ export interface UserProfile {
   avatarRemoved?: boolean;
 }
 
-// Shared non-OK handling for the /profile and /reports requests: surface the
-// server's reason, preferring the localized Spanish explanation. No-op on OK
-// responses (the body is left unconsumed for the caller).
-async function throwOnErrorResponse(response: Response): Promise<void> {
-  if (response.ok) {
-    return;
+const ClientApiErrorBase = Error as new (message?: string) => { name: string; message: string; stack?: string };
+
+export class ClientApiError extends ClientApiErrorBase {
+  constructor(public status: number, public code: string, message: string) {
+    super(message);
+    Object.setPrototypeOf(this, ClientApiError.prototype);
   }
+}
+
+async function throwOnErrorResponse(response: Response): Promise<void> {
+  if (response.ok) return;
   const body = await response.json().catch(() => ({}));
-  throw new Error(body.error?.explanation || body.error?.message || response.statusText);
+  const code = body.error?.message || response.statusText || `http_${response.status}`;
+  throw new ClientApiError(response.status, code, body.error?.explanation || code);
+}
+
+export type NotificationEventType =
+  | 'class.upcoming'
+  | 'class.not_started'
+  | 'recording.ready'
+  | 'recording.failed'
+  | 'report.save_failed';
+
+export interface TeacherNotification {
+  notificationId: string;
+  ownerUid: string;
+  eventType: NotificationEventType;
+  eventKey: string;
+  source:
+    | { kind: 'class'; classId: string }
+    | { kind: 'recording'; roomSid: string; manualRequestId: string }
+    | { kind: 'report'; reportId: string; failureEpisodeId: string };
+  eventOccurrenceAtMs: number | null;
+  createdAtMs: number | null;
+  readAtMs: number | null;
+  title: string;
+  message: string;
+  destination:
+    | { kind: 'classes' }
+    | { kind: 'recording'; roomSid: string }
+    | { kind: 'report-retry'; reportId: string };
+}
+
+export interface NotificationPage {
+  items: TeacherNotification[];
+  unreadCount: number;
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface ReportFailureClaim {
+  reportId: string;
+  failureEpisodeId: string;
+  firstFailedAtMs: number;
+}
+
+export interface NotificationMutationResult {
+  acceptedAtMs: number;
+  unreadCount: number;
+}
+export interface NotificationReadResult {
+  notification: TeacherNotification;
+  unreadCount: number;
+}
+export interface NotificationReconcileResult {
+  unreadCount: number;
+  changed: boolean;
 }
 
 // GET /profile for the signed-in user. Resolves null on 404, meaning "no profile yet"
@@ -120,13 +178,13 @@ async function patchProfileRequest(
 
 // POST /reports. The server enforces role=teacher (403) and overwrites the doc keyed
 // by roomSid. Rejects on any non-OK response, preferring the Spanish explanation.
-async function postReportRequest(user: User, report: AttentionReport): Promise<void> {
+async function postReportRequest(user: User, report: AttentionReport, failureEpisodeId?: string): Promise<void> {
   const idToken = await user.getIdToken();
 
   const response = await fetch('/reports', {
     method: 'POST',
     headers: { Authorization: idToken, 'content-type': 'application/json' },
-    body: JSON.stringify(report),
+    body: JSON.stringify(failureEpisodeId ? { ...report, failureEpisodeId } : report),
   });
 
   await throwOnErrorResponse(response);
@@ -156,15 +214,64 @@ async function fetchReportRequest(user: User, roomSid: string): Promise<StoredAt
 
 // POST /reports/:roomSid/recording — requests (or re-fetches, if already requested and
 // still in flight/done) a Twilio Composition for a completed, recorded class.
-async function requestRecordingArtifactRequest(user: User, roomSid: string): Promise<RecordingArtifact> {
+async function requestRecordingArtifactRequest(
+  user: User,
+  roomSid: string,
+  manualRequestId: string
+): Promise<RecordingArtifact> {
   const idToken = await user.getIdToken();
   const response = await fetch(`/reports/${encodeURIComponent(roomSid)}/recording`, {
     method: 'POST',
-    headers: { Authorization: idToken },
+    headers: { Authorization: idToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ manualRequestId }),
   });
   await throwOnErrorResponse(response);
   const body = await response.json();
   return body.recording;
+}
+
+async function fetchNotificationsRequest(user: User, cursor?: string): Promise<NotificationPage> {
+  const idToken = await user.getIdToken();
+  const response = await fetch(`/notifications${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, {
+    headers: { Authorization: idToken },
+  });
+  await throwOnErrorResponse(response);
+  return response.json();
+}
+
+async function markNotificationReadRequest(user: User, id: string): Promise<NotificationReadResult> {
+  const idToken = await user.getIdToken();
+  const response = await fetch(`/notifications/${encodeURIComponent(id)}/read`, {
+    method: 'PATCH', headers: { Authorization: idToken },
+  });
+  await throwOnErrorResponse(response);
+  return response.json();
+}
+
+async function notificationOperationRequest(
+  user: User, path: string, method: 'POST' | 'DELETE', idempotencyKey: string
+): Promise<NotificationMutationResult> {
+  const idToken = await user.getIdToken();
+  const response = await fetch(path, {
+    method, headers: { Authorization: idToken, 'Idempotency-Key': idempotencyKey },
+  });
+  await throwOnErrorResponse(response);
+  return response.json();
+}
+
+async function reconcileNotificationsRequest(
+  user: User,
+  scope: 'all' | 'recordings',
+  pendingReportFailures: ReportFailureClaim[] = []
+): Promise<NotificationReconcileResult> {
+  const idToken = await user.getIdToken();
+  const response = await fetch('/notifications/reconcile', {
+    method: 'POST',
+    headers: { Authorization: idToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ scope, pendingReportFailures }),
+  });
+  await throwOnErrorResponse(response);
+  return response.json();
 }
 
 // GET /reports/:roomSid/recording — refreshes and persists the composition's status.
@@ -416,6 +523,7 @@ export default function useFirebaseAuth() {
   // Monotonic id guarding profile updates: a slow GET /profile must never clobber the
   // profile a later register()/completeProfile() POST just established.
   const profileRequestIdRef = useRef(0);
+  const manualRequestIdsRef = useRef<{ [roomSid: string]: string }>({});
 
   const applyProfile = useCallback((newProfile: UserProfile | null) => {
     profileRequestIdRef.current++;
@@ -678,11 +786,11 @@ export default function useFirebaseAuth() {
   // Best-effort persistence of a class attention report. Callers own the error
   // policy (the in-room saver swallows failures so leaving is never blocked).
   const saveAttentionReport = useCallback(
-    (report: AttentionReport) => {
+    (report: AttentionReport, failureEpisodeId?: string) => {
       if (!user) {
         return Promise.reject(new Error('Cannot save an attention report without an authenticated user'));
       }
-      return postReportRequest(user, report);
+      return postReportRequest(user, report, failureEpisodeId);
     },
     [user]
   );
@@ -705,11 +813,61 @@ export default function useFirebaseAuth() {
   );
 
   const requestRecordingArtifact = useCallback(
-    (roomSid: string) => {
+    (roomSid: string, suppliedManualRequestId?: string) => {
       if (!user) {
         return Promise.reject(new Error('Cannot request a recording without an authenticated user'));
       }
-      return requestRecordingArtifactRequest(user, roomSid);
+      const manualRequestId =
+        suppliedManualRequestId ||
+        manualRequestIdsRef.current[roomSid] ||
+        `manual_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+      manualRequestIdsRef.current[roomSid] = manualRequestId;
+      return requestRecordingArtifactRequest(user, roomSid, manualRequestId).then(recording => {
+        if (recording.status === 'completed' || recording.status === 'failed' || recording.status === 'expired') {
+          delete manualRequestIdsRef.current[roomSid];
+        }
+        return recording;
+      });
+    },
+    [user]
+  );
+
+  const fetchNotifications = useCallback(
+    (cursor?: string) => {
+      if (!user) return Promise.reject(new Error('Cannot fetch notifications without an authenticated user'));
+      return fetchNotificationsRequest(user, cursor);
+    },
+    [user]
+  );
+
+  const markNotificationRead = useCallback(
+    (id: string) => {
+      if (!user) return Promise.reject(new Error('Cannot read a notification without an authenticated user'));
+      return markNotificationReadRequest(user, id);
+    },
+    [user]
+  );
+
+  const markAllNotificationsRead = useCallback(
+    (idempotencyKey: string) => {
+      if (!user) return Promise.reject(new Error('Cannot read notifications without an authenticated user'));
+      return notificationOperationRequest(user, '/notifications/mark-all-read', 'POST', idempotencyKey);
+    },
+    [user]
+  );
+
+  const clearNotifications = useCallback(
+    (idempotencyKey: string) => {
+      if (!user) return Promise.reject(new Error('Cannot clear notifications without an authenticated user'));
+      return notificationOperationRequest(user, '/notifications', 'DELETE', idempotencyKey);
+    },
+    [user]
+  );
+
+  const reconcileNotifications = useCallback(
+    (scope: 'all' | 'recordings', claims: ReportFailureClaim[] = []) => {
+      if (!user) return Promise.reject(new Error('Cannot reconcile notifications without an authenticated user'));
+      return reconcileNotificationsRequest(user, scope, claims);
     },
     [user]
   );
@@ -887,6 +1045,11 @@ export default function useFirebaseAuth() {
     fetchAttentionReport,
     requestRecordingArtifact,
     fetchRecordingArtifactStatus,
+    fetchNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    clearNotifications,
+    reconcileNotifications,
     fetchRecordingDownloadUrl,
     fetchResources,
     uploadResource,

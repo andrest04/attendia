@@ -3,7 +3,16 @@ import { RecordingRules, RoomType } from '../types';
 import { TwilioError } from 'twilio-video';
 import { settingsReducer, initialSettings, Settings, SettingsAction } from './settings/settingsReducer';
 import useActiveSinkId from './useActiveSinkId/useActiveSinkId';
-import useFirebaseAuth, { UserProfile, ResourceRecord, ClassRecord } from './useFirebaseAuth/useFirebaseAuth';
+import useFirebaseAuth, {
+  UserProfile,
+  ResourceRecord,
+  ClassRecord,
+  NotificationPage,
+  NotificationReadResult,
+  NotificationMutationResult,
+  NotificationReconcileResult,
+  ReportFailureClaim,
+} from './useFirebaseAuth/useFirebaseAuth';
 import { useLocalStorageState } from '../hooks/useLocalStorageState/useLocalStorageState';
 import { User } from 'firebase/auth';
 import { ClassSessionRole } from '../components/PreJoinScreens/classSessionTypes';
@@ -35,15 +44,23 @@ export interface StateContextType {
   changeEmail?(email: string, currentPassword?: string): Promise<UserProfile>;
   changePassword?(currentPassword: string | undefined, newPassword: string): Promise<void>;
   // Persistence of per-class attention reports (teacher-only, enforced server-side).
-  saveAttentionReport?(report: AttentionReport): Promise<void>;
+  saveAttentionReport?(report: AttentionReport, failureEpisodeId?: string): Promise<void>;
   fetchAttentionReports?(): Promise<StoredAttentionReport[]>;
   fetchAttentionReport?(roomSid: string): Promise<StoredAttentionReport>;
   // Teacher-requested Twilio recording (Composition) artifacts, server-proxied end to
   // end so the Twilio Account SID/Auth Token never reach the browser (see
   // server/recordings.ts).
-  requestRecordingArtifact?(roomSid: string): Promise<RecordingArtifact>;
+  requestRecordingArtifact?(roomSid: string, manualRequestId?: string): Promise<RecordingArtifact>;
   fetchRecordingArtifactStatus?(roomSid: string): Promise<RecordingArtifact>;
   fetchRecordingDownloadUrl?(roomSid: string): Promise<string>;
+  fetchNotifications?(cursor?: string): Promise<NotificationPage>;
+  markNotificationRead?(id: string): Promise<NotificationReadResult>;
+  markAllNotificationsRead?(idempotencyKey: string): Promise<NotificationMutationResult>;
+  clearNotifications?(idempotencyKey: string): Promise<NotificationMutationResult>;
+  reconcileNotifications?(
+    scope: 'all' | 'recordings',
+    pendingReportFailures?: ReportFailureClaim[]
+  ): Promise<NotificationReconcileResult>;
   // Real persistence for the "Recursos" tab (teacher-uploaded class materials).
   fetchResources?(): Promise<ResourceRecord[]>;
   uploadResource?(file: File, classId: string, onProgress?: (percent: number) => void): Promise<ResourceRecord>;
