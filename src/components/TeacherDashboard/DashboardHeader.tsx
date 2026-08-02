@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Menu, MenuItem } from '@material-ui/core';
+import { Badge, Button, IconButton, Menu, MenuItem, Popover } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import NotificationsNoneIcon from '@material-ui/icons/NotificationsNone';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
@@ -126,6 +126,8 @@ interface Props {
   showProfile?: boolean;
   // Independently controls just the bell icon.
   showNotifications?: boolean;
+  notificationUnreadCount?: number;
+  notificationContent?: (close: () => void) => React.ReactNode;
   // Centered "Clase: <name>" label (prejoin header only).
   centerLabel?: React.ReactNode;
   // Pill rendered before the bell/profile (e.g. the "Pre-sesión" pill).
@@ -147,6 +149,8 @@ export default function DashboardHeader({
   onLogoClick,
   showProfile = true,
   showNotifications = true,
+  notificationUnreadCount = 0,
+  notificationContent,
   centerLabel,
   badge,
   showProfileLink = true,
@@ -156,7 +160,9 @@ export default function DashboardHeader({
   const classes = useStyles();
   const history = useHistory();
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<HTMLElement | null>(null);
+  const [notificationMenuAnchor, setNotificationMenuAnchor] = useState<HTMLElement | null>(null);
 
+  const closeNotifications = () => setNotificationMenuAnchor(null);
   const openProfile = () => {
     setProfileMenuAnchor(null);
     if (onProfileClick) onProfileClick();
@@ -178,11 +184,39 @@ export default function DashboardHeader({
       {centerLabel && <span className={classes.centerLabel}>{centerLabel}</span>}
       <div className={classes.right}>
         {badge}
-        {showProfile && showNotifications && (
+        {showProfile && showNotifications && (notificationContent ? (
+          <>
+            <IconButton
+              className={classes.bell}
+              data-testid="dashboard-header-notifications"
+              aria-label="Abrir notificaciones"
+              aria-controls={notificationMenuAnchor ? 'dashboard-notification-menu' : undefined}
+              aria-haspopup="true"
+              aria-expanded={Boolean(notificationMenuAnchor)}
+              onClick={event => setNotificationMenuAnchor(event.currentTarget)}
+            >
+              <Badge badgeContent={notificationUnreadCount} color="primary" overlap="rectangular">
+                <NotificationsNoneIcon />
+              </Badge>
+            </IconButton>
+            <Popover
+              id="dashboard-notification-menu"
+              anchorEl={notificationMenuAnchor}
+              keepMounted
+              open={Boolean(notificationMenuAnchor)}
+              onClose={closeNotifications}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones' }}
+            >
+              {notificationContent(closeNotifications)}
+            </Popover>
+          </>
+        ) : (
           <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
             <NotificationsNoneIcon />
           </span>
-        )}
+        ))}
         {showProfile && hasMenuItems && (
           <>
             <Button
