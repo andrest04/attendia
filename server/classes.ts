@@ -1,5 +1,6 @@
 import { RequestHandler } from 'express';
 import { logOperationalFailure } from './operationalEvents';
+import { canonicalNotificationId } from './notifications';
 
 /*
  * Firestore-backed teacher "Clases" (scheduled sessions):
@@ -83,6 +84,11 @@ export interface ClassDocumentReference {
   set(data: { [key: string]: any }): Promise<unknown>;
   update(data: { [key: string]: any }): Promise<unknown>;
   delete(): Promise<unknown>;
+  // Recursive on purpose (mirrors ReportDocumentReference in attentionReports.ts):
+  // deleting a class also needs to reach its owner's notificationState/
+  // notificationGenerations subcollections, which hang off the same user doc this
+  // reference descends from.
+  collection(name: string): ClassesCollection;
 }
 
 export interface ClassQuerySnapshot {
@@ -108,8 +114,16 @@ export interface ClassesUserDocumentReference {
   collection(name: string): ClassesCollection;
 }
 
+export interface ClassTransaction {
+  get(reference: ClassDocumentReference): Promise<ClassDocumentSnapshot>;
+  set(reference: ClassDocumentReference, data: { [key: string]: any }): unknown;
+  update(reference: ClassDocumentReference, data: { [key: string]: any }): unknown;
+  delete(reference: ClassDocumentReference): unknown;
+}
+
 export interface ClassesDatabase {
   collection(name: string): { doc(id: string): ClassesUserDocumentReference };
+  runTransaction<T>(updateFunction: (transaction: ClassTransaction) => Promise<T>): Promise<T>;
 }
 
 function getVerifiedUser(res: Parameters<RequestHandler>[1]): VerifiedFirebaseUser | undefined {
@@ -157,6 +171,23 @@ function toClassResponse(id: string, data: { [key: string]: any }, scheduledAtMs
     durationMinutes: typeof data.durationMinutes === 'number' ? data.durationMinutes : DEFAULT_DURATION_MINUTES,
     status: data.status === 'completed' ? 'completed' : data.status === 'started' ? 'started' : 'scheduled',
   };
+}
+
+function timestampMillis(value: any): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (!value || typeof value.toMillis !== 'function') return null;
+  const result = value.toMillis();
+  return Number.isFinite(result) ? result : null;
+}
+
+// Duplicated from attentionReports.ts/notificationReconciliation.ts on purpose —
+// this codebase's convention (see roomAccessGuard.ts) is that each server unit
+// stays independently deployable, so small pure helpers are copied rather than
+// imported across leaf modules.
+function effectivelyUnread(item: { [key: string]: any }, readBefore: unknown): boolean {
+  const createdAt = timestampMillis(item.createdAt);
+  const boundary = timestampMillis(readBefore);
+  return timestampMillis(item.readAt) === null && !(boundary !== null && createdAt !== null && createdAt <= boundary);
 }
 
 function getOwnedClass(db: ClassesDatabase, uid: string, id: string) {
@@ -293,45 +324,54 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         explicitRoomName = body.roomName.trim();
       }
 
-      const docRef = db
-        .collection('users')
-        .doc(firebaseUser.uid)
-        .collection('classes')
-        .doc(idempotencyKey);
+      const userRef = db.collection('users').doc(firebaseUser.uid);
+      const docRef = userRef.collection('classes').doc(idempotencyKey);
+      const tombstoneRef = userRef.collection('classOccurrenceTombstones').doc(idempotencyKey);
+      const roomName = explicitRoomName || buildRoomName(title, docRef.id);
 
-      const existing = await docRef.get();
-      if (existing.exists) {
-        const data = existing.data() || {};
+      const outcome = await db.runTransaction(async transaction => {
+        const existing = await transaction.get(docRef);
+        const tombstone = await transaction.get(tombstoneRef);
+        if (existing.exists) return { kind: 'existing' as const, data: existing.data() || {} };
+        if (tombstone.exists) return { kind: 'tombstoned' as const };
+        if (scheduledAtMs < Date.now() - PAST_SCHEDULE_TOLERANCE_MS) return { kind: 'past' as const };
+
+        await transaction.set(docRef, {
+          title,
+          roomName,
+          scheduledAt: new Date(scheduledAtMs),
+          studentCount,
+          durationMinutes,
+          status: 'scheduled',
+          idempotencyKey,
+          createdAt: serverTimestamp(),
+        });
+        return { kind: 'created' as const };
+      });
+
+      if (outcome.kind === 'existing') {
         const existingScheduledAtMs =
-          data.scheduledAt && typeof data.scheduledAt.toMillis === 'function' ? data.scheduledAt.toMillis() : null;
-        res.status(200).json(toClassResponse(docRef.id, data, existingScheduledAtMs));
+          outcome.data.scheduledAt && typeof outcome.data.scheduledAt.toMillis === 'function'
+            ? outcome.data.scheduledAt.toMillis()
+            : null;
+        res.status(200).json(toClassResponse(docRef.id, outcome.data, existingScheduledAtMs));
         return;
       }
-
-      // Only gated here, past the idempotency check above, so a legitimate retry of
-      // an already-created class (same key resent after the clock moved on) still
-      // returns the existing doc instead of being rejected as "in the past".
-      if (scheduledAtMs < Date.now() - PAST_SCHEDULE_TOLERANCE_MS) {
+      if (outcome.kind === 'tombstoned') {
+        res.status(409).json({
+          error: {
+            message: 'class occurrence canceled',
+            explanation: 'Esta ocurrencia de clase ya fue cancelada y no puede volver a crearse.',
+          },
+        });
+        return;
+      }
+      if (outcome.kind === 'past') {
         sendBadRequest(res, 'scheduledAtMs in the past', 'No puedes programar una clase en una fecha u hora pasada.');
         return;
       }
 
-      const roomName = explicitRoomName || buildRoomName(title, docRef.id);
-
-      await docRef.set({
-        title,
-        roomName,
-        scheduledAt: new Date(scheduledAtMs),
-        studentCount,
-        durationMinutes,
-        status: 'scheduled',
-        idempotencyKey,
-        createdAt: serverTimestamp(),
-      });
-
-      res
-        .status(201)
-        .json(toClassResponse(docRef.id, { title, roomName, studentCount, durationMinutes }, scheduledAtMs));
+      res.status(201).json(toClassResponse(docRef.id, { title, roomName, studentCount, durationMinutes }, scheduledAtMs));
     } catch (err) {
       logOperationalFailure({ event: 'class_save_failed', operation: 'POST /classes', uid: firebaseUser.uid, error: err });
       res.status(503).json({
@@ -344,7 +384,10 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
   };
 }
 
-export function createDeleteClassHandler(db: ClassesDatabase): RequestHandler {
+export function createDeleteClassHandler(
+  db: ClassesDatabase,
+  serverTimestamp: () => unknown = () => new Date()
+): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
 
@@ -359,17 +402,62 @@ export function createDeleteClassHandler(db: ClassesDatabase): RequestHandler {
         return;
       }
 
-      const docRef = getOwnedClass(db, firebaseUser.uid, req.params.id);
-      const snapshot = await docRef.get();
+      const userRef = db.collection('users').doc(firebaseUser.uid);
+      const docRef = userRef.collection('classes').doc(req.params.id);
+      const tombstoneRef = userRef.collection('classOccurrenceTombstones').doc(req.params.id);
+      const reason = req.body && req.body.reason === 'canceled' ? 'canceled' : 'deleted';
+      const outcome = await db.runTransaction(async transaction => {
+        const snapshot = await transaction.get(docRef);
+        const tombstone = await transaction.get(tombstoneRef);
 
-      if (!snapshot.exists) {
+        if (!snapshot.exists) return tombstone.exists ? 'replayed' : 'not-found';
+        const data = snapshot.data() || {};
+        if (!tombstone.exists && data.status !== 'started' && data.status !== 'completed') {
+          await transaction.set(tombstoneRef, {
+            scheduledAt: data.scheduledAt,
+            canceledAt: serverTimestamp(),
+            reason,
+            wasStarted: false,
+          });
+        }
+
+        // A canceled/deleted class occurrence must not leave a stale
+        // "class.upcoming"/"class.not_started" notification behind for the
+        // teacher — the periodic reconcile sweep would eventually catch it, but
+        // deleting it here in the same transaction gives immediate consistency
+        // (mirrors the report-recovery notification cleanup in attentionReports.ts).
+        const stateRef = userRef.collection('notificationState').doc('inbox');
+        const stateSnapshot = await transaction.get(stateRef);
+        const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
+        const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
+        const items = userRef.collection('notificationGenerations').doc(String(generation)).collection('items');
+        const classNotificationKeys: Array<{ eventType: 'class.upcoming' | 'class.not_started'; eventKey: string }> = [
+          { eventType: 'class.upcoming', eventKey: `class:${req.params.id}:upcoming` },
+          { eventType: 'class.not_started', eventKey: `class:${req.params.id}:not-started` },
+        ];
+        let unreadDelta = 0;
+        for (const { eventType, eventKey } of classNotificationKeys) {
+          const itemRef = items.doc(canonicalNotificationId(eventType, eventKey));
+          const itemSnapshot = await transaction.get(itemRef);
+          if (!itemSnapshot.exists) continue;
+          if (effectivelyUnread(itemSnapshot.data() || {}, state.readBefore)) unreadDelta++;
+          transaction.delete(itemRef);
+        }
+        if (unreadDelta > 0 && stateSnapshot.exists) {
+          const unreadCount = Number.isSafeInteger(state.unreadCount) ? state.unreadCount : 0;
+          transaction.update(stateRef, { unreadCount: Math.max(0, unreadCount - unreadDelta) });
+        }
+
+        await transaction.delete(docRef);
+        return 'deleted';
+      });
+
+      if (outcome === 'not-found') {
         res.status(404).json({
           error: { message: 'class not found', explanation: 'La clase solicitada no existe.' },
         });
         return;
       }
-
-      await docRef.delete();
 
       res.status(200).json({ deleted: true });
     } catch (err) {

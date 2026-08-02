@@ -1,5 +1,6 @@
 import { RequestHandler } from 'express';
 import { logOperationalFailure } from './operationalEvents';
+import { canonicalNotificationId } from './notifications';
 
 /*
  * Firestore-backed per-class attention reports:
@@ -34,6 +35,14 @@ const MAX_ALERTS = 10;
 
 // Max reports returned by GET /reports (newest first).
 const MAX_REPORTS_RETURNED = 50;
+const MAX_FAILURE_EPISODE_CLAIMS = 20;
+const FAILURE_EPISODE_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
+
+export interface ReportFailureEpisodeClaim {
+  reportId: string;
+  failureEpisodeId: string;
+  firstFailedAtMs: number;
+}
 
 // Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
 // userProfiles.ts on purpose: each server unit stays independently deployable and
@@ -49,6 +58,7 @@ export interface VerifiedFirebaseUser {
 
 export interface ReportDocumentSnapshot {
   id: string;
+  exists?: boolean;
   data(): { [key: string]: any } | undefined;
 }
 
@@ -64,12 +74,14 @@ export interface ReportDocumentReference {
   set(data: { [key: string]: any }): Promise<unknown>;
   get(): Promise<ReportDocumentSnapshot>;
   update(data: { [key: string]: any }): Promise<unknown>;
+  collection(name: string): ReportsCollection;
 }
 
 export interface ReportTransaction {
   get(reference: ReportDocumentReference): Promise<ReportDocumentSnapshot>;
   set(reference: ReportDocumentReference, data: { [key: string]: any }, options?: { merge: boolean }): ReportTransaction;
   update(reference: ReportDocumentReference, data: { [key: string]: any }): ReportTransaction;
+  delete(reference: ReportDocumentReference): ReportTransaction;
 }
 
 export interface ReportsCollection {
@@ -127,12 +139,61 @@ async function resolveIsTeacher(db: ReportsDatabase, uid: string): Promise<boole
   return data.role === 'teacher';
 }
 
+function timestampMillis(value: any): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (!value || typeof value.toMillis !== 'function') return null;
+  const result = value.toMillis();
+  return Number.isFinite(result) ? result : null;
+}
+
+function effectivelyUnread(item: { [key: string]: any }, readBefore: unknown): boolean {
+  const createdAt = timestampMillis(item.createdAt);
+  const boundary = timestampMillis(readBefore);
+  return timestampMillis(item.readAt) === null && !(boundary !== null && createdAt !== null && createdAt <= boundary);
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
 function isValidIsoDate(value: unknown): value is string {
   return typeof value === 'string' && !isNaN(new Date(value).getTime());
+}
+
+function isValidFailureEpisodeId(value: unknown): value is string {
+  return typeof value === 'string' && FAILURE_EPISODE_ID_PATTERN.test(value);
+}
+
+function isValidFailureClaim(value: ReportFailureEpisodeClaim): boolean {
+  return !!value && ROOM_SID_PATTERN.test(value.reportId) && isValidFailureEpisodeId(value.failureEpisodeId) &&
+    isFiniteNumber(value.firstFailedAtMs) && value.firstFailedAtMs >= 0;
+}
+
+/** Persists bounded browser claims without allowing browser time to become authority. */
+export async function ingestReportFailureEpisodes(
+  db: ReportsDatabase,
+  uid: string,
+  claims: ReportFailureEpisodeClaim[],
+  serverTimestamp: () => unknown
+): Promise<void> {
+  if (claims.length > MAX_FAILURE_EPISODE_CLAIMS) throw new Error('too many report failure claims');
+  if (!claims.every(isValidFailureClaim)) throw new Error('invalid report failure claim');
+
+  const episodes = db.collection('users').doc(uid).collection('reportFailureEpisodes');
+  await db.runTransaction(async transaction => {
+    const entries = claims.map(claim => ({ claim, ref: episodes.doc(claim.failureEpisodeId), snapshot: undefined as any }));
+    for (const entry of entries) entry.snapshot = await transaction.get(entry.ref);
+    for (const { claim, ref, snapshot } of entries) {
+      if (!snapshot.data()) {
+        transaction.set(ref, {
+          reportId: claim.reportId,
+          failureEpisodeId: claim.failureEpisodeId,
+          status: 'unresolved',
+          observedAt: serverTimestamp(),
+        });
+      }
+    }
+  });
 }
 
 /**
@@ -238,17 +299,23 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
         return;
       }
 
-      const { report, error } = sanitizeReportBody(req.body ?? {});
+      const body = req.body ?? {};
+      const { report, error } = sanitizeReportBody(body);
       if (!report) {
         sendBadRequest(res, error!.message, error!.explanation);
         return;
       }
+      const failureEpisodeId = body.failureEpisodeId;
+      if (failureEpisodeId !== undefined && !isValidFailureEpisodeId(failureEpisodeId)) {
+        sendBadRequest(res, 'invalid failureEpisodeId', 'El identificador del episodio de error no es válido.');
+        return;
+      }
 
-      const reportRef = db
-        .collection('users')
-        .doc(firebaseUser.uid)
-        .collection('reports')
-        .doc(report.roomSid);
+      const userRef = db.collection('users').doc(firebaseUser.uid);
+      const reportRef = userRef.collection('reports').doc(report.roomSid);
+      const episodeRef = failureEpisodeId
+        ? userRef.collection('reportFailureEpisodes').doc(failureEpisodeId)
+        : undefined;
       const classRef = report.classId
         ? db
           .collection('users')
@@ -256,19 +323,56 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
           .collection('classes')
           .doc(report.classId)
         : undefined;
+      const notificationStateRef = failureEpisodeId
+        ? userRef.collection('notificationState').doc('inbox')
+        : undefined;
 
       // The report document id is the room SID. Replaying this request therefore
       // converges on one report while the class state changes in the same commit.
       await db.runTransaction(async transaction => {
-        if (classRef) {
-          const classSnapshot = await transaction.get(classRef);
+        const classSnapshot = classRef ? await transaction.get(classRef) : undefined;
+        const episodeSnapshot = episodeRef ? await transaction.get(episodeRef) : undefined;
+        const stateSnapshot = notificationStateRef ? await transaction.get(notificationStateRef) : undefined;
+        const state = stateSnapshot && stateSnapshot.exists ? stateSnapshot.data() || {} : {};
+        const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
+        const notificationRef = failureEpisodeId
+          ? userRef.collection('notificationGenerations').doc(String(generation)).collection('items').doc(
+            canonicalNotificationId(
+              'report.save_failed', `report:${report.roomSid}:save-failed:${failureEpisodeId}`
+            )
+          )
+          : undefined;
+        const notificationSnapshot = notificationRef ? await transaction.get(notificationRef) : undefined;
+        if (classSnapshot) {
           const classData = classSnapshot.data();
           if (!classData || classData.roomName !== report.roomName) {
             const relationError: any = new Error('class relation mismatch');
             relationError.code = 'class relation mismatch';
             throw relationError;
           }
-          transaction.update(classRef, { status: 'completed', completedAt: serverTimestamp() });
+          transaction.update(classRef!, { status: 'completed', completedAt: serverTimestamp() });
+        }
+        if (episodeRef) {
+          const episode = episodeSnapshot!.data();
+          if (!episode || episode.status !== 'resolved') {
+            transaction.set(
+              episodeRef,
+              {
+                ...(episode || { reportId: report.roomSid, failureEpisodeId, observedAt: serverTimestamp() }),
+                status: 'resolved',
+                resolvedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }
+          if (notificationRef && notificationSnapshot && notificationSnapshot.exists) {
+            transaction.delete(notificationRef);
+            if (notificationStateRef && stateSnapshot!.exists &&
+              effectivelyUnread(notificationSnapshot.data() || {}, state.readBefore)) {
+              const unreadCount = Number.isSafeInteger(state.unreadCount) ? state.unreadCount : 0;
+              transaction.update(notificationStateRef, { unreadCount: Math.max(0, unreadCount - 1) });
+            }
+          }
         }
         // merge: true — a replayed save (Feature 1's keepalive-on-unload + pending-queue
         // auto-retry can legitimately resend the same roomSid) must not wipe out the

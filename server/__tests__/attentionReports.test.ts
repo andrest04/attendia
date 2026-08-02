@@ -1,4 +1,10 @@
-import { createGetReportHandler, createGetReportsHandler, createPostReportHandler, ReportsDatabase } from '../attentionReports';
+import {
+  createGetReportHandler,
+  createGetReportsHandler,
+  createPostReportHandler,
+  ingestReportFailureEpisodes,
+  ReportsDatabase,
+} from '../attentionReports';
 
 const makeRes = () => {
   const res: any = { locals: { firebaseUser: { uid: 'uid-1', email: 'ana@example.com' } } };
@@ -17,19 +23,22 @@ const makeDb = () => {
   const transactionGet = jest.fn();
   const transactionSet = jest.fn();
   const transactionUpdate = jest.fn();
-  const transaction = { get: transactionGet, set: transactionSet, update: transactionUpdate };
+  const transactionDelete = jest.fn();
+  const transaction = {
+    get: transactionGet, set: transactionSet, update: transactionUpdate, delete: transactionDelete,
+  };
   const runTransaction = jest.fn(async callback => callback(transaction));
   const reportsGet = jest.fn();
   const limit = jest.fn(() => ({ get: reportsGet }));
   const orderBy = jest.fn(() => ({ limit }));
-  const reportDoc = jest.fn(() => ({ set, get: reportGet }));
+  const reportDoc = jest.fn(() => ({ set, get: reportGet, collection: reportsCollection }));
   const reportsCollection = jest.fn(() => ({ doc: reportDoc, orderBy }));
   const userDoc = jest.fn(() => ({ get: userGet, collection: reportsCollection }));
   const collection = jest.fn(() => ({ doc: userDoc }));
   const db = ({ collection, runTransaction } as unknown) as ReportsDatabase;
   return {
     db, collection, userDoc, userGet, reportsCollection, reportDoc, set, reportGet, orderBy, limit, reportsGet,
-    runTransaction, transactionGet, transactionSet, transactionUpdate,
+    runTransaction, transactionGet, transactionSet, transactionUpdate, transactionDelete,
   };
 };
 
@@ -82,6 +91,121 @@ describe('createPostReportHandler', () => {
     );
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json).toHaveBeenCalledWith({ saved: true, roomSid: VALID_ROOM_SID });
+  });
+
+  it('atomically resolves the matching failure episode without trusting client time', async () => {
+    const { db, userGet, transactionGet, transactionSet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    transactionGet.mockResolvedValue({
+      data: () => ({ status: 'unresolved', observedAt: 'original-server-time' }),
+    });
+    const res = makeRes();
+
+    await createPostReportHandler(db, serverTimestamp)(
+      { body: { ...validReport, failureEpisodeId: 'episode_12345678', firstFailedAtMs: 999999999 } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(transactionSet).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ status: 'resolved', observedAt: 'original-server-time', resolvedAt: 'server-timestamp' }),
+      { merge: true }
+    );
+    expect(transactionSet).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ observedAt: 999999999 }),
+      expect.anything()
+    );
+    expect(res.json).toHaveBeenCalledWith({ saved: true, roomSid: VALID_ROOM_SID });
+  });
+
+  it('removes the matching unread inbox notification in the same recovery transaction', async () => {
+    const { db, userGet, transactionGet, transactionUpdate, transactionDelete } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    transactionGet
+      .mockResolvedValueOnce({ exists: true, data: () => ({
+        reportId: VALID_ROOM_SID, failureEpisodeId: 'episode_12345678', status: 'unresolved',
+        observedAt: 'original-server-time',
+      }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({
+        currentGeneration: 3, unreadCount: 4, readBefore: null,
+      }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({
+        createdAt: { toMillis: () => 100 }, readAt: null,
+      }) });
+    const res = makeRes();
+
+    await createPostReportHandler(db, serverTimestamp)(
+      { body: { ...validReport, failureEpisodeId: 'episode_12345678' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(transactionDelete).toHaveBeenCalledTimes(1);
+    expect(transactionUpdate).toHaveBeenCalledWith(expect.anything(), { unreadCount: 3 });
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('removes a confirmed recovered notification idempotently without decrementing an already-read item', async () => {
+    const { db, userGet, transactionGet, transactionUpdate, transactionDelete } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    transactionGet
+      .mockResolvedValueOnce({ exists: true, data: () => ({
+        reportId: VALID_ROOM_SID, failureEpisodeId: 'episode_12345678', status: 'resolved',
+        observedAt: 'original-server-time',
+      }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({
+        currentGeneration: 3, unreadCount: 4, readBefore: { toMillis: () => 200 },
+      }) })
+      .mockResolvedValueOnce({ exists: true, data: () => ({
+        createdAt: { toMillis: () => 100 }, readAt: null,
+      }) });
+
+    await createPostReportHandler(db, serverTimestamp)(
+      { body: { ...validReport, failureEpisodeId: 'episode_12345678' } } as any,
+      makeRes(),
+      jest.fn()
+    );
+
+    expect(transactionDelete).toHaveBeenCalledTimes(1);
+    expect(transactionUpdate).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ unreadCount: 3 }));
+  });
+
+  it('replays a lost success response without reopening its resolved tombstone', async () => {
+    const { db, userGet, transactionGet, transactionSet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    transactionGet.mockResolvedValue({ data: () => ({ status: 'resolved', observedAt: 'original-server-time' }) });
+    const res = makeRes();
+
+    await createPostReportHandler(db, serverTimestamp)(
+      { body: { ...validReport, failureEpisodeId: 'episode_12345678' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(transactionSet).toHaveBeenCalledTimes(1);
+    expect(transactionSet).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ roomSid: VALID_ROOM_SID }),
+      { merge: true }
+    );
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('rejects an unbounded failure episode id before writing', async () => {
+    const { db, userGet, runTransaction } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const res = makeRes();
+
+    await createPostReportHandler(db, serverTimestamp)(
+      { body: { ...validReport, failureEpisodeId: '../invalid' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(runTransaction).not.toHaveBeenCalled();
   });
 
   it('commits a class-bound report and completion in the same Firestore transaction', async () => {
@@ -191,6 +315,73 @@ describe('createPostReportHandler', () => {
       expect.objectContaining({ error: expect.objectContaining({ message: 'report save failed' }) })
     );
     consoleError.mockRestore();
+  });
+});
+
+describe('ingestReportFailureEpisodes', () => {
+  afterEach(jest.clearAllMocks);
+
+  const claim = {
+    reportId: VALID_ROOM_SID,
+    failureEpisodeId: 'episode_12345678',
+    firstFailedAtMs: 123,
+  };
+
+  it('creates an unresolved episode with immutable server-owned observedAt', async () => {
+    const { db, transactionGet, transactionSet } = makeDb();
+    transactionGet.mockResolvedValue({ data: () => undefined });
+
+    await ingestReportFailureEpisodes(db, 'uid-1', [claim], serverTimestamp);
+
+    expect(transactionSet).toHaveBeenCalledWith(expect.anything(), {
+      reportId: VALID_ROOM_SID,
+      failureEpisodeId: 'episode_12345678',
+      status: 'unresolved',
+      observedAt: 'server-timestamp',
+    });
+    expect(transactionSet).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ observedAt: 123 }));
+  });
+
+  it.each(['unresolved', 'resolved'])('never rewrites an existing %s episode tombstone', async status => {
+    const { db, transactionGet, transactionSet } = makeDb();
+    transactionGet.mockResolvedValue({ data: () => ({ status, observedAt: 'original-server-time' }) });
+
+    await ingestReportFailureEpisodes(db, 'uid-1', [claim], serverTimestamp);
+
+    expect(transactionSet).not.toHaveBeenCalled();
+  });
+
+  it('keeps a later distinct episode independent after recovery', async () => {
+    const { db, transactionGet, transactionSet } = makeDb();
+    transactionGet
+      .mockResolvedValueOnce({ data: () => ({ status: 'resolved', observedAt: 'first-server-time' }) })
+      .mockResolvedValueOnce({ data: () => undefined });
+
+    await ingestReportFailureEpisodes(
+      db,
+      'uid-1',
+      [claim, { ...claim, failureEpisodeId: 'episode_87654321', firstFailedAtMs: 1 }],
+      serverTimestamp
+    );
+
+    expect(transactionSet).toHaveBeenCalledTimes(1);
+    expect(transactionSet).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ failureEpisodeId: 'episode_87654321', observedAt: 'server-timestamp' })
+    );
+  });
+
+  it('rejects malformed and bulk claims before opening a transaction', async () => {
+    const malformed = { ...claim, failureEpisodeId: '../bad' };
+    const { db, runTransaction } = makeDb();
+
+    await expect(ingestReportFailureEpisodes(db, 'uid-1', [malformed], serverTimestamp)).rejects.toThrow(
+      'invalid report failure claim'
+    );
+    await expect(
+      ingestReportFailureEpisodes(db, 'uid-1', new Array(21).fill(claim), serverTimestamp)
+    ).rejects.toThrow('too many report failure claims');
+    expect(runTransaction).not.toHaveBeenCalled();
   });
 });
 

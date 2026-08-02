@@ -46,6 +46,24 @@
   //     ]
   //   },
   // ]
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventOccurrenceAt", "order": "DESCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "eventType", "order": "ASCENDING" },
+        { "fieldPath": "notificationId", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }
