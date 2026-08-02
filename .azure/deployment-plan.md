@@ -1,4 +1,4 @@
-# Azure Deployment Plan — twilio-video-app-react
+# Azure Deployment Plan — Attendia
 
 Status: Deployed — 2026-07-15. Gotenberg now runs as a sidecar in Attendia revision
 `attendia--0000012` at 0.5 vCPU / 1 GiB. The durable deploy path configures
