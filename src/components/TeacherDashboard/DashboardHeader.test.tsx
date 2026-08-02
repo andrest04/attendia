@@ -1,6 +1,6 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { Button, MenuItem } from '@material-ui/core';
+import { Badge, Button, IconButton, Menu, MenuItem, Popover } from '@material-ui/core';
 import DashboardHeader from './DashboardHeader';
 
 const push = jest.fn();
@@ -38,6 +38,39 @@ describe('DashboardHeader profile menu', () => {
     expect(wrapper.find('button[aria-label="Ir al inicio"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="dashboard-header-notifications"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="dashboard-header-profile"]').exists()).toBe(true);
+  });
+
+  it('anchors notification content to an accessible badged bell and closes it on request', () => {
+    const wrapper = shallow(
+      <DashboardHeader notificationUnreadCount={7} notificationContent={() => <div data-testid="inbox">Inbox</div>} />
+    );
+    const trigger = wrapper.find(IconButton).filter('[data-testid="dashboard-header-notifications"]');
+
+    expect(trigger.prop('aria-expanded')).toBe(false);
+    expect(wrapper.find(Badge).prop('badgeContent')).toBe(7);
+    trigger.simulate('click', { currentTarget: document.createElement('button') });
+    wrapper.update();
+    expect(wrapper.find(Popover).filter('#dashboard-notification-menu').prop('open')).toBe(true);
+    expect(wrapper.find('[data-testid="inbox"]').exists()).toBe(true);
+
+    wrapper.find(Popover).filter('#dashboard-notification-menu').prop('onClose')!({}, 'backdropClick');
+    wrapper.update();
+    expect(wrapper.find(Popover).filter('#dashboard-notification-menu').prop('open')).toBe(false);
+  });
+
+  it('uses the supported rectangular badge overlap value', () => {
+    const wrapper = shallow(
+      <DashboardHeader notificationUnreadCount={1} notificationContent={() => <div>Inbox</div>} />
+    );
+
+    expect(wrapper.find(Badge).prop('overlap')).toBe('rectangular');
+  });
+
+  it('uses an anchored popover for composite notification content instead of treating it as a menu item', () => {
+    const wrapper = shallow(<DashboardHeader notificationContent={() => <div>Inbox</div>} />);
+
+    expect(wrapper.find(Popover).filter('#dashboard-notification-menu').exists()).toBe(true);
+    expect(wrapper.find(Menu).filter('#dashboard-notification-menu').exists()).toBe(false);
   });
 });
 
