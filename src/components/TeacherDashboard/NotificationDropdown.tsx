@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Button,
   CircularProgress,
   Divider,
+  IconButton,
   List,
   ListItem,
   ListItemText,
+  Menu,
+  MenuItem,
+  Button,
   Typography,
 } from '@material-ui/core';
+import MoreVertIcon from '@material-ui/icons/MoreVert';
+import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
@@ -15,26 +20,65 @@ const useStyles = makeStyles((theme: Theme) => ({
   root: {
     width: 360,
     maxWidth: 'calc(100vw - 32px)',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: theme.spacing(1.5, 1, 1.5, 2),
   },
   heading: {
-    padding: theme.spacing(2, 2, 1),
     fontWeight: 700,
   },
   state: {
-    minHeight: 92,
+    minHeight: 100,
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing(2),
+    padding: theme.spacing(3, 2),
     color: theme.palette.text.secondary,
   },
+  stateIcon: {
+    fontSize: 32,
+    color: theme.palette.success.main,
+    marginBottom: theme.spacing(1),
+  },
+  list: {
+    maxHeight: 320,
+    overflowY: 'auto',
+    scrollbarWidth: 'thin',
+    '&::-webkit-scrollbar': {
+      width: 6,
+    },
+    '&::-webkit-scrollbar-thumb': {
+      backgroundColor: '#cbd5e1',
+      borderRadius: 3,
+    },
+    '&::-webkit-scrollbar-track': {
+      backgroundColor: 'transparent',
+    },
+  },
   row: {
+    position: 'relative',
     alignItems: 'flex-start',
     borderLeft: '3px solid transparent',
+    padding: theme.spacing(1.5, 2),
   },
   unread: {
     backgroundColor: '#f3f7ff',
     borderLeftColor: theme.palette.primary.main,
+  },
+  unreadDot: {
+    position: 'absolute',
+    top: theme.spacing(1.5),
+    right: theme.spacing(1.5),
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    backgroundColor: theme.palette.primary.main,
   },
   message: {
     display: 'block',
@@ -42,7 +86,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     marginTop: theme.spacing(0.5),
   },
   errors: {
-    padding: theme.spacing(0, 2),
+    padding: theme.spacing(1, 2),
   },
   error: {
     color: theme.palette.error.main,
@@ -55,8 +99,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     padding: theme.spacing(1),
   },
   warning: {
+    display: 'block',
     color: '#9a5b00',
-    padding: theme.spacing(0.5, 1),
+    padding: theme.spacing(1, 2),
   },
 }));
 
@@ -107,10 +152,39 @@ export default function NotificationDropdown(props: Props) {
     onClearAll,
   } = props;
   const mutationPending = isMarkingAll || isClearing;
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const closeMenu = () => setMenuAnchor(null);
+  const handleMarkAllRead = () => {
+    closeMenu();
+    onMarkAllRead();
+  };
+  const handleClearAll = () => {
+    closeMenu();
+    onClearAll();
+  };
 
   return (
     <div className={classes.root} data-testid="notification-dropdown">
-      <Typography className={classes.heading}>Notificaciones</Typography>
+      <div className={classes.header}>
+        <Typography className={classes.heading}>Notificaciones</Typography>
+        <IconButton
+          size="small"
+          aria-label="Más opciones de notificaciones"
+          data-testid="notification-dropdown-menu-button"
+          onClick={event => setMenuAnchor(event.currentTarget)}
+        >
+          <MoreVertIcon fontSize="small" />
+        </IconButton>
+        <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
+          <MenuItem onClick={handleMarkAllRead} disabled={unreadCount === 0 || mutationPending}>
+            Marcar todas como leídas
+          </MenuItem>
+          <MenuItem onClick={handleClearAll} disabled={notifications.length === 0 || mutationPending}>
+            Vaciar notificaciones
+          </MenuItem>
+        </Menu>
+      </div>
       <Divider />
       {!hasConfirmedState ? (
         <div className={classes.state} data-testid="notification-dropdown-loading">
@@ -118,10 +192,11 @@ export default function NotificationDropdown(props: Props) {
         </div>
       ) : notifications.length === 0 ? (
         <div className={classes.state} data-testid="notification-dropdown-empty">
+          <CheckCircleOutlineIcon className={classes.stateIcon} />
           Estás al día
         </div>
       ) : (
-        <List disablePadding>
+        <List disablePadding className={classes.list}>
           {notifications.map(notification => (
             <ListItem
               button
@@ -131,6 +206,9 @@ export default function NotificationDropdown(props: Props) {
               disabled={pendingReadId === notification.notificationId || mutationPending}
               onClick={() => onNotificationClick(notification)}
             >
+              {notification.readAtMs === null && (
+                <span className={classes.unreadDot} data-testid={`notification-row-${notification.notificationId}-unread-dot`} />
+              )}
               <ListItemText
                 primary={notification.title}
                 secondary={<span className={classes.message}>{notification.message}</span>}
@@ -148,25 +226,17 @@ export default function NotificationDropdown(props: Props) {
           ) : null
         )}
       </div>
-      {hasConfirmedState && (
+      {hasConfirmedState && unreadCount > 0 && (
+        <Typography className={classes.warning} variant="caption">
+          Tienes notificaciones sin leer
+        </Typography>
+      )}
+      {hasConfirmedState && hasMore && (
         <>
           <Divider />
           <div className={classes.actions}>
-            {hasMore && (
-              <Button onClick={onLoadMore} disabled={isLoadingMore || mutationPending}>
-                Cargar más
-              </Button>
-            )}
-            <Button onClick={onMarkAllRead} disabled={unreadCount === 0 || mutationPending}>
-              Marcar todas como leídas
-            </Button>
-            {unreadCount > 0 && (
-              <Typography className={classes.warning} variant="caption">
-                Tienes notificaciones sin leer
-              </Typography>
-            )}
-            <Button onClick={onClearAll} disabled={notifications.length === 0 || mutationPending}>
-              Vaciar notificaciones
+            <Button onClick={onLoadMore} disabled={isLoadingMore || mutationPending}>
+              Cargar más
             </Button>
           </div>
         </>

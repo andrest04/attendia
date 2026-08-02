@@ -207,7 +207,7 @@ export default function DashboardHeader({
               onClose={closeNotifications}
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones' }}
+              PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones', style: { overflow: 'hidden' } }}
             >
               {notificationContent(closeNotifications)}
             </Popover>
