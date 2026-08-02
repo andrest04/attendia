@@ -25,6 +25,7 @@ import { logOperationalFailure } from './operationalEvents';
  */
 
 const ROOM_SID_PATTERN = /^RM[a-zA-Z0-9]{32}$/;
+const MANUAL_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]{8,128}$/;
 
 // The composition media is hosted by Twilio for 7 days after creation before the
 // underlying files are deleted (metadata survives longer). This is a client-facing
@@ -47,9 +48,12 @@ export interface RecordingArtifact {
   mediaExpiresAt?: number;
 }
 
-// Recording requests may be retried once a composition previously failed or its
-// media expired; anything still in flight or already done is not recreated.
-const NON_RETRYABLE_STATUSES: RecordingArtifactStatus[] = ['enqueued', 'processing', 'completed'];
+export interface ManualRecordingRequest extends RecordingArtifact {
+  manualRequestId: string;
+  requestedAt?: any;
+  statusChangedAt?: any;
+  ambiguous?: boolean;
+}
 
 // Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
 // attentionReports.ts/classes.ts on purpose — each server unit stays independently
@@ -64,13 +68,21 @@ export interface VerifiedFirebaseUser {
 // these structurally (same pattern as ReportsDatabase in attentionReports.ts).
 
 export interface RecordingReportDocumentSnapshot {
-  id: string;
+  id?: string;
+  exists?: boolean;
   data(): { [key: string]: any } | undefined;
+}
+
+export interface RecordingRequestDocumentReference {
+  get(): Promise<RecordingReportDocumentSnapshot>;
+  create(data: { [key: string]: any }): Promise<unknown>;
+  update(data: { [key: string]: any }): Promise<unknown>;
 }
 
 export interface RecordingReportDocumentReference {
   get(): Promise<RecordingReportDocumentSnapshot>;
   update(data: { [key: string]: any }): Promise<unknown>;
+  collection(name: 'recordingRequests'): { doc(id: string): RecordingRequestDocumentReference };
 }
 
 export interface RecordingReportsCollection {
@@ -87,8 +99,14 @@ export interface RecordingsUserDocumentReference {
   collection(name: string): RecordingReportsCollection;
 }
 
+export interface RecordingTransaction {
+  get(ref: RecordingRequestDocumentReference): Promise<RecordingReportDocumentSnapshot>;
+  update(ref: RecordingRequestDocumentReference, data: { [key: string]: any }): unknown;
+}
+
 export interface RecordingsDatabase {
   collection(name: string): { doc(id: string): RecordingsUserDocumentReference };
+  runTransaction<T>(fn: (transaction: RecordingTransaction) => Promise<T>): Promise<T>;
 }
 
 // ─── Structural Twilio client slice ────────────────────────────────────────────
@@ -100,6 +118,7 @@ export interface TwilioCompositionResource {
   sid: string;
   status: 'enqueued' | 'processing' | 'completed' | 'deleted' | 'failed';
   dateCreated: Date;
+  dateUpdated?: Date;
 }
 
 export interface TwilioResponse<T> {
@@ -203,8 +222,58 @@ function validateRoomSid(res: Parameters<RequestHandler>[1], roomSid: unknown): 
   return true;
 }
 
-/** Requests a Twilio Composition for a completed, recorded class. Idempotent while the previous attempt is enqueued/processing/completed. */
-export function createRequestRecordingHandler(db: RecordingsDatabase, twilioClient: RecordingsClient): RequestHandler {
+function validateManualRequestId(res: Parameters<RequestHandler>[1], value: unknown): value is string {
+  if (typeof value !== 'string' || !MANUAL_REQUEST_ID_PATTERN.test(value)) {
+    sendBadRequest(res, 'invalid manualRequestId', 'El identificador de la solicitud no es válido.');
+    return false;
+  }
+  return true;
+}
+
+function terminalStatusChangedAt(composition: TwilioCompositionResource, serverTimestamp: () => any): any | undefined {
+  const status = mapCompositionStatus(composition.status);
+  if (status !== 'completed' && status !== 'failed' && status !== 'expired') return undefined;
+  return composition.dateUpdated instanceof Date ? composition.dateUpdated : serverTimestamp();
+}
+
+/** Refreshes one durable manual request from authoritative Twilio state. */
+export async function refreshManualRecordingRequest(
+  db: RecordingsDatabase,
+  twilioClient: RecordingsClient,
+  serverTimestamp: () => any,
+  uid: string,
+  roomSid: string,
+  manualRequestId: string
+): Promise<ManualRecordingRequest | undefined> {
+  const reportRef = getReportRef(db, uid, roomSid);
+  const requestRef = reportRef.collection('recordingRequests').doc(manualRequestId);
+  const persisted = (await requestRef.get()).data() as ManualRecordingRequest | undefined;
+  if (!persisted || persisted.statusChangedAt || !persisted.compositionSid) return persisted;
+  if (persisted.status !== 'enqueued' && persisted.status !== 'processing') {
+    return persisted;
+  }
+
+  const composition = await twilioClient.video.v1.compositions(persisted.compositionSid).fetch();
+  const statusChangedAt = terminalStatusChangedAt(composition, serverTimestamp);
+  const candidate: ManualRecordingRequest = {
+    manualRequestId,
+    ...toRecordingArtifact(composition),
+    ...(statusChangedAt !== undefined ? { statusChangedAt } : {}),
+  };
+  return db.runTransaction(async transaction => {
+    const latest = (await transaction.get(requestRef)).data() as ManualRecordingRequest | undefined;
+    if (!latest || latest.statusChangedAt) return latest;
+    transaction.update(requestRef, candidate);
+    return candidate;
+  });
+}
+
+/** Requests one durable Twilio Composition per manualRequestId. */
+export function createRequestRecordingHandler(
+  db: RecordingsDatabase,
+  twilioClient: RecordingsClient,
+  serverTimestamp: () => any
+): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
     if (!firebaseUser) {
@@ -238,22 +307,53 @@ export function createRequestRecordingHandler(db: RecordingsDatabase, twilioClie
         return;
       }
 
-      const existingRecording: RecordingArtifact | undefined = data.recording;
-      if (existingRecording && NON_RETRYABLE_STATUSES.includes(existingRecording.status)) {
-        res.status(200).json({ recording: existingRecording });
+      const manualRequestId = req.body && req.body.manualRequestId;
+      if (!validateManualRequestId(res, manualRequestId)) return;
+
+      const requestRef = reportRef.collection('recordingRequests').doc(manualRequestId);
+      const existingSnapshot = await requestRef.get();
+      const existingRequest = existingSnapshot && existingSnapshot.data();
+      if (existingRequest) {
+        if (existingRequest.status === 'requesting' && !existingRequest.compositionSid) {
+          res.status(409).json({ request: { ...existingRequest, ambiguous: true } });
+          return;
+        }
+        res.status(200).json({ recording: existingRequest, request: existingRequest });
         return;
       }
 
-      const composition = await twilioClient.video.v1.compositions.create({
-        roomSid,
-        audioSources: ['*'],
-        videoLayout: DEFAULT_VIDEO_LAYOUT,
-      });
+      const claim: ManualRecordingRequest = {
+        manualRequestId,
+        status: 'not_requested',
+        requestedAt: serverTimestamp(),
+      };
+      await requestRef.create({ ...claim, status: 'requesting' });
 
-      const recording = toRecordingArtifact(composition);
+      let composition: TwilioCompositionResource;
+      try {
+        composition = await twilioClient.video.v1.compositions.create({
+          roomSid,
+          audioSources: ['*'],
+          videoLayout: DEFAULT_VIDEO_LAYOUT,
+        });
+      } catch (error) {
+        logOperationalFailure({
+          event: 'recording_request_ambiguous', operation: 'POST /reports/:roomSid/recording', uid: firebaseUser.uid, roomSid, error,
+        });
+        res.status(409).json({ request: { ...claim, status: 'requesting', ambiguous: true } });
+        return;
+      }
+
+      const statusChangedAt = terminalStatusChangedAt(composition, serverTimestamp);
+      const recording: ManualRecordingRequest = {
+        manualRequestId,
+        ...toRecordingArtifact(composition),
+        ...(statusChangedAt !== undefined ? { statusChangedAt } : {}),
+      };
+      await requestRef.update(recording);
       await reportRef.update({ recording });
 
-      res.status(200).json({ recording });
+      res.status(200).json({ recording, request: recording });
     } catch (err) {
       logOperationalFailure({
         event: 'recording_request_failed', operation: 'POST /reports/:roomSid/recording', uid: firebaseUser.uid, roomSid, error: err,
@@ -269,7 +369,11 @@ export function createRequestRecordingHandler(db: RecordingsDatabase, twilioClie
 }
 
 /** Refreshes and persists a previously requested composition's status. */
-export function createGetRecordingStatusHandler(db: RecordingsDatabase, twilioClient: RecordingsClient): RequestHandler {
+export function createGetRecordingStatusHandler(
+  db: RecordingsDatabase,
+  twilioClient: RecordingsClient,
+  serverTimestamp: () => any
+): RequestHandler {
   return async (req, res) => {
     const firebaseUser = getVerifiedUser(res);
     if (!firebaseUser) {
@@ -294,14 +398,40 @@ export function createGetRecordingStatusHandler(db: RecordingsDatabase, twilioCl
         return;
       }
 
-      const existingRecording: RecordingArtifact | undefined = data.recording;
+      const existingRecording: ManualRecordingRequest | undefined = data.recording;
       if (!existingRecording || !existingRecording.compositionSid) {
         res.status(200).json({ recording: { status: 'not_requested' } as RecordingArtifact });
         return;
       }
 
+      const requestRef = existingRecording.manualRequestId
+        ? reportRef.collection('recordingRequests').doc(existingRecording.manualRequestId)
+        : undefined;
+      const persistedSnapshot = requestRef && (await requestRef.get());
+      const persistedRequest = persistedSnapshot && persistedSnapshot.data() as ManualRecordingRequest | undefined;
+      if (persistedRequest && persistedRequest.statusChangedAt) {
+        res.status(200).json({ recording: persistedRequest });
+        return;
+      }
+
       const composition = await twilioClient.video.v1.compositions(existingRecording.compositionSid).fetch();
-      const recording = toRecordingArtifact(composition);
+      const statusChangedAt = existingRecording.manualRequestId
+        ? terminalStatusChangedAt(composition, serverTimestamp)
+        : undefined;
+      const candidate: any = {
+        ...toRecordingArtifact(composition),
+        ...(existingRecording.manualRequestId ? { manualRequestId: existingRecording.manualRequestId } : {}),
+        ...(statusChangedAt !== undefined ? { statusChangedAt } : {}),
+      };
+      let recording: RecordingArtifact = candidate;
+      if (requestRef) {
+        recording = await db.runTransaction(async transaction => {
+          const latest = (await transaction.get(requestRef)).data() as ManualRecordingRequest | undefined;
+          if (latest && latest.statusChangedAt) return latest;
+          transaction.update(requestRef, candidate);
+          return candidate;
+        });
+      }
       await reportRef.update({ recording });
 
       res.status(200).json({ recording });
