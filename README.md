@@ -29,7 +29,7 @@ Check your versions with:
 ## Clone the repository
 
     git clone <this-repo-url>
-    cd twilio-video-app-react
+    cd attendia
 
 ## Install dependencies
 
