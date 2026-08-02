@@ -50,6 +50,7 @@ export interface ClassNotificationSource {
   classId?: unknown;
   status?: unknown;
   scheduledAt?: unknown;
+  title?: unknown;
   tombstoned?: boolean;
 }
 
@@ -66,6 +67,7 @@ export function deriveClassNotification(
   const notStartedAtMs = scheduledAtMs + FIFTEEN_MINUTES_MS;
   if (nowMs < upcomingAtMs) return {};
   const missed = nowMs >= notStartedAtMs;
+  const className = typeof source.title === 'string' && source.title.trim() ? source.title.trim() : null;
   return {
     removeEventKey: missed ? upcomingKey : undefined,
     candidate: {
@@ -73,8 +75,16 @@ export function deriveClassNotification(
       eventKey: `class:${source.classId}:${missed ? 'not-started' : 'upcoming'}`,
       source: { kind: 'class', classId: source.classId },
       eventOccurrenceAt: new Date(missed ? notStartedAtMs : upcomingAtMs),
-      title: missed ? 'Clase no iniciada' : 'Clase próxima',
-      message: missed ? 'La clase programada todavía no fue iniciada.' : 'Tu clase comienza en 15 minutos.',
+      title: missed
+        ? (className ? `Clase no iniciada: ${className}` : 'Clase no iniciada')
+        : (className ? `Clase próxima: ${className}` : 'Clase próxima'),
+      message: missed
+        ? (className
+          ? `Tu clase "${className}" programada todavía no fue iniciada.`
+          : 'La clase programada todavía no fue iniciada.')
+        : (className
+          ? `Tu clase "${className}" comienza en 15 minutos.`
+          : 'Tu clase comienza en 15 minutos.'),
       destination: { kind: 'classes' },
     },
   };
