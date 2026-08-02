@@ -233,15 +233,17 @@ describe('useTeacherNotifications confirmed state', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 
-    it('reconciles all immediately and runs one non-overlapping all-scope poll every 30 seconds', async () => {
+    it('shows the cached page immediately, reconciles in the background, and polls every 30 seconds', async () => {
       const client = api();
+      client.fetchNotifications.mockResolvedValue(page([item('recording', 30)], 1));
       const first = deferred<{ changed: boolean; unreadCount: number }>();
       client.reconcileNotifications
         .mockReturnValueOnce(first.promise)
         .mockResolvedValue({ changed: false, unreadCount: 1 });
-      client.fetchNotifications.mockResolvedValue(page([item('recording', 30)], 1));
       renderHook(() => useTeacherNotifications(client, undefined, [], { enabled: true, userKey: 'teacher-1' }));
 
+      // The cached fetch settles before reconcile is even called — that's the point.
+      await flush();
       expect(client.reconcileNotifications).toHaveBeenCalledTimes(1);
       expect(client.reconcileNotifications).toHaveBeenLastCalledWith('all', []);
       act(() => jest.advanceTimersByTime(60000));
@@ -253,18 +255,23 @@ describe('useTeacherNotifications confirmed state', () => {
 
       expect(client.reconcileNotifications).toHaveBeenCalledTimes(2);
       expect(client.reconcileNotifications).toHaveBeenLastCalledWith('all', []);
-      expect(client.fetchNotifications).toHaveBeenCalledTimes(2);
+      // mount's cached fetch + mount's post-reconcile fetch (changed:true) + the poll's cached
+      // fetch. The poll's reconcile reports changed:false, so it skips a fourth fetch.
+      expect(client.fetchNotifications).toHaveBeenCalledTimes(3);
     });
 
     it('stops while hidden or offline and performs an all-scope wake that converges after recovery', async () => {
       const client = api();
       client.reconcileNotifications
-        .mockResolvedValueOnce({ changed: false, unreadCount: 1 })
-        .mockRejectedValueOnce(new Error('wake failed'))
-        .mockResolvedValue({ changed: true, unreadCount: 0 });
+        .mockResolvedValueOnce({ changed: false, unreadCount: 1 }) // mount
+        .mockRejectedValueOnce(new Error('wake failed')) // focus
+        .mockResolvedValue({ changed: true, unreadCount: 0 }); // recovery + online (default)
       client.fetchNotifications
-        .mockResolvedValueOnce(page([item('kept', 10)], 1))
-        .mockResolvedValue(page([item('remote', 40, 41)], 0));
+        .mockResolvedValueOnce(page([item('kept', 10)], 1)) // mount's cached fetch
+        .mockResolvedValueOnce(page([item('kept', 10)], 1)) // focus's cached fetch (reconcile then fails)
+        .mockResolvedValueOnce(page([item('kept', 10)], 1)) // recovery's cached fetch
+        .mockResolvedValueOnce(page([item('remote', 40, 41)], 0)) // recovery's post-reconcile fetch
+        .mockResolvedValue(page([item('remote', 40, 41)], 0)); // online's cached + post-reconcile fetch (default)
       const { result } = renderHook(() =>
         useTeacherNotifications(client, undefined, [], { enabled: true, userKey: 'teacher-1' })
       );
@@ -299,27 +306,31 @@ describe('useTeacherNotifications confirmed state', () => {
 
     it('stops and discards stale work on disable, user change, and unmount', async () => {
       const client = api();
-      const oldWake = deferred<{ changed: boolean; unreadCount: number }>();
-      client.reconcileNotifications
+      // The very first (cached) fetch is the async call that's in flight when disable
+      // happens now, since fetch runs before reconcile in each wake.
+      const oldWake = deferred<ReturnType<typeof page>>();
+      client.fetchNotifications
         .mockReturnValueOnce(oldWake.promise)
-        .mockResolvedValue({ changed: false, unreadCount: 0 });
-      client.fetchNotifications.mockResolvedValue(page([item('new-user', 50)], 0));
+        .mockResolvedValue(page([item('new-user', 50)], 0));
+      client.reconcileNotifications.mockResolvedValue({ changed: false, unreadCount: 0 });
       const { result, rerender, unmount } = renderHook(
         ({ enabled, userKey }) => useTeacherNotifications(client, undefined, [], { enabled, userKey }),
         { initialProps: { enabled: true, userKey: 'teacher-1' } }
       );
 
       rerender({ enabled: false, userKey: 'teacher-1' });
-      await act(async () => oldWake.resolve({ changed: true, unreadCount: 9 }));
-      expect(client.fetchNotifications).not.toHaveBeenCalled();
+      await act(async () => oldWake.resolve(page([item('stale', 10)], 1)));
+      expect(client.reconcileNotifications).not.toHaveBeenCalled();
       expect(result.current.hasConfirmedState).toBe(false);
 
       rerender({ enabled: true, userKey: 'teacher-2' });
       await flush();
       expect(result.current.notifications).toEqual([item('new-user', 50)]);
+      expect(client.reconcileNotifications).toHaveBeenCalledTimes(1);
       unmount();
       act(() => jest.advanceTimersByTime(60000));
-      expect(client.reconcileNotifications).toHaveBeenCalledTimes(2);
+      expect(client.reconcileNotifications).toHaveBeenCalledTimes(1);
+      expect(client.fetchNotifications).toHaveBeenCalledTimes(2);
     });
   });
 });

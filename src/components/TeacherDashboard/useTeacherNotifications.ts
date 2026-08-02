@@ -230,6 +230,11 @@ export default function useTeacherNotifications(
       }, interval);
     };
 
+    // Stale-while-revalidate: render whatever is already durable immediately instead
+    // of blocking the dropdown behind reconcile, which then runs in the background.
+    // The unread count from reconcile is always authoritative (it never touches read
+    // state), but the item list is only worth a second round trip when reconcile
+    // actually created/removed something.
     const run = async (scope: 'all' | 'recordings') => {
       if (!active()) return;
       if (inFlight) {
@@ -240,10 +245,17 @@ export default function useTeacherNotifications(
       stopTimer();
       setReconcileError(null);
       try {
-        await api.reconcileNotifications(scope, pendingFailuresRef.current);
+        const cached = await api.fetchNotifications();
         if (!active()) return;
-        const page = await api.fetchNotifications();
-        if (active()) commitPageOne(page);
+        commitPageOne(cached);
+        const outcome = await api.reconcileNotifications(scope, pendingFailuresRef.current);
+        if (!active()) return;
+        if (outcome.changed) {
+          const reconciled = await api.fetchNotifications();
+          if (active()) commitPageOne(reconciled);
+        } else {
+          setUnreadCount(outcome.unreadCount);
+        }
       } catch (value) {
         if (generationActive) setReconcileError(asError(value));
       } finally {
