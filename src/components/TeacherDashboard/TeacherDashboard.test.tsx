@@ -2,6 +2,8 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import TeacherDashboard from './TeacherDashboard';
 import DashboardHeader from './DashboardHeader';
+import NotificationDropdown from './NotificationDropdown';
+import useTeacherNotifications from './useTeacherNotifications';
 import DashboardSidebar from './DashboardSidebar';
 import QuickStartClassPanel from './QuickStartClassPanel';
 import ClassesTab from './ClassesTab';
@@ -10,19 +12,51 @@ import ResourcesTab from './ResourcesTab';
 import CalendarTab from './CalendarTab';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { useAppState } from '../../state';
+import ConfirmDialog from './ConfirmDialog';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
 import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
 import { mockDashboardData } from './mockDashboardData';
+import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { UpcomingSession } from './types';
 
 jest.mock('../../state');
 jest.mock('../PreJoinScreens/checkRoomOpen');
+jest.mock('./useTeacherNotifications');
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockCheckRoomOpen = checkRoomOpen as jest.Mock;
+const mockUseTeacherNotifications = useTeacherNotifications as jest.Mock;
 const mockSignOut = jest.fn(() => Promise.resolve());
+const notification = (id: string, destination: TeacherNotification['destination']): TeacherNotification => ({
+  notificationId: id,
+  ownerUid: 'teacher-1',
+  eventType: destination.kind === 'recording' ? 'recording.ready' : destination.kind === 'classes' ? 'class.upcoming' : 'report.save_failed',
+  eventKey: `event:${id}`,
+  source: destination.kind === 'recording'
+    ? { kind: 'recording', roomSid: destination.roomSid, manualRequestId: 'request-1' }
+    : destination.kind === 'classes'
+    ? { kind: 'class', classId: 'class-1' }
+    : { kind: 'report', reportId: destination.reportId, failureEpisodeId: 'episode-1' },
+  eventOccurrenceAtMs: 20,
+  createdAtMs: 21,
+  readAtMs: null,
+  title: id,
+  message: id,
+  destination,
+});
+
+const notificationState = (overrides = {}) => ({
+  notifications: [], unreadCount: 0, hasMore: false, hasConfirmedState: true,
+  isInitialLoading: false, isRefreshing: false, isLoadingMore: false,
+  pendingReadId: null, isMarkingAll: false, isClearing: false,
+  refreshError: null, paginationError: null, readError: null, markAllError: null, clearError: null, reconcileError: null,
+  refresh: jest.fn(), loadMore: jest.fn(), markRead: jest.fn(), markAllRead: jest.fn(), clearAll: jest.fn(), reconcile: jest.fn(),
+  ...overrides,
+});
 
 describe('TeacherDashboard', () => {
   beforeEach(() => {
+    mockUseTeacherNotifications.mockReturnValue(notificationState());
     // fetchClasses/createClass/deleteClass are explicitly undefined here (as they
     // are in passcode/anonymous auth mode), so these tests keep exercising the
     // mockDashboardData fallback path — see the "real classes" describe block below
@@ -35,6 +69,61 @@ describe('TeacherDashboard', () => {
       deleteClass: undefined,
       fetchAttentionReports: undefined,
     }));
+  });
+
+  it('wires the persistent inbox only through the teacher dashboard header, including pending state', () => {
+    const state = notificationState({
+      notifications: [notification('class', { kind: 'classes' })], unreadCount: 4,
+      isLoadingMore: true, pendingReadId: 'class', isMarkingAll: true, isClearing: true,
+    });
+    mockUseTeacherNotifications.mockReturnValue(state);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
+    const header = wrapper.find(DashboardHeader);
+    const dropdown = header.prop('notificationContent')!(jest.fn()) as React.ReactElement<any>;
+
+    expect(mockUseTeacherNotifications).toHaveBeenCalledTimes(1);
+    expect(header.prop('notificationUnreadCount')).toBe(4);
+    expect(dropdown.type).toBe(NotificationDropdown);
+    expect(dropdown.props).toEqual(expect.objectContaining({
+      notifications: state.notifications, isLoadingMore: true, pendingReadId: 'class', isMarkingAll: true, isClearing: true,
+    }));
+  });
+
+  it('marks read before navigating to each closed destination and closes the menu only after success', async () => {
+    const markRead = jest.fn().mockResolvedValue(undefined);
+    mockUseTeacherNotifications.mockReturnValue(notificationState({ markRead }));
+    const navigate = jest.fn();
+    const close = jest.fn();
+    const wrapper = shallow(
+      <TeacherDashboard onStartClass={jest.fn()} onNotificationNavigate={navigate} />
+    );
+    const dropdown = wrapper.find(DashboardHeader).prop('notificationContent')!(close) as React.ReactElement<any>;
+    const cases: Array<[TeacherNotification, string]> = [
+      [notification('class', { kind: 'classes' }), '/dashboard/clases'],
+      [notification('recording', { kind: 'recording', roomSid: 'RM 1' }), '/recording/RM%201'],
+      [notification('report', { kind: 'report-retry', reportId: 'report-1' }), '/dashboard/historial'],
+    ];
+
+    for (const [item, path] of cases) {
+      const action = dropdown.props.onNotificationClick(item) as unknown as Promise<void>;
+      expect(navigate).not.toHaveBeenCalledWith(path);
+      await action;
+      expect(markRead).toHaveBeenLastCalledWith(item.notificationId);
+      expect(navigate).toHaveBeenLastCalledWith(path);
+    }
+    expect(close).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not navigate or close when marking a notification read fails', async () => {
+    mockUseTeacherNotifications.mockReturnValue(notificationState({ markRead: jest.fn().mockRejectedValue(new Error('read failed')) }));
+    const navigate = jest.fn();
+    const close = jest.fn();
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onNotificationNavigate={navigate} />);
+    const dropdown = wrapper.find(DashboardHeader).prop('notificationContent')!(close) as React.ReactElement<any>;
+
+    await expect(dropdown.props.onNotificationClick(notification('class', { kind: 'classes' }))).resolves.toBeUndefined();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
   });
 
   it('renders the mocked stat cards when fetchAttentionReports is unavailable', () => {
@@ -231,6 +320,33 @@ describe('TeacherDashboard', () => {
     expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
   });
 
+  it('refreshes the confirmed inbox immediately after a pending report recovers', async () => {
+    const refresh = jest.fn().mockResolvedValue(undefined);
+    const saveAttentionReport = jest.fn().mockResolvedValue(undefined);
+    mockUseTeacherNotifications.mockReturnValue(notificationState({ refresh }));
+    mockUseAppState.mockReturnValue({
+      signOut: mockSignOut,
+      user: { uid: 'teacher-1', displayName: 'Andrés Torres' },
+      saveAttentionReport,
+    });
+    window.localStorage.setItem('twilio-video-pending-attention-reports', JSON.stringify({
+      'teacher-1': [{
+        report: { roomSid: 'RM00000000000000000000000000000abc' },
+        failureEpisodeId: 'episode_12345678', firstFailedAtMs: 100,
+      }],
+    }));
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
+
+    wrapper.find('[data-testid="dashboard-retry-pending-reports"]').simulate('click');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(saveAttentionReport).toHaveBeenCalledWith(expect.objectContaining({
+      roomSid: 'RM00000000000000000000000000000abc', failureEpisodeId: 'episode_12345678',
+    }));
+    expect(refresh).toHaveBeenCalledTimes(1);
+    window.localStorage.clear();
+  });
+
   it('clears pending reports before delegating sign-out to app state', () => {
     const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
     wrapper.find(DashboardSidebar).prop('onSignOut')!();
@@ -271,6 +387,49 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
 
     expect(wrapper.find(ClassesTab).prop('onCreateClass')).toBeInstanceOf(Function);
     expect(wrapper.find(ClassesTab).prop('onCancelClass')).toBeInstanceOf(Function);
+  });
+
+  const cancelableSession: UpcomingSession = {
+    id: 'class-1',
+    title: 'Álgebra',
+    code: 'CLS-001',
+    time: '10:00',
+    studentCount: 5,
+    dayLabel: 'Hoy',
+    relativeLabel: 'En 5 min',
+    highlighted: false,
+  };
+
+  it('refreshes the notification inbox as an immediate client-side safety net after a successful cancel', async () => {
+    const refresh = jest.fn();
+    mockUseTeacherNotifications.mockReturnValue(notificationState({ refresh }));
+    mockDeleteClass.mockResolvedValue(undefined);
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="clases" />);
+
+    wrapper.find(ClassesTab).prop('onCancelClass')!(cancelableSession);
+    wrapper.update();
+    wrapper.find(ConfirmDialog).first().prop('onConfirm')!();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockDeleteClass).toHaveBeenCalledWith('class-1');
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not refresh the notification inbox when the cancel fails', async () => {
+    const refresh = jest.fn();
+    mockUseTeacherNotifications.mockReturnValue(notificationState({ refresh }));
+    mockDeleteClass.mockRejectedValue(new Error('firestore down'));
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="clases" />);
+
+    wrapper.find(ClassesTab).prop('onCancelClass')!(cancelableSession);
+    wrapper.update();
+    wrapper.find(ConfirmDialog).first().prop('onConfirm')!();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockDeleteClass).toHaveBeenCalledWith('class-1');
+    expect(refresh).not.toHaveBeenCalled();
   });
 
   it('clears both mock flags once both classes and attention-report backends are available', () => {

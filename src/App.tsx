@@ -89,6 +89,7 @@ export default function App() {
           showProfile={isProfileRoute}
           activeTab={activeTab}
           onTabChange={navigateToDashboardTab}
+          onNotificationNavigate={history.push}
         />
       ) : roomState === 'disconnected' ? (
         <PreJoinScreens
