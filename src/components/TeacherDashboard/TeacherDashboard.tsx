@@ -1,11 +1,15 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Button from '@material-ui/core/Button';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { useAppState } from '../../state';
-import { DashboardStat, DashboardTabId, UpcomingSession } from './types';
+import { DashboardTabId } from './types';
 import { mockDashboardData } from './mockDashboardData';
 import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
+import NotificationDropdown from './NotificationDropdown';
+import useTeacherNotifications from './useTeacherNotifications';
+import useTeacherClasses from './useTeacherClasses';
+import useTeacherReports from './useTeacherReports';
 import ClassesTab, { createIdempotencyKey } from './ClassesTab';
 import HistoryTab from './HistoryTab';
 import ResourcesTab from './ResourcesTab';
@@ -13,18 +17,10 @@ import CalendarTab from './CalendarTab';
 import ConfirmDialog from './ConfirmDialog';
 import QuickStartClassPanel from './QuickStartClassPanel';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
-import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { toClassSessionDisplayName } from '../PreJoinScreens/classSessionTypes';
-import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
+import { ReportFailureClaim, TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
-import { StoredAttentionReport } from '../../components/AttentionProvider/reportTypes';
-import { buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
-import { buildReportStats, computeTotalHoursTaught } from './reportStats';
-import {
-  clearPendingAttentionReports,
-  getPendingAttentionReports,
-  removePendingAttentionReport,
-} from '../AttentionReport/pendingAttentionReports';
+import { dashboardTabPath } from './dashboardHelpers';
+import { clearPendingAttentionReports, getPendingAttentionReports } from '../AttentionReport/pendingAttentionReports';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -69,12 +65,15 @@ interface Props {
   /** Route-derived active tab (see dashboardTabPath) — App.tsx owns the URL, not this component. */
   activeTab?: DashboardTabId;
   onTabChange?: (tab: DashboardTabId) => void;
+  onNotificationNavigate?: (path: string) => void;
 }
 
-// es-AR lowercases the weekday ("miércoles, 8 de julio de 2026"); the mock data's
-// label convention capitalizes it, so we match that by hand.
-function capitalizeFirst(value: string): string {
-  return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
+function notificationDestinationPath(notification: TeacherNotification): string {
+  if (notification.destination.kind === 'classes') return dashboardTabPath.clases;
+  if (notification.destination.kind === 'recording') {
+    return `/recording/${encodeURIComponent(notification.destination.roomSid)}`;
+  }
+  return dashboardTabPath.historial;
 }
 
 /**
@@ -97,6 +96,7 @@ export default function TeacherDashboard({
   showProfile = false,
   activeTab = 'clases',
   onTabChange,
+  onNotificationNavigate,
 }: Props) {
   const classes = useStyles();
   const {
@@ -111,28 +111,31 @@ export default function TeacherDashboard({
     saveAttentionReport,
     requestRecordingArtifact,
     fetchRecordingArtifactStatus,
+    fetchNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    clearNotifications,
+    reconcileNotifications,
   } = useAppState();
-  const [realClasses, setRealClasses] = useState<ClassRecord[]>([]);
-  const [isClassesLoading, setIsClassesLoading] = useState(false);
-  const [classesError, setClassesError] = useState<string | null>(null);
-  const [cancellingClassId, setCancellingClassId] = useState<string | null>(null);
-  const [cancelError, setCancelError] = useState<string | null>(null);
-  const cancelRetrySessionRef = useRef<{ id: string; title: string } | null>(null);
-  const [isCancellingExpired, setIsCancellingExpired] = useState(false);
-  const [cancelExpiredError, setCancelExpiredError] = useState<string | null>(null);
-  const [startClassError, setStartClassError] = useState<string | null>(null);
-  const [isStartingClass, setIsStartingClass] = useState(false);
-  // The dialog's target data is kept separate from its open flag: MUI's Dialog
-  // plays a ~225ms exit transition with its content still mounted, so clearing
-  // the data at the same time as closing would flash "undefined" mid-animation.
-  const [cancelDialogSession, setCancelDialogSession] = useState<{ id: string; title: string } | null>(null);
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [isCancelExpiredDialogOpen, setIsCancelExpiredDialogOpen] = useState(false);
-  const [reports, setReports] = useState<StoredAttentionReport[] | null>(null);
-  const [isReportsLoading, setIsReportsLoading] = useState(false);
-  const [reportsError, setReportsError] = useState<string | null>(null);
   const userUid = user && 'uid' in user ? user.uid : undefined;
   const [pendingReports, setPendingReports] = useState(() => getPendingAttentionReports(userUid));
+  const notificationApi = useMemo(() => ({
+    fetchNotifications: (cursor?: string) => fetchNotifications!(cursor),
+    markNotificationRead: (id: string) => markNotificationRead!(id),
+    markAllNotificationsRead: (key: string) => markAllNotificationsRead!(key),
+    clearNotifications: (key: string) => clearNotifications!(key),
+    reconcileNotifications: (scope: 'all' | 'recordings', claims?: ReportFailureClaim[]) =>
+      reconcileNotifications!(scope, claims),
+  }), [fetchNotifications, markNotificationRead, markAllNotificationsRead, clearNotifications, reconcileNotifications]);
+  const pendingFailureClaims = useMemo(() => pendingReports.map(report => ({
+    reportId: report.roomSid,
+    failureEpisodeId: report.failureEpisodeId,
+    firstFailedAtMs: report.firstFailedAtMs,
+  })), [pendingReports]);
+  const notifications = useTeacherNotifications(notificationApi, undefined, pendingFailureClaims, {
+    enabled: Boolean(userUid && fetchNotifications && markNotificationRead && markAllNotificationsRead && clearNotifications && reconcileNotifications),
+    userKey: userUid || null,
+  });
   // The sidebar's "Iniciar clase" only opens this in-dashboard panel (sidebar/navbar stay put);
   // it navigates away to the standalone device-selection prejoin only once a room name is
   // confirmed (see handleQuickStartCreate below).
@@ -141,224 +144,71 @@ export default function TeacherDashboard({
   const professorName = profile?.displayName || user?.displayName || data.professorName;
   const professorInitials = getProfessorInitials(professorName);
 
-  const loadClasses = useCallback(() => {
-    if (!fetchClasses) return;
-    setIsClassesLoading(true);
-    setClassesError(null);
-    fetchClasses()
-      .then(setRealClasses)
-      .catch(err => {
-        console.error('TeacherDashboard: could not fetch classes', err);
-        setClassesError(err.message || 'No pudimos consultar las clases programadas.');
-      })
-      .finally(() => setIsClassesLoading(false));
-  }, [fetchClasses]);
+  const {
+    realClasses,
+    setRealClasses,
+    isClassesLoading,
+    classesError,
+    cancellingClassId,
+    cancelError,
+    isCancellingExpired,
+    cancelExpiredError,
+    startClassError,
+    isStartingClass,
+    cancelDialogSession,
+    isCancelDialogOpen,
+    setIsCancelDialogOpen,
+    isCancelExpiredDialogOpen,
+    setIsCancelExpiredDialogOpen,
+    hasRealClasses,
+    sessions,
+    dateLabel,
+    expiredClasses,
+    expiredClassIds,
+    loadClasses,
+    handleCreateClass,
+    handleCancelClass,
+    handleDeleteClassFromResources,
+    confirmCancelClass,
+    retryCancelClass,
+    handleCancelExpiredClasses,
+    confirmCancelExpiredClasses,
+    startScheduledClass,
+    handleStartClass,
+  } = useTeacherClasses({
+    fetchClasses,
+    createClass,
+    deleteClass,
+    startClass,
+    professorName,
+    onStartClass,
+    refreshNotifications: notifications.refresh,
+  });
 
-  useEffect(() => {
-    loadClasses();
-  }, [loadClasses]);
-
-  const loadReports = useCallback(() => {
-    if (!fetchAttentionReports) return;
-    setIsReportsLoading(true);
-    setReportsError(null);
-    fetchAttentionReports()
-      .then(setReports)
-      .catch(err => {
-        console.error('TeacherDashboard: could not fetch attention reports', err);
-        setReportsError(err.message || 'No pudimos consultar el historial de clases.');
-      })
-      .finally(() => setIsReportsLoading(false));
-  }, [fetchAttentionReports]);
-
-  useEffect(() => {
-    loadReports();
-  }, [loadReports]);
-
-  const retryPendingReports = useCallback(() => {
-    if (!saveAttentionReport) return;
-    const reportsToRetry = getPendingAttentionReports(userUid);
-    if (reportsToRetry.length === 0) return;
-    Promise.all(
-      reportsToRetry.map(report =>
-        saveAttentionReport(report)
-          .then(() => {
-            removePendingAttentionReport(userUid, report.roomSid);
-            return true;
-          })
-          .catch(error => {
-            console.error('attention-report-persistence: retry failed', { roomSid: report.roomSid, error });
-            return false;
-          })
-      )
-    ).then(results => {
-      if (results.some(Boolean)) setPendingReports(getPendingAttentionReports(userUid));
-    });
-  }, [saveAttentionReport, userUid]);
-
-  // Auto-retry once on mount if reports were queued from a failed/unload save, and
-  // again whenever the browser regains connectivity — the manual "Reintentar
-  // guardado" button (below) stays as the visible fallback either way.
-  useEffect(() => {
-    retryPendingReports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('online', retryPendingReports);
-    return () => window.removeEventListener('online', retryPendingReports);
-  }, [retryPendingReports]);
+  // retryPendingReports/pendingReports below are threaded across two hooks
+  // (useTeacherReports needs to call notifications.refresh() on a successful
+  // retry, but notifications itself needs pendingFailureClaims built from
+  // pendingReports state above) — pendingReports/setPendingReports therefore
+  // stay declared here rather than inside useTeacherReports.
+  const {
+    reports,
+    isReportsLoading,
+    reportsError,
+    loadReports,
+    retryPendingReports,
+    hasRealStats,
+    stats,
+  } = useTeacherReports({
+    fetchAttentionReports,
+    saveAttentionReport,
+    userUid,
+    setPendingReports,
+    notifications,
+  });
 
   const handleSignOut = () => {
     clearPendingAttentionReports(userUid);
     return signOut ? signOut() : Promise.resolve();
-  };
-
-  const hasRealClasses = Boolean(fetchClasses && createClass && deleteClass && startClass);
-  const hasRealStats = Boolean(fetchAttentionReports);
-
-  const sessions: UpcomingSession[] = hasRealClasses
-    ? buildUpcomingSessions(realClasses, Date.now())
-    : data.upcomingSessions;
-  const dateLabel = hasRealClasses
-    ? capitalizeFirst(
-        new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-      )
-    : data.upcomingSessionsDateLabel;
-
-  const stats: DashboardStat[] = hasRealStats
-    ? (() => {
-        const { sessionsThisWeek, activeStudents, avgAttentionPercent } = buildReportStats(reports || [], Date.now());
-        const totalHoursTaught = computeTotalHoursTaught(reports || []);
-        return [
-          { ...data.stats[0], value: `${sessionsThisWeek}` },
-          { ...data.stats[1], value: `${activeStudents}` },
-          { ...data.stats[2], value: `${avgAttentionPercent}%` },
-          { ...data.stats[3], value: `${totalHoursTaught}h` },
-        ];
-      })()
-    : data.stats;
-
-  const handleCreateClass = hasRealClasses
-    ? (input: {
-        title: string;
-        scheduledAtMs: number;
-        studentCount: number;
-        durationMinutes: number;
-        idempotencyKey: string;
-        roomName: string;
-      }) =>
-        createClass!(input).then(created => {
-          setRealClasses(current => [created, ...current]);
-        })
-    : undefined;
-
-  const cancelClass = (session: { id: string; title: string }) => {
-    setCancellingClassId(session.id);
-    setCancelError(null);
-    return deleteClass!(session.id)
-      .then(() => {
-        setRealClasses(current => current.filter(c => c.id !== session.id));
-        cancelRetrySessionRef.current = null;
-      })
-      .catch(err => {
-        setCancelError(err.message || 'No pudimos cancelar la clase.');
-        cancelRetrySessionRef.current = session;
-      })
-      .finally(() => setCancellingClassId(null));
-  };
-
-  const handleCancelClass = hasRealClasses
-    ? (session: { id: string; title: string }) => {
-        setCancelDialogSession(session);
-        setIsCancelDialogOpen(true);
-      }
-    : undefined;
-
-  // Recursos' own cleanup action for a vencida/completed class's pill — no confirm
-  // dialog/retry-ref plumbing here since ResourcesTab owns its own confirm dialog and
-  // error state (bulkDeleteError) around this call.
-  const handleDeleteClassFromResources = hasRealClasses
-    ? (classId: string) =>
-        deleteClass!(classId).then(() => {
-          setRealClasses(current => current.filter(c => c.id !== classId));
-        })
-    : undefined;
-
-  const confirmCancelClass = () => {
-    if (!cancelDialogSession) return;
-    cancelClass(cancelDialogSession);
-    setIsCancelDialogOpen(false);
-  };
-
-  const expiredClasses = hasRealClasses ? findExpiredClasses(realClasses, Date.now()) : [];
-  const expiredClassIds = new Set(expiredClasses.map(classRecord => classRecord.id));
-
-  const handleCancelExpiredClasses = hasRealClasses
-    ? () => {
-        if (expiredClasses.length === 0) return;
-        setIsCancelExpiredDialogOpen(true);
-      }
-    : undefined;
-
-  const confirmCancelExpiredClasses = () => {
-    setIsCancelExpiredDialogOpen(false);
-    setIsCancellingExpired(true);
-    setCancelExpiredError(null);
-    Promise.allSettled(
-      expiredClasses.map(classRecord => deleteClass!(classRecord.id).then(() => classRecord.id))
-    ).then(results => {
-      const deletedIds = results
-        .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
-        .map(result => result.value);
-      const failedCount = results.length - deletedIds.length;
-      if (deletedIds.length > 0) {
-        setRealClasses(current => current.filter(c => !deletedIds.includes(c.id)));
-      }
-      if (failedCount > 0) {
-        setCancelExpiredError(
-          failedCount === 1 ? 'No pudimos cancelar 1 clase vencida.' : `No pudimos cancelar ${failedCount} clases vencidas.`
-        );
-      }
-      setIsCancellingExpired(false);
-    });
-  };
-
-  const startScheduledClass = async (classId: string, roomName: string) => {
-    setStartClassError(null);
-    setIsStartingClass(true);
-    const open = await checkRoomOpen(roomName);
-    if (open === true) {
-      // The collision may be the teacher's own leftover/recurring session (same
-      // title reused, previous class never closed) rather than someone else's —
-      // resume that instead of dead-ending on a message they can't act on.
-      const ownOpenSession = realClasses.find(c => c.roomName === roomName && c.status === 'started');
-      setIsStartingClass(false);
-      if (ownOpenSession) {
-        onStartClass({
-          roomName: ownOpenSession.roomName,
-          name: toClassSessionDisplayName(professorName, 'teacher'),
-          classId: ownOpenSession.id,
-        });
-        return;
-      }
-      setStartClassError(
-        'Ya hay una sesión activa con este nombre de sala. Espera a que termine o cambia el título de la clase.'
-      );
-      return;
-    }
-    startClass!(classId, roomName)
-      .then(() => onStartClass({ roomName, name: toClassSessionDisplayName(professorName, 'teacher'), classId }))
-      .catch(err => setStartClassError(err.message || 'No pudimos iniciar la clase programada.'))
-      .finally(() => setIsStartingClass(false));
-  };
-
-  const handleStartClass = (session: { roomName: string; name: string; classId?: string }) => {
-    if (session.classId) {
-      startScheduledClass(session.classId, session.roomName);
-      return;
-    }
-    onStartClass(session);
   };
 
   const handleQuickStartCreate = (session: { roomName: string; name: string; title: string }) => {
@@ -398,6 +248,21 @@ export default function TeacherDashboard({
         professorInitials={professorInitials}
         professorPhotoURL={resolveProfilePhotoURL(profile?.avatarUrl, profile?.avatarRemoved, user?.photoURL)}
         onLogoClick={onTabChange ? () => onTabChange('clases') : undefined}
+        notificationUnreadCount={notifications.unreadCount}
+        notificationContent={close => (
+          <NotificationDropdown
+            {...notifications}
+            onNotificationClick={notification => notifications.markRead(notification.notificationId)
+              .then(() => {
+                onNotificationNavigate?.(notificationDestinationPath(notification));
+                close();
+              })
+              .catch(() => undefined)}
+            onLoadMore={notifications.loadMore}
+            onMarkAllRead={notifications.markAllRead}
+            onClearAll={notifications.clearAll}
+          />
+        )}
       />
       <div className={classes.body}>
         <DashboardSidebar
@@ -438,7 +303,7 @@ export default function TeacherDashboard({
               onCancelClass={handleCancelClass}
               cancellingClassId={cancellingClassId}
               cancelError={cancelError}
-              onRetryCancel={() => cancelRetrySessionRef.current && cancelClass(cancelRetrySessionRef.current)}
+              onRetryCancel={retryCancelClass}
               expiredClassesCount={expiredClasses.length}
               onCancelExpiredClasses={handleCancelExpiredClasses}
               isCancellingExpired={isCancellingExpired}
@@ -479,7 +344,7 @@ export default function TeacherDashboard({
               onCancelClass={handleCancelClass}
               cancellingClassId={cancellingClassId}
               cancelError={cancelError}
-              onRetryCancel={() => cancelRetrySessionRef.current && cancelClass(cancelRetrySessionRef.current)}
+              onRetryCancel={retryCancelClass}
               expiredClassIds={expiredClassIds}
             />
           )}
