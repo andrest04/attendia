@@ -153,6 +153,25 @@ describe('pure class notification derivation', () => {
       removeEventKey: 'class:class_occurrence_1:upcoming',
     });
   });
+
+  it('names the class in the upcoming and not-started copy when a title is present, and falls back without one', () => {
+    const named = deriveClassNotification({ ...source, title: 'Álgebra II' }, 100_000);
+    expect(named.candidate).toEqual(expect.objectContaining({
+      title: 'Clase próxima: Álgebra II',
+      message: 'Tu clase "Álgebra II" comienza en 15 minutos.',
+    }));
+
+    const namedMissed = deriveClassNotification({ ...source, title: '  Álgebra II  ' }, 1_900_000);
+    expect(namedMissed.candidate).toEqual(expect.objectContaining({
+      title: 'Clase no iniciada: Álgebra II',
+      message: 'Tu clase "Álgebra II" programada todavía no fue iniciada.',
+    }));
+
+    expect(deriveClassNotification(source, 100_000).candidate).toEqual(expect.objectContaining({
+      title: 'Clase próxima',
+      message: 'Tu clase comienza en 15 minutos.',
+    }));
+  });
 });
 
 describe('POST /notifications/reconcile transaction', () => {
