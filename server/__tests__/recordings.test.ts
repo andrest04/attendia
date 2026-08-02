@@ -598,8 +598,8 @@ describe('createDownloadRecordingHandler', () => {
     reportGet.mockResolvedValue({ data: () => ({ recording: { status: 'completed', compositionSid: 'CJxxx' } }) });
     const ticket = await issueTicket(db);
 
-    const { client, request } = makeClient();
-    request.mockResolvedValue({ statusCode: 200, body: { redirect_to: 'https://media.twilio.com/signed' }, headers: {} });
+    const { client, request: twilioRequest } = makeClient();
+    twilioRequest.mockResolvedValue({ statusCode: 200, body: { redirect_to: 'https://media.twilio.com/signed' }, headers: {} });
     const res = makeRes();
 
     await createDownloadRecordingHandler(db, client, SECRET)(
@@ -608,7 +608,7 @@ describe('createDownloadRecordingHandler', () => {
       jest.fn()
     );
 
-    expect(request).toHaveBeenCalledWith(
+    expect(twilioRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'get',
         uri: expect.stringContaining('/Compositions/CJxxx/Media'),
@@ -624,8 +624,8 @@ describe('createDownloadRecordingHandler', () => {
     reportGet.mockResolvedValue({ data: () => ({ recording: { status: 'completed', compositionSid: 'CJxxx' } }) });
     const ticket = await issueTicket(db);
 
-    const { client, request } = makeClient();
-    request.mockResolvedValue({ statusCode: 302, body: {}, headers: { location: 'https://media.twilio.com/redirected' } });
+    const { client, request: twilioRequest } = makeClient();
+    twilioRequest.mockResolvedValue({ statusCode: 302, body: {}, headers: { location: 'https://media.twilio.com/redirected' } });
     const res = makeRes();
 
     await createDownloadRecordingHandler(db, client, SECRET)(
@@ -644,7 +644,7 @@ describe('createDownloadRecordingHandler', () => {
     const ticket = await issueTicket(db);
     reportGet.mockResolvedValue({ data: () => ({ recording: { status: 'expired', compositionSid: 'CJxxx' } }) });
 
-    const { client, request } = makeClient();
+    const { client, request: twilioRequest } = makeClient();
     const res = makeRes();
 
     await createDownloadRecordingHandler(db, client, SECRET)(
@@ -653,7 +653,7 @@ describe('createDownloadRecordingHandler', () => {
       jest.fn()
     );
 
-    expect(request).not.toHaveBeenCalled();
+    expect(twilioRequest).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(404);
   });
 
@@ -664,8 +664,8 @@ describe('createDownloadRecordingHandler', () => {
     reportGet.mockResolvedValue({ data: () => ({ recording: { status: 'completed', compositionSid: 'CJxxx' } }) });
     const ticket = await issueTicket(db);
 
-    const { client, request } = makeClient();
-    request.mockResolvedValue({ statusCode: 200, body: {}, headers: {} });
+    const { client, request: twilioRequest } = makeClient();
+    twilioRequest.mockResolvedValue({ statusCode: 200, body: {}, headers: {} });
     const res = makeRes();
 
     await createDownloadRecordingHandler(db, client, SECRET)(

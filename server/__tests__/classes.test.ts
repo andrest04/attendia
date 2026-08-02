@@ -50,7 +50,6 @@ const makeDb = () => {
   const notificationGenerationDoc = jest.fn((id?: string) => ({
     id: id || 'generation-id', collection: notificationItemsCollection,
   }));
-  const notificationGenerationsCollection = jest.fn(() => ({ doc: notificationGenerationDoc }));
 
   const classesCollection = jest.fn((name: string) => {
     if (name === 'classOccurrenceTombstones') return { doc: tombstoneDoc, orderBy };
