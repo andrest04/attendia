@@ -254,4 +254,4 @@ if (fs.existsSync(indexHtml)) {
   });
 }
 
-app.listen(PORT, () => console.log(`twilio-video-app-react server running on ${PORT}`));
+app.listen(PORT, () => console.log(`attendia server running on ${PORT}`));
