@@ -155,8 +155,10 @@ az rest --method patch --uri "https://management.azure.com${APP_ID}?api-version=
 # a cleanup failure must never fail an otherwise successful deploy.
 KEEP_IMAGES="${KEEP_IMAGES:-3}"
 echo "==> Pruning old images (keeping the newest $KEEP_IMAGES)..."
-docker images "$ACR_LOGIN_SERVER/$AZURE_CONTAINERAPP_NAME" --format "{{.Repository}}:{{.Tag}}" | sort -r | tail -n +"$((KEEP_IMAGES + 1))" | xargs -r docker rmi || true
-az acr repository show-tags --name "$AZURE_ACR_NAME" --repository "$AZURE_CONTAINERAPP_NAME" --orderby time_desc -o tsv | tail -n +"$((KEEP_IMAGES + 1))" | while read -r OLD_TAG; do
+# tr -d '\r': on Windows the docker/az CLIs emit CRLF, and a trailing \r turns
+# every tag into one that does not exist.
+docker images "$ACR_LOGIN_SERVER/$AZURE_CONTAINERAPP_NAME" --format "{{.Repository}}:{{.Tag}}" | tr -d '\r' | sort -r | tail -n +"$((KEEP_IMAGES + 1))" | xargs -r docker rmi || true
+az acr repository show-tags --name "$AZURE_ACR_NAME" --repository "$AZURE_CONTAINERAPP_NAME" --orderby time_desc -o tsv | tr -d '\r' | tail -n +"$((KEEP_IMAGES + 1))" | while read -r OLD_TAG; do
   az acr repository delete --name "$AZURE_ACR_NAME" --image "$AZURE_CONTAINERAPP_NAME:$OLD_TAG" --yes >/dev/null || true
 done
 
