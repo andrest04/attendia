@@ -149,6 +149,17 @@ az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_
 APP_ID=$(az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --query id -o tsv)
 az rest --method patch --uri "https://management.azure.com${APP_ID}?api-version=2024-03-01" --body "@$SIDECAR_PATCH" >/dev/null
 
+# Every deploy pushes a new timestamped tag, so images pile up both locally
+# (~2GB each) and in ACR (billed storage). Keep only the newest KEEP_IMAGES of
+# each. Tags sort newest-first, so the image just deployed is always kept, and
+# a cleanup failure must never fail an otherwise successful deploy.
+KEEP_IMAGES="${KEEP_IMAGES:-3}"
+echo "==> Pruning old images (keeping the newest $KEEP_IMAGES)..."
+docker images "$ACR_LOGIN_SERVER/$AZURE_CONTAINERAPP_NAME" --format "{{.Repository}}:{{.Tag}}" | sort -r | tail -n +"$((KEEP_IMAGES + 1))" | xargs -r docker rmi || true
+az acr repository show-tags --name "$AZURE_ACR_NAME" --repository "$AZURE_CONTAINERAPP_NAME" --orderby time_desc -o tsv | tail -n +"$((KEEP_IMAGES + 1))" | while read -r OLD_TAG; do
+  az acr repository delete --name "$AZURE_ACR_NAME" --image "$AZURE_CONTAINERAPP_NAME:$OLD_TAG" --yes >/dev/null || true
+done
+
 echo "==> Done."
 az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
   --query "properties.configuration.ingress.fqdn" -o tsv
