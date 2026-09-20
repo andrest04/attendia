@@ -19,5 +19,7 @@ cypress.json
 *.md
 .env
 .env.*
-serviceAccountKey.json
+**/serviceAccountKey.json
+scripts/deploy.config
+odd
 npm-debug.log*
