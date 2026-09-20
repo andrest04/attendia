@@ -5,7 +5,7 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY patches ./patches
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # ---- build: CRA build (REACT_APP_* is inlined at build time) + server tsc build ----
 FROM deps AS build
@@ -42,14 +42,17 @@ ENV CI=true \
 RUN npm run build \
  && npx tsc -p server/tsconfig.json
 
-# ---- runtime: prune devDependencies, no source, no build tools ----
+# ---- runtime: production dependencies only, no source, no build tools ----
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Installed fresh instead of copying the build stage's node_modules and pruning:
+# a prune in a later layer cannot shrink the layer that already holds the dev
+# dependencies. --ignore-scripts skips postinstall (patch-package/copyfiles are
+# devDependencies and only matter for the client build).
 COPY package.json package-lock.json ./
-COPY --from=build /app/node_modules ./node_modules
-RUN npm prune --omit=dev
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts
 
 COPY --from=build /app/build ./build
 COPY --from=build /app/server-build ./server-build
