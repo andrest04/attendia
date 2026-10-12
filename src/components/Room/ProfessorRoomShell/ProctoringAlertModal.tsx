@@ -5,7 +5,7 @@ import WarningIcon from '@material-ui/icons/Warning';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { PROCTORING_KINDS } from '../../AttentionProvider/proctoring';
 import { attentionStatusColors } from '../../../theme';
-import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { getInitials, proctoringKindIcon, proctoringKindMessage } from './professorShellHelpers';
 
 const useStyles = makeStyles(() => ({

@@ -13,7 +13,7 @@ import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
 import useParticipantTile from '../../hooks/useParticipantTile/useParticipantTile';
 import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
-import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
 import RoleBadge from '../RoleBadge/RoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';

@@ -9,9 +9,9 @@ import { useParams } from 'react-router-dom';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAutoRejoin from './useAutoRejoin';
 import useInitialRole from '../TeacherDashboard/useInitialRole';
-import { checkRoomOpen } from './checkRoomOpen';
-import { createCollisionSafeClassSessionAccess } from './createCollisionSafeClassSessionAccess';
-import { getResumableSession } from './rejoinSession';
+import { checkRoomOpen } from '../../classSession/checkRoomOpen';
+import { createCollisionSafeClassSessionAccess } from '../../classSession/createCollisionSafeClassSessionAccess';
+import { getResumableSession } from '../../classSession/rejoinSession';
 import { firstResolved } from '../../utils/firstResolved';
 import { replaceUrlWithoutNavigation } from '../../utils/replaceUrlWithoutNavigation';
 import {
@@ -21,7 +21,7 @@ import {
   normalizeStudentJoinInputToRoomName,
   stripTeacherSuffix,
   toClassSessionDisplayName,
-} from './classSessionTypes';
+} from '../../classSession/classSessionTypes';
 import { Steps } from './steps';
 
 interface PreJoinScreensProps {

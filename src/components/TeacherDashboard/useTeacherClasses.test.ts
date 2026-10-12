@@ -1,10 +1,10 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import useTeacherClasses, { UseTeacherClassesParams } from './useTeacherClasses';
 import { mockDashboardData } from './mockDashboardData';
-import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
+import { checkRoomOpen } from '../../classSession/checkRoomOpen';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
-jest.mock('../PreJoinScreens/checkRoomOpen');
+jest.mock('../../classSession/checkRoomOpen');
 
 const mockCheckRoomOpen = checkRoomOpen as jest.Mock<any>;
 

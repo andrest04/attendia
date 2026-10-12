@@ -18,7 +18,7 @@ import { teacherHandler } from './teacherHandler';
  * imported from src/ — this codebase's convention (see roomAccessGuard.ts) is that
  * server and client independently duplicate small pure helpers so each server unit
  * stays independently deployable. Mirrors toClassSessionRoomName in
- * src/components/PreJoinScreens/classSessionTypes.ts.
+ * src/classSession/classSessionTypes.ts.
  */
 
 const MAX_TITLE_LENGTH = 200;

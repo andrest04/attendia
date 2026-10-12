@@ -1,4 +1,4 @@
-import { toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
+import { toClassSessionRoomName } from '../../classSession/classSessionTypes';
 
 /** What the "Nueva clase" form holds: the raw inputs, before any of them is trusted. */
 export interface NewClassFormValues {

@@ -12,7 +12,7 @@
  *  - all reads/writes swallow errors so storage failures never block joining
  */
 
-import { createStorageSlot } from '../../utils/createStorageSlot';
+import { createStorageSlot } from '../utils/createStorageSlot';
 
 const slot = createStorageSlot<string[]>({
   key: 'twilio-video-attention-consent',

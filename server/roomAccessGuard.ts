@@ -31,10 +31,10 @@ export type { RoomExistenceChecker };
  *      via the server-side REST call in token.js).
  *
  * The suffix check below is intentionally kept in sync with `isTeacherIdentity` in
- * src/components/PreJoinScreens/classSessionTypes.ts (the app's display-side role).
+ * src/classSession/classSessionTypes.ts (the app's display-side role).
  */
 
-// Mirror of TEACHER_DISPLAY_SUFFIX in src/components/PreJoinScreens/classSessionTypes.ts.
+// Mirror of TEACHER_DISPLAY_SUFFIX in src/classSession/classSessionTypes.ts.
 // Keep both in sync.
 const TEACHER_DISPLAY_SUFFIX = '[Profesor]';
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppState } from '../../state';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
-import { clearRejoinSession, getResumableSession, RejoinSession } from './rejoinSession';
+import { clearRejoinSession, getResumableSession, RejoinSession } from '../../classSession/rejoinSession';
 import { featureFlags } from '../../utils/featureFlags';
 
 /*

@@ -3,12 +3,12 @@ import useSessionEnd from './useSessionEnd';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import { useAppState } from '../../state';
-import { clearRejoinSession } from '../../components/PreJoinScreens/rejoinSession';
+import { clearRejoinSession } from '../../classSession/rejoinSession';
 
 jest.mock('../useVideoContext/useVideoContext');
 jest.mock('../useClassDataChannel/useClassDataChannel');
 jest.mock('../../state');
-jest.mock('../../components/PreJoinScreens/rejoinSession', () => ({
+jest.mock('../../classSession/rejoinSession', () => ({
   clearRejoinSession: jest.fn(),
 }));
 

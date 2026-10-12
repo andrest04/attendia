@@ -11,7 +11,7 @@ import { shallow } from 'enzyme';
 import DeviceSelectionScreen from './DeviceSelectionScreen';
 import { useAppState } from '../../../state';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
-import * as attentionConsent from '../attentionConsent';
+import * as attentionConsent from '../../../classSession/attentionConsent';
 import AttentionConsentModal from '../AttentionConsentModal';
 import { setImmediate } from 'timers';
 
@@ -25,7 +25,7 @@ const mockGetToken = jest.fn(() => Promise.resolve({ token: 'mockToken' }));
 jest.mock('../../../hooks/useChatContext/useChatContext', () => () => ({ connect: mockChatConnect }));
 jest.mock('../../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../../state');
-jest.mock('../attentionConsent');
+jest.mock('../../../classSession/attentionConsent');
 jest.mock('../AttentionConsentModal', () => {
   // Simple stub: renders a div with data attributes so we can assert on it without
   // needing MUI Dialog to be fully wired up under shallow().

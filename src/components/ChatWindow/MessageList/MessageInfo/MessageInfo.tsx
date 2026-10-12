@@ -1,6 +1,6 @@
 import React from 'react';
 import { makeStyles, createStyles } from '@material-ui/core/styles';
-import { isTeacherIdentity, stripTeacherSuffix } from '../../../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../../../classSession/classSessionTypes';
 
 const useStyles = makeStyles(() =>
   createStyles({

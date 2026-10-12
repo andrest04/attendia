@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
-import { isTeacherIdentity, stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { getInitials } from '../roomIdentity';
 import RoleBadge from '../../RoleBadge/RoleBadge';
 import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';

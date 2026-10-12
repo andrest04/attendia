@@ -1,7 +1,7 @@
 import { leaveClass } from './leaveClass';
-import { clearRejoinSession } from './rejoinSession';
+import { clearRejoinSession } from '../../classSession/rejoinSession';
 
-jest.mock('./rejoinSession', () => ({ clearRejoinSession: jest.fn() }));
+jest.mock('../../classSession/rejoinSession', () => ({ clearRejoinSession: jest.fn() }));
 
 describe('leaveClass', () => {
   beforeEach(jest.clearAllMocks);

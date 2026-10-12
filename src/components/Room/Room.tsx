@@ -29,7 +29,7 @@ import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
 import useAttentionReportSaver from '../../hooks/useAttentionReportSaver/useAttentionReportSaver';
 import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
-import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
 import { OnboardingContext } from './OnboardingTutorial/onboardingContext';
 import ParticipantStrip from './ParticipantStrip/ParticipantStrip';
