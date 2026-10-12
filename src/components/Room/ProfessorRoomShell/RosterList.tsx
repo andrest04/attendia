@@ -9,8 +9,8 @@ import MicOffIcon from '@material-ui/icons/MicOff';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
 import RoleBadge from '../../RoleBadge/RoleBadge';
 import { ParticipantAttention } from '../../AttentionProvider/types';
-import { levelLabel } from '../../AttentionProvider/attentionLabels';
-import { attBadgeBg, attBadgeText, getInitials } from './professorShellHelpers';
+import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
+import { getInitials } from './professorShellHelpers';
 import { attentionStatusColors } from '../../../theme';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -220,11 +220,11 @@ export default function RosterList({ participants, attentionByIdentity, onMutePa
                 className={classes.attBadge}
                 data-testid="professor-room-shell-attention-badge"
                 style={{
-                  backgroundColor: attBadgeBg[attention.level],
-                  color: attBadgeText[attention.level],
+                  backgroundColor: ATTENTION_LEVEL_STYLE[attention.level].badgeBg,
+                  color: ATTENTION_LEVEL_STYLE[attention.level].badgeText,
                 }}
               >
-                {levelLabel[attention.level]}
+                {ATTENTION_LEVEL_STYLE[attention.level].label}
               </span>
             ) : null}
             {/* Moderation kebab — students only (never the professor's own row). */}

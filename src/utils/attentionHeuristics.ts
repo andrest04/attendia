@@ -329,6 +329,44 @@ export function computeHeadScore(headWindow: RollingWindow): number {
   return computeWindowScore(headWindow);
 }
 
+// ─── Weighted attention index ─────────────────────────────────────────────────
+
+/**
+ * Builds an index function (0–100, rounded, clamped) from relative weights over named
+ * signals. The weights are renormalized by their sum, so only their RATIO matters — which is
+ * what lets the full product formula and the subset the live pipeline actually measures come
+ * from one definition instead of two sets of hand-copied constants.
+ */
+export function createWeightedIndex<Signal extends string>(
+  weights: { [signal in Signal]: number }
+): (components: { [signal in Signal]: number }) => number {
+  const signals = Object.keys(weights) as Signal[];
+  const total = signals.reduce((sum, signal) => sum + weights[signal], 0);
+  return components => {
+    const raw = signals.reduce((sum, signal) => sum + weights[signal] * components[signal], 0) / total;
+    return Math.min(100, Math.max(0, Math.round(raw)));
+  };
+}
+
+/**
+ * THE weights of the product formula (research doc v0.1): eyes 40 : posture 30 : head 30.
+ * This is the one place to change them — see attentionFormula.ts for the open product decision
+ * about equal weights.
+ */
+export const ATTENTION_WEIGHTS = { eyes: 4, posture: 3, head: 3 };
+
+/** The full formula: eyes + posture + head. Used by the mock fallback. */
+export const computeFullAttentionIndex = createWeightedIndex(ATTENTION_WEIGHTS);
+
+/**
+ * The same formula over only the signals that are really measured today (eyes and head),
+ * keeping their ratio: 4:3 → eyes 4/7, head 3/7.
+ */
+const computeMeasuredAttentionIndex = createWeightedIndex({
+  eyes: ATTENTION_WEIGHTS.eyes,
+  head: ATTENTION_WEIGHTS.head,
+});
+
 // ─── computeLabAttentionIndex ─────────────────────────────────────────────────
 
 /**
@@ -344,6 +382,5 @@ export function computeHeadScore(headWindow: RollingWindow): number {
  * attentionFormula.ts once tuned. Rounded to the nearest integer, clamped [0,100].
  */
 export function computeLabAttentionIndex(eyes: number, head: number): number {
-  const raw = (4 / 7) * eyes + (3 / 7) * head;
-  return Math.min(100, Math.max(0, Math.round(raw)));
+  return computeMeasuredAttentionIndex({ eyes, head });
 }

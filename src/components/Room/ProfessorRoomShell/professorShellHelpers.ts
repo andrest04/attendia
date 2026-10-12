@@ -3,7 +3,7 @@ import VideocamOffIcon from '@material-ui/icons/VideocamOff';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import PersonOutlineIcon from '@material-ui/icons/PersonOutline';
-import { AttentionLevel, ProctoringAlert } from '../../AttentionProvider/types';
+import { ProctoringAlert } from '../../AttentionProvider/types';
 
 // Leaf module for the ProfessorRoomShell family: pure helpers, shared maps, and the
 // right-rail tab type. Kept dependency-light (only AttentionProvider types + MUI
@@ -39,18 +39,6 @@ export function proctoringKindMessage(kind: ProctoringKind, name: string, detect
       return `No se detecta a ${name} frente a la cámara · Detectado a las ${detectedAt}`;
   }
 }
-
-// Attention level → badge background / text pairs from the attendia design.
-export const attBadgeBg: Record<AttentionLevel, string> = {
-  high: '#d1fae5',
-  medium: '#fff8e1',
-  low: '#fee2e2',
-};
-export const attBadgeText: Record<AttentionLevel, string> = {
-  high: '#065f46',
-  medium: '#7c4e00',
-  low: '#991b1b',
-};
 
 /** Emoji cue for a notification pill, derived from the event copy. */
 export function notificationEmoji(text: string): string {

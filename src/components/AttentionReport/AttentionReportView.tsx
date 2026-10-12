@@ -7,7 +7,7 @@ import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import ReactECharts from 'echarts-for-react';
 
 import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/types';
-import { levelColor, levelLabel } from '../AttentionProvider/attentionLabels';
+import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { attentionStatusColors } from '../../theme';
 
 /*
@@ -18,20 +18,6 @@ import { attentionStatusColors } from '../../theme';
  */
 
 export const MOCK_DISCLOSURE = 'Datos simulados — pipeline CV pendiente';
-
-/** Background color per level chip on the "Nivel" column. */
-const levelChipBg: Record<AttentionLevel, string> = {
-  high: '#d1fae5',
-  medium: '#fef3c7',
-  low: '#fee2e2',
-};
-
-/** Text color per level chip on the "Nivel" column. */
-const levelChipFg: Record<AttentionLevel, string> = {
-  high: '#065f46',
-  medium: '#92400e',
-  low: '#991b1b',
-};
 
 /** Value color for each KPI card. */
 const KPI_COLORS = {
@@ -404,7 +390,7 @@ function initials(identity: string): string {
 
 /** Bar/value color for a per-student index, using the shared level color map. */
 function barColor(level: AttentionLevel): string {
-  return levelColor[level];
+  return ATTENTION_LEVEL_STYLE[level].color;
 }
 
 /**
@@ -728,11 +714,11 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
                     <span
                       className={classes.levelBadge}
                       style={{
-                        backgroundColor: levelChipBg[participant.level],
-                        color: levelChipFg[participant.level],
+                        backgroundColor: ATTENTION_LEVEL_STYLE[participant.level].reportChipBg,
+                        color: ATTENTION_LEVEL_STYLE[participant.level].reportChipText,
                       }}
                     >
-                      {levelLabel[participant.level]}
+                      {ATTENTION_LEVEL_STYLE[participant.level].label}
                     </span>
                   </td>
                 </tr>

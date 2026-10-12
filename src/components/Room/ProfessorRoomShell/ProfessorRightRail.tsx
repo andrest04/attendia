@@ -7,7 +7,7 @@ import VideocamOffIcon from '@material-ui/icons/VideocamOff';
 import SmartphoneIcon from '@material-ui/icons/Smartphone';
 import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import { AttentionLevel, AttentionTimelinePoint, ParticipantAttention } from '../../AttentionProvider/types';
-import { levelColor } from '../../AttentionProvider/attentionLabels';
+import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
 import { attentionStatusColors } from '../../../theme';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import { ProfessorRightTab } from './professorShellHelpers';
@@ -413,7 +413,7 @@ export default function ProfessorRightRail({
                   <div className={classes.progressTrack}>
                     <div
                       className={classes.progressFill}
-                      style={{ width: `${pct}%`, backgroundColor: levelColor[participant.level] }}
+                      style={{ width: `${pct}%`, backgroundColor: ATTENTION_LEVEL_STYLE[participant.level].color }}
                     />
                   </div>
                 </div>
