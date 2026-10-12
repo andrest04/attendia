@@ -4,6 +4,7 @@ import { isTeacherIdentity, stripTeacherSuffix } from '../../components/PreJoinS
 import { ProctoringAlert } from '../../components/AttentionProvider/types';
 import { PROCTORING_KINDS } from '../../components/AttentionProvider/proctoring';
 import useOnChange from '../useOnChange/useOnChange';
+import useOnIncrease from '../useOnIncrease/useOnIncrease';
 
 interface UseNotificationToastsArgs {
   /** Whether the local participant is the professor — drives the curated, role-aware policy. */
@@ -122,17 +123,11 @@ export default function useNotificationToasts({
   useOnChange(isRecording, (_previous, current) => show(policy.recordingChanged?.(current)));
 
   // ── Turn granted ────────────────────────────────────────────────────────────
-  useOnChange(turnGrantedCount, (previous, current) => {
-    if (current > previous) show(policy.turnGranted?.());
-  });
+  useOnIncrease(turnGrantedCount, () => show(policy.turnGranted?.()));
 
   // ── Muted by professor ──────────────────────────────────────────────────────
-  useOnChange(mutedByProfessorCount, (previous, current) => {
-    if (current > previous) show(policy.muted?.());
-  });
+  useOnIncrease(mutedByProfessorCount, () => show(policy.muted?.()));
 
   // ── Proctoring warning ──────────────────────────────────────────────────────
-  useOnChange(warnedByProfessorCount, (previous, current) => {
-    if (current > previous) show(policy.warned?.(lastWarningKind));
-  });
+  useOnIncrease(warnedByProfessorCount, () => show(policy.warned?.(lastWarningKind)));
 }
