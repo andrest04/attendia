@@ -4,6 +4,7 @@ import LocalAudioLevelIndicator from '../../../LocalAudioLevelIndicator/LocalAud
 import { LocalVideoTrack } from 'twilio-video';
 import VideoTrack from '../../../VideoTrack/VideoTrack';
 import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
+import { selectCameraTrack } from '../../../../utils/trackSelectors';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // Outer card: browser-window chrome + video area
@@ -142,9 +143,7 @@ export default function LocalVideoPreview({ identity, children }: { identity: st
   const classes = useStyles();
   const { localTracks } = useVideoContext();
 
-  const videoTrack = localTracks.find(
-    track => !track.name.includes('screen') && track.kind === 'video'
-  ) as LocalVideoTrack;
+  const videoTrack = selectCameraTrack(localTracks) as LocalVideoTrack;
 
   const hasVideo = Boolean(videoTrack);
   const initials = getInitials(identity);

@@ -20,6 +20,7 @@ import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
 import RoleBadge from '../RoleBadge/RoleBadge';
+import { isScreenShareName } from '../../utils/trackSelectors';
 
 const useStyles = makeStyles((theme: Theme) => ({
   container: {
@@ -156,8 +157,8 @@ export default function MainParticipantInfo({ participant, children }: MainParti
   const isRemoteParticipantScreenSharing = screenShareParticipant && screenShareParticipant !== localParticipant;
 
   const publications = usePublications(participant);
-  const videoPublication = publications.find(p => !p.trackName.includes('screen') && p.kind === 'video');
-  const screenSharePublication = publications.find(p => p.trackName.includes('screen'));
+  const videoPublication = publications.find(p => !isScreenShareName(p.trackName) && p.kind === 'video');
+  const screenSharePublication = publications.find(p => isScreenShareName(p.trackName));
 
   const videoTrack = useTrack(screenSharePublication || videoPublication);
   const isVideoEnabled = Boolean(videoTrack);

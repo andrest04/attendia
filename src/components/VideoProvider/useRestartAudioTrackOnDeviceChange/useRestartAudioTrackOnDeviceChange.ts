@@ -1,5 +1,6 @@
 import { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
 import { useEffect } from 'react';
+import { selectAudioTrack } from '../../../utils/trackSelectors';
 
 /*
  * If a user has published an audio track from an external audio input device and
@@ -11,7 +12,7 @@ import { useEffect } from 'react';
  */
 
 export default function useRestartAudioTrackOnDeviceChange(localTracks: (LocalAudioTrack | LocalVideoTrack)[]) {
-  const audioTrack = localTracks.find(track => track.kind === 'audio');
+  const audioTrack = selectAudioTrack(localTracks);
 
   useEffect(() => {
     const handleDeviceChange = () => {
