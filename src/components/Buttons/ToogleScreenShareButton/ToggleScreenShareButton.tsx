@@ -4,7 +4,7 @@ import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import ScreenShareIcon from '../../../icons/ScreenShareIcon';
 import Tooltip from '@material-ui/core/Tooltip';
-import { useToolbarButtonStyles } from '../toolbarButtonStyles';
+import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useScreenShareControl from '../../../hooks/useScreenShareControl/useScreenShareControl';
 
 export const SCREEN_SHARE_TEXT = 'Compartir pantalla';
@@ -58,12 +58,10 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
         {/* The span element is needed because a disabled button will not emit hover events and we want to display
           a tooltip when screen sharing is disabled */}
         <Button
-          className={clsx(
-            toolbarClasses.toolbarButton,
-            isSharingScreen && toolbarClasses.toolbarButtonActive,
-            classes.button,
-            props.className
-          )}
+          className={toolbarButtonClass(toolbarClasses, {
+            active: isSharingScreen,
+            className: clsx(classes.button, props.className),
+          })}
           onClick={toggleScreenShare}
           disabled={isDisabled}
           startIcon={<ScreenShareIcon />}

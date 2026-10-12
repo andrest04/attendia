@@ -1,9 +1,8 @@
 import React from 'react';
-import clsx from 'clsx';
 import Button from '@material-ui/core/Button';
 import MicIcon from '../../../icons/MicIcon';
 import MicOffIcon from '../../../icons/MicOffIcon';
-import { useToolbarButtonStyles } from '../toolbarButtonStyles';
+import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useLocalAudioToggle from '../../../hooks/useLocalAudioToggle/useLocalAudioToggle';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
@@ -23,15 +22,7 @@ export default function ToggleAudioButton(props: {
 
   return (
     <Button
-      className={clsx(
-        classes.toolbarButton,
-        props.plain && classes.chipIcon,
-        {
-          [classes.toolbarButtonActive]: !props.plain && isActive,
-          [classes.chipIconActive]: props.plain && isActive,
-        },
-        props.className
-      )}
+      className={toolbarButtonClass(classes, { active: isActive, plain: props.plain, className: props.className })}
       onClick={toggleAudioEnabled}
       disabled={!hasAudioTrack || props.disabled}
       startIcon={isAudioEnabled ? <MicIcon /> : <MicOffIcon />}
