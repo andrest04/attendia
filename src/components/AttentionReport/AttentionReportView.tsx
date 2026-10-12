@@ -9,6 +9,7 @@ import ReactECharts from 'echarts-for-react';
 import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { attentionStatusColors } from '../../theme';
+import { countOf } from '../../utils/pluralize';
 
 /*
  * Presentational core of the attention report so the same light-themed report body
@@ -591,7 +592,7 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
           {'Sesión: '}
           <strong>{sessionName}</strong>
           {' — '}
-          {studentCount} {studentCount === 1 ? 'estudiante' : 'estudiantes'}
+          {countOf(studentCount, 'estudiante')}
         </p>
 
         <div className={classes.chipsRow}>

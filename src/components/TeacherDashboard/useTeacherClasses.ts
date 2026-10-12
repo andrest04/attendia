@@ -6,6 +6,7 @@ import { toClassSessionDisplayName } from '../PreJoinScreens/classSessionTypes';
 import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
 import { buildMockClassesView, buildRealClassesView } from './classSessionsView';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
+import { countOf } from '../../utils/pluralize';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
 
 export interface UseTeacherClassesParams {
@@ -140,11 +141,7 @@ export default function useTeacherClasses({
           setRealClasses(current => current.filter(c => !deletedIds.includes(c.id)));
         }
         if (failedCount > 0) {
-          setCancelExpiredError(
-            failedCount === 1
-              ? 'No pudimos cancelar 1 clase vencida.'
-              : `No pudimos cancelar ${failedCount} clases vencidas.`
-          );
+          setCancelExpiredError(`No pudimos cancelar ${countOf(failedCount, 'clase vencida', 'clases vencidas')}.`);
         }
         setIsCancellingExpired(false);
       }

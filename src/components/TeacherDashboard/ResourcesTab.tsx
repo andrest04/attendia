@@ -11,6 +11,7 @@ import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { resourceKindIcon } from './dashboardHelpers';
 import { routePath } from '../../routes';
+import { countOf } from '../../utils/pluralize';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
@@ -582,9 +583,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
           setResources(current => current.filter(r => !deletedIds.includes(r.id)));
         }
         if (failedCount > 0) {
-          setBulkDeleteError(
-            failedCount === 1 ? 'No pudimos eliminar 1 recurso.' : `No pudimos eliminar ${failedCount} recursos.`
-          );
+          setBulkDeleteError(`No pudimos eliminar ${countOf(failedCount, 'recurso')}.`);
         }
         // A cancelled pill's doc is already gone — its files were the only thing left
         // to delete, so it only disappears once every one of them is actually gone; a

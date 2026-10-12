@@ -4,6 +4,7 @@ import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
 import useSessionElapsed from './useSessionElapsed';
 import AttendiaLogo from '../../Brand/AttendiaLogo';
 import { useOnboarding } from '../OnboardingTutorial/onboardingContext';
+import { countOf } from '../../../utils/pluralize';
 
 const useStyles = makeStyles((theme: Theme) => ({
   bar: {
@@ -169,7 +170,7 @@ export default function SessionStatusBar({
       )}
 
       <span className={classes.sessionInfo} data-testid="professor-room-shell-session-info">
-        {sessionName} · {studentCount} {studentCount === 1 ? 'estudiante' : 'estudiantes'} · {elapsed}
+        {sessionName} · {countOf(studentCount, 'estudiante')} · {elapsed}
       </span>
 
       <div className={classes.spacer} />

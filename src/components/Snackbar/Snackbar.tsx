@@ -7,10 +7,12 @@ import MUISnackbar from '@material-ui/core/Snackbar';
 import WarningIcon from '../../icons/WarningIcon';
 import InfoIcon from '../../icons/InfoIcon';
 
+type SnackbarVariant = 'error' | 'warning' | 'info';
+
 interface SnackbarProps {
   headline: string;
   message: string | React.ReactNode;
-  variant?: 'error' | 'warning' | 'info';
+  variant?: SnackbarVariant;
   open: boolean;
   handleClose?: () => void;
 }
@@ -52,8 +54,16 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+// The icon of each variant; its colored left border is the class of the same name.
+const VARIANT_ICON: Record<SnackbarVariant, React.ComponentType> = {
+  error: ErrorIcon,
+  warning: WarningIcon,
+  info: InfoIcon,
+};
+
 export default function Snackbar({ headline, message, variant, open, handleClose }: SnackbarProps) {
   const classes = useStyles();
+  const VariantIcon = variant && VARIANT_ICON[variant];
 
   const handleOnClose = (_: React.SyntheticEvent | React.MouseEvent, reason?: string) => {
     if (reason === 'clickaway') {
@@ -73,19 +83,9 @@ export default function Snackbar({ headline, message, variant, open, handleClose
       onClose={handleOnClose}
       autoHideDuration={10000}
     >
-      <div
-        className={clsx(classes.container, {
-          [classes.error]: variant === 'error',
-          [classes.warning]: variant === 'warning',
-          [classes.info]: variant === 'info',
-        })}
-      >
+      <div className={clsx(classes.container, variant && classes[variant])}>
         <div className={classes.contentContainer}>
-          <div className={classes.iconContainer}>
-            {variant === 'warning' && <WarningIcon />}
-            {variant === 'error' && <ErrorIcon />}
-            {variant === 'info' && <InfoIcon />}
-          </div>
+          <div className={classes.iconContainer}>{VariantIcon && <VariantIcon />}</div>
           <div>
             <Typography variant="body1" className={classes.headline} component="span">
               {headline}
