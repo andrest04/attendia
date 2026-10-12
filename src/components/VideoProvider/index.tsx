@@ -12,6 +12,7 @@ import useLocalTracks from './useLocalTracks/useLocalTracks';
 import useRestartAudioTrackOnDeviceChange from './useRestartAudioTrackOnDeviceChange/useRestartAudioTrackOnDeviceChange';
 import useRoom from './useRoom/useRoom';
 import useScreenShareToggle from './useScreenShareToggle/useScreenShareToggle';
+import { selectCameraTrack } from '../../utils/trackSelectors';
 
 /*
  *  The hooks used by the VideoProvider component are different than the hooks found in the 'hooks/' directory. The hooks
@@ -60,9 +61,7 @@ export function VideoProvider({ options, children, onError = () => {} }: VideoPr
   useRestartAudioTrackOnDeviceChange(localTracks);
 
   const [isBackgroundSelectionOpen, setIsBackgroundSelectionOpen] = useState(false);
-  const videoTrack = localTracks.find(track => !track.name.includes('screen') && track.kind === 'video') as
-    | LocalVideoTrack
-    | undefined;
+  const videoTrack = selectCameraTrack(localTracks) as LocalVideoTrack | undefined;
   const [backgroundSettings, setBackgroundSettings] = useBackgroundSettings(videoTrack, room);
 
   // Memoize the context value so consumers don't re-render purely because this provider re-rendered.

@@ -44,7 +44,7 @@
  *   dedicated SignalingProvider or equivalent — not here.
  */
 
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useEffect, useRef, useState } from 'react';
 import { useMediaQuery, useTheme } from '@material-ui/core';
 import { LocalVideoTrack, RemoteParticipant } from 'twilio-video';
 import { AttentionContextValue, AttentionLevel, AttentionTimelinePoint, ProctoringAlert } from './types';
@@ -54,6 +54,8 @@ import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import { featureFlags } from '../../utils/featureFlags';
+import useRequiredContext from '../../hooks/useRequiredContext/useRequiredContext';
+import { selectCameraTrack } from '../../utils/trackSelectors';
 
 // null! mirrors the pattern used in ChatProvider and ParticipantProvider.
 export const AttentionContext = createContext<AttentionContextValue>(null!);
@@ -177,9 +179,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
 
   // Extract the local camera track the same way VideoProvider does.
   // Passing `undefined` keeps useAttentionCapture inactive (no MediaPipe load).
-  const videoTrack = isActive
-    ? (localTracks.find(t => !t.name.includes('screen') && t.kind === 'video') as LocalVideoTrack | undefined)
-    : undefined;
+  const videoTrack = isActive ? (selectCameraTrack(localTracks) as LocalVideoTrack | undefined) : undefined;
 
   // Layer 2: local camera analysis (inactive when videoTrack is undefined).
   const captureResult = useAttentionCapture(videoTrack);
@@ -515,9 +515,5 @@ export const AttentionProvider: React.FC = ({ children }) => {
 };
 
 export function useAttention(): AttentionContextValue {
-  const context = useContext(AttentionContext);
-  if (!context) {
-    throw new Error('useAttention must be used within an AttentionProvider');
-  }
-  return context;
+  return useRequiredContext(AttentionContext, 'useAttention', 'an AttentionProvider');
 }

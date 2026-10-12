@@ -1,13 +1,12 @@
 import { LocalVideoTrack } from 'twilio-video';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import { selectCameraTrack } from '../../utils/trackSelectors';
 
 export default function useLocalVideoToggle() {
   const { room, localTracks, getLocalVideoTrack, removeLocalVideoTrack, onError } = useVideoContext();
   const localParticipant = room?.localParticipant;
-  const videoTrack = localTracks.find(
-    track => !track.name.includes('screen') && track.kind === 'video'
-  ) as LocalVideoTrack;
+  const videoTrack = selectCameraTrack(localTracks) as LocalVideoTrack;
   const [isPublishing, setIspublishing] = useState(false);
 
   // Guard against setState on an unmounted component when the async track-acquisition

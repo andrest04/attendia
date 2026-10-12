@@ -4,13 +4,12 @@ import { LocalVideoTrack } from 'twilio-video';
 import useDevices from '../useDevices/useDevices';
 import useMediaStreamTrack from '../useMediaStreamTrack/useMediaStreamTrack';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import { selectCameraTrack } from '../../utils/trackSelectors';
 
 export default function useFlipCameraToggle() {
   const { localTracks } = useVideoContext();
   const [supportsFacingMode, setSupportsFacingMode] = useState(false);
-  const videoTrack = localTracks.find(track => !track.name.includes('screen') && track.kind === 'video') as
-    | LocalVideoTrack
-    | undefined;
+  const videoTrack = selectCameraTrack(localTracks) as LocalVideoTrack | undefined;
   const mediaStreamTrack = useMediaStreamTrack(videoTrack);
   const { videoInputDevices } = useDevices();
 

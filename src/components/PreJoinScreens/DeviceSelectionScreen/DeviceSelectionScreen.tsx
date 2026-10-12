@@ -29,6 +29,7 @@ import { useKrispToggle } from '../../../hooks/useKrispToggle/useKrispToggle';
 import SmallCheckIcon from '../../../icons/SmallCheckIcon';
 import InfoIconOutlined from '../../../icons/InfoIconOutlined';
 import { featureFlags } from '../../../utils/featureFlags';
+import { selectCameraTrack } from '../../../utils/trackSelectors';
 
 // Pre-join check states share one icon vocabulary across the device list.
 // 'unavailable' = the check can't run right now and that's expected (e.g. the
@@ -468,9 +469,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
 
   const { hasAudioInputDevices, hasVideoInputDevices, audioOutputDevices } = useDevices();
   const connection = useConnectionQuality();
-  const videoTrack = localTracks.find(track => !track.name.includes('screen') && track.kind === 'video') as
-    | LocalVideoTrack
-    | undefined;
+  const videoTrack = selectCameraTrack(localTracks) as LocalVideoTrack | undefined;
   const lighting = useLightingCheck(videoTrack);
   // A blocked/preempted camera (OS privacy switch, another app holding it) keeps
   // the Twilio track but mutes the underlying MediaStreamTrack, so no real frame

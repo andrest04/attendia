@@ -2,6 +2,7 @@ import React from 'react';
 import { Participant, Track } from 'twilio-video';
 import Publication from '../Publication/Publication';
 import usePublications from '../../hooks/usePublications/usePublications';
+import { isScreenShareName } from '../../utils/trackSelectors';
 
 interface ParticipantTracksProps {
   participant: Participant;
@@ -36,13 +37,13 @@ export default function ParticipantTracks({
 
   let filteredPublications;
 
-  if (enableScreenShare && visiblePublications.some(p => p.trackName.includes('screen'))) {
+  if (enableScreenShare && visiblePublications.some(p => isScreenShareName(p.trackName))) {
     // When displaying a screenshare track is allowed, and a screen share track exists,
     // remove all video tracks without the name 'screen'.
-    filteredPublications = visiblePublications.filter(p => p.trackName.includes('screen') || p.kind !== 'video');
+    filteredPublications = visiblePublications.filter(p => isScreenShareName(p.trackName) || p.kind !== 'video');
   } else {
     // Else, remove all screenshare tracks
-    filteredPublications = visiblePublications.filter(p => !p.trackName.includes('screen'));
+    filteredPublications = visiblePublications.filter(p => !isScreenShareName(p.trackName));
   }
 
   return (

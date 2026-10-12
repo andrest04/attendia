@@ -21,6 +21,7 @@ import { levelShortLabel as attentionShortLabel } from '../AttentionProvider/att
 import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
 import RoleBadge from '../RoleBadge/RoleBadge';
+import { isScreenShareName } from '../../utils/trackSelectors';
 
 const borderWidth = 2;
 
@@ -262,10 +263,10 @@ export default function ParticipantInfo({
   const publications = usePublications(participant);
 
   const audioPublication = publications.find(p => p.kind === 'audio');
-  const videoPublication = publications.find(p => !p.trackName.includes('screen') && p.kind === 'video');
+  const videoPublication = publications.find(p => !isScreenShareName(p.trackName) && p.kind === 'video');
 
   const isVideoEnabled = Boolean(videoPublication);
-  const isScreenShareEnabled = publications.find(p => p.trackName.includes('screen'));
+  const isScreenShareEnabled = publications.find(p => isScreenShareName(p.trackName));
 
   const videoTrack = useTrack(videoPublication);
   const isVideoSwitchedOff = useIsTrackSwitchedOff(videoTrack as LocalVideoTrack | RemoteVideoTrack);
