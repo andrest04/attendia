@@ -12,6 +12,8 @@ import {
   stepBlinkCounter,
   stepFocusLostStateMachine,
   createFocusLostState,
+  createWeightedIndex,
+  computeFullAttentionIndex,
   addToRollingWindow,
   computeWindowScore,
   computeEyesScore,
@@ -454,5 +456,30 @@ describe('computeLabAttentionIndex', () => {
   it('clamps and rounds out-of-range inputs to [0, 100]', () => {
     expect(computeLabAttentionIndex(200, 200)).toBe(100);
     expect(computeLabAttentionIndex(-50, -50)).toBe(0);
+  });
+});
+
+describe('createWeightedIndex', () => {
+  it('weights the signals by their ratio, whatever scale the weights are on', () => {
+    const index = createWeightedIndex({ a: 1, b: 3 });
+    expect(index({ a: 100, b: 0 })).toBe(25);
+    expect(index({ a: 0, b: 100 })).toBe(75);
+    expect(createWeightedIndex({ a: 10, b: 30 })({ a: 100, b: 0 })).toBe(25);
+  });
+
+  it('rounds to the nearest integer and clamps to 0-100', () => {
+    const index = createWeightedIndex({ a: 1, b: 1 });
+    expect(index({ a: 1, b: 2 })).toBe(2); // 1.5 → 2
+    expect(index({ a: 150, b: 150 })).toBe(100);
+    expect(index({ a: -20, b: -20 })).toBe(0);
+  });
+
+  it('derives the live (eyes + head) formula from the same table as the full one', () => {
+    // eyes:posture:head is 40:30:30; dropping posture leaves eyes 4/7, head 3/7.
+    expect(computeLabAttentionIndex(70, 0)).toBe(40);
+    expect(computeLabAttentionIndex(0, 70)).toBe(30);
+    expect(computeFullAttentionIndex({ eyes: 100, posture: 0, head: 0 })).toBe(40);
+    expect(computeFullAttentionIndex({ eyes: 0, posture: 100, head: 0 })).toBe(30);
+    expect(computeFullAttentionIndex({ eyes: 80, posture: 75, head: 70 })).toBe(76);
   });
 });

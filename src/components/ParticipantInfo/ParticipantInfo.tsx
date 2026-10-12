@@ -17,7 +17,7 @@ import useTrack from '../../hooks/useTrack/useTrack';
 import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
 import { useAppState } from '../../state';
 import { AttentionLevel } from '../AttentionProvider/types';
-import { levelShortLabel as attentionShortLabel } from '../AttentionProvider/attentionLabels';
+import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
 import RoleBadge from '../RoleBadge/RoleBadge';
@@ -32,18 +32,6 @@ export interface ParticipantTileAttention {
   /** When true, the camera is off and the level is stale → suppress the badge. */
   cameraOff?: boolean;
 }
-
-// Attendia design: attention badge uses colored background pill (not solid color).
-const attBadgeBg: Record<AttentionLevel, string> = {
-  high: '#d1fae5',
-  medium: '#fff8e1',
-  low: '#fee2e2',
-};
-const attBadgeText: Record<AttentionLevel, string> = {
-  high: '#065f46',
-  medium: '#7c4e00',
-  low: '#991b1b',
-};
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -316,11 +304,11 @@ export default function ParticipantInfo({
                 className={classes.attentionLevelBadge}
                 data-testid="participant-attention-overlay"
                 style={{
-                  backgroundColor: attBadgeBg[attention.level],
-                  color: attBadgeText[attention.level],
+                  backgroundColor: ATTENTION_LEVEL_STYLE[attention.level].badgeBg,
+                  color: ATTENTION_LEVEL_STYLE[attention.level].badgeText,
                 }}
               >
-                {attentionShortLabel[attention.level]}
+                {ATTENTION_LEVEL_STYLE[attention.level].label}
               </span>
             )}
           </>

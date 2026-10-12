@@ -1,15 +1,10 @@
 import React from 'react';
 import { AttentionLevel } from '../../AttentionProvider/types';
 import { attentionStatusColors } from '../../../theme';
+import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
 
 // Single source of truth: theme.ts's attentionStatusColors.
 const levelArcColor: Record<AttentionLevel, string> = attentionStatusColors;
-
-const levelTrackColor: Record<AttentionLevel, string> = {
-  high: '#d1fae5',
-  medium: '#fff8e1',
-  low: '#fee2e2',
-};
 
 interface Props {
   /** Group attention index 0–100. */
@@ -38,7 +33,7 @@ export default function GroupAttentionGauge({ value, level, available = true, si
   // No data → empty arc, neutral grey, "—" readout. The level color is irrelevant.
   const offset = available ? circumference - (clamped / 100) * circumference : circumference;
   const arcColor = available ? levelArcColor[level] : '#cbd5e1';
-  const trackColor = available ? levelTrackColor[level] : '#f1f5f9';
+  const trackColor = available ? ATTENTION_LEVEL_STYLE[level].trackBg : '#f1f5f9';
 
   return (
     <div style={{ position: 'relative', width: size, height: size }} data-testid="professor-room-shell-gauge">
