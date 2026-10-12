@@ -1,9 +1,8 @@
 import React, { useCallback, useRef } from 'react';
-import clsx from 'clsx';
 import Button from '@material-ui/core/Button';
 import VideoOffIcon from '../../../icons/VideoOffIcon';
 import VideoOnIcon from '../../../icons/VideoOnIcon';
-import { useToolbarButtonStyles } from '../toolbarButtonStyles';
+import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useDevices from '../../../hooks/useDevices/useDevices';
 import useLocalVideoToggle from '../../../hooks/useLocalVideoToggle/useLocalVideoToggle';
 
@@ -30,15 +29,7 @@ export default function ToggleVideoButton(props: {
 
   return (
     <Button
-      className={clsx(
-        classes.toolbarButton,
-        props.plain && classes.chipIcon,
-        {
-          [classes.toolbarButtonActive]: !props.plain && isActive,
-          [classes.chipIconActive]: props.plain && isActive,
-        },
-        props.className
-      )}
+      className={toolbarButtonClass(classes, { active: isActive, plain: props.plain, className: props.className })}
       onClick={toggleVideo}
       disabled={!hasVideoInputDevices || props.disabled}
       startIcon={isVideoEnabled ? <VideoOnIcon /> : <VideoOffIcon />}
