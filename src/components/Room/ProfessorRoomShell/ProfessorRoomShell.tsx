@@ -4,7 +4,7 @@ import { useSnackbar } from 'notistack';
 import { useAttention } from '../../AttentionProvider';
 import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
 import { ProctoringAlert } from '../../AttentionProvider/types';
-import { ShellNotification } from '../StudentRoomShell/useShellNotifications';
+import { ShellNotification } from '../shellNotification';
 import { buildReportViewData } from '../../AttentionReport/buildReportViewData';
 import RoomShellLayout from '../ShellLayout/RoomShellLayout';
 import SessionStatusBar from './SessionStatusBar';

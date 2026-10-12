@@ -134,4 +134,13 @@ describe('StudentRoomShell', () => {
       expect(onCloseRight).toHaveBeenCalled();
     });
   });
+
+  it('shows first + last word initials in the roster, like the professor roster', () => {
+    const wrapper = mount(
+      <StudentRoomShell stage={<div>stage</div>} participants={[{ identity: 'Ana Maria Perez' }]} />
+    );
+
+    expect(wrapper.text()).toContain('AP');
+    expect(wrapper.text()).not.toContain('AM');
+  });
 });
