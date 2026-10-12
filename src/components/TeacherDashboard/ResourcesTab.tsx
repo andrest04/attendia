@@ -12,6 +12,7 @@ import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { dashboardTabPath, resourceKindIcon } from './dashboardHelpers';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
+import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
 import { MAX_FILES_PER_UPLOAD, RESOURCE_FILE_ACCEPT, validateResourceFile } from './resourceUploadValidation';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -334,11 +335,7 @@ interface Props {
   onDeleteClass?: (classId: string) => Promise<void>;
 }
 
-export default function ResourcesTab({
-  classes: scheduledClasses,
-  expiredClassIds = new Set(),
-  onDeleteClass,
-}: Props) {
+export default function ResourcesTab({ classes: scheduledClasses, expiredClassIds = new Set(), onDeleteClass }: Props) {
   const classes = useStyles();
   const { fetchResources, uploadResource, fetchResourceDownloadUrl, deleteResource } = useAppState();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -351,13 +348,9 @@ export default function ResourcesTab({
     { id: string; name: string; progress: number; error: string | null }[]
   >([]);
   const uploadIdRef = useRef(0);
-  // Kept separate from the dialog's open flag: MUI's Dialog plays a ~225ms exit
-  // transition with its content still mounted, so clearing this at the same time
-  // as closing would flash "undefined" mid-animation (see ConfirmDialog usages).
-  const [pendingDeleteResource, setPendingDeleteResource] = useState<ResourceRecord | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const deleteDialog = useConfirmDialog<ResourceRecord>();
   const [isDeletingResource, setIsDeletingResource] = useState(false);
-  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const bulkDeleteDialog = useConfirmDialog();
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
 
@@ -498,7 +491,9 @@ export default function ResourcesTab({
     setErrorMessage(null);
 
     if (files.length > MAX_FILES_PER_UPLOAD) {
-      setErrorMessage(`Puedes subir hasta ${MAX_FILES_PER_UPLOAD} archivos a la vez. Selecciona menos archivos e intenta de nuevo.`);
+      setErrorMessage(
+        `Puedes subir hasta ${MAX_FILES_PER_UPLOAD} archivos a la vez. Selecciona menos archivos e intenta de nuevo.`
+      );
       return;
     }
 
@@ -538,13 +533,12 @@ export default function ResourcesTab({
   };
 
   const handleDelete = (resource: ResourceRecord) => {
-    setPendingDeleteResource(resource);
-    setIsDeleteDialogOpen(true);
+    deleteDialog.open(resource);
   };
 
   const confirmDelete = () => {
-    if (!pendingDeleteResource) return;
-    const resource = pendingDeleteResource;
+    if (!deleteDialog.target) return;
+    const resource = deleteDialog.target;
     setIsDeletingResource(true);
     deleteResource(resource.id)
       .then(() => {
@@ -556,14 +550,14 @@ export default function ResourcesTab({
       .finally(() => {
         if (isMountedRef.current) {
           setIsDeletingResource(false);
-          setIsDeleteDialogOpen(false);
+          deleteDialog.close();
         }
       });
   };
 
   const handleBulkDeleteClick = () => {
     setBulkDeleteError(null);
-    setIsBulkDeleteDialogOpen(true);
+    bulkDeleteDialog.open();
   };
 
   const confirmBulkDelete = () => {
@@ -613,7 +607,7 @@ export default function ResourcesTab({
       .finally(() => {
         if (isMountedRef.current) {
           setIsBulkDeleting(false);
-          setIsBulkDeleteDialogOpen(false);
+          bulkDeleteDialog.close();
         }
       });
   };
@@ -668,17 +662,26 @@ export default function ResourcesTab({
                 </span>
               )}
               {option.cancelled && (
-                <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-cancelled-${option.classId}`}>
+                <span
+                  className={classes.pillCancelledTag}
+                  data-testid={`dashboard-resources-pill-cancelled-${option.classId}`}
+                >
                   (clase cancelada)
                 </span>
               )}
               {!option.cancelled && option.expired && (
-                <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-expired-${option.classId}`}>
+                <span
+                  className={classes.pillCancelledTag}
+                  data-testid={`dashboard-resources-pill-expired-${option.classId}`}
+                >
                   (clase vencida)
                 </span>
               )}
               {!option.cancelled && !option.expired && option.completed && (
-                <span className={classes.pillCancelledTag} data-testid={`dashboard-resources-pill-completed-${option.classId}`}>
+                <span
+                  className={classes.pillCancelledTag}
+                  data-testid={`dashboard-resources-pill-completed-${option.classId}`}
+                >
                   (clase finalizada)
                 </span>
               )}
@@ -709,7 +712,10 @@ export default function ResourcesTab({
         </div>
       )}
       {bulkDeleteError && (
-        <div className={clsx(classes.statusMessage, classes.errorMessage)} data-testid="dashboard-resources-bulk-delete-error">
+        <div
+          className={clsx(classes.statusMessage, classes.errorMessage)}
+          data-testid="dashboard-resources-bulk-delete-error"
+        >
           {bulkDeleteError}
         </div>
       )}
@@ -815,17 +821,17 @@ export default function ResourcesTab({
         </div>
       )}
       <ConfirmDialog
-        open={isDeleteDialogOpen}
+        open={deleteDialog.isOpen}
         title="Eliminar recurso"
-        message={`¿Eliminar "${pendingDeleteResource?.name}"? Esta acción no se puede deshacer.`}
+        message={`¿Eliminar "${deleteDialog.target?.name}"? Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar"
         cancelLabel="Volver"
         isConfirming={isDeletingResource}
         onConfirm={confirmDelete}
-        onCancel={() => setIsDeleteDialogOpen(false)}
+        onCancel={deleteDialog.close}
       />
       <ConfirmDialog
-        open={isBulkDeleteDialogOpen}
+        open={bulkDeleteDialog.isOpen}
         title={activeOption?.cancelled ? 'Eliminar recursos de la clase' : 'Eliminar clase'}
         message={
           activeOption?.cancelled
@@ -842,7 +848,7 @@ export default function ResourcesTab({
         cancelLabel="Volver"
         isConfirming={isBulkDeleting}
         onConfirm={confirmBulkDelete}
-        onCancel={() => setIsBulkDeleteDialogOpen(false)}
+        onCancel={bulkDeleteDialog.close}
       />
     </div>
   );

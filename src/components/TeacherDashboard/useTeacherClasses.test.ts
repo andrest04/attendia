@@ -192,8 +192,8 @@ describe('useTeacherClasses', () => {
 
       act(() => result.current.handleCancelClass!({ id: 'c-upcoming', title: 'Álgebra' }));
 
-      expect(result.current.isCancelDialogOpen).toBe(true);
-      expect(result.current.cancelDialogSession).toEqual({ id: 'c-upcoming', title: 'Álgebra' });
+      expect(result.current.cancelDialog.isOpen).toBe(true);
+      expect(result.current.cancelDialog.target).toEqual({ id: 'c-upcoming', title: 'Álgebra' });
       expect(params.deleteClass).not.toHaveBeenCalled();
     });
 
@@ -202,10 +202,10 @@ describe('useTeacherClasses', () => {
       await flush();
       act(() => result.current.handleCancelClass!({ id: 'c-upcoming', title: 'Álgebra' }));
 
-      act(() => result.current.setIsCancelDialogOpen(false));
+      act(() => result.current.cancelDialog.close());
 
-      expect(result.current.isCancelDialogOpen).toBe(false);
-      expect(result.current.cancelDialogSession).toEqual({ id: 'c-upcoming', title: 'Álgebra' });
+      expect(result.current.cancelDialog.isOpen).toBe(false);
+      expect(result.current.cancelDialog.target).toEqual({ id: 'c-upcoming', title: 'Álgebra' });
     });
 
     it('does nothing when confirmed without a target', async () => {
@@ -223,7 +223,7 @@ describe('useTeacherClasses', () => {
       act(() => result.current.handleCancelClass!({ id: 'c-upcoming', title: 'Álgebra' }));
 
       act(() => result.current.confirmCancelClass());
-      expect(result.current.isCancelDialogOpen).toBe(false);
+      expect(result.current.cancelDialog.isOpen).toBe(false);
       expect(result.current.cancellingClassId).toBe('c-upcoming');
       await flush();
 
@@ -318,7 +318,7 @@ describe('useTeacherClasses', () => {
 
       act(() => result.current.handleCancelExpiredClasses!());
 
-      expect(result.current.isCancelExpiredDialogOpen).toBe(false);
+      expect(result.current.cancelExpiredDialog.isOpen).toBe(false);
     });
 
     it('opens the dialog when something is expired', async () => {
@@ -327,7 +327,7 @@ describe('useTeacherClasses', () => {
 
       act(() => result.current.handleCancelExpiredClasses!());
 
-      expect(result.current.isCancelExpiredDialogOpen).toBe(true);
+      expect(result.current.cancelExpiredDialog.isOpen).toBe(true);
     });
 
     it('deletes every expired class and keeps the rest', async () => {
@@ -336,7 +336,7 @@ describe('useTeacherClasses', () => {
       act(() => result.current.handleCancelExpiredClasses!());
 
       act(() => result.current.confirmCancelExpiredClasses());
-      expect(result.current.isCancelExpiredDialogOpen).toBe(false);
+      expect(result.current.cancelExpiredDialog.isOpen).toBe(false);
       expect(result.current.isCancellingExpired).toBe(true);
       await flush();
 

@@ -1,4 +1,11 @@
-import { buildExpiredSessions, buildUpcomingSessions, findExpiredClasses } from './classSessionsView';
+import {
+  buildExpiredSessions,
+  buildMockClassesView,
+  buildRealClassesView,
+  buildUpcomingSessions,
+  findExpiredClasses,
+} from './classSessionsView';
+import { mockDashboardData } from './mockDashboardData';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
 const NOW_MS = new Date(2026, 6, 8, 10, 0, 0).getTime();
@@ -185,7 +192,13 @@ describe('buildExpiredSessions', () => {
   });
 
   it('sorts by scheduledAtMs ascending (most overdue first), never highlights, and maps the same fields', () => {
-    const recent = makeClass({ id: 'recent', title: 'Historia', roomName: 'historia', studentCount: 12, scheduledAtMs: NOW_MS - 20 * 60 * 1000 });
+    const recent = makeClass({
+      id: 'recent',
+      title: 'Historia',
+      roomName: 'historia',
+      studentCount: 12,
+      scheduledAtMs: NOW_MS - 20 * 60 * 1000,
+    });
     const oldest = makeClass({ id: 'oldest', scheduledAtMs: NOW_MS - 2 * 24 * 60 * 60 * 1000 });
 
     const result = buildExpiredSessions([recent, oldest], NOW_MS);
@@ -209,5 +222,44 @@ describe('buildExpiredSessions', () => {
     expect(byId['minutes-ago']).toBe('Venció hace 20 min');
     expect(byId['hours-ago']).toBe('Venció hace 5h');
     expect(byId['days-ago']).toBe('Venció hace 3d');
+  });
+});
+
+describe('buildRealClassesView', () => {
+  it('derives every list from the same classes and clock', () => {
+    const upcoming = makeClass({ id: 'up', scheduledAtMs: NOW_MS + 60 * 60 * 1000 });
+    const expired = makeClass({ id: 'old', scheduledAtMs: NOW_MS - 5 * 60 * 60 * 1000 });
+
+    const view = buildRealClassesView([upcoming, expired], NOW_MS);
+
+    expect(view.sessions.map(s => s.id)).toEqual(['up']);
+    expect(view.expiredSessions.map(s => s.id)).toEqual(['old']);
+    expect(view.expiredClasses.map(c => c.id)).toEqual(['old']);
+  });
+
+  it('labels the date of the injected clock with a capitalized weekday', () => {
+    const { dateLabel } = buildRealClassesView([], NOW_MS);
+
+    expect(dateLabel).toMatch(/^[A-ZÁÉÍÓÚ]/);
+    expect(dateLabel).toContain('2026');
+  });
+
+  it('is empty for no classes', () => {
+    const view = buildRealClassesView([], NOW_MS);
+
+    expect(view.sessions).toEqual([]);
+    expect(view.expiredSessions).toEqual([]);
+    expect(view.expiredClasses).toEqual([]);
+  });
+});
+
+describe('buildMockClassesView', () => {
+  it('passes the mock sessions and label through with nothing expired', () => {
+    const view = buildMockClassesView(mockDashboardData);
+
+    expect(view.sessions).toBe(mockDashboardData.upcomingSessions);
+    expect(view.dateLabel).toBe(mockDashboardData.upcomingSessionsDateLabel);
+    expect(view.expiredSessions).toEqual([]);
+    expect(view.expiredClasses).toEqual([]);
   });
 });
