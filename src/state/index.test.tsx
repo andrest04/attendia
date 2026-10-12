@@ -83,4 +83,62 @@ describe('the useAppState hook', () => {
       });
     });
   });
+
+  describe('the updateRecordingRules function', () => {
+    it('should resolve with the server result and toggle isFetching around the call', async () => {
+      const updateRecordingRules = jest.fn(() => Promise.resolve({ ok: true }));
+      mockUseFirebaseAuth.mockImplementation(() => ({ updateRecordingRules }));
+      const { result } = renderHook(useAppState, { wrapper });
+
+      let returned: any;
+      await act(async () => {
+        returned = await result.current.updateRecordingRules('RM1', [{ type: 'include', all: true }]);
+      });
+
+      expect(returned).toEqual({ ok: true });
+      expect(updateRecordingRules).toHaveBeenCalledWith('RM1', [{ type: 'include', all: true }]);
+      expect(result.current.isFetching).toEqual(false);
+      expect(result.current.error).toBeNull();
+    });
+
+    it('should surface the failure in app state and still reject so callers can react', async () => {
+      const failure = new Error('rules rejected');
+      mockUseFirebaseAuth.mockImplementation(() => ({ updateRecordingRules: () => Promise.reject(failure) }));
+      const { result } = renderHook(useAppState, { wrapper });
+
+      await act(async () => {
+        await expect(result.current.updateRecordingRules('RM1', [])).rejects.toBe(failure);
+      });
+
+      expect(result.current.error).toBe(failure);
+      expect(result.current.isFetching).toEqual(false);
+    });
+  });
+
+  describe('getToken result handling', () => {
+    it('should expose the room type returned by the token server', async () => {
+      mockUseFirebaseAuth.mockImplementation(() => ({
+        getToken: () => Promise.resolve({ room_type: 'peer-to-peer', token: 't' }),
+      }));
+      const { result } = renderHook(useAppState, { wrapper });
+
+      await act(async () => {
+        await result.current.getToken('test', 'test');
+      });
+
+      expect(result.current.roomType).toBe('peer-to-peer');
+    });
+
+    it('should set the app error and reject when the token request fails', async () => {
+      const failure = new Error('La sala todavía no está abierta.');
+      mockUseFirebaseAuth.mockImplementation(() => ({ getToken: () => Promise.reject(failure) }));
+      const { result } = renderHook(useAppState, { wrapper });
+
+      await act(async () => {
+        await expect(result.current.getToken('test', 'test')).rejects.toBe(failure);
+      });
+
+      expect(result.current.error).toBe(failure);
+    });
+  });
 });

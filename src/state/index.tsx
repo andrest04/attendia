@@ -153,36 +153,38 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
     ...useFirebaseAuth(),
   };
 
-  const getToken: StateContextType['getToken'] = (name, room) => {
-    setIsFetching(true);
-    return contextValue
-      .getToken(name, room)
-      .then(res => {
-        setRoomType(res.room_type);
-        setIsFetching(false);
-        return res;
-      })
-      .catch(err => {
-        setError(err);
-        setIsFetching(false);
-        return Promise.reject(err);
-      });
-  };
+  // Decorator for the two operations that talk to the video server: it raises
+  // `isFetching` for the duration of the call, runs `onSuccess` with the result, and on
+  // failure surfaces the error to the app-level ErrorDialog before re-rejecting so
+  // callers can still react to it.
+  function withFetching<Args extends any[], Result>(
+    operation: (...args: Args) => Promise<Result>,
+    onSuccess?: (result: Result) => void
+  ): (...args: Args) => Promise<Result> {
+    return (...args: Args) => {
+      setIsFetching(true);
+      return operation(...args)
+        .then(result => {
+          if (onSuccess) onSuccess(result);
+          setIsFetching(false);
+          return result;
+        })
+        .catch(err => {
+          setError(err);
+          setIsFetching(false);
+          return Promise.reject(err);
+        });
+    };
+  }
 
-  const updateRecordingRules: StateContextType['updateRecordingRules'] = (room_sid, rules) => {
-    setIsFetching(true);
-    return contextValue
-      .updateRecordingRules(room_sid, rules)
-      .then(res => {
-        setIsFetching(false);
-        return res;
-      })
-      .catch(err => {
-        setError(err);
-        setIsFetching(false);
-        return Promise.reject(err);
-      });
-  };
+  const getToken: StateContextType['getToken'] = withFetching(
+    (name, room) => contextValue.getToken(name, room),
+    res => setRoomType(res.room_type)
+  );
+
+  const updateRecordingRules: StateContextType['updateRecordingRules'] = withFetching((room_sid, rules) =>
+    contextValue.updateRecordingRules(room_sid, rules)
+  );
 
   return (
     <StateContext.Provider value={{ ...contextValue, getToken, updateRecordingRules }}>
