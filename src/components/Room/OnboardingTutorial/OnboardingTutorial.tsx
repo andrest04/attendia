@@ -12,27 +12,22 @@ import CloseIcon from '@material-ui/icons/Close';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import { routes } from '../../../routes';
+import { createStorageSlot } from '../../../utils/createStorageSlot';
 
 // ---------------------------------------------------------------------------
-// localStorage helpers (mirrors rejoinSession.ts pattern — swallow errors)
+// "Already seen" flag, kept per browser (a failing storage just shows the tour again)
 // ---------------------------------------------------------------------------
 const STORAGE_KEY = 'attendia-onboarding-done';
 
-function isOnboardingDone(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
+const onboardingDone = createStorageSlot<true>({
+  key: STORAGE_KEY,
+  area: 'localStorage',
+  parse: stored => (stored === true ? true : null),
+});
 
-function markOnboardingDone(): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, 'true');
-  } catch {
-    // swallow
-  }
-}
+const isOnboardingDone = (): boolean => onboardingDone.read() === true;
+
+const markOnboardingDone = (): void => onboardingDone.write(true);
 
 // ---------------------------------------------------------------------------
 // Step definitions

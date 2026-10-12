@@ -1,27 +1,26 @@
+import { createStorageSlot } from '../../utils/createStorageSlot';
+
 export interface ScheduledClassSessionContext {
   classId: string;
   roomName: string;
 }
 
-const STORAGE_KEY = 'twilio-video-scheduled-class-context';
+const slot = createStorageSlot<ScheduledClassSessionContext>({
+  key: 'twilio-video-scheduled-class-context',
+  parse: stored => {
+    const value = stored as Partial<ScheduledClassSessionContext> | null;
+    return value && typeof value.roomName === 'string' && typeof value.classId === 'string'
+      ? (value as ScheduledClassSessionContext)
+      : null;
+  },
+});
 
-export function saveScheduledClassSession(context: ScheduledClassSessionContext): void {
-  try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(context));
-  } catch {}
-}
+export const saveScheduledClassSession = (context: ScheduledClassSessionContext): void => slot.write(context);
 
+/** The context of the class being started, but only when it belongs to the room being joined. */
 export function readScheduledClassSession(roomName: string): ScheduledClassSessionContext | null {
-  try {
-    const value = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) || 'null');
-    return value && value.roomName === roomName && typeof value.classId === 'string' ? value : null;
-  } catch {
-    return null;
-  }
+  const value = slot.read();
+  return value && value.roomName === roomName ? value : null;
 }
 
-export function clearScheduledClassSession(): void {
-  try {
-    window.sessionStorage.removeItem(STORAGE_KEY);
-  } catch {}
-}
+export const clearScheduledClassSession = (): void => slot.clear();
