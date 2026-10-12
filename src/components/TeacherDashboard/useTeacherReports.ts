@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
+import { Dispatch, SetStateAction, useCallback, useEffect } from 'react';
 import { DashboardStat } from './types';
 import { mockDashboardData } from './mockDashboardData';
 import { StateContextType } from '../../state';
@@ -6,6 +6,7 @@ import { StoredAttentionReport } from '../../components/AttentionProvider/report
 import { PendingAttentionReport } from '../AttentionProvider/reportTypes';
 import { buildReportStats, computeTotalHoursTaught } from './reportStats';
 import { getPendingAttentionReports, removePendingAttentionReport } from '../AttentionReport/pendingAttentionReports';
+import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
 
 export interface UseTeacherReportsParams {
   fetchAttentionReports?: StateContextType['fetchAttentionReports'];
@@ -24,8 +25,7 @@ export interface UseTeacherReportsParams {
  * Owns the "Reports" concern of TeacherDashboard: fetching attention reports,
  * the derived real stat cards, and retrying reports that failed to save
  * (queued in localStorage — see pendingAttentionReports.ts). Mechanical
- * extraction from TeacherDashboard.tsx — every branch, dependency array, and
- * closure capture is preserved exactly as it was inline.
+ * extraction from TeacherDashboard.tsx.
  */
 export default function useTeacherReports({
   fetchAttentionReports,
@@ -35,26 +35,16 @@ export default function useTeacherReports({
   notifications,
 }: UseTeacherReportsParams) {
   const data = mockDashboardData;
-  const [reports, setReports] = useState<StoredAttentionReport[] | null>(null);
-  const [isReportsLoading, setIsReportsLoading] = useState(false);
-  const [reportsError, setReportsError] = useState<string | null>(null);
-
-  const loadReports = useCallback(() => {
-    if (!fetchAttentionReports) return;
-    setIsReportsLoading(true);
-    setReportsError(null);
-    fetchAttentionReports()
-      .then(setReports)
-      .catch(err => {
-        console.error('TeacherDashboard: could not fetch attention reports', err);
-        setReportsError(err.message || 'No pudimos consultar el historial de clases.');
-      })
-      .finally(() => setIsReportsLoading(false));
-  }, [fetchAttentionReports]);
-
-  useEffect(() => {
-    loadReports();
-  }, [loadReports]);
+  const {
+    data: reports,
+    isLoading: isReportsLoading,
+    error: reportsError,
+    reload: loadReports,
+  } = useReloadableResource<StoredAttentionReport[] | null>(fetchAttentionReports, {
+    initial: null,
+    failureMessage: 'No pudimos consultar el historial de clases.',
+    logLabel: 'TeacherDashboard: could not fetch attention reports',
+  });
 
   const retryPendingReports = useCallback(() => {
     if (!saveAttentionReport) return;

@@ -119,21 +119,35 @@ export default function TeacherDashboard({
   } = useAppState();
   const userUid = user && 'uid' in user ? user.uid : undefined;
   const [pendingReports, setPendingReports] = useState(() => getPendingAttentionReports(userUid));
-  const notificationApi = useMemo(() => ({
-    fetchNotifications: (cursor?: string) => fetchNotifications!(cursor),
-    markNotificationRead: (id: string) => markNotificationRead!(id),
-    markAllNotificationsRead: (key: string) => markAllNotificationsRead!(key),
-    clearNotifications: (key: string) => clearNotifications!(key),
-    reconcileNotifications: (scope: 'all' | 'recordings', claims?: ReportFailureClaim[]) =>
-      reconcileNotifications!(scope, claims),
-  }), [fetchNotifications, markNotificationRead, markAllNotificationsRead, clearNotifications, reconcileNotifications]);
-  const pendingFailureClaims = useMemo(() => pendingReports.map(report => ({
-    reportId: report.roomSid,
-    failureEpisodeId: report.failureEpisodeId,
-    firstFailedAtMs: report.firstFailedAtMs,
-  })), [pendingReports]);
+  const notificationApi = useMemo(
+    () => ({
+      fetchNotifications: (cursor?: string) => fetchNotifications!(cursor),
+      markNotificationRead: (id: string) => markNotificationRead!(id),
+      markAllNotificationsRead: (key: string) => markAllNotificationsRead!(key),
+      clearNotifications: (key: string) => clearNotifications!(key),
+      reconcileNotifications: (scope: 'all' | 'recordings', claims?: ReportFailureClaim[]) =>
+        reconcileNotifications!(scope, claims),
+    }),
+    [fetchNotifications, markNotificationRead, markAllNotificationsRead, clearNotifications, reconcileNotifications]
+  );
+  const pendingFailureClaims = useMemo(
+    () =>
+      pendingReports.map(report => ({
+        reportId: report.roomSid,
+        failureEpisodeId: report.failureEpisodeId,
+        firstFailedAtMs: report.firstFailedAtMs,
+      })),
+    [pendingReports]
+  );
   const notifications = useTeacherNotifications(notificationApi, undefined, pendingFailureClaims, {
-    enabled: Boolean(userUid && fetchNotifications && markNotificationRead && markAllNotificationsRead && clearNotifications && reconcileNotifications),
+    enabled: Boolean(
+      userUid &&
+        fetchNotifications &&
+        markNotificationRead &&
+        markAllNotificationsRead &&
+        clearNotifications &&
+        reconcileNotifications
+    ),
     userKey: userUid || null,
   });
   // The sidebar's "Iniciar clase" only opens this in-dashboard panel (sidebar/navbar stay put);
@@ -155,11 +169,8 @@ export default function TeacherDashboard({
     cancelExpiredError,
     startClassError,
     isStartingClass,
-    cancelDialogSession,
-    isCancelDialogOpen,
-    setIsCancelDialogOpen,
-    isCancelExpiredDialogOpen,
-    setIsCancelExpiredDialogOpen,
+    cancelDialog,
+    cancelExpiredDialog,
     hasRealClasses,
     sessions,
     dateLabel,
@@ -253,12 +264,15 @@ export default function TeacherDashboard({
         notificationContent={close => (
           <NotificationDropdown
             {...notifications}
-            onNotificationClick={notification => notifications.markRead(notification.notificationId)
-              .then(() => {
-                onNotificationNavigate?.(notificationDestinationPath(notification));
-                close();
-              })
-              .catch(() => undefined)}
+            onNotificationClick={notification =>
+              notifications
+                .markRead(notification.notificationId)
+                .then(() => {
+                  onNotificationNavigate?.(notificationDestinationPath(notification));
+                  close();
+                })
+                .catch(() => undefined)
+            }
             onLoadMore={notifications.loadMore}
             onMarkAllRead={notifications.markAllRead}
             onClearAll={notifications.clearAll}
@@ -353,17 +367,17 @@ export default function TeacherDashboard({
         </div>
       </div>
       <ConfirmDialog
-        open={isCancelDialogOpen}
+        open={cancelDialog.isOpen}
         title="Cancelar clase"
-        message={`¿Cancelar "${cancelDialogSession?.title}"? Esta acción no se puede deshacer.`}
+        message={`¿Cancelar "${cancelDialog.target?.title}"? Esta acción no se puede deshacer.`}
         confirmLabel="Cancelar clase"
         cancelLabel="Volver"
-        isConfirming={cancellingClassId === cancelDialogSession?.id}
+        isConfirming={cancellingClassId === cancelDialog.target?.id}
         onConfirm={confirmCancelClass}
-        onCancel={() => setIsCancelDialogOpen(false)}
+        onCancel={cancelDialog.close}
       />
       <ConfirmDialog
-        open={isCancelExpiredDialogOpen}
+        open={cancelExpiredDialog.isOpen}
         title="Cancelar clases vencidas"
         message={`¿Cancelar ${
           expiredClasses.length === 1 ? 'la clase vencida' : `las ${expiredClasses.length} clases vencidas`
@@ -372,7 +386,7 @@ export default function TeacherDashboard({
         cancelLabel="Volver"
         isConfirming={isCancellingExpired}
         onConfirm={confirmCancelExpiredClasses}
-        onCancel={() => setIsCancelExpiredDialogOpen(false)}
+        onCancel={cancelExpiredDialog.close}
       />
     </div>
   );

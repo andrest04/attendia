@@ -1,5 +1,5 @@
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { UpcomingSession } from './types';
+import { DashboardData, UpcomingSession } from './types';
 
 // A class that started up to this long ago is still joinable/visible on the
 // "Próximas sesiones" grid, instead of vanishing the instant its scheduled time
@@ -52,13 +52,38 @@ function formatRelativeLabel(scheduledAtMs: number, nowMs: number, sessionDate: 
  * never expired here: their lifecycle is "Terminar sesión", not this.
  */
 export function findExpiredClasses(classes: ClassRecord[], nowMs: number): ClassRecord[] {
-  return classes.filter(
-    classRecord =>
-      classRecord.scheduledAtMs !== null &&
-      classRecord.status !== 'started' &&
-      classRecord.status !== 'completed' &&
-      classRecord.scheduledAtMs < nowMs - GRACE_PERIOD_MS
+  return classes.filter(classRecord => isExpired(classRecord, nowMs));
+}
+
+function isExpired(classRecord: ClassRecord, nowMs: number): boolean {
+  return (
+    classRecord.scheduledAtMs !== null &&
+    classRecord.status !== 'started' &&
+    classRecord.status !== 'completed' &&
+    classRecord.scheduledAtMs < nowMs - GRACE_PERIOD_MS
   );
+}
+
+type ScheduledClass = ClassRecord & { scheduledAtMs: number };
+
+/** The card both session lists render; only the labels and the highlight differ between them. */
+function toUpcomingSession(
+  classRecord: ScheduledClass,
+  now: Date,
+  labels: { relativeLabel: string; highlighted: boolean }
+): UpcomingSession {
+  const sessionDate = new Date(classRecord.scheduledAtMs);
+  return {
+    id: classRecord.id,
+    title: classRecord.title,
+    code: classRecord.roomName,
+    roomName: classRecord.roomName,
+    classId: classRecord.id,
+    studentCount: classRecord.studentCount,
+    time: formatTimeLabel(sessionDate),
+    dayLabel: formatDayLabel(sessionDate, now),
+    ...labels,
+  };
 }
 
 function formatOverdueLabel(scheduledAtMs: number, nowMs: number): string {
@@ -78,30 +103,15 @@ export function buildExpiredSessions(classes: ClassRecord[], nowMs: number): Upc
   const now = new Date(nowMs);
 
   const expired = classes
-    .filter(
-      (classRecord): classRecord is ClassRecord & { scheduledAtMs: number } =>
-        classRecord.scheduledAtMs !== null &&
-        classRecord.status !== 'started' &&
-        classRecord.status !== 'completed' &&
-        classRecord.scheduledAtMs < nowMs - GRACE_PERIOD_MS
-    )
+    .filter((classRecord): classRecord is ScheduledClass => isExpired(classRecord, nowMs))
     .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs);
 
-  return expired.map(classRecord => {
-    const sessionDate = new Date(classRecord.scheduledAtMs);
-    return {
-      id: classRecord.id,
-      title: classRecord.title,
-      code: classRecord.roomName,
-      roomName: classRecord.roomName,
-      classId: classRecord.id,
-      studentCount: classRecord.studentCount,
-      time: formatTimeLabel(sessionDate),
-      dayLabel: formatDayLabel(sessionDate, now),
+  return expired.map(classRecord =>
+    toUpcomingSession(classRecord, now, {
       relativeLabel: formatOverdueLabel(classRecord.scheduledAtMs, nowMs),
       highlighted: false,
-    };
-  });
+    })
+  );
 }
 
 /**
@@ -116,26 +126,55 @@ export function buildUpcomingSessions(classes: ClassRecord[], nowMs: number): Up
 
   const visible = classes
     .filter(
-      (classRecord): classRecord is ClassRecord & { scheduledAtMs: number } =>
+      (classRecord): classRecord is ScheduledClass =>
         classRecord.scheduledAtMs !== null &&
         classRecord.status !== 'completed' &&
         classRecord.scheduledAtMs >= nowMs - GRACE_PERIOD_MS
     )
     .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs);
 
-  return visible.map((classRecord, index) => {
-    const sessionDate = new Date(classRecord.scheduledAtMs);
-    return {
-      id: classRecord.id,
-      title: classRecord.title,
-      code: classRecord.roomName,
-      roomName: classRecord.roomName,
-      classId: classRecord.id,
-      studentCount: classRecord.studentCount,
-      time: formatTimeLabel(sessionDate),
-      dayLabel: formatDayLabel(sessionDate, now),
-      relativeLabel: formatRelativeLabel(classRecord.scheduledAtMs, nowMs, sessionDate, now),
+  return visible.map((classRecord, index) =>
+    toUpcomingSession(classRecord, now, {
+      relativeLabel: formatRelativeLabel(classRecord.scheduledAtMs, nowMs, new Date(classRecord.scheduledAtMs), now),
       highlighted: index === 0,
-    };
-  });
+    })
+  );
+}
+
+/** What the "Clases" tab shows about the teacher's classes, whichever source they come from. */
+export interface ClassesView {
+  sessions: UpcomingSession[];
+  /** The expired set as cards, grayed out in the tab. */
+  expiredSessions: UpcomingSession[];
+  /** The expired set as records, for the bulk-cancel action. */
+  expiredClasses: ClassRecord[];
+  dateLabel: string;
+}
+
+// es-AR lowercases the weekday ("miércoles, 8 de julio de 2026"); the mock data's
+// label convention capitalizes it, so we match that by hand.
+function capitalizeFirst(value: string): string {
+  return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
+}
+
+/** The view over the teacher's real classes (firebase mode). */
+export function buildRealClassesView(classes: ClassRecord[], nowMs: number): ClassesView {
+  return {
+    sessions: buildUpcomingSessions(classes, nowMs),
+    expiredSessions: buildExpiredSessions(classes, nowMs),
+    expiredClasses: findExpiredClasses(classes, nowMs),
+    dateLabel: capitalizeFirst(
+      new Date(nowMs).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    ),
+  };
+}
+
+/** The same view over the fixed mock data, for modes without the classes API. */
+export function buildMockClassesView(data: DashboardData): ClassesView {
+  return {
+    sessions: data.upcomingSessions,
+    expiredSessions: [],
+    expiredClasses: [],
+    dateLabel: data.upcomingSessionsDateLabel,
+  };
 }
