@@ -1,4 +1,5 @@
 import { AttentionLevel, ParticipantAttention, ProctoringAlert } from './types';
+import { classifyAttention } from './presence';
 import { classifyProctoring, PROCTORING_KINDS, ProctoringKind } from './proctoring';
 import { RemoteAttention } from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 
@@ -15,7 +16,7 @@ import { RemoteAttention } from '../../hooks/useAttentionTelemetry/useAttentionT
  * else must never drag the group number down.
  */
 export function isMeasured(sample: { cameraOff: boolean; unsupported?: boolean; faces?: number }): boolean {
-  return !sample.cameraOff && !sample.unsupported && (sample.faces === undefined || sample.faces > 0);
+  return classifyAttention(sample) === 'measured';
 }
 
 /** Rounded mean of the indexes, or null when there is nothing to average. */
