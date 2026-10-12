@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import useLatest from '../useLatest/useLatest';
 import { SessionEndedMessage } from '../useClassDataChannel/classProtocol';
 import { useAppState } from '../../state';
 import { leaveClass } from '../../components/PreJoinScreens/leaveClass';
@@ -55,11 +56,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   const { user, setSessionEndedByProfessor } = useAppState();
   const [isEnding, setIsEnding] = useState(false);
   const sendRef = useRef<(message: SessionEndedMessage) => void>(() => undefined);
-  const onProfessorEndRef = useRef<SessionEndOptions['onProfessorEnd']>(undefined);
-
-  useEffect(() => {
-    onProfessorEndRef.current = options.onProfessorEnd;
-  }, [options.onProfessorEnd]);
+  const onProfessorEndRef = useLatest(options.onProfessorEnd);
 
   const leaveAsEnded = useCallback(() => {
     setSessionEndedByProfessor(true);
@@ -107,7 +104,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       setIsEnding(false);
       leaveAsEnded();
     }
-  }, [room, user, leaveAsEnded]);
+  }, [room, user, leaveAsEnded, onProfessorEndRef]);
 
   // "Salir sin cerrar": the professor leaves alone and the class stays open, so no
   // broadcast, no /completeRoom, and no session-ended screen. The report snapshot is
@@ -116,7 +113,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   const leaveWithoutEnding = useCallback(() => {
     void onProfessorEndRef.current?.('left');
     leaveClass(room);
-  }, [room]);
+  }, [room, onProfessorEndRef]);
 
   return { endSessionForAll, leaveWithoutEnding, isEnding };
 }

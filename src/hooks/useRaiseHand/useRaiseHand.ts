@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import useLatest from '../useLatest/useLatest';
 import { GrantTurnMessage, isAddressedToMe, RaiseHandMessage } from '../useClassDataChannel/classProtocol';
 
 /**
@@ -44,13 +45,9 @@ export default function useRaiseHand(): RaiseHandApi {
   const [raisedHands, setRaisedHands] = useState<string[]>([]);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [turnGrantedCount, setTurnGrantedCount] = useState(0);
-  const isHandRaisedRef = useRef(false);
+  const isHandRaisedRef = useLatest(isHandRaised);
   // Holds the channel's send so the message/connect handlers can re-broadcast.
   const sendRef = useRef<(message: ClassMessage) => void>(() => undefined);
-
-  useEffect(() => {
-    isHandRaisedRef.current = isHandRaised;
-  }, [isHandRaised]);
 
   const onMessage = useCallback(
     (message: ClassMessage, participant) => {
@@ -80,7 +77,7 @@ export default function useRaiseHand(): RaiseHandApi {
     if (isHandRaisedRef.current) {
       sendRef.current({ type: 'raise-hand', raised: true });
     }
-  }, []);
+  }, [isHandRaisedRef]);
 
   const onParticipantDisconnected = useCallback(participant => {
     setRaisedHands(prev => prev.filter(id => id !== participant.identity));
