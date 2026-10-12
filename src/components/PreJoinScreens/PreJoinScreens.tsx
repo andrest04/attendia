@@ -12,6 +12,8 @@ import useInitialRole from '../TeacherDashboard/useInitialRole';
 import { checkRoomOpen } from './checkRoomOpen';
 import { createCollisionSafeClassSessionAccess } from './createCollisionSafeClassSessionAccess';
 import { getResumableSession } from './rejoinSession';
+import { firstResolved } from '../../utils/firstResolved';
+import { replaceUrlWithoutNavigation } from '../../utils/replaceUrlWithoutNavigation';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
@@ -56,12 +58,13 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   // profile displayName (firebase mode), then to the auth user displayName. The
   // TeacherDashboard handoff wins over all of these — it already carries the resolved
   // teacher display name for the session being started.
-  const [name, setName] = useState<string>(() =>
-    initialClassSession
-      ? initialClassSession.name
-      : resumable
-      ? stripTeacherSuffix(resumable.identity)
-      : profile?.displayName || user?.displayName || ''
+  const [name, setName] = useState<string>(
+    () =>
+      firstResolved<undefined, string>(undefined, [
+        () => initialClassSession?.name,
+        () => (resumable ? stripTeacherSuffix(resumable.identity) : undefined),
+        () => profile?.displayName || user?.displayName || undefined,
+      ]) ?? ''
   );
   // teacherDisplayName is purely derived from `name` (the [Profesor] suffix is appended for the
   // teacher card preview), so compute it during render instead of mirroring it into state.
@@ -119,13 +122,8 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
     }
   }, [getAudioAndVideoTracks, step, mediaError]);
 
-  // If this app is deployed as a twilio function, don't change the URL because routing isn't supported.
-  const replaceRoomUrlWithoutNavigation = (targetRoomName: string) => {
-    // @ts-ignore
-    if (!window.location.origin.includes('twil.io') && !window.STORYBOOK_ENV) {
-      window.history.replaceState(null, '', window.encodeURI(`/room/${targetRoomName}${window.location.search || ''}`));
-    }
-  };
+  const replaceRoomUrlWithoutNavigation = (targetRoomName: string) =>
+    replaceUrlWithoutNavigation(window.encodeURI(`/room/${targetRoomName}${window.location.search || ''}`));
 
   // The TeacherDashboard handoff seeds roomName/step via the lazy state initializers above and
   // skips straight past goToDeviceSelection() — which is the only place that normally rewrites
@@ -145,10 +143,7 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   // on the dashboard with that deep link still in place would be resolved by
   // useInitialRole as a student join, bouncing the teacher to the student lobby.
   const handleReturnToDashboard = () => {
-    // @ts-ignore
-    if (!window.location.origin.includes('twil.io') && !window.STORYBOOK_ENV) {
-      window.history.replaceState(null, '', `/${window.location.search || ''}`);
-    }
+    replaceUrlWithoutNavigation(`/${window.location.search || ''}`);
     onReturnToDashboard?.();
   };
 
@@ -169,28 +164,41 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
     removeLocalVideoTrack();
   };
 
-  const goToDeviceSelection = async () => {
+  // Tell the student a class isn't open BEFORE the device-selection waiting room, instead of only
+  // when they hit "Entrar a la sala". This is a UX affordance — the POST /token room-access guard
+  // is the real gate. checkRoomOpen returns null on an inconclusive check, so a flaky probe never
+  // blocks a legitimately open room. Resolves to whether the student may go on.
+  const verifyRoomIsOpen = async (targetRoomName: string): Promise<boolean> => {
+    setRoomClosed(false);
+    setIsCheckingRoom(true);
+    const open = await checkRoomOpen(targetRoomName);
+    setIsCheckingRoom(false);
+    if (open === false) {
+      setRoomClosed(true);
+      return false;
+    }
+    return true;
+  };
+
+  // The student path: normalize what they typed (a code or a full link), make sure the class is
+  // open, then move on to the device check.
+  const continueAsStudent = async () => {
     const normalizedStudentRoomName = normalizeStudentJoinInputToRoomName(studentJoinCode);
+    setRoomName(normalizedStudentRoomName);
 
+    if (!(await verifyRoomIsOpen(normalizedStudentRoomName))) return;
+
+    replaceRoomUrlWithoutNavigation(normalizedStudentRoomName);
+    setStep(Steps.deviceSelectionStep);
+  };
+
+  const goToDeviceSelection = async () => {
     if (classSessionDraft.role === 'student') {
-      setRoomName(normalizedStudentRoomName);
-
-      // Tell the student a class isn't open BEFORE the device-selection waiting room,
-      // instead of only when they hit "Entrar a la sala". This is a UX affordance — the
-      // POST /token room-access guard is the real gate. checkRoomOpen returns null on an
-      // inconclusive check, so a flaky probe never blocks a legitimately open room.
-      setRoomClosed(false);
-      setIsCheckingRoom(true);
-      const open = await checkRoomOpen(normalizedStudentRoomName);
-      setIsCheckingRoom(false);
-      if (open === false) {
-        setRoomClosed(true);
-        return;
-      }
+      await continueAsStudent();
+      return;
     }
 
-    const selectedRoomName = classSessionDraft.role === 'student' ? normalizedStudentRoomName : roomName;
-    replaceRoomUrlWithoutNavigation(selectedRoomName);
+    replaceRoomUrlWithoutNavigation(roomName);
     setStep(Steps.deviceSelectionStep);
   };
 
@@ -199,20 +207,7 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   // teacher default role never silently bypasses the room-open check.
   const goToDeviceSelectionAsStudent = async () => {
     setClassSessionDraft(prev => ({ ...prev, role: 'student' }));
-    const normalizedStudentRoomName = normalizeStudentJoinInputToRoomName(studentJoinCode);
-
-    setRoomName(normalizedStudentRoomName);
-    setRoomClosed(false);
-    setIsCheckingRoom(true);
-    const open = await checkRoomOpen(normalizedStudentRoomName);
-    setIsCheckingRoom(false);
-    if (open === false) {
-      setRoomClosed(true);
-      return;
-    }
-
-    replaceRoomUrlWithoutNavigation(normalizedStudentRoomName);
-    setStep(Steps.deviceSelectionStep);
+    await continueAsStudent();
   };
 
   const handleCreateClassSession = async () => {
