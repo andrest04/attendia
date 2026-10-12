@@ -147,6 +147,78 @@ function formatDuration(report: StoredAttentionReport): string {
   return `${seconds}s`;
 }
 
+interface RecordingViewContext {
+  classes: ReturnType<typeof useStyles>;
+  roomSid: string;
+  isBusy: boolean;
+  /** The request/retry actions exist only in firebase mode. */
+  canRequest: boolean;
+  /** "Disponible hasta …", when the media has a known expiry. */
+  expiryHint: string | null;
+  onRequest: () => void;
+  onView: () => void;
+}
+
+const renderPending = ({ classes, roomSid }: RecordingViewContext) => (
+  <span className={classes.noRecording} data-testid={`dashboard-history-recording-pending-${roomSid}`}>
+    <CircularProgress size={12} /> Procesando...
+  </span>
+);
+
+/**
+ * What the cell shows for each point of the Twilio Composition lifecycle. A table keyed by status
+ * (not a ladder of conditionals), so a new status cannot be forgotten: the type forces an entry.
+ */
+const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingViewContext) => React.ReactNode> = {
+  not_requested: ({ classes, roomSid, isBusy, canRequest, onRequest }) => (
+    <button
+      type="button"
+      className={classes.recordingButton}
+      onClick={onRequest}
+      disabled={isBusy || !canRequest}
+      data-testid={`dashboard-history-recording-request-${roomSid}`}
+    >
+      {isBusy && <CircularProgress size={12} />} Solicitar grabación
+    </button>
+  ),
+  enqueued: renderPending,
+  processing: renderPending,
+  completed: ({ classes, roomSid, expiryHint, onView }) => (
+    <>
+      <button
+        type="button"
+        className={classes.recordingButton}
+        onClick={onView}
+        data-testid={`dashboard-history-recording-view-${roomSid}`}
+      >
+        <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> Ver grabación
+      </button>
+      {expiryHint && <span className={classes.recordingHint}>{expiryHint}</span>}
+    </>
+  ),
+  failed: ({ classes, roomSid, isBusy, canRequest, onRequest }) => (
+    <>
+      <span className={classes.recordingError} data-testid={`dashboard-history-recording-failed-${roomSid}`}>
+        No pudimos generar la grabación.
+      </span>
+      <button
+        type="button"
+        className={classes.recordingButton}
+        onClick={onRequest}
+        disabled={isBusy || !canRequest}
+        data-testid={`dashboard-history-recording-retry-${roomSid}`}
+      >
+        Reintentar
+      </button>
+    </>
+  ),
+  expired: ({ classes, roomSid }) => (
+    <span className={classes.recordingHint} data-testid={`dashboard-history-recording-expired-${roomSid}`}>
+      La grabación venció — solo está disponible por 7 días.
+    </span>
+  ),
+};
+
 interface RecordingCellProps {
   report: StoredAttentionReport;
   onRequestRecording?: (roomSid: string) => Promise<RecordingArtifact>;
@@ -221,56 +293,16 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
 
   return (
     <div className={classes.recordingCell}>
-      {status === 'not_requested' && (
-        <button
-          type="button"
-          className={classes.recordingButton}
-          onClick={handleRequest}
-          disabled={isBusy || !onRequestRecording}
-          data-testid={`dashboard-history-recording-request-${roomSid}`}
-        >
-          {isBusy && <CircularProgress size={12} />} Solicitar grabación
-        </button>
-      )}
-      {PENDING_RECORDING_STATUSES.includes(status) && (
-        <span className={classes.noRecording} data-testid={`dashboard-history-recording-pending-${roomSid}`}>
-          <CircularProgress size={12} /> Procesando...
-        </span>
-      )}
-      {status === 'completed' && (
-        <>
-          <button
-            type="button"
-            className={classes.recordingButton}
-            onClick={handleView}
-            data-testid={`dashboard-history-recording-view-${roomSid}`}
-          >
-            <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> Ver grabación
-          </button>
-          {expiryHint && <span className={classes.recordingHint}>{expiryHint}</span>}
-        </>
-      )}
-      {status === 'failed' && (
-        <>
-          <span className={classes.recordingError} data-testid={`dashboard-history-recording-failed-${roomSid}`}>
-            No pudimos generar la grabación.
-          </span>
-          <button
-            type="button"
-            className={classes.recordingButton}
-            onClick={handleRequest}
-            disabled={isBusy || !onRequestRecording}
-            data-testid={`dashboard-history-recording-retry-${roomSid}`}
-          >
-            Reintentar
-          </button>
-        </>
-      )}
-      {status === 'expired' && (
-        <span className={classes.recordingHint} data-testid={`dashboard-history-recording-expired-${roomSid}`}>
-          La grabación venció — solo está disponible por 7 días.
-        </span>
-      )}
+      {/* The server may send a status this client does not know yet: render nothing for it. */}
+      {recordingStateView[status]?.({
+        classes,
+        roomSid,
+        isBusy,
+        canRequest: Boolean(onRequestRecording),
+        expiryHint,
+        onRequest: handleRequest,
+        onView: handleView,
+      })}
       {actionError && <span className={classes.recordingError}>{actionError}</span>}
     </div>
   );
