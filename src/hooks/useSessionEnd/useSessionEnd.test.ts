@@ -36,7 +36,10 @@ describe('useSessionEnd', () => {
       capturedOnMessage = opts.onMessage;
       return { send: mockSend };
     });
-    mockedAppState.mockImplementation(() => ({ setSessionEndedByProfessor: mockSetEnded }));
+    mockedAppState.mockImplementation(() => ({
+      user: { getIdToken: jest.fn(() => Promise.resolve('teacher-id-token')) },
+      setSessionEndedByProfessor: mockSetEnded,
+    }));
     (global as any).fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ completed: true }) });
   });
 
@@ -55,6 +58,12 @@ describe('useSessionEnd', () => {
         body: JSON.stringify({ room_name: 'clase-1', user_identity: 'Ana [Profesor]' }),
       })
     );
+    // POST /completeRoom is behind the Firebase auth middleware: without the ID token the
+    // server answers 401 and the Twilio room is never completed for the other participants.
+    expect(((global as any).fetch as jest.Mock).mock.calls[0][1].headers).toEqual({
+      Authorization: 'teacher-id-token',
+      'content-type': 'application/json',
+    });
     expect(mockClearRejoin).toHaveBeenCalled();
     expect(mockSetEnded).toHaveBeenCalledWith(true);
     expect(mockDisconnect).toHaveBeenCalled();
