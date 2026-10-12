@@ -4,7 +4,7 @@ import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@material-ui/core';
 import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
-import { clearRejoinSession } from '../../PreJoinScreens/rejoinSession';
+import { leaveClass } from '../../PreJoinScreens/leaveClass';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -83,12 +83,7 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
   // Leaving on purpose must not auto-rejoin on the next refresh, so drop the saved
   // session here. A page refresh disconnects via 'beforeunload' instead, which does
   // not run this handler — that path keeps the session and reconnects.
-  const defaultLeave = () => {
-    clearRejoinSession();
-    // Optional-chain: a refresh ('beforeunload') or a double-click race can have
-    // already disconnected and nulled the room — calling disconnect() then throws.
-    room?.disconnect();
-  };
+  const defaultLeave = () => leaveClass(room);
 
   const handleLeave = props.onLeave ?? defaultLeave;
 
