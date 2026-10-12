@@ -146,10 +146,16 @@ function useHeartbeat(
   }, [active, send, intervalMs, messageRef]);
 }
 
+/**
+ * @param enabled When false the hook is fully inert — no data track is published, nothing is
+ *   received and no sweep runs. The provider passes false while the CV pipeline is off (the
+ *   default), so a deployment that never turned the feature on pays nothing for it.
+ */
 export default function useAttentionTelemetry(
   localResult?: AttentionCaptureResult,
   cameraOff: boolean = false,
-  unsupported: boolean = false
+  unsupported: boolean = false,
+  enabled: boolean = true
 ): RemoteAttention[] {
   const { room } = useVideoContext();
   const [remoteAttention, setRemoteAttention] = useState<Map<string, StoredRemoteAttention>>(new Map());
@@ -159,6 +165,7 @@ export default function useAttentionTelemetry(
   // delivery-guaranteed event. See the header comment for why reliable delivery
   // collapses the group index to 0 under congestion.
   const { send } = useClassDataChannel<AttentionTelemetryMessage>({
+    enabled,
     trackOptions: { ordered: false, maxRetransmits: 0 },
     onMessage: (parsed, participant) => {
       if (!isAttentionTelemetryMessage(parsed)) return;
@@ -212,7 +219,7 @@ export default function useAttentionTelemetry(
   // that goes silent (crash, abrupt drop without a disconnect event) expires; a
   // camera-off participant keeps heartbeating, so it survives and stays flagged.
   useEffect(() => {
-    if (!room) return;
+    if (!room || !enabled) return;
     const id = window.setInterval(() => {
       const cutoff = Date.now() - STALE_TTL_MS;
       setRemoteAttention(prev => {
@@ -228,7 +235,7 @@ export default function useAttentionTelemetry(
       });
     }, STALE_SWEEP_MS);
     return () => window.clearInterval(id);
-  }, [room]);
+  }, [room, enabled]);
 
   // Convert the map to a stable array for consumers, stripping the internal receivedAt
   // timestamp (consumers must not see transport bookkeeping). Memoized on the map so consumers

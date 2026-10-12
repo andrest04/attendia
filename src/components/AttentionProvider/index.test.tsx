@@ -748,6 +748,16 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     const { result } = renderHook(useAttention, { wrapper });
     expect(result.current.source).toBe('mock');
   });
+
+  it('KILL-SWITCH: keeps the telemetry transport OFF too — nothing is published or received while the pipeline is off', () => {
+    delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    mockUseAttentionTelemetry.mockClear();
+
+    renderHook(useAttention, { wrapper });
+
+    expect(mockUseAttentionTelemetry).toHaveBeenCalled();
+    mockUseAttentionTelemetry.mock.calls.forEach(call => expect(call[3]).toBe(false));
+  });
 });
 
 // ─── MOBILE: room present but mobile → falls back to mock ────────────────────
@@ -772,6 +782,17 @@ describe('useAttention inside AttentionProvider — mobile (room present, isMobi
   it('exposes source "mock" on mobile even when a room is present', () => {
     const { result } = renderHook(useAttention, { wrapper });
     expect(result.current.source).toBe('mock');
+  });
+
+  it('keeps the transport ON on mobile when the pipeline is enabled, to announce the device as unsupported', () => {
+    process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
+    mockUseAttentionTelemetry.mockClear();
+    try {
+      renderHook(useAttention, { wrapper });
+      expect(mockUseAttentionTelemetry).toHaveBeenCalledWith(expect.anything(), false, true, true);
+    } finally {
+      delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    }
   });
 });
 

@@ -119,8 +119,9 @@ export const AttentionProvider: React.FC = ({ children }) => {
   const isMobileUnsupported = mode === 'mobile-beacon';
 
   // Layer 3: DataTrack transport — broadcast local + aggregate remotes. The hook is always
-  // called (React rules); it short-circuits internally when room is null.
-  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported);
+  // called (React rules), but it is inert in `mock` mode: with the pipeline off nobody
+  // publishes a telemetry track, receives it or runs its sweep.
+  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, mode !== 'mock');
 
   // Latest-value ref: the sampling intervals are created once (per isActive) and would otherwise
   // close over the telemetry from the render where isActive flipped true — empty at that instant.

@@ -176,4 +176,33 @@ describe('useClassDataChannel', () => {
     await Promise.resolve();
     expect(mockRoom.localParticipant.unpublishTrack).toHaveBeenCalled();
   });
+
+  it('does not publish a track or listen to the room while disabled', () => {
+    const onMessage = jest.fn();
+    renderHook(() => useClassDataChannel({ enabled: false, onMessage }));
+
+    expect(MockLocalDataTrack).not.toHaveBeenCalled();
+    expect(mockRoom.localParticipant.publishTrack).not.toHaveBeenCalled();
+    expect(mockRoom.listenerCount('participantConnected')).toBe(0);
+  });
+
+  it('send() is a no-op while disabled', () => {
+    const { result } = renderHook(() => useClassDataChannel({ enabled: false, onMessage: jest.fn() }));
+    act(() => result.current.send({ type: 'ping' }));
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('joins once it becomes enabled and leaves when disabled again', () => {
+    const { rerender } = renderHook(({ enabled }) => useClassDataChannel({ enabled, onMessage: jest.fn() }), {
+      initialProps: { enabled: false },
+    });
+    expect(mockRoom.localParticipant.publishTrack).not.toHaveBeenCalled();
+
+    rerender({ enabled: true });
+    expect(mockRoom.localParticipant.publishTrack).toHaveBeenCalledTimes(1);
+    expect(mockRoom.listenerCount('participantConnected')).toBe(1);
+
+    rerender({ enabled: false });
+    expect(mockRoom.listenerCount('participantConnected')).toBe(0);
+  });
 });
