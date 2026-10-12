@@ -2,6 +2,7 @@ import { Participant } from 'twilio-video';
 import { useSnackbar, VariantType } from 'notistack';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../components/PreJoinScreens/classSessionTypes';
 import { ProctoringAlert } from '../../components/AttentionProvider/types';
+import { PROCTORING_KINDS } from '../../components/AttentionProvider/proctoring';
 import useOnChange from '../useOnChange/useOnChange';
 
 interface UseNotificationToastsArgs {
@@ -47,18 +48,7 @@ interface ToastPolicy {
 
 /** Student-facing copy for a proctoring warning, specific to the detected condition. */
 function warningMessage(kind: ProctoringAlert['kind'] | null): string {
-  switch (kind) {
-    case 'camera-off':
-      return 'El profesor te pidió encender tu cámara';
-    case 'multiface':
-      return 'El profesor detectó varias personas en tu cámara';
-    case 'away':
-      return 'El profesor te pidió volver a concentrarte en la clase';
-    case 'absent':
-      return 'El profesor no te detecta frente a la cámara';
-    default:
-      return 'El profesor te envió una advertencia';
-  }
+  return (kind && PROCTORING_KINDS[kind]?.studentWarning) || 'El profesor te envió una advertencia';
 }
 
 // Professor: students joining/leaving and raising their hand.

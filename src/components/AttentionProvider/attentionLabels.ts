@@ -1,4 +1,4 @@
-import { AttentionLevel, ProctoringAlert } from './types';
+import { AttentionLevel } from './types';
 
 /**
  * Single source of truth for attention level/proctoring presentation, shared by
@@ -25,11 +25,4 @@ export const levelShortLabel: Record<AttentionLevel, string> = {
   high: 'Alto',
   medium: 'Medio',
   low: 'Bajo',
-};
-
-export const proctoringKindLabel: Record<ProctoringAlert['kind'], string> = {
-  multiface: 'Múltiples rostros',
-  absent: 'Sin presencia',
-  away: 'Distraído',
-  'camera-off': 'Cámara apagada',
 };
