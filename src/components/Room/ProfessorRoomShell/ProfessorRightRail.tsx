@@ -3,15 +3,13 @@ import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import WarningIcon from '@material-ui/icons/Warning';
-import VideocamOffIcon from '@material-ui/icons/VideocamOff';
-import SmartphoneIcon from '@material-ui/icons/Smartphone';
-import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import { AttentionLevel, AttentionTimelinePoint, ParticipantAttention } from '../../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
+import { classifyAttention } from '../../AttentionProvider/presence';
 import { attentionStatusColors } from '../../../theme';
 import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
 import GroupAttentionGauge from './GroupAttentionGauge';
-import { ProfessorRightTab } from './professorShellHelpers';
+import { presenceView, ProfessorRightTab } from './professorShellHelpers';
 
 // Code-split the timeline chart: it is the only recharts consumer on the professor
 // room path, so lazy-loading it keeps recharts out of the main bundle. The chunk is
@@ -319,53 +317,17 @@ export default function ProfessorRightRail({
         ) : rightTab === 'individual' ? (
           <div data-testid="professor-room-shell-individual-list">
             {sortedParticipants.map(participant => {
-              if (participant.unsupported) {
-                // Mobile device — the CV pipeline is desktop-only, so attention is
-                // simply not measurable here. Distinct from "distracted" or "0%".
+              const presence = classifyAttention(participant);
+              if (presence !== 'measured') {
+                // No reading: say why instead of showing a stale value or a misleading 0%.
+                const { Icon, label, individualTestId } = presenceView[presence];
                 return (
                   <div key={participant.identity} className={classes.individualRow}>
                     <div className={classes.individualHeader}>
                       <span>{participant.identity}</span>
                     </div>
-                    <span
-                      className={classes.individualCameraOff}
-                      data-testid="professor-room-shell-individual-unsupported"
-                    >
-                      <SmartphoneIcon fontSize="inherit" /> No medible (celular)
-                    </span>
-                  </div>
-                );
-              }
-              if (participant.cameraOff) {
-                // Camera off → no live attention. Show a muted state, never the stale value.
-                return (
-                  <div key={participant.identity} className={classes.individualRow}>
-                    <div className={classes.individualHeader}>
-                      <span>{participant.identity}</span>
-                    </div>
-                    <span
-                      className={classes.individualCameraOff}
-                      data-testid="professor-room-shell-individual-cameraoff"
-                    >
-                      <VideocamOffIcon fontSize="inherit" /> Cámara apagada
-                    </span>
-                  </div>
-                );
-              }
-              if (participant.faces === 0) {
-                // Face not detected (turned away / lighting / angle) → the index has
-                // decayed to a placeholder 0. Show "sin medición", NOT "0% attention":
-                // we cannot claim she is distracted if we cannot see her face.
-                return (
-                  <div key={participant.identity} className={classes.individualRow}>
-                    <div className={classes.individualHeader}>
-                      <span>{participant.identity}</span>
-                    </div>
-                    <span
-                      className={classes.individualCameraOff}
-                      data-testid="professor-room-shell-individual-nomeasure"
-                    >
-                      <VisibilityOffIcon fontSize="inherit" /> Sin medición — rostro no detectado
+                    <span className={classes.individualCameraOff} data-testid={individualTestId}>
+                      <Icon fontSize="inherit" /> {label}
                     </span>
                   </div>
                 );
