@@ -1,12 +1,27 @@
 import { ConnectOptions } from 'twilio-video';
 import { isMobile, removeUndefineds } from '..';
 import { useAppState } from '../../state';
+import { Settings } from '../../state/settings/settingsReducer';
 
-export default function useConnectionOptions() {
-  const { settings } = useAppState();
+export interface ConnectionEnvironment {
+  isMobile: boolean;
+  /** REACT_APP_TWILIO_ENVIRONMENT: 'dev' | 'stage' | 'prod' | undefined. */
+  environment?: string;
+}
 
-  // See: https://sdk.twilio.com/js/video/releases/2.32.1/docs/global.html#ConnectOptions
-  // for available connection options.
+// For mobile browsers, limit the maximum incoming video bitrate to 2.5 Mbps.
+const MOBILE_MAX_SUBSCRIPTION_BITRATE = 2500000;
+
+/**
+ * Builds the ConnectOptions passed to Video.connect from the user's settings. A pure
+ * function of its inputs (the platform and environment are parameters, not module
+ * globals), so every branch — mobile, dev, defaults — is unit-testable.
+ *
+ * See: https://sdk.twilio.com/js/video/releases/2.32.1/docs/global.html#ConnectOptions
+ * for available connection options.
+ */
+export function buildConnectOptions(settings: Settings, platform: ConnectionEnvironment) {
+  const { environment } = platform;
   const connectionOptions: ConnectOptions = {
     // Bandwidth Profile, Dominant Speaker, and Network Quality
     // features are only available in Small Group or Group Rooms.
@@ -19,6 +34,7 @@ export default function useConnectionOptions() {
         trackSwitchOffMode: settings.trackSwitchOffMode,
         contentPreferencesMode: settings.contentPreferencesMode,
         clientTrackSwitchOffControl: settings.clientTrackSwitchOffControl,
+        ...(platform.isMobile && { maxSubscriptionBitrate: MOBILE_MAX_SUBSCRIPTION_BITRATE }),
       },
     },
     dominantSpeaker: true,
@@ -33,20 +49,18 @@ export default function useConnectionOptions() {
     receiveTranscriptions: true,
 
     //@ts-ignore - Internal use only. This property is not exposed in type definitions.
-    environment: process.env.REACT_APP_TWILIO_ENVIRONMENT,
-  };
+    environment,
 
-  // For mobile browsers, limit the maximum incoming video bitrate to 2.5 Mbps.
-  if (isMobile && connectionOptions?.bandwidthProfile?.video) {
-    connectionOptions!.bandwidthProfile!.video!.maxSubscriptionBitrate = 2500000;
-  }
-
-  if (process.env.REACT_APP_TWILIO_ENVIRONMENT === 'dev') {
     //@ts-ignore - Internal use only. This property is not exposed in type definitions.
-    connectionOptions!.wsServer = 'wss://us2.vss.dev.twilio.com/signaling';
-  }
+    ...(environment === 'dev' && { wsServer: 'wss://us2.vss.dev.twilio.com/signaling' }),
+  };
 
   // Here we remove any 'undefined' values. The twilio-video SDK will only use defaults
   // when no value is passed for an option. It will throw an error when 'undefined' is passed.
   return removeUndefineds(connectionOptions);
+}
+
+export default function useConnectionOptions() {
+  const { settings } = useAppState();
+  return buildConnectOptions(settings, { isMobile, environment: process.env.REACT_APP_TWILIO_ENVIRONMENT });
 }

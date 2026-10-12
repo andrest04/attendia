@@ -14,6 +14,7 @@ import ToggleChatButton from '../Buttons/ToggleChatButton/ToggleChatButton';
 import ToggleVideoButton from '../Buttons/ToggleVideoButton/ToggleVideoButton';
 import ToggleScreenShareButton from '../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import RaiseHandButton from '../Buttons/RaiseHandButton/RaiseHandButton';
+import { featureFlags } from '../../utils/featureFlags';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -94,7 +95,7 @@ export default function MenuBar() {
               <ToggleAudioButton disabled={isReconnecting} />
               <ToggleVideoButton disabled={isReconnecting} />
               {!isSharingScreen && !isMobile && <ToggleScreenShareButton disabled={isReconnecting} />}
-              {process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true' && <ToggleChatButton />}
+              {!featureFlags.isConversationsDisabled() && <ToggleChatButton />}
               <RaiseHandButton />
               <Hidden smDown>
                 <Menu />

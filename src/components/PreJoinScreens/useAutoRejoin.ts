@@ -3,6 +3,7 @@ import { useAppState } from '../../state';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { clearRejoinSession, getResumableSession, RejoinSession } from './rejoinSession';
+import { featureFlags } from '../../utils/featureFlags';
 
 /*
  * Reconnects automatically after a full page refresh.
@@ -73,7 +74,7 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
     const { token } = await connectors.getToken(session.identity, session.roomName);
     if (disposedRef.current) return;
     await connectors.videoConnect(token);
-    if (process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true') {
+    if (!featureFlags.isConversationsDisabled()) {
       connectors.chatConnect(token);
     }
     // On success the Room mounts and this component unmounts; no state update needed.

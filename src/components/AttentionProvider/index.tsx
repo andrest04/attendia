@@ -53,6 +53,7 @@ import { attentionLevelFromScore } from './attentionFormula';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
+import { featureFlags } from '../../utils/featureFlags';
 
 // null! mirrors the pattern used in ChatProvider and ParticipantProvider.
 export const AttentionContext = createContext<AttentionContextValue>(null!);
@@ -168,7 +169,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
   // by accident before a student CONSENT flow exists (consent is still pending —
   // see SecurityPage and the project graduation notes). Read per-render (not a
   // module constant) so tests can toggle it.
-  const cvPipelineEnabled = process.env.REACT_APP_ENABLE_ATTENTION_CV === 'true';
+  const cvPipelineEnabled = featureFlags.isAttentionCvEnabled();
 
   // Pipeline is desktop-only: never activate on mobile.
   const isDesktop = !isMobile;

@@ -6,6 +6,7 @@ import {
   computeHeadPoseAngles,
   stepBlinkCounter,
   stepFocusLostStateMachine,
+  createFocusLostState,
   addToRollingWindow,
   computeEyesScore,
   computeHeadScore,
@@ -41,7 +42,7 @@ interface AnalysisState {
 function freshAnalysisState(): AnalysisState {
   return {
     blink: { count: 0, wasClosedLastFrame: false },
-    focusLost: { count: 0, totalLostMs: 0, lostSince: null },
+    focusLost: createFocusLostState(),
     gazeWindow: { entries: [], windowMs: ROLLING_WINDOW_MS },
     headWindow: { entries: [], windowMs: ROLLING_WINDOW_MS },
   };
