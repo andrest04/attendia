@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
-import { RemoteParticipant } from 'twilio-video';
+import { RemoteParticipant, Room } from 'twilio-video';
+import { RoomStateContext } from '../../components/ParticipantProvider/roomStateContext';
 
-export default function useDominantSpeaker(includeNull = false) {
-  const { room } = useVideoContext();
-  const [dominantSpeaker, setDominantSpeaker] = useState(room?.dominantSpeaker ?? null);
+/** The subscription itself, parameterized by room so the shared provider can own it. */
+export function useRoomDominantSpeaker(room: Room | null | undefined, includeNull = false) {
+  const [dominantSpeaker, setDominantSpeaker] = useState<RemoteParticipant | null>(room?.dominantSpeaker ?? null);
 
   useEffect(() => {
     if (room) {
@@ -36,4 +37,17 @@ export default function useDominantSpeaker(includeNull = false) {
   }, [room, includeNull]);
 
   return dominantSpeaker;
+}
+
+export default function useDominantSpeaker(includeNull = false) {
+  const { room } = useVideoContext();
+  const shared = useContext(RoomStateContext);
+
+  // The shared value follows the default semantics (null emissions are ignored). A caller
+  // that asks to see nulls needs its own subscription. With a shared value in place the
+  // local subscription is switched off by handing it no room.
+  const useSharedValue = shared !== null && !includeNull;
+  const own = useRoomDominantSpeaker(useSharedValue ? undefined : room, includeNull);
+
+  return useSharedValue ? shared!.dominantSpeaker : own;
 }

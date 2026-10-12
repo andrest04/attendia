@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import useDominantSpeaker from '../useDominantSpeaker/useDominantSpeaker';
 import { useAppState } from '../../state';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import useRosterEvents from '../useRosterEvents/useRosterEvents';
 
 //  If a participant that is not currently on the first page becomes
 //  the dominant speaker, we move them to the first page where the least
@@ -67,30 +68,14 @@ export default function useGalleryViewParticipants(isMobileGalleryViewActive = f
     }
   }, [dominantSpeaker, maxGalleryViewParticipants, isMobileGalleryViewActive]);
 
-  useEffect(() => {
-    if (room) {
-      const participantArray = Array.from(room.participants.values(), p => ({
-        participant: p,
-        dominantSpeakerStartTime: 0,
-      }));
-      setOrderedParticipants(participantArray);
-
-      const handleParticipantConnected = (participant: RemoteParticipant) => {
-        setOrderedParticipants(prevParticipants => [...prevParticipants, { participant, dominantSpeakerStartTime: 0 }]);
-      };
-
-      const handleParticipantDisconnected = (participant: RemoteParticipant) => {
-        setOrderedParticipants(prevParticipants => prevParticipants.filter(p => p.participant !== participant));
-      };
-
-      room.on('participantConnected', handleParticipantConnected);
-      room.on('participantDisconnected', handleParticipantDisconnected);
-      return () => {
-        room.off('participantConnected', handleParticipantConnected);
-        room.off('participantDisconnected', handleParticipantDisconnected);
-      };
-    }
-  }, [room]);
+  useRosterEvents(room, {
+    onReset: participants =>
+      setOrderedParticipants(participants.map(participant => ({ participant, dominantSpeakerStartTime: 0 }))),
+    onConnected: participant =>
+      setOrderedParticipants(prevParticipants => [...prevParticipants, { participant, dominantSpeakerStartTime: 0 }]),
+    onDisconnected: participant =>
+      setOrderedParticipants(prevParticipants => prevParticipants.filter(p => p.participant !== participant)),
+  });
 
   return orderedParticipants.map(p => p.participant);
 }
