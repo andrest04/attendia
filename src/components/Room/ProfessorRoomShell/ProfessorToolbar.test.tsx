@@ -25,11 +25,18 @@ const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUpdateRecordingRules = jest.fn();
 const mockToggleScreenShare = jest.fn();
 
-// View, record and proctoring now live behind the "more options" kebab, so most
-// assertions need the menu opened first.
+// The kebab is its own component (OverflowMenu), so the toolbar's shallow tree only holds the
+// element: dive into it to reach the kebab and the menu items it renders.
+function moreMenu(wrapper: ReturnType<typeof shallow>) {
+  return wrapper.find('OverflowMenu').dive();
+}
+
+// Screen share, attention, record and proctoring live behind the kebab, so most assertions
+// need the menu opened first. Returns the menu's own wrapper.
 function openMore(wrapper: ReturnType<typeof shallow>) {
-  wrapper.find('[data-testid="professor-toolbar-more"]').simulate('click');
-  wrapper.update();
+  const menu = moreMenu(wrapper);
+  menu.find('[data-testid="professor-toolbar-more"]').simulate('click');
+  return menu;
 }
 
 describe('ProfessorToolbar', () => {
@@ -65,24 +72,29 @@ describe('ProfessorToolbar', () => {
     expect(wrapper.find('ToggleAudioButton').exists()).toBe(true);
     expect(wrapper.find('ToggleVideoButton').exists()).toBe(true);
     expect(wrapper.find('[data-testid="professor-toolbar-chat"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-toolbar-more"]').exists()).toBe(true);
+    expect(
+      moreMenu(wrapper)
+        .find('[data-testid="professor-toolbar-more"]')
+        .exists()
+    ).toBe(true);
     expect(wrapper.find('EndCallButton').exists()).toBe(true);
     // Secondary controls stay hidden until the kebab is opened.
-    expect(wrapper.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
-    expect(wrapper.find('[data-testid="professor-toolbar-proctoring"]').exists()).toBe(false);
+    const menu = moreMenu(wrapper);
+    expect(menu.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(false);
+    expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
+    expect(menu.find('[data-testid="professor-toolbar-proctoring"]').exists()).toBe(false);
     // Teachers do not get the student-only raise-hand control.
     expect(wrapper.find('RaiseHandButton').exists()).toBe(false);
   });
 
   it('reveals screen share, attention, record and proctoring inside the kebab menu', () => {
     const wrapper = shallow(<ProfessorToolbar />);
-    openMore(wrapper);
-    expect(wrapper.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-toolbar-screenshare"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-toolbar-attention"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="professor-toolbar-proctoring"]').exists()).toBe(true);
+    const menu = openMore(wrapper);
+    expect(menu.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(true);
+    expect(menu.find('[data-testid="professor-toolbar-screenshare"]').exists()).toBe(true);
+    expect(menu.find('[data-testid="professor-toolbar-attention"]').exists()).toBe(true);
+    expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(true);
+    expect(menu.find('[data-testid="professor-toolbar-proctoring"]').exists()).toBe(true);
   });
 
   describe('rail toggles', () => {
@@ -106,8 +118,8 @@ describe('ProfessorToolbar', () => {
     it('toggles the attention panel from the kebab and advertises the target action', () => {
       const onAttentionToggle = jest.fn();
       const wrapper = shallow(<ProfessorToolbar attentionOpen={false} onAttentionToggle={onAttentionToggle} />);
-      openMore(wrapper);
-      const item = wrapper.find('[data-testid="professor-toolbar-attention"]');
+      const menu = openMore(wrapper);
+      const item = menu.find('[data-testid="professor-toolbar-attention"]');
       expect(item.text()).toContain('Panel de atención');
 
       item.simulate('click');
@@ -116,8 +128,8 @@ describe('ProfessorToolbar', () => {
 
     it('offers to hide the attention panel while it is open', () => {
       const wrapper = shallow(<ProfessorToolbar attentionOpen onAttentionToggle={jest.fn()} />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="professor-toolbar-attention"]').text()).toContain('Ocultar atención');
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="professor-toolbar-attention"]').text()).toContain('Ocultar atención');
     });
   });
 
@@ -129,15 +141,14 @@ describe('ProfessorToolbar', () => {
 
     it('toggles screen share from the kebab and closes the menu', () => {
       const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      const item = wrapper.find('[data-testid="professor-toolbar-screenshare"]');
+      const menu = openMore(wrapper);
+      const item = menu.find('[data-testid="professor-toolbar-screenshare"]');
       expect(item.text()).toContain('Compartir pantalla');
       expect(item.prop('disabled')).toBe(false);
 
       item.simulate('click');
       expect(mockToggleScreenShare).toHaveBeenCalled();
-      wrapper.update();
-      expect(wrapper.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(false);
+      expect(menu.find('[data-testid="professor-toolbar-more-menu"]').exists()).toBe(false);
     });
 
     it('offers to stop sharing while the professor is sharing their screen', () => {
@@ -147,8 +158,8 @@ describe('ProfessorToolbar', () => {
         room: { sid: 'RM123' },
       }));
       const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      const item = wrapper.find('[data-testid="professor-toolbar-screenshare"]');
+      const menu = openMore(wrapper);
+      const item = menu.find('[data-testid="professor-toolbar-screenshare"]');
       expect(item.text()).toContain('Dejar de compartir');
       expect(item.prop('disabled')).toBe(false);
     });
@@ -156,15 +167,15 @@ describe('ProfessorToolbar', () => {
     it('disables the item while someone else is sharing their screen', () => {
       mockUseScreenShareParticipant.mockImplementation(() => ({ identity: 'student' }));
       const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="professor-toolbar-screenshare"]').prop('disabled')).toBe(true);
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="professor-toolbar-screenshare"]').prop('disabled')).toBe(true);
     });
 
     it('disables the item when the browser does not support screen sharing', () => {
       Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined });
       const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="professor-toolbar-screenshare"]').prop('disabled')).toBe(true);
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="professor-toolbar-screenshare"]').prop('disabled')).toBe(true);
     });
   });
 
@@ -179,16 +190,16 @@ describe('ProfessorToolbar', () => {
     const onProctoringChange = jest.fn();
     const wrapper = shallow(<ProfessorToolbar proctoringEnabled={false} onProctoringChange={onProctoringChange} />);
 
-    openMore(wrapper);
-    wrapper.find('[data-testid="professor-toolbar-proctoring"]').simulate('click');
+    const menu = openMore(wrapper);
+    menu.find('[data-testid="professor-toolbar-proctoring"]').simulate('click');
     expect(onProctoringChange).toHaveBeenCalledWith(true);
   });
 
   describe('record menu item', () => {
     it('starts a real recording through recording rules when idle', () => {
       const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      const item = wrapper.find('[data-testid="professor-toolbar-record"]');
+      const menu = openMore(wrapper);
+      const item = menu.find('[data-testid="professor-toolbar-record"]');
       expect(item.text()).toContain('Grabar');
 
       item.simulate('click');
@@ -198,8 +209,8 @@ describe('ProfessorToolbar', () => {
     it('stops the recording through recording rules while recording', () => {
       mockUseIsRecording.mockImplementation(() => true);
       const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      const item = wrapper.find('[data-testid="professor-toolbar-record"]');
+      const menu = openMore(wrapper);
+      const item = menu.find('[data-testid="professor-toolbar-record"]');
       expect(item.text()).toContain('Detener grabación');
 
       item.simulate('click');
@@ -213,8 +224,8 @@ describe('ProfessorToolbar', () => {
         roomType: 'go',
       }));
       const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
     });
 
     it('disables the record item while a recording request is in flight', () => {
@@ -224,8 +235,8 @@ describe('ProfessorToolbar', () => {
         roomType: 'group',
       }));
       const wrapper = shallow(<ProfessorToolbar />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="professor-toolbar-record"]').prop('disabled')).toBe(true);
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="professor-toolbar-record"]').prop('disabled')).toBe(true);
     });
   });
 

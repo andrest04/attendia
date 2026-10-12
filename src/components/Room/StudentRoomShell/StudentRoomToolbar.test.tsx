@@ -15,11 +15,18 @@ const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 
 const mockToggleScreenShare = jest.fn();
 
-// Screen share now lives behind the "more options" kebab, so those assertions need
-// the menu opened first.
+// The kebab is its own component (OverflowMenu), so the toolbar's shallow tree only holds the
+// element: dive into it to reach the kebab and the menu items it renders.
+function moreMenu(wrapper: ReturnType<typeof shallow>) {
+  return wrapper.find('OverflowMenu').dive();
+}
+
+// Screen share lives behind the kebab, so those assertions need the menu opened first.
+// Returns the menu's own wrapper.
 function openMore(wrapper: ReturnType<typeof shallow>) {
-  wrapper.find('[data-testid="student-toolbar-more"]').simulate('click');
-  wrapper.update();
+  const menu = moreMenu(wrapper);
+  menu.find('[data-testid="student-toolbar-more"]').simulate('click');
+  return menu;
 }
 
 describe('StudentRoomToolbar', () => {
@@ -46,10 +53,18 @@ describe('StudentRoomToolbar', () => {
     expect(wrapper.find('[data-testid="student-toolbar-participants"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="student-toolbar-chat"]').exists()).toBe(true);
     expect(wrapper.find('RaiseHandButton').exists()).toBe(true);
-    expect(wrapper.find('[data-testid="student-toolbar-more"]').exists()).toBe(true);
+    expect(
+      moreMenu(wrapper)
+        .find('[data-testid="student-toolbar-more"]')
+        .exists()
+    ).toBe(true);
     expect(wrapper.find('EndCallButton').exists()).toBe(true);
     // Secondary controls stay hidden until the kebab is opened.
-    expect(wrapper.find('[data-testid="student-toolbar-more-menu"]').exists()).toBe(false);
+    expect(
+      moreMenu(wrapper)
+        .find('[data-testid="student-toolbar-more-menu"]')
+        .exists()
+    ).toBe(false);
   });
 
   it('disables media controls while reconnecting', () => {
@@ -91,15 +106,14 @@ describe('StudentRoomToolbar', () => {
 
     it('toggles screen share from the kebab and closes the menu', () => {
       const wrapper = shallow(<StudentRoomToolbar />);
-      openMore(wrapper);
-      const item = wrapper.find('[data-testid="student-toolbar-screenshare"]');
+      const menu = openMore(wrapper);
+      const item = menu.find('[data-testid="student-toolbar-screenshare"]');
       expect(item.text()).toContain('Compartir pantalla');
       expect(item.prop('disabled')).toBe(false);
 
       item.simulate('click');
       expect(mockToggleScreenShare).toHaveBeenCalled();
-      wrapper.update();
-      expect(wrapper.find('[data-testid="student-toolbar-more-menu"]').exists()).toBe(false);
+      expect(menu.find('[data-testid="student-toolbar-more-menu"]').exists()).toBe(false);
     });
 
     it('offers to stop sharing while the student is sharing their screen', () => {
@@ -108,22 +122,22 @@ describe('StudentRoomToolbar', () => {
         toggleScreenShare: mockToggleScreenShare,
       }));
       const wrapper = shallow(<StudentRoomToolbar />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="student-toolbar-screenshare"]').text()).toContain('Dejar de compartir');
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="student-toolbar-screenshare"]').text()).toContain('Dejar de compartir');
     });
 
     it('disables the item while someone else is sharing their screen', () => {
       mockUseScreenShareParticipant.mockImplementation(() => ({ identity: 'teacher' }));
       const wrapper = shallow(<StudentRoomToolbar />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="student-toolbar-screenshare"]').prop('disabled')).toBe(true);
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="student-toolbar-screenshare"]').prop('disabled')).toBe(true);
     });
 
     it('disables the item when the browser does not support screen sharing', () => {
       Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: undefined });
       const wrapper = shallow(<StudentRoomToolbar />);
-      openMore(wrapper);
-      expect(wrapper.find('[data-testid="student-toolbar-screenshare"]').prop('disabled')).toBe(true);
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="student-toolbar-screenshare"]').prop('disabled')).toBe(true);
     });
   });
 });
