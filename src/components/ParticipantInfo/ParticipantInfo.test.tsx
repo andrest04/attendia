@@ -10,6 +10,8 @@ import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecti
 import usePublications from '../../hooks/usePublications/usePublications';
 import ScreenShareIcon from '../../icons/ScreenShareIcon';
 import RoleBadge from '../RoleBadge/RoleBadge';
+import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
+import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
 
 jest.mock('../../state');
 jest.mock('../../hooks/useRaiseHand/raisedHandsContext', () => ({ useRaisedHand: jest.fn() }));
@@ -66,7 +68,7 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.text()).not.toContain('Reconnecting...');
+    expect(wrapper.find(ReconnectingOverlay).exists()).toBe(false);
   });
 
   it('should render the reconnecting UI when the user is reconnecting', () => {
@@ -77,7 +79,7 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.text()).toContain('Reconnecting...');
+    expect(wrapper.find(ReconnectingOverlay).exists()).toBe(true);
   });
 
   it('should add hideParticipant class to container component when hideParticipant prop is true', () => {
@@ -300,7 +302,8 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.find('[data-testid="participant-raised-hand"]').exists()).toBe(true);
+    expect(wrapper.find(RaisedHandBadge).exists()).toBe(true);
+    expect(wrapper.find(RaisedHandBadge).prop('size')).toBe('tile');
   });
 
   it('does not render a raised-hand badge when this participant is not raising their hand', () => {
@@ -311,6 +314,6 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.find('[data-testid="participant-raised-hand"]').exists()).toBe(false);
+    expect(wrapper.find(RaisedHandBadge).exists()).toBe(false);
   });
 });
