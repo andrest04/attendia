@@ -1,6 +1,17 @@
 import { ErrorRequestHandler, RequestHandler } from 'express';
 import { logOperationalFailure } from './operationalEvents';
 import { FileStorage } from './fileStorage';
+import { deleteQuietly, withUploadCompensation } from './fileStorageGuards';
+import {
+  createFileSizeLimitErrorHandler,
+  getVerifiedUser,
+  ParseResult,
+  parseFail,
+  parseOk,
+  sendBadRequest,
+  sendError,
+  sendParseError,
+} from './http';
 
 /*
  * Firestore-backed user profiles: users/{uid} = { displayName, email, role, createdAt }.
@@ -19,14 +30,6 @@ export type UserRole = 'teacher' | 'student';
 
 const STUDENT_ROLE: UserRole = 'student';
 const TEACHER_ROLE: UserRole = 'teacher';
-
-// Decoded Firebase identity attached by firebaseAuthMiddleware. Lives here (a leaf
-// module with no runtime deps) so the middleware and the handlers share one type
-// without import cycles.
-export interface VerifiedFirebaseUser {
-  uid: string;
-  email?: string;
-}
 
 export interface UserProfile {
   displayName: string;
@@ -55,14 +58,6 @@ export interface ProfileDocumentReference {
 
 export interface ProfileDatabase {
   collection(name: string): { doc(id: string): ProfileDocumentReference };
-}
-
-function getVerifiedUser(res: Parameters<RequestHandler>[1]): VerifiedFirebaseUser | undefined {
-  const firebaseUser = res.locals && res.locals.firebaseUser;
-  if (firebaseUser && typeof firebaseUser.uid === 'string' && firebaseUser.uid.length > 0) {
-    return firebaseUser as VerifiedFirebaseUser;
-  }
-  return undefined;
 }
 
 const MAX_DISPLAY_NAME_LENGTH = 100;
@@ -133,26 +128,35 @@ export function createGetProfileHandler(db: ProfileDatabase): RequestHandler {
         .get();
 
       if (!snapshot.exists) {
-        res.status(404).json({
-          error: {
-            message: 'profile not found',
-            explanation: 'Todavía no existe un perfil para esta cuenta.',
-          },
-        });
+        sendError(res, 404, 'profile not found', 'Todavía no existe un perfil para esta cuenta.');
         return;
       }
 
       res.status(200).json(toProfileResponse(snapshot.data() || {}));
     } catch (err) {
       logOperationalFailure({ event: 'profile_read_failed', operation: 'profile_read', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'profile lookup failed',
-          explanation: 'No pudimos consultar tu perfil. Intenta de nuevo en unos segundos.',
-        },
-      });
+      sendError(res, 503, 'profile lookup failed', 'No pudimos consultar tu perfil. Intenta de nuevo en unos segundos.');
     }
   };
+}
+
+export interface NewProfileInput {
+  displayName: string;
+  role: UserRole;
+}
+
+/** Validates the POST /profile body. Pure: no `res`, no I/O. */
+export function parsePostProfileBody(rawBody: unknown): ParseResult<NewProfileInput> {
+  const body = (rawBody ?? {}) as { [key: string]: any };
+  const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
+  const requestedRole = body.role;
+
+  if (requestedRole !== STUDENT_ROLE && requestedRole !== TEACHER_ROLE) {
+    return parseFail('invalid role', 'El rol debe ser profesor o estudiante.');
+  }
+  if (!displayName) return parseFail('invalid displayName', 'El nombre no puede estar vacío.');
+
+  return parseOk({ displayName, role: requestedRole });
 }
 
 export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: () => unknown): RequestHandler {
@@ -164,29 +168,12 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
       return;
     }
 
-    const body = req.body ?? {};
-    const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
-    const requestedRole = body.role;
-
-    if (requestedRole !== STUDENT_ROLE && requestedRole !== TEACHER_ROLE) {
-      res.status(400).json({
-        error: {
-          message: 'invalid role',
-          explanation: 'El rol debe ser profesor o estudiante.',
-        },
-      });
+    const parsed = parsePostProfileBody(req.body);
+    if (!parsed.ok) {
+      sendParseError(res, parsed);
       return;
     }
-
-    if (!displayName) {
-      res.status(400).json({
-        error: {
-          message: 'invalid displayName',
-          explanation: 'El nombre no puede estar vacío.',
-        },
-      });
-      return;
-    }
+    const { displayName, role: requestedRole } = parsed.value;
 
     try {
       const docRef = db.collection('users').doc(firebaseUser.uid);
@@ -210,14 +197,47 @@ export function createPostProfileHandler(db: ProfileDatabase, serverTimestamp: (
       res.status(201).json({ displayName, email, role: requestedRole });
     } catch (err) {
       logOperationalFailure({ event: 'profile_save_failed', operation: 'profile_create', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'profile save failed',
-          explanation: 'No pudimos guardar tu perfil. Intenta de nuevo en unos segundos.',
-        },
-      });
+      sendError(res, 503, 'profile save failed', 'No pudimos guardar tu perfil. Intenta de nuevo en unos segundos.');
     }
   };
+}
+
+const PATCHABLE_PROFILE_FIELDS = ['displayName', 'syncEmail', 'restorePhoto'];
+
+/**
+ * Validates the PATCH /profile body and builds the Firestore update. Pure. The email is
+ * never read from the body: `syncEmail` copies the one from the freshly verified token.
+ */
+export function parsePatchProfileBody(
+  rawBody: unknown,
+  verifiedEmail: string | undefined
+): ParseResult<{ [key: string]: any }> {
+  const body = (rawBody ?? {}) as { [key: string]: any };
+  const fields = Object.keys(body);
+  if (!fields.length || fields.some(field => PATCHABLE_PROFILE_FIELDS.indexOf(field) === -1)) {
+    return parseFail('invalid profile fields', 'Los datos del perfil no son válidos.');
+  }
+
+  const update: { [key: string]: any } = {};
+  if ('displayName' in body) {
+    const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
+    if (!displayName || displayName.length > MAX_DISPLAY_NAME_LENGTH) {
+      return parseFail('invalid displayName', 'El nombre debe tener entre 1 y 100 caracteres.');
+    }
+    update.displayName = displayName;
+  }
+  if ('syncEmail' in body && body.syncEmail !== true) {
+    return parseFail('invalid email sync', 'No pudimos sincronizar el correo.');
+  }
+  if (body.syncEmail === true) update.email = verifiedEmail || '';
+  // Clears the "I don't want a photo" flag set by DELETE /profile/avatar, so the
+  // client falls back to the auth provider's photo (e.g. Google) again.
+  if ('restorePhoto' in body && body.restorePhoto !== true) {
+    return parseFail('invalid restorePhoto', 'No pudimos restaurar la foto.');
+  }
+  if (body.restorePhoto === true) update.avatarRemoved = false;
+
+  return parseOk(update);
 }
 
 // Updates only a verified user's own presentation fields. Email is never accepted
@@ -230,42 +250,19 @@ export function createPatchProfileHandler(db: ProfileDatabase): RequestHandler {
       return;
     }
 
-    const body = req.body ?? {};
-    const fields = Object.keys(body);
-    const allowedFields = ['displayName', 'syncEmail', 'restorePhoto'];
-    if (!fields.length || fields.some(field => allowedFields.indexOf(field) === -1)) {
-      res.status(400).json({ error: { message: 'invalid profile fields', explanation: 'Los datos del perfil no son válidos.' } });
+    const parsed = parsePatchProfileBody(req.body, firebaseUser.email);
+    if (!parsed.ok) {
+      sendParseError(res, parsed);
       return;
     }
-
-    const update: { [key: string]: any } = {};
-    if ('displayName' in body) {
-      const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : '';
-      if (!displayName || displayName.length > MAX_DISPLAY_NAME_LENGTH) {
-        res.status(400).json({ error: { message: 'invalid displayName', explanation: 'El nombre debe tener entre 1 y 100 caracteres.' } });
-        return;
-      }
-      update.displayName = displayName;
-    }
-    if ('syncEmail' in body && body.syncEmail !== true) {
-      res.status(400).json({ error: { message: 'invalid email sync', explanation: 'No pudimos sincronizar el correo.' } });
-      return;
-    }
-    if (body.syncEmail === true) update.email = firebaseUser.email || '';
-    // Clears the "I don't want a photo" flag set by DELETE /profile/avatar, so the
-    // client falls back to the auth provider's photo (e.g. Google) again.
-    if ('restorePhoto' in body && body.restorePhoto !== true) {
-      res.status(400).json({ error: { message: 'invalid restorePhoto', explanation: 'No pudimos restaurar la foto.' } });
-      return;
-    }
-    if (body.restorePhoto === true) update.avatarRemoved = false;
+    const update = parsed.value;
 
     try {
       const docRef = db.collection('users').doc(firebaseUser.uid);
       const snapshot = await docRef.get();
       const profile = snapshot.data();
       if (!snapshot.exists || !isProfileOwnerRole(profile)) {
-        res.status(403).json({ error: { message: 'profile role required', explanation: 'No tienes permiso para modificar este perfil.' } });
+        sendError(res, 403, 'profile role required', 'No tienes permiso para modificar este perfil.');
         return;
       }
 
@@ -273,7 +270,7 @@ export function createPatchProfileHandler(db: ProfileDatabase): RequestHandler {
       res.status(200).json(toProfileResponse({ ...profile, ...update }));
     } catch (err) {
       logOperationalFailure({ event: 'profile_update_failed', operation: 'profile_update', uid: firebaseUser.uid, error: err });
-      res.status(503).json({ error: { message: 'profile update failed', explanation: 'No pudimos actualizar tu perfil. Intenta de nuevo.' } });
+      sendError(res, 503, 'profile update failed', 'No pudimos actualizar tu perfil. Intenta de nuevo.');
     }
   };
 }
@@ -289,78 +286,73 @@ export function createUploadAvatarHandler(db: ProfileDatabase, fileStorage: File
       return;
     }
 
-    let uploadedFileId: string | undefined;
     try {
-      const docRef = db.collection('users').doc(firebaseUser.uid);
-      const snapshot = await docRef.get();
-      const profile = snapshot.data();
-      if (!snapshot.exists || !isProfileOwnerRole(profile)) {
-        res.status(403).json({ error: { message: 'profile role required', explanation: 'No tienes permiso para modificar este perfil.' } });
-        return;
-      }
+      await withUploadCompensation(
+        fileStorage,
+        { event: 'avatar_upload_cleanup_failed', operation: 'avatar_upload', uid: firebaseUser.uid },
+        async upload => {
+          const docRef = db.collection('users').doc(firebaseUser.uid);
+          const snapshot = await docRef.get();
+          const profile = snapshot.data();
+          if (!snapshot.exists || !isProfileOwnerRole(profile)) {
+            sendError(res, 403, 'profile role required', 'No tienes permiso para modificar este perfil.');
+            return;
+          }
 
-      const file = (req as any).file as UploadedAvatarFile | undefined;
-      if (!file) {
-        res.status(400).json({ error: { message: 'missing file', explanation: 'Debes seleccionar una imagen para subir.' } });
-        return;
-      }
-      if (!ALLOWED_AVATAR_MIME_TYPES.has(file.mimetype)) {
-        res.status(400).json({ error: { message: 'unsupported file type', explanation: 'La foto debe ser una imagen JPEG o WebP.' } });
-        return;
-      }
-      if (file.size > MAX_AVATAR_FILE_SIZE_BYTES) {
-        res.status(400).json({ error: { message: 'file too large', explanation: 'La foto supera el tamaño máximo permitido (2 MB).' } });
-        return;
-      }
+          const file = (req as any).file as UploadedAvatarFile | undefined;
+          if (!file) {
+            sendBadRequest(res, 'missing file', 'Debes seleccionar una imagen para subir.');
+            return;
+          }
+          if (!ALLOWED_AVATAR_MIME_TYPES.has(file.mimetype)) {
+            sendBadRequest(res, 'unsupported file type', 'La foto debe ser una imagen JPEG o WebP.');
+            return;
+          }
+          if (file.size > MAX_AVATAR_FILE_SIZE_BYTES) {
+            sendBadRequest(res, 'file too large', 'La foto supera el tamaño máximo permitido (2 MB).');
+            return;
+          }
 
-      const previousFileId = typeof profile?.avatarFileId === 'string' ? profile.avatarFileId : undefined;
+          const previousFileId = typeof profile?.avatarFileId === 'string' ? profile.avatarFileId : undefined;
 
-      const stored = await fileStorage.upload({
-        buffer: file.buffer,
-        contentType: file.mimetype,
-        fileName: `${firebaseUser.uid}-avatar-${Date.now()}`,
-      });
-      uploadedFileId = stored.fileId;
+          const stored = await fileStorage.upload({
+            buffer: file.buffer,
+            contentType: file.mimetype,
+            fileName: `${firebaseUser.uid}-avatar-${Date.now()}`,
+          });
+          upload.track(stored.fileId);
 
-      await docRef.set({ avatarUrl: stored.url, avatarFileId: stored.fileId, avatarRemoved: false }, { merge: true });
-      uploadedFileId = undefined;
+          await docRef.set({ avatarUrl: stored.url, avatarFileId: stored.fileId, avatarRemoved: false }, { merge: true });
+          upload.commit();
 
-      if (previousFileId && previousFileId !== stored.fileId) {
-        fileStorage.delete(previousFileId).catch(error =>
-          logOperationalFailure({ event: 'avatar_replace_cleanup_failed', operation: 'avatar_upload', uid: firebaseUser.uid, error })
-        );
-      }
+          if (previousFileId && previousFileId !== stored.fileId) {
+            deleteQuietly(fileStorage, previousFileId, {
+              event: 'avatar_replace_cleanup_failed',
+              operation: 'avatar_upload',
+              uid: firebaseUser.uid,
+            });
+          }
 
-      res.status(200).json(toProfileResponse({ ...profile, avatarUrl: stored.url, avatarRemoved: false }));
+          res.status(200).json(toProfileResponse({ ...profile, avatarUrl: stored.url, avatarRemoved: false }));
+        }
+      );
     } catch (err) {
-      if (uploadedFileId) {
-        fileStorage.delete(uploadedFileId).catch(cleanupError =>
-          logOperationalFailure({ event: 'avatar_upload_cleanup_failed', operation: 'avatar_upload', uid: firebaseUser.uid, error: cleanupError })
-        );
-      }
       logOperationalFailure({ event: 'avatar_upload_failed', operation: 'avatar_upload', uid: firebaseUser.uid, error: err });
-      res.status(503).json({ error: { message: 'avatar upload failed', explanation: 'No pudimos subir la foto. Intenta de nuevo en unos segundos.' } });
+      sendError(res, 503, 'avatar upload failed', 'No pudimos subir la foto. Intenta de nuevo en unos segundos.');
     }
   };
 }
+
+export const createAvatarUploadErrorHandler = (): ErrorRequestHandler =>
+  createFileSizeLimitErrorHandler({
+    message: 'file too large',
+    explanation: 'La foto supera el tamaño máximo permitido (2 MB).',
+  });
 
 // DELETE /profile/avatar. Deletes the stored file before clearing its profile fields, and
 // marks avatarRemoved so the client stops falling back to the auth provider's photo too
 // (an explicit "I don't want a photo" state, not just "no custom avatar uploaded").
 // Same role guard as the PATCH handler.
-export const createAvatarUploadErrorHandler = (): ErrorRequestHandler => (err, _req, res, next) => {
-  if (err && err.code === 'LIMIT_FILE_SIZE') {
-    res.status(400).json({
-      error: {
-        message: 'file too large',
-        explanation: 'La foto supera el tamaño máximo permitido (2 MB).',
-      },
-    });
-    return;
-  }
-  next(err);
-};
-
 export function createDeleteAvatarHandler(db: ProfileDatabase, fileStorage: FileStorage): RequestHandler {
   return async (_req, res) => {
     const firebaseUser = getVerifiedUser(res);
@@ -374,7 +366,7 @@ export function createDeleteAvatarHandler(db: ProfileDatabase, fileStorage: File
       const snapshot = await docRef.get();
       const profile = snapshot.data();
       if (!snapshot.exists || !isProfileOwnerRole(profile)) {
-        res.status(403).json({ error: { message: 'profile role required', explanation: 'No tienes permiso para modificar este perfil.' } });
+        sendError(res, 403, 'profile role required', 'No tienes permiso para modificar este perfil.');
         return;
       }
 
@@ -390,7 +382,7 @@ export function createDeleteAvatarHandler(db: ProfileDatabase, fileStorage: File
         .json(toProfileResponse({ ...profile, avatarUrl: undefined, avatarDataUrl: undefined, avatarRemoved: true }));
     } catch (err) {
       logOperationalFailure({ event: 'avatar_delete_failed', operation: 'avatar_delete', uid: firebaseUser.uid, error: err });
-      res.status(503).json({ error: { message: 'avatar delete failed', explanation: 'No pudimos eliminar la foto. Intenta de nuevo en unos segundos.' } });
+      sendError(res, 503, 'avatar delete failed', 'No pudimos eliminar la foto. Intenta de nuevo en unos segundos.');
     }
   };
 }

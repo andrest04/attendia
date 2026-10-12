@@ -1,5 +1,6 @@
 import { logOperationalFailure } from './operationalEvents';
-import { CLEAR_BATCH_SIZE, clearJobDocument, itemDocument, millis, userDocument } from './notifications';
+import { timestampMillis } from './firestoreTime';
+import { CLEAR_BATCH_SIZE, clearJobDocument, itemDocument, userDocument } from './notifications';
 import { NotificationsDatabase } from './notificationsTypes';
 
 // If a retired generation's clear job hasn't advanced in this long, the drain is
@@ -34,7 +35,7 @@ export function createDrainOneClearBatch(
       // request. A job whose last progress is older than the threshold is likely
       // stuck/abandoned (e.g. the teacher never came back) — log it so it's at
       // least visible in monitoring instead of sitting silently forever.
-      const lastProgressMs = millis(job.updatedAt);
+      const lastProgressMs = timestampMillis(job.updatedAt);
       if (lastProgressMs !== null) {
         const ageMs = now() - lastProgressMs;
         if (ageMs > ABANDONED_CLEAR_JOB_THRESHOLD_MS) abandonedJobAgeMs = ageMs;

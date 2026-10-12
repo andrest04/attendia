@@ -1,5 +1,6 @@
 import './bootstrap-globals';
-import { createExpressHandler, twilioClient } from './createExpressHandler';
+import { createExpressHandler } from './createExpressHandler';
+import { twilioClient } from './twilioClient';
 import { createRoomAccessGuard } from './roomAccessGuard';
 import { createRoomExists } from './roomExists';
 import { createRoomOpenHandler } from './roomOpen';
@@ -8,7 +9,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { ServerlessFunction } from './types';
-import { firestore, serverTimestamp } from './firebaseAdmin';
+import { auth, firestore, serverTimestamp } from './firebaseAdmin';
 import {
   createGetProfileHandler,
   createPostProfileHandler,
@@ -18,7 +19,6 @@ import {
   createAvatarUploadErrorHandler,
   MAX_AVATAR_FILE_SIZE_BYTES,
 } from './userProfiles';
-import { createAppwriteFileStorage } from './appwriteFileStorage';
 import { createClientOperationalEventHandler } from './operationalEvents';
 import { createGetReportHandler, createGetReportsHandler, createPostReportHandler } from './attentionReports';
 import {
@@ -38,6 +38,8 @@ import {
   MAX_FILE_SIZE_BYTES,
 } from './resources';
 import { createGotenbergDocumentConverter } from './gotenbergDocumentConverter';
+import { createAppwriteFileStorage } from './appwriteFileStorage';
+import { createAppwriteBuckets, loadServerConfig, ServerConfigError } from './serverConfig';
 import {
   createGetClassesHandler,
   createCreateClassHandler,
@@ -45,7 +47,7 @@ import {
   createStartClassHandler,
 } from './classes';
 import multer from 'multer';
-import authMiddleware from './firebaseAuthMiddleware';
+import { createFirebaseAuthMiddleware } from './firebaseAuthMiddleware';
 import {
   createClearNotificationsHandler,
   createGetNotificationsHandler,
@@ -55,7 +57,17 @@ import {
 import { createDrainOneClearBatch } from './notificationsMaintenance';
 import { createReconcileNotificationsHandler } from './notificationReconciliation';
 
-const PORT = process.env.PORT ?? 8081;
+// Every environment variable is read and validated once, here at boot.
+let config: ReturnType<typeof loadServerConfig>;
+try {
+  config = loadServerConfig();
+} catch (error) {
+  if (!(error instanceof ServerConfigError)) throw error;
+  console.error(error.message);
+  process.exit(1);
+}
+
+const authMiddleware = createFirebaseAuthMiddleware(idToken => auth.verifyIdToken(idToken));
 
 const app = express();
 const drainOneClearBatch = createDrainOneClearBatch(firestore, serverTimestamp);
@@ -79,20 +91,7 @@ const roomExists = createRoomExists(twilioClient);
 // Appwrite Storage singletons: avatars (public-read, so the returned view URL can be
 // used straight in an <img src>) and resources (private — content only leaves through
 // the authenticated server download route). See appwriteFileStorage.ts.
-const avatarStorage = createAppwriteFileStorage({
-  endpoint: process.env.APPWRITE_ENDPOINT!,
-  projectId: process.env.APPWRITE_PROJECT_ID!,
-  apiKey: process.env.APPWRITE_API_KEY!,
-  bucketId: process.env.APPWRITE_AVATARS_BUCKET_ID!,
-  publicRead: true,
-});
-const resourceStorage = createAppwriteFileStorage({
-  endpoint: process.env.APPWRITE_ENDPOINT!,
-  projectId: process.env.APPWRITE_PROJECT_ID!,
-  apiKey: process.env.APPWRITE_API_KEY!,
-  bucketId: process.env.APPWRITE_RESOURCES_BUCKET_ID!,
-  publicRead: false,
-});
+const { avatars: avatarStorage, resources: resourceStorage } = createAppwriteBuckets(config.appwrite, createAppwriteFileStorage);
 
 app.all('/token', authMiddleware, createRoomAccessGuard(roomExists), tokenEndpoint);
 app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
@@ -120,13 +119,6 @@ app.post('/reports', authMiddleware, createPostReportHandler(firestore, serverTi
 // the Twilio Account SID/Auth Token never reach the browser — see recordings.ts.
 // The download endpoint alone is ticket-authorized (no firebaseAuthMiddleware):
 // window.open cannot send a custom Authorization header.
-const { RECORDING_DOWNLOAD_SECRET } = process.env;
-if (!RECORDING_DOWNLOAD_SECRET) {
-  console.error(
-    'Missing required environment variable RECORDING_DOWNLOAD_SECRET: it signs the recording download tickets issued by /reports/:roomSid/recording/download-url and verified by /reports/:roomSid/recording/download (window.open cannot send an Authorization header, so this ticket is the only auth for that route).'
-  );
-  process.exit(1);
-}
 app.post(
   '/reports/:roomSid/recording',
   authMiddleware,
@@ -140,11 +132,11 @@ app.get(
 app.get(
   '/reports/:roomSid/recording/download-url',
   authMiddleware,
-  createIssueRecordingDownloadTicketHandler(firestore, RECORDING_DOWNLOAD_SECRET)
+  createIssueRecordingDownloadTicketHandler(firestore, config.recordingDownloadSecret)
 );
 app.get(
   '/reports/:roomSid/recording/download',
-  createDownloadRecordingHandler(firestore, twilioClient, RECORDING_DOWNLOAD_SECRET)
+  createDownloadRecordingHandler(firestore, twilioClient, config.recordingDownloadSecret)
 );
 
 // Teacher-only "Recursos" tab: users/{uid}/resources/{fileId} metadata in Firestore,
@@ -168,7 +160,7 @@ app.get('/resources/:id/download', authMiddleware, createDownloadResourceHandler
 // HTTP, so neither this app's image nor any dev machine needs LibreOffice installed
 // — see gotenbergDocumentConverter.ts. Locally: `docker run --rm -p 3010:3000
 // gotenberg/gotenberg:8` and set GOTENBERG_URL=http://localhost:3010.
-const documentConverter = createGotenbergDocumentConverter(process.env.GOTENBERG_URL);
+const documentConverter = createGotenbergDocumentConverter(config.gotenbergUrl);
 app.get(
   '/resources/:id/preview',
   authMiddleware,
@@ -254,4 +246,4 @@ if (fs.existsSync(indexHtml)) {
   });
 }
 
-app.listen(PORT, () => console.log(`attendia server running on ${PORT}`));
+app.listen(config.port, () => console.log(`attendia server running on ${config.port}`));

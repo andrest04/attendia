@@ -1,6 +1,8 @@
 import { RequestHandler } from 'express';
-import { logOperationalFailure } from './operationalEvents';
+import { ParseResult, parseFail, parseOk, sendBadRequest, sendError, sendParseError } from './http';
 import { canonicalNotificationId } from './notifications';
+import { readInbox, readInboxItems, retractInboxItems } from './notificationInbox';
+import { teacherHandler } from './teacherHandler';
 
 /*
  * Firestore-backed teacher "Clases" (scheduled sessions):
@@ -38,7 +40,7 @@ const MAX_CLASSES_RETURNED = 200;
 const FALLBACK_ROOM_NAME = 'class-session';
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 
-function slugifyTitle(title: string): string {
+export function slugifyTitle(title: string): string {
   const asciiValue = title
     .trim()
     .toLowerCase()
@@ -58,14 +60,6 @@ function buildRoomName(title: string, docId: string): string {
   // The tail, not the head: idempotency keys share a "class-" prefix, so only the
   // trailing random segment reliably disambiguates two same-titled classes.
   return `${slugifyTitle(title)}-${docId.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(-8)}`;
-}
-
-// Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
-// resources.ts/userProfiles.ts on purpose — each server unit stays independently
-// deployable and testable.
-export interface VerifiedFirebaseUser {
-  uid: string;
-  email?: string;
 }
 
 // ─── Structural Firestore slice ────────────────────────────────────────────────
@@ -126,40 +120,7 @@ export interface ClassesDatabase {
   runTransaction<T>(updateFunction: (transaction: ClassTransaction) => Promise<T>): Promise<T>;
 }
 
-function getVerifiedUser(res: Parameters<RequestHandler>[1]): VerifiedFirebaseUser | undefined {
-  const firebaseUser = res.locals && res.locals.firebaseUser;
-  if (firebaseUser && typeof firebaseUser.uid === 'string' && firebaseUser.uid.length > 0) {
-    return firebaseUser as VerifiedFirebaseUser;
-  }
-  return undefined;
-}
-
-function sendTeacherOnly(res: Parameters<RequestHandler>[1]) {
-  res.status(403).json({
-    error: {
-      message: 'teacher role required',
-      explanation: 'Las clases programadas solo están disponibles para profesores.',
-    },
-  });
-}
-
-function sendBadRequest(res: Parameters<RequestHandler>[1], message: string, explanation: string) {
-  res.status(400).json({ error: { message, explanation } });
-}
-
-/**
- * Resolves whether the verified uid holds role=teacher in Firestore, mirroring
- * resources.ts. Throws on Firestore failure (caller maps it to 503).
- */
-async function resolveIsTeacher(db: ClassesDatabase, uid: string): Promise<boolean> {
-  const snapshot = await db
-    .collection('users')
-    .doc(uid)
-    .get();
-  if (!snapshot.exists) return false;
-  const data = snapshot.data() || {};
-  return data.role === 'teacher';
-}
+const TEACHER_ONLY_EXPLANATION = 'Las clases programadas solo están disponibles para profesores.';
 
 function toClassResponse(id: string, data: { [key: string]: any }, scheduledAtMs: number | null) {
   return {
@@ -173,23 +134,6 @@ function toClassResponse(id: string, data: { [key: string]: any }, scheduledAtMs
   };
 }
 
-function timestampMillis(value: any): number | null {
-  if (value instanceof Date) return value.getTime();
-  if (!value || typeof value.toMillis !== 'function') return null;
-  const result = value.toMillis();
-  return Number.isFinite(result) ? result : null;
-}
-
-// Duplicated from attentionReports.ts/notificationReconciliation.ts on purpose —
-// this codebase's convention (see roomAccessGuard.ts) is that each server unit
-// stays independently deployable, so small pure helpers are copied rather than
-// imported across leaf modules.
-function effectivelyUnread(item: { [key: string]: any }, readBefore: unknown): boolean {
-  const createdAt = timestampMillis(item.createdAt);
-  const boundary = timestampMillis(readBefore);
-  return timestampMillis(item.readAt) === null && !(boundary !== null && createdAt !== null && createdAt <= boundary);
-}
-
 function getOwnedClass(db: ClassesDatabase, uid: string, id: string) {
   return db
     .collection('users')
@@ -199,26 +143,24 @@ function getOwnedClass(db: ClassesDatabase, uid: string, id: string) {
 }
 
 export function createGetClassesHandler(db: ClassesDatabase): RequestHandler {
-  return async (_req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'class_lookup_failed',
+        operation: 'GET /classes',
+        message: 'class lookup failed',
+        explanation: 'No pudimos consultar las clases programadas. Intenta de nuevo en unos segundos.',
+      },
+    },
+    async ({ uid, res }) => {
       // Single-field orderBy on a subcollection — no composite index required. `status`
       // is not filtered here on purpose: cancelling a class hard-deletes its doc (see
       // createDeleteClassHandler), so every remaining doc is implicitly 'scheduled'.
       const snapshot = await db
         .collection('users')
-        .doc(firebaseUser.uid)
+        .doc(uid)
         .collection('classes')
         .orderBy('scheduledAt', 'asc')
         .limit(MAX_CLASSES_RETURNED)
@@ -232,99 +174,99 @@ export function createGetClassesHandler(db: ClassesDatabase): RequestHandler {
       });
 
       res.status(200).json(classes);
-    } catch (err) {
-      logOperationalFailure({ event: 'class_lookup_failed', operation: 'GET /classes', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'class lookup failed',
-          explanation: 'No pudimos consultar las clases programadas. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
+}
+
+export interface CreateClassInput {
+  title: string;
+  scheduledAtMs: number;
+  studentCount: number;
+  durationMinutes: number;
+  idempotencyKey: string;
+  /** Only present when the client already showed the teacher a join link for this room. */
+  explicitRoomName?: string;
+}
+
+/** Validates the POST /classes body. Pure: no `res`, no I/O. */
+export function parseCreateClassBody(rawBody: unknown): ParseResult<CreateClassInput> {
+  const body = (rawBody ?? {}) as { [key: string]: any };
+
+  const title = typeof body.title === 'string' ? body.title.trim().slice(0, MAX_TITLE_LENGTH) : '';
+  if (!title) return parseFail('invalid title', 'Debes indicar un título para la clase.');
+
+  const scheduledAtMs = body.scheduledAtMs;
+  if (typeof scheduledAtMs !== 'number' || !Number.isFinite(scheduledAtMs) || isNaN(new Date(scheduledAtMs).getTime())) {
+    return parseFail('invalid scheduledAtMs', 'Debes indicar una fecha y hora válidas para la clase.');
+  }
+
+  let studentCount = 0;
+  if (body.studentCount !== undefined) {
+    if (
+      typeof body.studentCount !== 'number' ||
+      !Number.isInteger(body.studentCount) ||
+      body.studentCount < 0 ||
+      body.studentCount > MAX_STUDENT_COUNT
+    ) {
+      return parseFail('invalid studentCount', 'La cantidad de alumnos esperados no es válida.');
+    }
+    studentCount = body.studentCount;
+  }
+
+  let durationMinutes = DEFAULT_DURATION_MINUTES;
+  if (body.durationMinutes !== undefined) {
+    if (
+      typeof body.durationMinutes !== 'number' ||
+      !Number.isInteger(body.durationMinutes) ||
+      body.durationMinutes <= 0 ||
+      body.durationMinutes > MAX_DURATION_MINUTES
+    ) {
+      return parseFail('invalid durationMinutes', 'La duración de la clase no es válida.');
+    }
+    durationMinutes = body.durationMinutes;
+  }
+
+  const idempotencyKey = body.idempotencyKey;
+  if (typeof idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+    return parseFail('invalid idempotencyKey', 'La clave de creación no es válida. Reintenta desde el formulario.');
+  }
+
+  // Optional: the quick-start sidebar flow already showed the teacher a join
+  // code/link derived from this exact room name before hitting this endpoint —
+  // recomputing our own slug here would silently invalidate what was already
+  // shared. When provided, trust it verbatim instead of deriving one.
+  let explicitRoomName: string | undefined;
+  if (body.roomName !== undefined) {
+    if (typeof body.roomName !== 'string' || !body.roomName.trim() || body.roomName.length > MAX_TITLE_LENGTH) {
+      return parseFail('invalid roomName', 'El nombre de la sala no es válido.');
+    }
+    explicitRoomName = body.roomName.trim();
+  }
+
+  return parseOk({ title, scheduledAtMs, studentCount, durationMinutes, idempotencyKey, explicitRoomName });
 }
 
 export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: () => unknown): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'class_save_failed',
+        operation: 'POST /classes',
+        message: 'class save failed',
+        explanation: 'No pudimos crear la clase. Intenta de nuevo en unos segundos.',
+      },
+    },
+    async ({ uid, req, res }) => {
+      const parsed = parseCreateClassBody(req.body);
+      if (!parsed.ok) {
+        sendParseError(res, parsed);
         return;
       }
+      const { title, scheduledAtMs, studentCount, durationMinutes, idempotencyKey, explicitRoomName } = parsed.value;
 
-      const body = req.body ?? {};
-
-      const title = typeof body.title === 'string' ? body.title.trim().slice(0, MAX_TITLE_LENGTH) : '';
-      if (!title) {
-        sendBadRequest(res, 'invalid title', 'Debes indicar un título para la clase.');
-        return;
-      }
-
-      const scheduledAtMs = body.scheduledAtMs;
-      if (
-        typeof scheduledAtMs !== 'number' ||
-        !Number.isFinite(scheduledAtMs) ||
-        isNaN(new Date(scheduledAtMs).getTime())
-      ) {
-        sendBadRequest(res, 'invalid scheduledAtMs', 'Debes indicar una fecha y hora válidas para la clase.');
-        return;
-      }
-
-      let studentCount = 0;
-      if (body.studentCount !== undefined) {
-        if (
-          typeof body.studentCount !== 'number' ||
-          !Number.isInteger(body.studentCount) ||
-          body.studentCount < 0 ||
-          body.studentCount > MAX_STUDENT_COUNT
-        ) {
-          sendBadRequest(res, 'invalid studentCount', 'La cantidad de alumnos esperados no es válida.');
-          return;
-        }
-        studentCount = body.studentCount;
-      }
-
-      let durationMinutes = DEFAULT_DURATION_MINUTES;
-      if (body.durationMinutes !== undefined) {
-        if (
-          typeof body.durationMinutes !== 'number' ||
-          !Number.isInteger(body.durationMinutes) ||
-          body.durationMinutes <= 0 ||
-          body.durationMinutes > MAX_DURATION_MINUTES
-        ) {
-          sendBadRequest(res, 'invalid durationMinutes', 'La duración de la clase no es válida.');
-          return;
-        }
-        durationMinutes = body.durationMinutes;
-      }
-
-      const idempotencyKey = body.idempotencyKey;
-      if (typeof idempotencyKey !== 'string' || !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
-        sendBadRequest(res, 'invalid idempotencyKey', 'La clave de creación no es válida. Reintenta desde el formulario.');
-        return;
-      }
-
-      // Optional: the quick-start sidebar flow already showed the teacher a join
-      // code/link derived from this exact room name before hitting this endpoint —
-      // recomputing our own slug here would silently invalidate what was already
-      // shared. When provided, trust it verbatim instead of deriving one.
-      let explicitRoomName: string | undefined;
-      if (body.roomName !== undefined) {
-        if (typeof body.roomName !== 'string' || !body.roomName.trim() || body.roomName.length > MAX_TITLE_LENGTH) {
-          sendBadRequest(res, 'invalid roomName', 'El nombre de la sala no es válido.');
-          return;
-        }
-        explicitRoomName = body.roomName.trim();
-      }
-
-      const userRef = db.collection('users').doc(firebaseUser.uid);
+      const userRef = db.collection('users').doc(uid);
       const docRef = userRef.collection('classes').doc(idempotencyKey);
       const tombstoneRef = userRef.collection('classOccurrenceTombstones').doc(idempotencyKey);
       const roomName = explicitRoomName || buildRoomName(title, docRef.id);
@@ -358,12 +300,7 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
         return;
       }
       if (outcome.kind === 'tombstoned') {
-        res.status(409).json({
-          error: {
-            message: 'class occurrence canceled',
-            explanation: 'Esta ocurrencia de clase ya fue cancelada y no puede volver a crearse.',
-          },
-        });
+        sendError(res, 409, 'class occurrence canceled', 'Esta ocurrencia de clase ya fue cancelada y no puede volver a crearse.');
         return;
       }
       if (outcome.kind === 'past') {
@@ -372,37 +309,28 @@ export function createCreateClassHandler(db: ClassesDatabase, serverTimestamp: (
       }
 
       res.status(201).json(toClassResponse(docRef.id, { title, roomName, studentCount, durationMinutes }, scheduledAtMs));
-    } catch (err) {
-      logOperationalFailure({ event: 'class_save_failed', operation: 'POST /classes', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'class save failed',
-          explanation: 'No pudimos crear la clase. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 export function createDeleteClassHandler(
   db: ClassesDatabase,
   serverTimestamp: () => unknown = () => new Date()
 ): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
-      const userRef = db.collection('users').doc(firebaseUser.uid);
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'class_delete_failed',
+        operation: 'DELETE /classes/:id',
+        message: 'class delete failed',
+        explanation: 'No pudimos cancelar la clase. Intenta de nuevo en unos segundos.',
+      },
+      logContext: req => ({ classId: req.params.id }),
+    },
+    async ({ uid, req, res }) => {
+      const userRef = db.collection('users').doc(uid);
       const docRef = userRef.collection('classes').doc(req.params.id);
       const tombstoneRef = userRef.collection('classOccurrenceTombstones').doc(req.params.id);
       const reason = req.body && req.body.reason === 'canceled' ? 'canceled' : 'deleted';
@@ -421,20 +349,11 @@ export function createDeleteClassHandler(
         // Firestore transactions require every read before any write, so all the
         // lookups below (state, then each notification item) happen before the
         // tombstone/item/state/class writes further down.
-        const stateRef = userRef.collection('notificationState').doc('inbox');
-        const stateSnapshot = await transaction.get(stateRef);
-        const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
-        const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
-        const items = userRef.collection('notificationGenerations').doc(String(generation)).collection('items');
-        const classNotificationKeys: Array<{ eventType: 'class.upcoming' | 'class.not_started'; eventKey: string }> = [
-          { eventType: 'class.upcoming', eventKey: `class:${req.params.id}:upcoming` },
-          { eventType: 'class.not_started', eventKey: `class:${req.params.id}:not-started` },
-        ];
-        const itemSnapshots = [];
-        for (const key of classNotificationKeys) {
-          const itemRef = items.doc(canonicalNotificationId(key.eventType, key.eventKey));
-          itemSnapshots.push({ itemRef, itemSnapshot: await transaction.get(itemRef) });
-        }
+        const inbox = await readInbox(transaction, userRef);
+        const itemReads = await readInboxItems(transaction, inbox, [
+          canonicalNotificationId('class.upcoming', `class:${req.params.id}:upcoming`),
+          canonicalNotificationId('class.not_started', `class:${req.params.id}:not-started`),
+        ]);
 
         if (!tombstone.exists && data.status !== 'started' && data.status !== 'completed') {
           await transaction.set(tombstoneRef, {
@@ -445,62 +364,42 @@ export function createDeleteClassHandler(
           });
         }
 
-        let unreadDelta = 0;
-        for (const { itemRef, itemSnapshot } of itemSnapshots) {
-          if (!itemSnapshot.exists) continue;
-          if (effectivelyUnread(itemSnapshot.data() || {}, state.readBefore)) unreadDelta++;
-          transaction.delete(itemRef);
-        }
-        if (unreadDelta > 0 && stateSnapshot.exists) {
-          const unreadCount = Number.isSafeInteger(state.unreadCount) ? state.unreadCount : 0;
-          transaction.update(stateRef, { unreadCount: Math.max(0, unreadCount - unreadDelta) });
-        }
+        retractInboxItems(transaction, inbox, itemReads);
 
         await transaction.delete(docRef);
         return 'deleted';
       });
 
       if (outcome === 'not-found') {
-        res.status(404).json({
-          error: { message: 'class not found', explanation: 'La clase solicitada no existe.' },
-        });
+        sendError(res, 404, 'class not found', 'La clase solicitada no existe.');
         return;
       }
 
       res.status(200).json({ deleted: true });
-    } catch (err) {
-      logOperationalFailure({
-        event: 'class_delete_failed', operation: 'DELETE /classes/:id', uid: firebaseUser.uid, classId: req.params.id, error: err,
-      });
-      res.status(503).json({
-        error: {
-          message: 'class delete failed',
-          explanation: 'No pudimos cancelar la clase. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 /** Marks a verified teacher's scheduled class as started after its token was issued. */
 export function createStartClassHandler(db: ClassesDatabase, serverTimestamp: () => unknown): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-      const docRef = getOwnedClass(db, firebaseUser.uid, req.params.id);
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'class_start_failed',
+        operation: 'POST /classes/:id/start',
+        message: 'class start failed',
+        explanation: 'No pudimos iniciar la clase. Intenta de nuevo en unos segundos.',
+      },
+      logContext: req => ({ classId: req.params.id }),
+    },
+    async ({ uid, req, res }) => {
+      const docRef = getOwnedClass(db, uid, req.params.id);
       const snapshot = await docRef.get();
       const data = snapshot.data();
       if (!snapshot.exists || !data) {
-        res.status(404).json({ error: { message: 'class not found', explanation: 'La clase solicitada no existe.' } });
+        sendError(res, 404, 'class not found', 'La clase solicitada no existe.');
         return;
       }
       if (typeof req.body?.roomName !== 'string' || req.body.roomName !== data.roomName) {
@@ -511,16 +410,6 @@ export function createStartClassHandler(db: ClassesDatabase, serverTimestamp: ()
         await docRef.update({ status: 'started', startedAt: serverTimestamp() });
       }
       res.status(200).json({ started: true });
-    } catch (err) {
-      logOperationalFailure({
-        event: 'class_start_failed', operation: 'POST /classes/:id/start', uid: firebaseUser.uid, classId: req.params.id, error: err,
-      });
-      res.status(503).json({
-        error: {
-          message: 'class start failed',
-          explanation: 'No pudimos iniciar la clase. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
