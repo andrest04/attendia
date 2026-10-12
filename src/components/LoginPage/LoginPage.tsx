@@ -6,6 +6,7 @@ import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
 import { ReactComponent as GoogleLogo } from './google-logo.svg';
 import { Theme } from '@material-ui/core';
 import IntroContainer from '../IntroContainer/IntroContainer';
+import { routes } from '../../routes';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
@@ -300,25 +301,68 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
-// Maps Firebase auth error codes to friendly Spanish messages. Anything unknown
-// (including profile-endpoint failures) falls back to a generic Spanish message.
+// Friendly Spanish messages by Firebase auth error code. Anything unknown (including
+// profile-endpoint failures) falls back to a generic Spanish message.
+const INVALID_CREDENTIALS_MESSAGE = 'Correo o contraseña incorrectos. Revisa tus datos e intenta de nuevo.';
+const FIREBASE_AUTH_ERROR_MESSAGES: { [code: string]: string } = {
+  'auth/invalid-credential': INVALID_CREDENTIALS_MESSAGE,
+  'auth/wrong-password': INVALID_CREDENTIALS_MESSAGE,
+  'auth/user-not-found': INVALID_CREDENTIALS_MESSAGE,
+  'auth/email-already-in-use': 'Ya existe una cuenta con este correo. Inicia sesión para continuar.',
+  'auth/weak-password': 'La contraseña es demasiado débil. Usa al menos 6 caracteres.',
+  'auth/invalid-email': 'El correo electrónico no es válido.',
+  'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos e intenta de nuevo.',
+};
+const GENERIC_AUTH_ERROR_MESSAGE = 'No pudimos completar la operación. Intenta de nuevo en unos segundos.';
+
 export function getFirebaseAuthErrorMessage(error: any): string {
-  switch (error?.code) {
-    case 'auth/invalid-credential':
-    case 'auth/wrong-password':
-    case 'auth/user-not-found':
-      return 'Correo o contraseña incorrectos. Revisa tus datos e intenta de nuevo.';
-    case 'auth/email-already-in-use':
-      return 'Ya existe una cuenta con este correo. Inicia sesión para continuar.';
-    case 'auth/weak-password':
-      return 'La contraseña es demasiado débil. Usa al menos 6 caracteres.';
-    case 'auth/invalid-email':
-      return 'El correo electrónico no es válido.';
-    case 'auth/too-many-requests':
-      return 'Demasiados intentos. Espera unos minutos e intenta de nuevo.';
-    default:
-      return 'No pudimos completar la operación. Intenta de nuevo en unos segundos.';
-  }
+  const code: unknown = error?.code;
+  return (typeof code === 'string' && FIREBASE_AUTH_ERROR_MESSAGES[code]) || GENERIC_AUTH_ERROR_MESSAGE;
+}
+
+/** A labelled outlined text input, the field every auth form is made of. */
+function AuthField({
+  id,
+  label,
+  value,
+  onChange,
+  type,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) {
+  const classes = useStyles();
+  return (
+    <div className={classes.fieldBlock}>
+      <label htmlFor={id} className={classes.fieldLabel}>
+        {label}
+      </label>
+      <TextField
+        id={id}
+        fullWidth
+        type={type}
+        value={value}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        variant="outlined"
+        className={classes.textInput}
+      />
+    </div>
+  );
+}
+
+/** The failure of the last auth action, under the fields it came from. */
+function AuthErrorMessage({ error }: { error: Error | null }) {
+  const classes = useStyles();
+  if (!error) return null;
+  return (
+    <Typography variant="caption" className={classes.errorMessage}>
+      <ErrorOutlineIcon />
+      {error.message}
+    </Typography>
+  );
 }
 
 function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role: PreJoinRole) => void }) {
@@ -438,7 +482,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (user && profile) {
       const from = location?.state?.from;
-      history.replace(from ? from : '/');
+      history.replace(from ? from : routes.home);
     }
   }, [user, profile, location, history]);
 
@@ -455,192 +499,126 @@ export default function LoginPage() {
   // it keeps the default teacher palette.
   const activeRole: PreJoinRole = showCompletionStep ? completionRole : view === 'register' ? registerRole : 'teacher';
 
+  // The form shown for each step of the sign-in flow.
+  const step: 'completion' | 'login' | 'register' = showCompletionStep ? 'completion' : view;
+  const stepViews: { [S in typeof step]: () => React.ReactNode } = {
+    completion: () => (
+      <>
+        <Typography variant="h5" className={classes.formTitle}>
+          ¿Cómo vas a usar Attendia?
+        </Typography>
+        <Typography className={classes.formSubtitle}>
+          Selecciona tu rol para terminar de configurar tu cuenta.
+        </Typography>
+        <Typography className={classes.signedInAs}>
+          Conectado como <span className={classes.signedInAsEmail}>{user?.displayName || user?.email}</span>
+        </Typography>
+        <form onSubmit={handleCompleteProfile}>
+          <RoleSelector value={completionRole} onChange={setCompletionRole} />
+          <AuthErrorMessage error={authError} />
+          <Button variant="contained" type="submit" disabled={isSubmitting} className={classes.primaryButton}>
+            Confirmar y continuar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleAbandonCompletion}
+            disabled={isSubmitting}
+            className={classes.completionCancelButton}
+            aria-label="Cancelar la configuración y cerrar sesión"
+          >
+            Cancelar y cerrar sesión
+          </Button>
+        </form>
+      </>
+    ),
+    login: () => (
+      <>
+        <Typography variant="h5" className={classes.formTitle}>
+          Iniciar sesión
+        </Typography>
+        <Typography className={classes.formSubtitle}>Accede con tu cuenta para entrar a tus clases.</Typography>
+        <form onSubmit={handleEmailLogin}>
+          <AuthField id="input-email" label="Correo electrónico" type="email" value={email} onChange={setEmail} />
+          <AuthField id="input-password" label="Contraseña" type="password" value={password} onChange={setPassword} />
+          <AuthErrorMessage error={authError} />
+          <Button
+            variant="contained"
+            type="submit"
+            disabled={!email.length || !password.length || isSubmitting}
+            className={classes.primaryButton}
+          >
+            Iniciar sesión
+          </Button>
+        </form>
+        <div className={classes.divider}>
+          <span className={classes.dividerText}>o</span>
+        </div>
+        <Button
+          variant="contained"
+          className={classes.googleButton}
+          onClick={handleGoogleSignIn}
+          disabled={isSubmitting}
+          startIcon={<GoogleLogo />}
+        >
+          Continuar con Google
+        </Button>
+        <div className={classes.switchRow}>
+          ¿No tienes cuenta?
+          <button type="button" className={classes.switchLink} onClick={() => switchView('register')}>
+            Crear cuenta
+          </button>
+        </div>
+      </>
+    ),
+    register: () => (
+      <>
+        <Typography variant="h5" className={classes.formTitle}>
+          Crear cuenta
+        </Typography>
+        <Typography className={classes.formSubtitle}>Regístrate para crear o unirte a clases en Attendia.</Typography>
+        <form onSubmit={handleRegister}>
+          <AuthField id="input-name" label="Nombre completo" value={fullName} onChange={setFullName} />
+          <AuthField
+            id="input-register-email"
+            label="Correo electrónico"
+            type="email"
+            value={email}
+            onChange={setEmail}
+          />
+          <AuthField
+            id="input-register-password"
+            label="Contraseña"
+            type="password"
+            value={password}
+            onChange={setPassword}
+          />
+          <RoleSelector value={registerRole} onChange={setRegisterRole} />
+          <AuthErrorMessage error={authError} />
+          <Button
+            variant="contained"
+            type="submit"
+            disabled={!fullName.trim().length || !email.length || !password.length || isSubmitting}
+            className={classes.primaryButton}
+          >
+            Crear cuenta
+          </Button>
+        </form>
+        <div className={classes.switchRow}>
+          ¿Ya tienes cuenta?
+          <button type="button" className={classes.switchLink} onClick={() => switchView('login')}>
+            Iniciar sesión
+          </button>
+        </div>
+      </>
+    ),
+  };
+
   return (
     <IntroContainer homeRole={activeRole}>
       <div className={classes.formBody}>
-        {showCompletionStep && (
-          <>
-            <Typography variant="h5" className={classes.formTitle}>
-              ¿Cómo vas a usar Attendia?
-            </Typography>
-            <Typography className={classes.formSubtitle}>
-              Selecciona tu rol para terminar de configurar tu cuenta.
-            </Typography>
-            <Typography className={classes.signedInAs}>
-              Conectado como{' '}
-              <span className={classes.signedInAsEmail}>{user?.displayName || user?.email}</span>
-            </Typography>
-            <form onSubmit={handleCompleteProfile}>
-              <RoleSelector value={completionRole} onChange={setCompletionRole} />
-              {authError && (
-                <Typography variant="caption" className={classes.errorMessage}>
-                  <ErrorOutlineIcon />
-                  {authError.message}
-                </Typography>
-              )}
-              <Button variant="contained" type="submit" disabled={isSubmitting} className={classes.primaryButton}>
-                Confirmar y continuar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleAbandonCompletion}
-                disabled={isSubmitting}
-                className={classes.completionCancelButton}
-                aria-label="Cancelar la configuración y cerrar sesión"
-              >
-                Cancelar y cerrar sesión
-              </Button>
-            </form>
-          </>
-        )}
+        {stepViews[step]()}
 
-        {!showCompletionStep && view === 'login' && (
-          <>
-            <Typography variant="h5" className={classes.formTitle}>
-              Iniciar sesión
-            </Typography>
-            <Typography className={classes.formSubtitle}>Accede con tu cuenta para entrar a tus clases.</Typography>
-            <form onSubmit={handleEmailLogin}>
-              <div className={classes.fieldBlock}>
-                <label htmlFor="input-email" className={classes.fieldLabel}>
-                  Correo electrónico
-                </label>
-                <TextField
-                  id="input-email"
-                  fullWidth
-                  type="email"
-                  value={email}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                  variant="outlined"
-                  className={classes.textInput}
-                />
-              </div>
-              <div className={classes.fieldBlock}>
-                <label htmlFor="input-password" className={classes.fieldLabel}>
-                  Contraseña
-                </label>
-                <TextField
-                  id="input-password"
-                  fullWidth
-                  type="password"
-                  value={password}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                  variant="outlined"
-                  className={classes.textInput}
-                />
-              </div>
-              {authError && (
-                <Typography variant="caption" className={classes.errorMessage}>
-                  <ErrorOutlineIcon />
-                  {authError.message}
-                </Typography>
-              )}
-              <Button
-                variant="contained"
-                type="submit"
-                disabled={!email.length || !password.length || isSubmitting}
-                className={classes.primaryButton}
-              >
-                Iniciar sesión
-              </Button>
-            </form>
-            <div className={classes.divider}>
-              <span className={classes.dividerText}>o</span>
-            </div>
-            <Button
-              variant="contained"
-              className={classes.googleButton}
-              onClick={handleGoogleSignIn}
-              disabled={isSubmitting}
-              startIcon={<GoogleLogo />}
-            >
-              Continuar con Google
-            </Button>
-            <div className={classes.switchRow}>
-              ¿No tienes cuenta?
-              <button type="button" className={classes.switchLink} onClick={() => switchView('register')}>
-                Crear cuenta
-              </button>
-            </div>
-          </>
-        )}
-
-        {!showCompletionStep && view === 'register' && (
-          <>
-            <Typography variant="h5" className={classes.formTitle}>
-              Crear cuenta
-            </Typography>
-            <Typography className={classes.formSubtitle}>
-              Regístrate para crear o unirte a clases en Attendia.
-            </Typography>
-            <form onSubmit={handleRegister}>
-              <div className={classes.fieldBlock}>
-                <label htmlFor="input-name" className={classes.fieldLabel}>
-                  Nombre completo
-                </label>
-                <TextField
-                  id="input-name"
-                  fullWidth
-                  value={fullName}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
-                  variant="outlined"
-                  className={classes.textInput}
-                />
-              </div>
-              <div className={classes.fieldBlock}>
-                <label htmlFor="input-register-email" className={classes.fieldLabel}>
-                  Correo electrónico
-                </label>
-                <TextField
-                  id="input-register-email"
-                  fullWidth
-                  type="email"
-                  value={email}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                  variant="outlined"
-                  className={classes.textInput}
-                />
-              </div>
-              <div className={classes.fieldBlock}>
-                <label htmlFor="input-register-password" className={classes.fieldLabel}>
-                  Contraseña
-                </label>
-                <TextField
-                  id="input-register-password"
-                  fullWidth
-                  type="password"
-                  value={password}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                  variant="outlined"
-                  className={classes.textInput}
-                />
-              </div>
-              <RoleSelector value={registerRole} onChange={setRegisterRole} />
-              {authError && (
-                <Typography variant="caption" className={classes.errorMessage}>
-                  <ErrorOutlineIcon />
-                  {authError.message}
-                </Typography>
-              )}
-              <Button
-                variant="contained"
-                type="submit"
-                disabled={!fullName.trim().length || !email.length || !password.length || isSubmitting}
-                className={classes.primaryButton}
-              >
-                Crear cuenta
-              </Button>
-            </form>
-            <div className={classes.switchRow}>
-              ¿Ya tienes cuenta?
-              <button type="button" className={classes.switchLink} onClick={() => switchView('login')}>
-                Iniciar sesión
-              </button>
-            </div>
-          </>
-        )}
-
-        <Link to="/security" className={classes.securityLink}>
+        <Link to={routes.security} className={classes.securityLink}>
           Seguridad y Privacidad
         </Link>
       </div>
