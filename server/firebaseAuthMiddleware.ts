@@ -1,6 +1,5 @@
 import { RequestHandler } from 'express';
-import { auth } from './firebaseAdmin';
-import { VerifiedFirebaseUser } from './userProfiles';
+import { VerifiedFirebaseUser } from './http';
 
 /*
  * Authentication-only middleware: verifies the Firebase ID token from the
@@ -11,8 +10,17 @@ import { VerifiedFirebaseUser } from './userProfiles';
  * (the old @twilio.com / Firestore config/allowedEmails check is gone).
  * Authorization decisions — like the user's role — are resolved later by reading
  * the Firestore profile for the VERIFIED uid, never from anything the browser sends.
+ *
+ * Like every other server unit this is a factory over its one dependency (the token
+ * verifier), so it can be built and tested without initializing firebase-admin.
  */
-const firebaseAuthMiddleware: RequestHandler = async (req, res, next) => {
+export type IdTokenVerifier = (idToken: string) => Promise<{ uid: string; email?: string }>;
+
+export const createFirebaseAuthMiddleware = (verifyIdToken: IdTokenVerifier): RequestHandler => async (
+  req,
+  res,
+  next
+) => {
   const authHeader = req.get('authorization');
 
   if (!authHeader) {
@@ -20,7 +28,7 @@ const firebaseAuthMiddleware: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    const token = await auth.verifyIdToken(authHeader);
+    const token = await verifyIdToken(authHeader);
     const firebaseUser: VerifiedFirebaseUser = { uid: token.uid, email: token.email };
     res.locals.firebaseUser = firebaseUser;
     next();
@@ -28,5 +36,3 @@ const firebaseAuthMiddleware: RequestHandler = async (req, res, next) => {
     res.status(401).send();
   }
 };
-
-export default module.exports = firebaseAuthMiddleware;

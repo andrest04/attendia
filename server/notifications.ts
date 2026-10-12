@@ -1,7 +1,11 @@
 import { createHash } from 'crypto';
 import { RequestHandler } from 'express';
+import { decodeBase64Url, encodeBase64Url } from './base64url';
+import { timestampMillis } from './firestoreTime';
+import { ExpressResponse, HttpError, sendBadRequest, sendError } from './http';
+import { inboxGeneration, inboxUnreadCount } from './notificationInbox';
 import { logOperationalFailure } from './operationalEvents';
-import { authorizeTeacher } from './teacherAuthorization';
+import { teacherHandler } from './teacherHandler';
 import {
   CanonicalNotificationCandidate,
   Cursor,
@@ -35,28 +39,65 @@ export function canonicalNotificationId(eventType: EventType, eventKey: string):
   return createHash('sha256').update(eventKey, 'utf8').digest('hex');
 }
 
-function validateCanonicalSource(candidate: CanonicalNotificationCandidate) {
-  const parts = candidate.eventKey.split(':');
-  const source = candidate.source as any;
-  const valid = candidate.eventType.startsWith('class.')
-    ? source.kind === 'class' && source.classId === parts[1]
-    : candidate.eventType.startsWith('recording.')
-      ? source.kind === 'recording' && source.manualRequestId === parts[1] &&
-        typeof source.roomSid === 'string' && source.roomSid.length > 0
-      : source.kind === 'report' && source.reportId === parts[1] &&
-        source.failureEpisodeId === parts[4];
-  if (!valid) throw new Error('invalid canonical source');
+/**
+ * One entry per notification source kind. Adding a kind means adding ONE entry here
+ * (plus its key patterns above and its derive function in notificationReconciliation.ts),
+ * instead of editing parallel `startsWith(...)` branches scattered across both modules.
+ */
+interface NotificationKind {
+  /** Both the `eventKey` prefix (`class:…`) and the source's `kind` discriminator. */
+  name: 'class' | 'recording' | 'report';
+  eventTypes: EventType[];
+  /**
+   * The event type a bare "remove this key" intent refers to. Only kinds whose items can
+   * be retracted by key have one (an upcoming class, a failed report save).
+   */
+  removalEventType?: EventType;
+  /** Whether the stored `source` really belongs to the key it is filed under. */
+  validateSource(source: any, keyParts: string[]): boolean;
 }
 
-export function millis(value: any): number | null {
-  return value && typeof value.toMillis === 'function' ? value.toMillis() : null;
+const NOTIFICATION_KINDS: NotificationKind[] = [
+  {
+    name: 'class',
+    eventTypes: ['class.upcoming', 'class.not_started'],
+    removalEventType: 'class.upcoming',
+    validateSource: (source, parts) => source.kind === 'class' && source.classId === parts[1],
+  },
+  {
+    name: 'recording',
+    eventTypes: ['recording.ready', 'recording.failed'],
+    validateSource: (source, parts) =>
+      source.kind === 'recording' && source.manualRequestId === parts[1] &&
+      typeof source.roomSid === 'string' && source.roomSid.length > 0,
+  },
+  {
+    name: 'report',
+    eventTypes: ['report.save_failed'],
+    removalEventType: 'report.save_failed',
+    validateSource: (source, parts) =>
+      source.kind === 'report' && source.reportId === parts[1] && source.failureEpisodeId === parts[4],
+  },
+];
+
+function validateCanonicalSource(candidate: CanonicalNotificationCandidate) {
+  const kind = NOTIFICATION_KINDS.find(value => value.eventTypes.indexOf(candidate.eventType) !== -1);
+  if (!kind || !kind.validateSource(candidate.source as any, candidate.eventKey.split(':'))) {
+    throw new Error('invalid canonical source');
+  }
+}
+
+/** The event type behind a bare removal key such as `class:abc:upcoming`. */
+export function removalEventTypeForKey(eventKey: string): EventType {
+  const kind = NOTIFICATION_KINDS.find(value => value.name === eventKey.split(':')[0]);
+  if (!kind || !kind.removalEventType) throw new Error('invalid canonical event key');
+  return kind.removalEventType;
 }
 
 function decodeCursor(value: unknown): Cursor | undefined {
   if (typeof value !== 'string' || !value || value.length > 1024) return undefined;
   try {
-    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
-    const parsed = JSON.parse(Buffer.from(normalized, 'base64').toString('utf8'));
+    const parsed = JSON.parse(decodeBase64Url(value).toString('utf8'));
     if (
       !Number.isSafeInteger(parsed.generation) ||
       !Number.isFinite(parsed.eventOccurrenceAtMs) ||
@@ -72,17 +113,13 @@ function decodeCursor(value: unknown): Cursor | undefined {
 }
 
 function encodeCursor(cursor: Cursor): string {
-  return Buffer.from(JSON.stringify(cursor))
-    .toString('base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
+  return encodeBase64Url(JSON.stringify(cursor));
 }
 
 function toResponse(snapshot: Snapshot, readBeforeMs: number | null) {
   const data = snapshot.data() || {};
-  const createdAtMs = millis(data.createdAt);
-  const explicitReadAtMs = millis(data.readAt);
+  const createdAtMs = timestampMillis(data.createdAt);
+  const explicitReadAtMs = timestampMillis(data.readAt);
   const effectivelyRead = explicitReadAtMs !== null || (
     readBeforeMs !== null && createdAtMs !== null && createdAtMs <= readBeforeMs
   );
@@ -92,7 +129,7 @@ function toResponse(snapshot: Snapshot, readBeforeMs: number | null) {
     eventType: data.eventType,
     eventKey: data.eventKey,
     source: data.source,
-    eventOccurrenceAtMs: millis(data.eventOccurrenceAt),
+    eventOccurrenceAtMs: timestampMillis(data.eventOccurrenceAt),
     createdAtMs,
     readAtMs: explicitReadAtMs === null && effectivelyRead ? readBeforeMs : explicitReadAtMs,
     title: data.title,
@@ -101,56 +138,39 @@ function toResponse(snapshot: Snapshot, readBeforeMs: number | null) {
   };
 }
 
-function sendError(res: Parameters<RequestHandler>[1], status: number, message: string, explanation: string) {
-  res.status(status).json({ error: { message, explanation } });
-}
+const TEACHER_ONLY_EXPLANATION = 'Las notificaciones solo están disponibles para profesores.';
 
-// Shared envelope for the three write endpoints below (clear / mark-all-read /
-// patch-read): authorize, run the endpoint-specific work, fire the bounded
-// maintenance tail call only after a successful response, and fall back to a 503
-// (or the endpoint's one special status, e.g. 409/404) on failure. `handle` must
-// return true only along the success path that already sent a 2xx response —
-// every early/validation return (already-sent 4xx) must return false so the
-// maintenance tail call is skipped, matching each handler's original behavior.
-async function withTeacherHandler(
-  db: NotificationsDatabase,
-  res: Parameters<RequestHandler>[1],
+// The bounded maintenance tail call runs only AFTER a successful response, and its own
+// failure is logged but never surfaced to the client.
+const runBoundedMaintenance = (
   boundedMaintenance: (uid: string) => Promise<unknown>,
   operation: string,
-  failureEvent: string,
-  failureMessage: string,
-  failureExplanation: string,
-  statusOverride: { status: number; message: string; explanation: string },
-  handle: (uid: string) => Promise<boolean>
-): Promise<void> {
-  let uid: string | undefined;
-  try {
-    uid = await authorizeTeacher(db, res);
-    if (!uid) return;
-    const succeeded = await handle(uid);
-    if (succeeded) {
-      await boundedMaintenance(uid).catch(error => logOperationalFailure({
-        event: 'notification_maintenance_failed', operation, uid: uid!, error,
-      }));
-    }
-  } catch (error) {
-    if ((error as any).status === statusOverride.status) {
-      sendError(res, statusOverride.status, statusOverride.message, statusOverride.explanation);
-      return;
-    }
-    logOperationalFailure({ event: failureEvent, operation, uid, error });
-    sendError(res, 503, failureMessage, failureExplanation);
-  }
-}
+  uid: string
+): Promise<void> =>
+  boundedMaintenance(uid).then(
+    () => undefined,
+    error => logOperationalFailure({ event: 'notification_maintenance_failed', operation, uid, error })
+  );
+
+// Maps a typed HttpError (a duplicate idempotency key → 409, an unknown notification →
+// 404) to that endpoint's own response; anything else falls through to the generic 503.
+const mapHttpError = (status: number, message: string, explanation: string) => (
+  error: unknown,
+  res: ExpressResponse
+): boolean => {
+  if (!HttpError.is(error, status)) return false;
+  sendError(res, status, message, explanation);
+  return true;
+};
 
 function requireIdempotencyKey(
   req: Parameters<RequestHandler>[0],
-  res: Parameters<RequestHandler>[1]
+  res: ExpressResponse
 ): string | undefined {
   const header = req.headers && req.headers['idempotency-key'];
   const idempotencyKey = Array.isArray(header) ? undefined : header;
   if (typeof idempotencyKey !== 'string' || !IDEMPOTENCY_KEY.test(idempotencyKey)) {
-    sendError(res, 400, 'invalid idempotency key', 'La clave de idempotencia no es válida.');
+    sendBadRequest(res, 'invalid idempotency key', 'La clave de idempotencia no es válida.');
     return undefined;
   }
   return idempotencyKey;
@@ -180,76 +200,82 @@ async function commitIdempotentMutation(
     const receiptSnapshot = await transaction.get(receiptRef);
     if (receiptSnapshot.exists) {
       if ((receiptSnapshot.data() || {}).kind !== kind) {
-        const conflict: any = new Error('idempotency key conflict');
-        conflict.status = 409;
-        throw conflict;
+        throw HttpError.conflict('idempotency key conflict');
       }
       return;
     }
     const stateRef = stateDocument(db, uid);
     const stateSnapshot = await transaction.get(stateRef);
     const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
-    const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
+    const generation = inboxGeneration(state);
     const { acceptedAt, response } = await applyMutation(transaction, stateRef, stateSnapshot, generation);
     transaction.create(receiptRef, { kind, acceptedAt, generation, response });
   });
 
   const receipt = (await receiptRef.get()).data() || {};
-  const acceptedAtMs = millis(receipt.acceptedAt);
+  const acceptedAtMs = timestampMillis(receipt.acceptedAt);
   if (receipt.kind !== kind || acceptedAtMs === null) throw new Error(notCommittedMessage);
   return { acceptedAtMs, response: receipt.response };
 }
+
+const IDEMPOTENCY_CONFLICT = mapHttpError(409, 'idempotency key conflict', 'La clave ya fue usada para otra operación.');
 
 export function createClearNotificationsHandler(
   db: NotificationsDatabase,
   serverTimestamp: () => unknown,
   boundedMaintenance: (uid: string) => Promise<unknown> = async () => undefined
 ): RequestHandler {
-  return async (req, res) => {
-    await withTeacherHandler(
-      db, res, boundedMaintenance, 'DELETE /notifications',
-      'notification_clear_failed', 'notification clear failed', 'No se pudieron vaciar las notificaciones.',
-      { status: 409, message: 'idempotency key conflict', explanation: 'La clave ya fue usada para otra operación.' },
-      async uid => {
-        const idempotencyKey = requireIdempotencyKey(req, res);
-        if (!idempotencyKey) return false;
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'notification_clear_failed',
+        operation: 'DELETE /notifications',
+        message: 'notification clear failed',
+        explanation: 'No se pudieron vaciar las notificaciones.',
+      },
+      mapError: IDEMPOTENCY_CONFLICT,
+    },
+    async ({ uid, req, res }) => {
+      const idempotencyKey = requireIdempotencyKey(req, res);
+      if (!idempotencyKey) return;
 
-        const { acceptedAtMs, response } = await commitIdempotentMutation(
-          db, uid, idempotencyKey, 'clear', 'clear receipt not committed',
-          async (transaction, stateRef, stateSnapshot, generation) => {
-            const jobRef = clearJobDocument(db, uid, generation);
-            const jobSnapshot = await transaction.get(jobRef);
-            const acceptedAt = serverTimestamp();
-            if (!jobSnapshot.exists) {
-              transaction.create(jobRef, {
-                retiredGeneration: generation,
-                nextAfterId: null,
-                batchSize: CLEAR_BATCH_SIZE,
-                status: 'pending',
-                createdAt: acceptedAt,
-                updatedAt: acceptedAt,
-                deletedCount: 0,
-              });
-            }
-            const acceptedState = {
-              currentGeneration: generation + 1,
-              clearBefore: acceptedAt,
-              readBefore: null,
-              unreadCount: 0,
-              classSweepAfter: null,
+      const { acceptedAtMs, response } = await commitIdempotentMutation(
+        db, uid, idempotencyKey, 'clear', 'clear receipt not committed',
+        async (transaction, stateRef, stateSnapshot, generation) => {
+          const jobRef = clearJobDocument(db, uid, generation);
+          const jobSnapshot = await transaction.get(jobRef);
+          const acceptedAt = serverTimestamp();
+          if (!jobSnapshot.exists) {
+            transaction.create(jobRef, {
+              retiredGeneration: generation,
+              nextAfterId: null,
+              batchSize: CLEAR_BATCH_SIZE,
+              status: 'pending',
+              createdAt: acceptedAt,
               updatedAt: acceptedAt,
-            };
-            if (stateSnapshot.exists) transaction.update(stateRef, acceptedState);
-            else transaction.create(stateRef, acceptedState);
-            return { acceptedAt, response: { unreadCount: 0 } };
+              deletedCount: 0,
+            });
           }
-        );
+          const acceptedState = {
+            currentGeneration: generation + 1,
+            clearBefore: acceptedAt,
+            readBefore: null,
+            unreadCount: 0,
+            classSweepAfter: null,
+            updatedAt: acceptedAt,
+          };
+          if (stateSnapshot.exists) transaction.update(stateRef, acceptedState);
+          else transaction.create(stateRef, acceptedState);
+          return { acceptedAt, response: { unreadCount: 0 } };
+        }
+      );
 
-        res.status(200).json({ acceptedAtMs, unreadCount: response.unreadCount });
-        return true;
-      }
-    );
-  };
+      res.status(200).json({ acceptedAtMs, unreadCount: response.unreadCount });
+      await runBoundedMaintenance(boundedMaintenance, 'DELETE /notifications', uid);
+    }
+  );
 }
 
 export function createMarkAllNotificationsReadHandler(
@@ -257,37 +283,42 @@ export function createMarkAllNotificationsReadHandler(
   serverTimestamp: () => unknown,
   boundedMaintenance: (uid: string) => Promise<unknown> = async () => undefined
 ): RequestHandler {
-  return async (req, res) => {
-    await withTeacherHandler(
-      db, res, boundedMaintenance, 'POST /notifications/mark-all-read',
-      'notification_mark_all_failed', 'notification mark-all failed',
-      'No se pudieron marcar las notificaciones como leídas.',
-      { status: 409, message: 'idempotency key conflict', explanation: 'La clave ya fue usada para otra operación.' },
-      async uid => {
-        const idempotencyKey = requireIdempotencyKey(req, res);
-        if (!idempotencyKey) return false;
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'notification_mark_all_failed',
+        operation: 'POST /notifications/mark-all-read',
+        message: 'notification mark-all failed',
+        explanation: 'No se pudieron marcar las notificaciones como leídas.',
+      },
+      mapError: IDEMPOTENCY_CONFLICT,
+    },
+    async ({ uid, req, res }) => {
+      const idempotencyKey = requireIdempotencyKey(req, res);
+      if (!idempotencyKey) return;
 
-        const { acceptedAtMs, response } = await commitIdempotentMutation(
-          db, uid, idempotencyKey, 'mark-all-read', 'mark-all receipt not committed',
-          async (transaction, stateRef, stateSnapshot, _generation) => {
-            const acceptedAt = serverTimestamp();
-            const acceptedState = { readBefore: acceptedAt, unreadCount: 0, updatedAt: acceptedAt };
-            if (stateSnapshot.exists) {
-              transaction.update(stateRef, acceptedState);
-            } else {
-              transaction.create(stateRef, {
-                currentGeneration: 0, clearBefore: null, classSweepAfter: null, ...acceptedState,
-              });
-            }
-            return { acceptedAt, response: { unreadCount: 0 } };
+      const { acceptedAtMs, response } = await commitIdempotentMutation(
+        db, uid, idempotencyKey, 'mark-all-read', 'mark-all receipt not committed',
+        async (transaction, stateRef, stateSnapshot, _generation) => {
+          const acceptedAt = serverTimestamp();
+          const acceptedState = { readBefore: acceptedAt, unreadCount: 0, updatedAt: acceptedAt };
+          if (stateSnapshot.exists) {
+            transaction.update(stateRef, acceptedState);
+          } else {
+            transaction.create(stateRef, {
+              currentGeneration: 0, clearBefore: null, classSweepAfter: null, ...acceptedState,
+            });
           }
-        );
+          return { acceptedAt, response: { unreadCount: 0 } };
+        }
+      );
 
-        res.status(200).json({ acceptedAtMs, unreadCount: response.unreadCount });
-        return true;
-      }
-    );
-  };
+      res.status(200).json({ acceptedAtMs, unreadCount: response.unreadCount });
+      await runBoundedMaintenance(boundedMaintenance, 'POST /notifications/mark-all-read', uid);
+    }
+  );
 }
 
 export function createPatchNotificationReadHandler(
@@ -295,61 +326,58 @@ export function createPatchNotificationReadHandler(
   serverTimestamp: () => unknown,
   boundedMaintenance: (uid: string) => Promise<unknown> = async () => undefined
 ): RequestHandler {
-  return async (req, res) => {
-    await withTeacherHandler(
-      db, res, boundedMaintenance, 'PATCH /notifications/:id/read',
-      'notification_read_failed', 'notification read failed', 'No se pudo marcar la notificación como leída.',
-      { status: 404, message: 'notification not found', explanation: 'La notificación no existe en la bandeja actual.' },
-      async uid => {
-        const id = req.params && req.params.id;
-        if (typeof id !== 'string' || !NOTIFICATION_ID.test(id)) {
-          sendError(res, 400, 'invalid notification id', 'La notificación no es válida.');
-          return false;
-        }
-
-        await db.runTransaction(async transaction => {
-          const stateRef = stateDocument(db, uid);
-          const stateSnapshot = await transaction.get(stateRef);
-          const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
-          const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
-          const itemRef = itemDocument(db, uid, generation, id);
-          const itemSnapshot = await transaction.get(itemRef);
-          if (!itemSnapshot.exists || (itemSnapshot.data() || {}).ownerUid !== uid) {
-            const notFound: any = new Error('notification not found');
-            notFound.status = 404;
-            throw notFound;
-          }
-          const item = itemSnapshot.data() || {};
-          const readBeforeMs = millis(state.readBefore);
-          const effectivelyRead = millis(item.readAt) !== null || (
-            readBeforeMs !== null && millis(item.createdAt) !== null && millis(item.createdAt)! <= readBeforeMs
-          );
-          if (!effectivelyRead) {
-            transaction.update(itemRef, { readAt: serverTimestamp() });
-            transaction.update(stateRef, {
-              unreadCount: Math.max(0, (Number.isSafeInteger(state.unreadCount) ? state.unreadCount : 0) - 1),
-            });
-          }
-        });
-
-        const committedState = (await stateDocument(db, uid).get()).data() || {};
-        const generation = Number.isSafeInteger(committedState.currentGeneration)
-          ? committedState.currentGeneration
-          : 0;
-        const committedItem = await itemDocument(db, uid, generation, id).get();
-        if (!committedItem.exists) {
-          const notFound: any = new Error('notification not found');
-          notFound.status = 404;
-          throw notFound;
-        }
-        res.status(200).json({
-          notification: toResponse({ id, data: () => committedItem.data() }, millis(committedState.readBefore)),
-          unreadCount: Number.isSafeInteger(committedState.unreadCount) ? committedState.unreadCount : 0,
-        });
-        return true;
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'notification_read_failed',
+        operation: 'PATCH /notifications/:id/read',
+        message: 'notification read failed',
+        explanation: 'No se pudo marcar la notificación como leída.',
+      },
+      mapError: mapHttpError(404, 'notification not found', 'La notificación no existe en la bandeja actual.'),
+    },
+    async ({ uid, req, res }) => {
+      const id = req.params && req.params.id;
+      if (typeof id !== 'string' || !NOTIFICATION_ID.test(id)) {
+        sendBadRequest(res, 'invalid notification id', 'La notificación no es válida.');
+        return;
       }
-    );
-  };
+
+      await db.runTransaction(async transaction => {
+        const stateRef = stateDocument(db, uid);
+        const stateSnapshot = await transaction.get(stateRef);
+        const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
+        const generation = inboxGeneration(state);
+        const itemRef = itemDocument(db, uid, generation, id);
+        const itemSnapshot = await transaction.get(itemRef);
+        if (!itemSnapshot.exists || (itemSnapshot.data() || {}).ownerUid !== uid) {
+          throw HttpError.notFound('notification not found');
+        }
+        const item = itemSnapshot.data() || {};
+        const readBeforeMs = timestampMillis(state.readBefore);
+        const effectivelyRead = timestampMillis(item.readAt) !== null || (
+          readBeforeMs !== null && timestampMillis(item.createdAt) !== null && timestampMillis(item.createdAt)! <= readBeforeMs
+        );
+        if (!effectivelyRead) {
+          transaction.update(itemRef, { readAt: serverTimestamp() });
+          transaction.update(stateRef, { unreadCount: Math.max(0, inboxUnreadCount(state) - 1) });
+        }
+      });
+
+      const committedState = (await stateDocument(db, uid).get()).data() || {};
+      const committedItem = await itemDocument(db, uid, inboxGeneration(committedState), id).get();
+      if (!committedItem.exists) {
+        throw HttpError.notFound('notification not found');
+      }
+      res.status(200).json({
+        notification: toResponse({ id, data: () => committedItem.data() }, timestampMillis(committedState.readBefore)),
+        unreadCount: inboxUnreadCount(committedState),
+      });
+      await runBoundedMaintenance(boundedMaintenance, 'PATCH /notifications/:id/read', uid);
+    }
+  );
 }
 
 export function userDocument(db: NotificationsDatabase, uid: string): Document {
@@ -382,7 +410,7 @@ function immutableShape(value: { [key: string]: any }) {
     eventType: value.eventType,
     eventKey: value.eventKey,
     source: value.source,
-    eventOccurrenceAtMs: millis(value.eventOccurrenceAt),
+    eventOccurrenceAtMs: timestampMillis(value.eventOccurrenceAt),
     title: value.title,
     message: value.message,
     destination: value.destination,
@@ -401,7 +429,7 @@ export async function persistCanonicalNotification(
     const stateRef = stateDocument(db, uid);
     const stateSnapshot = await transaction.get(stateRef);
     const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
-    const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
+    const generation = inboxGeneration(state);
     const itemRef = itemDocument(db, uid, generation, notificationId);
     const existingSnapshot = await transaction.get(itemRef);
     const canonical = {
@@ -421,7 +449,7 @@ export async function persistCanonicalNotification(
     }
     transaction.create(itemRef, canonical);
     transaction.update(stateRef, {
-      unreadCount: Math.max(0, Number.isSafeInteger(state.unreadCount) ? state.unreadCount : 0) + 1,
+      unreadCount: Math.max(0, inboxUnreadCount(state)) + 1,
     });
     return canonical;
   });
@@ -431,22 +459,28 @@ export function createGetNotificationsHandler(
   db: NotificationsDatabase,
   boundedMaintenance: (uid: string) => Promise<unknown> = async () => undefined
 ): RequestHandler {
-  return async (req, res) => {
-    let uid: string | undefined;
-    try {
-      uid = await authorizeTeacher(db, res);
-      if (!uid) return;
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'notification_lookup_failed',
+        operation: 'GET /notifications',
+        message: 'notification lookup failed',
+        explanation: 'No se pudieron cargar las notificaciones.',
+      },
+    },
+    async ({ uid, req, res }) => {
       const user = db.collection('users').doc(uid);
       const stateSnapshot = await user.collection('notificationState').doc('inbox').get();
       const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
-      const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
-      const unreadCount = Number.isSafeInteger(state.unreadCount) && state.unreadCount >= 0 ? state.unreadCount : 0;
-      const readBeforeMs = millis(state.readBefore);
+      const generation = inboxGeneration(state);
+      const unreadCount = Math.max(0, inboxUnreadCount(state));
+      const readBeforeMs = timestampMillis(state.readBefore);
       const suppliedCursor = req.query && req.query.cursor;
       const cursor = suppliedCursor === undefined ? undefined : decodeCursor(suppliedCursor);
       if (suppliedCursor !== undefined && !cursor) {
-        sendError(res, 400, 'invalid cursor', 'El cursor de notificaciones no es válido.');
+        sendBadRequest(res, 'invalid cursor', 'El cursor de notificaciones no es válido.');
         return;
       }
       if (cursor && cursor.generation !== generation) {
@@ -476,8 +510,8 @@ export function createGetNotificationsHandler(
       const nextCursor = hasMore && last && lastData
         ? encodeCursor({
           generation,
-          eventOccurrenceAtMs: millis(lastData.eventOccurrenceAt)!,
-          createdAtMs: millis(lastData.createdAt)!,
+          eventOccurrenceAtMs: timestampMillis(lastData.eventOccurrenceAt)!,
+          createdAtMs: timestampMillis(lastData.createdAt)!,
           id: last.id,
         })
         : null;
@@ -488,12 +522,7 @@ export function createGetNotificationsHandler(
         nextCursor,
         hasMore,
       });
-      await boundedMaintenance(uid).catch(error => logOperationalFailure({
-        event: 'notification_maintenance_failed', operation: 'GET /notifications', uid: uid!, error,
-      }));
-    } catch (error) {
-      logOperationalFailure({ event: 'notification_lookup_failed', operation: 'GET /notifications', uid, error });
-      sendError(res, 503, 'notification lookup failed', 'No se pudieron cargar las notificaciones.');
+      await runBoundedMaintenance(boundedMaintenance, 'GET /notifications', uid);
     }
-  };
+  );
 }

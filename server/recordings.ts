@@ -1,6 +1,9 @@
 import { RequestHandler } from 'express';
-import crypto from 'crypto';
+import { sendBadRequest, sendError, getVerifiedUser, ExpressResponse } from './http';
+import { ROOM_SID_PATTERN } from './ids';
 import { logOperationalFailure } from './operationalEvents';
+import { teacherHandler } from './teacherHandler';
+import { createTicketSigner } from './ticketSigner';
 
 /*
  * Server-proxied Twilio recording (Composition) artifacts for a completed class,
@@ -24,7 +27,6 @@ import { logOperationalFailure } from './operationalEvents';
  * media URL is handed to the browser via a redirect.
  */
 
-const ROOM_SID_PATTERN = /^RM[a-zA-Z0-9]{32}$/;
 const MANUAL_REQUEST_ID_PATTERN = /^[a-zA-Z0-9_-]{8,128}$/;
 
 // The composition media is hosted by Twilio for 7 days after creation before the
@@ -40,7 +42,27 @@ const DOWNLOAD_TICKET_TTL_MS = 5 * 60 * 1000;
 // layout configuration UI; audioSources: ['*'] mirrors the plan's chosen shape.
 const DEFAULT_VIDEO_LAYOUT = { grid: { video_sources: ['*'] } };
 
-export type RecordingArtifactStatus = 'not_requested' | 'enqueued' | 'processing' | 'completed' | 'failed' | 'expired';
+// 'requesting' is the transient claim written before the Twilio call returns; the rest
+// mirror Twilio's composition lifecycle (enqueued → processing → completed/failed, then
+// 'expired' once the hosted media is deleted).
+export type RecordingArtifactStatus =
+  | 'not_requested'
+  | 'requesting'
+  | 'enqueued'
+  | 'processing'
+  | 'completed'
+  | 'failed'
+  | 'expired';
+
+/** The composition exists at Twilio but has not reached a final state yet. */
+export function isPendingRecordingStatus(status: unknown): boolean {
+  return status === 'enqueued' || status === 'processing';
+}
+
+/** No further Twilio state change is expected for this composition. */
+export function isTerminalRecordingStatus(status: unknown): boolean {
+  return status === 'completed' || status === 'failed' || status === 'expired';
+}
 
 export interface RecordingArtifact {
   compositionSid?: string;
@@ -53,14 +75,6 @@ export interface ManualRecordingRequest extends RecordingArtifact {
   requestedAt?: any;
   statusChangedAt?: any;
   ambiguous?: boolean;
-}
-
-// Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
-// attentionReports.ts/classes.ts on purpose — each server unit stays independently
-// deployable and testable.
-export interface VerifiedFirebaseUser {
-  uid: string;
-  email?: string;
 }
 
 // ─── Structural Firestore slice ────────────────────────────────────────────────
@@ -152,40 +166,7 @@ export interface RecordingsClient {
   }): Promise<TwilioResponse<T>>;
 }
 
-function getVerifiedUser(res: Parameters<RequestHandler>[1]): VerifiedFirebaseUser | undefined {
-  const firebaseUser = res.locals && res.locals.firebaseUser;
-  if (firebaseUser && typeof firebaseUser.uid === 'string' && firebaseUser.uid.length > 0) {
-    return firebaseUser as VerifiedFirebaseUser;
-  }
-  return undefined;
-}
-
-function sendTeacherOnly(res: Parameters<RequestHandler>[1]) {
-  res.status(403).json({
-    error: {
-      message: 'teacher role required',
-      explanation: 'Las grabaciones solo están disponibles para profesores.',
-    },
-  });
-}
-
-function sendBadRequest(res: Parameters<RequestHandler>[1], message: string, explanation: string) {
-  res.status(400).json({ error: { message, explanation } });
-}
-
-/**
- * Resolves whether the verified uid holds role=teacher in Firestore, mirroring
- * attentionReports.ts. Throws on Firestore failure (caller maps it to 503).
- */
-async function resolveIsTeacher(db: RecordingsDatabase, uid: string): Promise<boolean> {
-  const snapshot = await db
-    .collection('users')
-    .doc(uid)
-    .get();
-  if (!snapshot.exists) return false;
-  const data = snapshot.data() || {};
-  return data.role === 'teacher';
-}
+const TEACHER_ONLY_EXPLANATION = 'Las grabaciones solo están disponibles para profesores.';
 
 function getReportRef(db: RecordingsDatabase, uid: string, roomSid: string): RecordingReportDocumentReference {
   return db
@@ -214,7 +195,7 @@ function toRecordingArtifact(composition: TwilioCompositionResource): RecordingA
   };
 }
 
-function validateRoomSid(res: Parameters<RequestHandler>[1], roomSid: unknown): roomSid is string {
+function validateRoomSid(res: ExpressResponse, roomSid: unknown): roomSid is string {
   if (typeof roomSid !== 'string' || !ROOM_SID_PATTERN.test(roomSid)) {
     sendBadRequest(res, 'invalid roomSid', 'El identificador de la sala no es válido.');
     return false;
@@ -222,7 +203,7 @@ function validateRoomSid(res: Parameters<RequestHandler>[1], roomSid: unknown): 
   return true;
 }
 
-function validateManualRequestId(res: Parameters<RequestHandler>[1], value: unknown): value is string {
+function validateManualRequestId(res: ExpressResponse, value: unknown): value is string {
   if (typeof value !== 'string' || !MANUAL_REQUEST_ID_PATTERN.test(value)) {
     sendBadRequest(res, 'invalid manualRequestId', 'El identificador de la solicitud no es válido.');
     return false;
@@ -231,9 +212,27 @@ function validateManualRequestId(res: Parameters<RequestHandler>[1], value: unkn
 }
 
 function terminalStatusChangedAt(composition: TwilioCompositionResource, serverTimestamp: () => any): any | undefined {
-  const status = mapCompositionStatus(composition.status);
-  if (status !== 'completed' && status !== 'failed' && status !== 'expired') return undefined;
+  if (!isTerminalRecordingStatus(mapCompositionStatus(composition.status))) return undefined;
   return composition.dateUpdated instanceof Date ? composition.dateUpdated : serverTimestamp();
+}
+
+/**
+ * The record persisted for a composition: the artifact summary plus, when the
+ * composition has reached a final state, when we first observed it. Shared by the
+ * initial request, the manual refresh and the status poll so they cannot drift.
+ */
+function toRecordingRecord(
+  composition: TwilioCompositionResource,
+  serverTimestamp: () => any,
+  options: { manualRequestId?: string; trackStatusChange?: boolean } = {}
+): ManualRecordingRequest {
+  const { manualRequestId, trackStatusChange = true } = options;
+  const statusChangedAt = trackStatusChange ? terminalStatusChangedAt(composition, serverTimestamp) : undefined;
+  return {
+    ...(manualRequestId ? { manualRequestId } : {}),
+    ...toRecordingArtifact(composition),
+    ...(statusChangedAt !== undefined ? { statusChangedAt } : {}),
+  } as ManualRecordingRequest;
 }
 
 /** Refreshes one durable manual request from authoritative Twilio state. */
@@ -249,17 +248,12 @@ export async function refreshManualRecordingRequest(
   const requestRef = reportRef.collection('recordingRequests').doc(manualRequestId);
   const persisted = (await requestRef.get()).data() as ManualRecordingRequest | undefined;
   if (!persisted || persisted.statusChangedAt || !persisted.compositionSid) return persisted;
-  if (persisted.status !== 'enqueued' && persisted.status !== 'processing') {
+  if (!isPendingRecordingStatus(persisted.status)) {
     return persisted;
   }
 
   const composition = await twilioClient.video.v1.compositions(persisted.compositionSid).fetch();
-  const statusChangedAt = terminalStatusChangedAt(composition, serverTimestamp);
-  const candidate: ManualRecordingRequest = {
-    manualRequestId,
-    ...toRecordingArtifact(composition),
-    ...(statusChangedAt !== undefined ? { statusChangedAt } : {}),
-  };
+  const candidate = toRecordingRecord(composition, serverTimestamp, { manualRequestId });
   return db.runTransaction(async transaction => {
     const latest = (await transaction.get(requestRef)).data() as ManualRecordingRequest | undefined;
     if (!latest || latest.statusChangedAt) return latest;
@@ -268,33 +262,37 @@ export async function refreshManualRecordingRequest(
   });
 }
 
+const sendReportNotFound = (res: ExpressResponse) =>
+  sendError(res, 404, 'report not found', 'No encontramos ese reporte.');
+
+const roomSidLogContext = (req: { params: { [key: string]: string } }) => ({ roomSid: req.params.roomSid });
+
 /** Requests one durable Twilio Composition per manualRequestId. */
 export function createRequestRecordingHandler(
   db: RecordingsDatabase,
   twilioClient: RecordingsClient,
   serverTimestamp: () => any
 ): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    const roomSid = req.params.roomSid;
-    if (!validateRoomSid(res, roomSid)) return;
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
-      const reportRef = getReportRef(db, firebaseUser.uid, roomSid);
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'recording_request_failed',
+        operation: 'POST /reports/:roomSid/recording',
+        message: 'recording request failed',
+        explanation: 'No pudimos solicitar la grabación. Intenta de nuevo en unos segundos.',
+      },
+      preValidate: (req, res) => validateRoomSid(res, req.params.roomSid),
+      logContext: roomSidLogContext,
+    },
+    async ({ uid, req, res }) => {
+      const roomSid = req.params.roomSid;
+      const reportRef = getReportRef(db, uid, roomSid);
       const snapshot = await reportRef.get();
       const data = snapshot.data();
       if (!data) {
-        res.status(404).json({ error: { message: 'report not found', explanation: 'No encontramos ese reporte.' } });
+        sendReportNotFound(res);
         return;
       }
 
@@ -338,34 +336,19 @@ export function createRequestRecordingHandler(
         });
       } catch (error) {
         logOperationalFailure({
-          event: 'recording_request_ambiguous', operation: 'POST /reports/:roomSid/recording', uid: firebaseUser.uid, roomSid, error,
+          event: 'recording_request_ambiguous', operation: 'POST /reports/:roomSid/recording', uid, roomSid, error,
         });
         res.status(409).json({ request: { ...claim, status: 'requesting', ambiguous: true } });
         return;
       }
 
-      const statusChangedAt = terminalStatusChangedAt(composition, serverTimestamp);
-      const recording: ManualRecordingRequest = {
-        manualRequestId,
-        ...toRecordingArtifact(composition),
-        ...(statusChangedAt !== undefined ? { statusChangedAt } : {}),
-      };
+      const recording = toRecordingRecord(composition, serverTimestamp, { manualRequestId });
       await requestRef.update(recording);
       await reportRef.update({ recording });
 
       res.status(200).json({ recording, request: recording });
-    } catch (err) {
-      logOperationalFailure({
-        event: 'recording_request_failed', operation: 'POST /reports/:roomSid/recording', uid: firebaseUser.uid, roomSid, error: err,
-      });
-      res.status(503).json({
-        error: {
-          message: 'recording request failed',
-          explanation: 'No pudimos solicitar la grabación. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 /** Refreshes and persists a previously requested composition's status. */
@@ -374,27 +357,26 @@ export function createGetRecordingStatusHandler(
   twilioClient: RecordingsClient,
   serverTimestamp: () => any
 ): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    const roomSid = req.params.roomSid;
-    if (!validateRoomSid(res, roomSid)) return;
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
-      const reportRef = getReportRef(db, firebaseUser.uid, roomSid);
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'recording_status_failed',
+        operation: 'GET /reports/:roomSid/recording',
+        message: 'recording status lookup failed',
+        explanation: 'No pudimos consultar el estado de la grabación. Intenta de nuevo en unos segundos.',
+      },
+      preValidate: (req, res) => validateRoomSid(res, req.params.roomSid),
+      logContext: roomSidLogContext,
+    },
+    async ({ uid, req, res }) => {
+      const roomSid = req.params.roomSid;
+      const reportRef = getReportRef(db, uid, roomSid);
       const snapshot = await reportRef.get();
       const data = snapshot.data();
       if (!data) {
-        res.status(404).json({ error: { message: 'report not found', explanation: 'No encontramos ese reporte.' } });
+        sendReportNotFound(res);
         return;
       }
 
@@ -415,14 +397,11 @@ export function createGetRecordingStatusHandler(
       }
 
       const composition = await twilioClient.video.v1.compositions(existingRecording.compositionSid).fetch();
-      const statusChangedAt = existingRecording.manualRequestId
-        ? terminalStatusChangedAt(composition, serverTimestamp)
-        : undefined;
-      const candidate: any = {
-        ...toRecordingArtifact(composition),
-        ...(existingRecording.manualRequestId ? { manualRequestId: existingRecording.manualRequestId } : {}),
-        ...(statusChangedAt !== undefined ? { statusChangedAt } : {}),
-      };
+      const candidate = toRecordingRecord(composition, serverTimestamp, {
+        manualRequestId: existingRecording.manualRequestId,
+        // Legacy reports (no manualRequestId) never tracked a status-change timestamp.
+        trackStatusChange: !!existingRecording.manualRequestId,
+      });
       let recording: RecordingArtifact = candidate;
       if (requestRef) {
         recording = await db.runTransaction(async transaction => {
@@ -435,46 +414,15 @@ export function createGetRecordingStatusHandler(
       await reportRef.update({ recording });
 
       res.status(200).json({ recording });
-    } catch (err) {
-      logOperationalFailure({
-        event: 'recording_status_failed', operation: 'GET /reports/:roomSid/recording', uid: firebaseUser.uid, roomSid, error: err,
-      });
-      res.status(503).json({
-        error: {
-          message: 'recording status lookup failed',
-          explanation: 'No pudimos consultar el estado de la grabación. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
-// ─── Download ticket signing ────────────────────────────────────────────────────
+// ─── Download ticket ────────────────────────────────────────────────────────────
 // `window.open` cannot attach a custom Authorization header, so the download itself
-// is authorized by a short-lived HMAC-SHA256 ticket instead of firebaseAuthMiddleware.
-// The ticket is `${base64url(payload)}.${hex(hmac)}`; payload carries exactly the
-// roomSid + uid + expiry needed to re-derive the owning teacher without a live
-// Firebase token, and the signature is verified with a constant-time comparison.
-
-function base64UrlEncode(value: string): string {
-  return Buffer.from(value, 'utf8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-function base64UrlDecode(value: string): string {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/');
-  return Buffer.from(padded, 'base64').toString('utf8');
-}
-
-function signPayload(payloadB64: string, secret: string): string {
-  return crypto
-    .createHmac('sha256', secret)
-    .update(payloadB64)
-    .digest('hex');
-}
+// is authorized by a short-lived HMAC-signed ticket (see ticketSigner.ts) instead of
+// firebaseAuthMiddleware. The payload carries exactly the roomSid + uid + expiry needed
+// to re-derive the owning teacher without a live Firebase token.
 
 interface DownloadTicketPayload {
   roomSid: string;
@@ -483,68 +431,54 @@ interface DownloadTicketPayload {
 }
 
 function verifyDownloadTicket(ticket: unknown, secret: string): DownloadTicketPayload | undefined {
-  if (typeof ticket !== 'string') return undefined;
-  const separatorIndex = ticket.lastIndexOf('.');
-  if (separatorIndex <= 0) return undefined;
-
-  const payloadB64 = ticket.slice(0, separatorIndex);
-  const signatureHex = ticket.slice(separatorIndex + 1);
-  const expectedSignatureHex = signPayload(payloadB64, secret);
-
-  const signatureBuffer = Buffer.from(signatureHex, 'hex');
-  const expectedBuffer = Buffer.from(expectedSignatureHex, 'hex');
-  if (signatureBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
+  const payload = createTicketSigner(secret).verify(ticket) as Partial<DownloadTicketPayload> | undefined;
+  if (
+    !payload ||
+    typeof payload.roomSid !== 'string' ||
+    typeof payload.uid !== 'string' ||
+    typeof payload.exp !== 'number' ||
+    payload.exp < Date.now()
+  ) {
     return undefined;
   }
-
-  try {
-    const payload = JSON.parse(base64UrlDecode(payloadB64));
-    if (
-      typeof payload.roomSid !== 'string' ||
-      typeof payload.uid !== 'string' ||
-      typeof payload.exp !== 'number' ||
-      payload.exp < Date.now()
-    ) {
-      return undefined;
-    }
-    return payload;
-  } catch {
-    return undefined;
-  }
+  return payload as DownloadTicketPayload;
 }
+
+const sendDownloadNotConfigured = (res: ExpressResponse) =>
+  sendError(res, 503, 'download not configured', 'La descarga de grabaciones no está configurada en el servidor.');
 
 /** Issues a short-lived signed ticket the browser can use to reach the ticket-only download endpoint. */
 export function createIssueRecordingDownloadTicketHandler(db: RecordingsDatabase, secret: string | undefined): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    const roomSid = req.params.roomSid;
-    if (!validateRoomSid(res, roomSid)) return;
-
-    if (!secret) {
-      logOperationalFailure({
-        event: 'recording_download_misconfigured', operation: 'GET /reports/:roomSid/recording/download-url', uid: firebaseUser.uid, roomSid, error: new Error('RECORDING_DOWNLOAD_SECRET is not set'),
-      });
-      res.status(503).json({
-        error: {
-          message: 'download not configured',
-          explanation: 'La descarga de grabaciones no está configurada en el servidor.',
-        },
-      });
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
-      const reportRef = getReportRef(db, firebaseUser.uid, roomSid);
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'recording_download_ticket_failed',
+        operation: 'GET /reports/:roomSid/recording/download-url',
+        message: 'download ticket issuance failed',
+        explanation: 'No pudimos preparar la descarga de la grabación. Intenta de nuevo en unos segundos.',
+      },
+      preValidate: (req, res) => {
+        if (!validateRoomSid(res, req.params.roomSid)) return false;
+        if (!secret) {
+          logOperationalFailure({
+            event: 'recording_download_misconfigured',
+            operation: 'GET /reports/:roomSid/recording/download-url',
+            uid: getVerifiedUser(res)!.uid,
+            roomSid: req.params.roomSid,
+            error: new Error('RECORDING_DOWNLOAD_SECRET is not set'),
+          });
+          sendDownloadNotConfigured(res);
+          return false;
+        }
+        return true;
+      },
+      logContext: roomSidLogContext,
+    },
+    async ({ uid, req, res }) => {
+      const roomSid = req.params.roomSid;
+      const reportRef = getReportRef(db, uid, roomSid);
       const snapshot = await reportRef.get();
       const data = snapshot.data();
       const recording: RecordingArtifact | undefined = data && data.recording;
@@ -553,25 +487,14 @@ export function createIssueRecordingDownloadTicketHandler(db: RecordingsDatabase
         return;
       }
 
-      const payload: DownloadTicketPayload = { roomSid, uid: firebaseUser.uid, exp: Date.now() + DOWNLOAD_TICKET_TTL_MS };
-      const payloadB64 = base64UrlEncode(JSON.stringify(payload));
-      const ticket = `${payloadB64}.${signPayload(payloadB64, secret)}`;
+      const payload: DownloadTicketPayload = { roomSid, uid, exp: Date.now() + DOWNLOAD_TICKET_TTL_MS };
+      const ticket = createTicketSigner(secret!).issue(payload);
 
       res.status(200).json({
         downloadUrl: `/reports/${encodeURIComponent(roomSid)}/recording/download?ticket=${encodeURIComponent(ticket)}`,
       });
-    } catch (err) {
-      logOperationalFailure({
-        event: 'recording_download_ticket_failed', operation: 'GET /reports/:roomSid/recording/download-url', uid: firebaseUser.uid, roomSid, error: err,
-      });
-      res.status(503).json({
-        error: {
-          message: 'download ticket issuance failed',
-          explanation: 'No pudimos preparar la descarga de la grabación. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 /** Ticket-authorized (not firebaseAuthMiddleware) proxy download of the composition media. Never exposes the Twilio Account SID/Auth Token. */
@@ -581,20 +504,13 @@ export function createDownloadRecordingHandler(db: RecordingsDatabase, twilioCli
     if (!validateRoomSid(res, roomSid)) return;
 
     if (!secret) {
-      res.status(503).json({
-        error: {
-          message: 'download not configured',
-          explanation: 'La descarga de grabaciones no está configurada en el servidor.',
-        },
-      });
+      sendDownloadNotConfigured(res);
       return;
     }
 
     const payload = verifyDownloadTicket(req.query.ticket, secret);
     if (!payload || payload.roomSid !== roomSid) {
-      res.status(401).json({
-        error: { message: 'invalid or expired ticket', explanation: 'El enlace de descarga ya no es válido. Solicitalo de nuevo.' },
-      });
+      sendError(res, 401, 'invalid or expired ticket', 'El enlace de descarga ya no es válido. Solicitalo de nuevo.');
       return;
     }
 
@@ -604,9 +520,7 @@ export function createDownloadRecordingHandler(db: RecordingsDatabase, twilioCli
       const data = snapshot.data();
       const recording: RecordingArtifact | undefined = data && data.recording;
       if (!recording || recording.status !== 'completed' || !recording.compositionSid) {
-        res.status(404).json({
-          error: { message: 'recording not available', explanation: 'La grabación todavía no está lista para descargar.' },
-        });
+        sendError(res, 404, 'recording not available', 'La grabación todavía no está lista para descargar.');
         return;
       }
 
@@ -633,12 +547,7 @@ export function createDownloadRecordingHandler(db: RecordingsDatabase, twilioCli
       logOperationalFailure({
         event: 'recording_download_failed', operation: 'GET /reports/:roomSid/recording/download', uid: payload.uid, roomSid, error: err,
       });
-      res.status(503).json({
-        error: {
-          message: 'recording download failed',
-          explanation: 'No pudimos descargar la grabación. Intenta de nuevo en unos segundos.',
-        },
-      });
+      sendError(res, 503, 'recording download failed', 'No pudimos descargar la grabación. Intenta de nuevo en unos segundos.');
     }
   };
 }

@@ -1,7 +1,10 @@
 import { ErrorRequestHandler, RequestHandler } from 'express';
 import { logOperationalFailure } from './operationalEvents';
 import { FileStorage } from './fileStorage';
+import { deleteQuietly, withUploadCompensation } from './fileStorageGuards';
 import { DocumentConverter } from './documentConverter';
+import { createFileSizeLimitErrorHandler, sendBadRequest, sendError } from './http';
+import { teacherHandler } from './teacherHandler';
 
 /*
  * Teacher "Recursos" (class materials): the file bytes live in Appwrite Storage (a
@@ -72,25 +75,41 @@ const ZIP_MIME_TYPES = new Set([
   'multipart/x-zip',
 ]);
 
+// One rule per resource kind. `accepts` decides which kind an uploaded file is;
+// `isSafeContentType` decides whether a stored content type may be echoed back as the
+// download Content-Type. The two intentionally differ for video: uploads accept any
+// `video/*`, but only a conservative charset is reflected into a response header.
+interface KindRule {
+  kind: ResourceKind;
+  accepts(mimetype: string): boolean;
+  isSafeContentType(contentType: string): boolean;
+}
+
+const exactMimeRule = (kind: ResourceKind, mimeTypes: Set<string> | string): KindRule => {
+  const matches = (mimetype: string) =>
+    typeof mimeTypes === 'string' ? mimetype === mimeTypes : mimeTypes.has(mimetype);
+  return { kind, accepts: matches, isSafeContentType: matches };
+};
+
+const KIND_RULES: KindRule[] = [
+  exactMimeRule('pdf', 'application/pdf'),
+  exactMimeRule('presentation', PRESENTATION_MIME_TYPES),
+  exactMimeRule('word', WORD_MIME_TYPES),
+  exactMimeRule('zip', ZIP_MIME_TYPES),
+  {
+    kind: 'video',
+    accepts: mimetype => mimetype.startsWith('video/'),
+    isSafeContentType: contentType => /^video\/[a-z0-9!#$&^_.+-]+$/i.test(contentType),
+  },
+];
+
 function resolveKind(mimetype: string): ResourceKind | null {
-  if (mimetype === 'application/pdf') return 'pdf';
-  if (PRESENTATION_MIME_TYPES.has(mimetype)) return 'presentation';
-  if (WORD_MIME_TYPES.has(mimetype)) return 'word';
-  if (ZIP_MIME_TYPES.has(mimetype)) return 'zip';
-  if (mimetype.startsWith('video/')) return 'video';
-  return null;
+  const rule = KIND_RULES.find(candidate => candidate.accepts(mimetype));
+  return rule ? rule.kind : null;
 }
 
 function safeContentType(contentType: unknown): string {
-  if (
-    contentType === 'application/pdf' ||
-    PRESENTATION_MIME_TYPES.has(contentType as string) ||
-    WORD_MIME_TYPES.has(contentType as string) ||
-    ZIP_MIME_TYPES.has(contentType as string)
-  ) {
-    return contentType as string;
-  }
-  return typeof contentType === 'string' && /^video\/[a-z0-9!#$&^_.+-]+$/i.test(contentType)
+  return typeof contentType === 'string' && KIND_RULES.some(rule => rule.isSafeContentType(contentType))
     ? contentType
     : 'application/octet-stream';
 }
@@ -110,14 +129,6 @@ function decodeLegacyContent(content: unknown): Buffer {
     throw new Error('legacy resource content exceeds size limit');
   }
   return buffer;
-}
-
-// Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
-// userProfiles.ts/attentionReports.ts on purpose — each server unit stays
-// independently deployable and testable.
-export interface VerifiedFirebaseUser {
-  uid: string;
-  email?: string;
 }
 
 // ─── Structural Firestore slice ────────────────────────────────────────────────
@@ -173,40 +184,7 @@ export interface UploadedFile {
   buffer: Buffer;
 }
 
-function getVerifiedUser(res: Parameters<RequestHandler>[1]): VerifiedFirebaseUser | undefined {
-  const firebaseUser = res.locals && res.locals.firebaseUser;
-  if (firebaseUser && typeof firebaseUser.uid === 'string' && firebaseUser.uid.length > 0) {
-    return firebaseUser as VerifiedFirebaseUser;
-  }
-  return undefined;
-}
-
-function sendTeacherOnly(res: Parameters<RequestHandler>[1]) {
-  res.status(403).json({
-    error: {
-      message: 'teacher role required',
-      explanation: 'Los recursos de clase solo están disponibles para profesores.',
-    },
-  });
-}
-
-function sendBadRequest(res: Parameters<RequestHandler>[1], message: string, explanation: string) {
-  res.status(400).json({ error: { message, explanation } });
-}
-
-/**
- * Resolves whether the verified uid holds role=teacher in Firestore, mirroring
- * attentionReports.ts. Throws on Firestore failure (caller maps it to 503).
- */
-async function resolveIsTeacher(db: ResourcesDatabase, uid: string): Promise<boolean> {
-  const snapshot = await db
-    .collection('users')
-    .doc(uid)
-    .get();
-  if (!snapshot.exists) return false;
-  const data = snapshot.data() || {};
-  return data.role === 'teacher';
-}
+const TEACHER_ONLY_EXPLANATION = 'Los recursos de clase solo están disponibles para profesores.';
 
 function toResourceResponse(id: string, data: { [key: string]: any }) {
   return {
@@ -223,24 +201,22 @@ function toResourceResponse(id: string, data: { [key: string]: any }) {
 }
 
 export function createGetResourcesHandler(db: ResourcesDatabase): RequestHandler {
-  return async (_req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'resource_lookup_failed',
+        operation: 'GET /resources',
+        message: 'resource lookup failed',
+        explanation: 'No pudimos consultar los recursos de la clase. Intenta de nuevo en unos segundos.',
+      },
+    },
+    async ({ uid, res }) => {
       // Single-field orderBy on a subcollection — no composite index required.
       const snapshot = await db
         .collection('users')
-        .doc(firebaseUser.uid)
+        .doc(uid)
         .collection('resources')
         .orderBy('createdAt', 'desc')
         .limit(MAX_RESOURCES_RETURNED)
@@ -256,16 +232,8 @@ export function createGetResourcesHandler(db: ResourcesDatabase): RequestHandler
       });
 
       res.status(200).json(resources);
-    } catch (err) {
-      logOperationalFailure({ event: 'resource_lookup_failed', operation: 'GET /resources', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'resource lookup failed',
-          explanation: 'No pudimos consultar los recursos de la clase. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 export function createUploadResourceHandler(
@@ -273,164 +241,147 @@ export function createUploadResourceHandler(
   serverTimestamp: () => unknown,
   fileStorage: FileStorage
 ): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'resource_save_failed',
+        operation: 'POST /resources',
+        message: 'resource save failed',
+        explanation: 'No pudimos subir el archivo. Intenta de nuevo en unos segundos.',
+      },
+    },
+    ({ uid, req, res }) =>
+      withUploadCompensation(
+        fileStorage,
+        { event: 'resource_upload_cleanup_failed', operation: 'POST /resources', uid },
+        async upload => {
+          const file = (req as any).file as UploadedFile | undefined;
+          if (!file) {
+            sendBadRequest(res, 'missing file', 'Debes seleccionar un archivo para subir.');
+            return;
+          }
 
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
+          if (file.size > MAX_FILE_SIZE_BYTES) {
+            sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (25 MB).');
+            return;
+          }
 
-    let uploadedFileId: string | undefined;
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
+          const kind = resolveKind(file.mimetype);
+          if (!kind) {
+            sendBadRequest(
+              res,
+              'unsupported file type',
+              'Solo se admiten PDFs, presentaciones (PPTX/ODP), documentos de Word (DOCX/ODT), archivos comprimidos (ZIP) y videos.'
+            );
+            return;
+          }
 
-      const file = (req as any).file as UploadedFile | undefined;
-      if (!file) {
-        sendBadRequest(res, 'missing file', 'Debes seleccionar un archivo para subir.');
-        return;
-      }
+          const body = req.body ?? {};
+          const classId = typeof body.classId === 'string' ? body.classId.trim() : '';
+          if (!classId) {
+            sendBadRequest(res, 'invalid classId', 'Debes seleccionar una clase programada para el archivo.');
+            return;
+          }
 
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (25 MB).');
-        return;
-      }
+          const classSnapshot = await db
+            .collection('users')
+            .doc(uid)
+            .collection('classes')
+            .doc(classId)
+            .get();
+          const classData = classSnapshot.data();
+          if (
+            !classSnapshot.exists ||
+            !classData ||
+            typeof classData.title !== 'string' ||
+            typeof classData.roomName !== 'string'
+          ) {
+            sendBadRequest(res, 'invalid classId', 'La clase seleccionada no existe o no te pertenece.');
+            return;
+          }
+          const roomLabel = classData.title.trim().slice(0, MAX_ROOM_LABEL_LENGTH);
 
-      const kind = resolveKind(file.mimetype);
-      if (!kind) {
-        sendBadRequest(
-          res,
-          'unsupported file type',
-          'Solo se admiten PDFs, presentaciones (PPTX/ODP), documentos de Word (DOCX/ODT), archivos comprimidos (ZIP) y videos.'
-        );
-        return;
-      }
+          // multer/busboy decode multipart headers as latin1 regardless of the actual
+          // encoding, so a UTF-8 filename (e.g. "Andrés") arrives mojibake'd. Re-decode
+          // to recover the original bytes as UTF-8.
+          const decodedOriginalName = Buffer.from(file.originalname || '', 'latin1').toString('utf8');
+          const name = (decodedOriginalName || 'archivo').trim().slice(0, MAX_NAME_LENGTH) || 'archivo';
 
-      const body = req.body ?? {};
-      const classId = typeof body.classId === 'string' ? body.classId.trim() : '';
-      if (!classId) {
-        sendBadRequest(res, 'invalid classId', 'Debes seleccionar una clase programada para el archivo.');
-        return;
-      }
+          const stored = await fileStorage.upload({
+            buffer: file.buffer,
+            contentType: file.mimetype,
+            fileName: name,
+          });
+          upload.track(stored.fileId);
 
-      const classSnapshot = await db
-        .collection('users')
-        .doc(firebaseUser.uid)
-        .collection('classes')
-        .doc(classId)
-        .get();
-      const classData = classSnapshot.data();
-      if (
-        !classSnapshot.exists ||
-        !classData ||
-        typeof classData.title !== 'string' ||
-        typeof classData.roomName !== 'string'
-      ) {
-        sendBadRequest(res, 'invalid classId', 'La clase seleccionada no existe o no te pertenece.');
-        return;
-      }
-      const roomLabel = classData.title.trim().slice(0, MAX_ROOM_LABEL_LENGTH);
+          const docRef = db
+            .collection('users')
+            .doc(uid)
+            .collection('resources')
+            .doc();
 
-      // multer/busboy decode multipart headers as latin1 regardless of the actual
-      // encoding, so a UTF-8 filename (e.g. "Andrés") arrives mojibake'd. Re-decode
-      // to recover the original bytes as UTF-8.
-      const decodedOriginalName = Buffer.from(file.originalname || '', 'latin1').toString('utf8');
-      const name = (decodedOriginalName || 'archivo').trim().slice(0, MAX_NAME_LENGTH) || 'archivo';
+          await docRef.set({
+            name,
+            kind,
+            roomLabel,
+            classId,
+            classTitle: roomLabel,
+            roomName: classData.roomName,
+            sizeBytes: file.size,
+            contentType: file.mimetype,
+            fileId: stored.fileId,
+            createdAt: serverTimestamp(),
+          });
+          upload.commit();
 
-      const stored = await fileStorage.upload({
-        buffer: file.buffer,
-        contentType: file.mimetype,
-        fileName: name,
-      });
-      uploadedFileId = stored.fileId;
-
-      const docRef = db
-        .collection('users')
-        .doc(firebaseUser.uid)
-        .collection('resources')
-        .doc();
-
-      await docRef.set({
-        name,
-        kind,
-        roomLabel,
-        classId,
-        classTitle: roomLabel,
-        roomName: classData.roomName,
-        sizeBytes: file.size,
-        contentType: file.mimetype,
-        fileId: stored.fileId,
-        createdAt: serverTimestamp(),
-      });
-      uploadedFileId = undefined;
-
-      res.status(201).json({
-        ...toResourceResponse(docRef.id, {
-          name,
-          kind,
-          roomLabel,
-          classId,
-          classTitle: roomLabel,
-          roomName: classData.roomName,
-          sizeBytes: file.size,
-          contentType: file.mimetype,
-        }),
-        // serverTimestamp() resolves once Firestore commits it — not known here — so
-        // the immediate response approximates it with the current time, same as the
-        // real value will be to millisecond precision.
-        createdAtMs: Date.now(),
-      });
-    } catch (err) {
-      if (uploadedFileId) {
-        fileStorage.delete(uploadedFileId).catch(cleanupError =>
-          logOperationalFailure({
-            event: 'resource_upload_cleanup_failed',
-            operation: 'POST /resources',
-            uid: firebaseUser.uid,
-            error: cleanupError,
-          })
-        );
-      }
-      logOperationalFailure({ event: 'resource_save_failed', operation: 'POST /resources', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'resource save failed',
-          explanation: 'No pudimos subir el archivo. Intenta de nuevo en unos segundos.',
-        },
-      });
-    }
-  };
+          res.status(201).json({
+            ...toResourceResponse(docRef.id, {
+              name,
+              kind,
+              roomLabel,
+              classId,
+              classTitle: roomLabel,
+              roomName: classData.roomName,
+              sizeBytes: file.size,
+              contentType: file.mimetype,
+            }),
+            // serverTimestamp() resolves once Firestore commits it — not known here — so
+            // the immediate response approximates it with the current time, same as the
+            // real value will be to millisecond precision.
+            createdAtMs: Date.now(),
+          });
+        }
+      )
+  );
 }
 
+const sendResourceNotFound = (res: Parameters<RequestHandler>[1]) =>
+  sendError(res, 404, 'resource not found', 'El recurso solicitado no existe.');
+
 export function createDownloadResourceHandler(db: ResourcesDatabase, fileStorage: FileStorage): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'resource_download_failed',
+        operation: 'GET /resources/:id/download',
+        message: 'resource download failed',
+        explanation: 'No pudimos preparar la descarga. Intenta de nuevo en unos segundos.',
+      },
+    },
+    async ({ uid, req, res }) => {
       const docRef = db
         .collection('users')
-        .doc(firebaseUser.uid)
+        .doc(uid)
         .collection('resources')
         .doc(req.params.id);
       const snapshot = await docRef.get();
 
       if (!snapshot.exists) {
-        res.status(404).json({
-          error: { message: 'resource not found', explanation: 'El recurso solicitado no existe.' },
-        });
+        sendResourceNotFound(res);
         return;
       }
 
@@ -443,16 +394,8 @@ export function createDownloadResourceHandler(db: ResourcesDatabase, fileStorage
       const name = typeof data.name === 'string' && data.name ? data.name : 'archivo';
 
       res.type(safeContentType(data.contentType)).attachment(name).status(200).send(buffer);
-    } catch (err) {
-      logOperationalFailure({ event: 'resource_download_failed', operation: 'GET /resources/:id/download', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'resource download failed',
-          explanation: 'No pudimos preparar la descarga. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 // GET /resources/:id/preview — presentations and Word docs have no native in-browser
@@ -466,31 +409,27 @@ export function createPreviewResourceHandler(
   fileStorage: FileStorage,
   documentConverter: DocumentConverter
 ): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'resource_preview_failed',
+        operation: 'GET /resources/:id/preview',
+        message: 'resource preview failed',
+        explanation: 'No pudimos preparar la vista previa. Intenta de nuevo en unos segundos.',
+      },
+    },
+    async ({ uid, req, res }) => {
       const docRef = db
         .collection('users')
-        .doc(firebaseUser.uid)
+        .doc(uid)
         .collection('resources')
         .doc(req.params.id);
       const snapshot = await docRef.get();
 
       if (!snapshot.exists) {
-        res.status(404).json({
-          error: { message: 'resource not found', explanation: 'El recurso solicitado no existe.' },
-        });
+        sendResourceNotFound(res);
         return;
       }
 
@@ -528,50 +467,38 @@ export function createPreviewResourceHandler(
           logOperationalFailure({
             event: 'resource_preview_cache_failed',
             operation: 'GET /resources/:id/preview',
-            uid: firebaseUser.uid,
+            uid,
             error: err,
           })
         );
 
       res.type('application/pdf').status(200).send(pdfBuffer);
-    } catch (err) {
-      logOperationalFailure({ event: 'resource_preview_failed', operation: 'GET /resources/:id/preview', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'resource preview failed',
-          explanation: 'No pudimos preparar la vista previa. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 export function createDeleteResourceHandler(db: ResourcesDatabase, fileStorage: FileStorage): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'resource_delete_failed',
+        operation: 'DELETE /resources/:id',
+        message: 'resource delete failed',
+        explanation: 'No pudimos eliminar el recurso. Intenta de nuevo en unos segundos.',
+      },
+    },
+    async ({ uid, req, res }) => {
       const docRef = db
         .collection('users')
-        .doc(firebaseUser.uid)
+        .doc(uid)
         .collection('resources')
         .doc(req.params.id);
       const snapshot = await docRef.get();
 
       if (!snapshot.exists) {
-        res.status(404).json({
-          error: { message: 'resource not found', explanation: 'El recurso solicitado no existe.' },
-        });
+        sendResourceNotFound(res);
         return;
       }
 
@@ -582,44 +509,28 @@ export function createDeleteResourceHandler(db: ResourcesDatabase, fileStorage: 
       await docRef.delete();
 
       if (fileId) {
-        fileStorage.delete(fileId).catch(error =>
-          logOperationalFailure({
-            event: 'resource_delete_storage_failed',
-            operation: 'DELETE /resources/:id',
-            uid: firebaseUser.uid,
-            error,
-          })
-        );
+        deleteQuietly(fileStorage, fileId, {
+          event: 'resource_delete_storage_failed',
+          operation: 'DELETE /resources/:id',
+          uid,
+        });
       }
 
       if (previewFileId) {
-        fileStorage.delete(previewFileId).catch(error =>
-          logOperationalFailure({
-            event: 'resource_delete_preview_storage_failed',
-            operation: 'DELETE /resources/:id',
-            uid: firebaseUser.uid,
-            error,
-          })
-        );
+        deleteQuietly(fileStorage, previewFileId, {
+          event: 'resource_delete_preview_storage_failed',
+          operation: 'DELETE /resources/:id',
+          uid,
+        });
       }
 
       res.status(200).json({ deleted: true });
-    } catch (err) {
-      logOperationalFailure({ event: 'resource_delete_failed', operation: 'DELETE /resources/:id', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'resource delete failed',
-          explanation: 'No pudimos eliminar el recurso. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
-export const createResourceUploadErrorHandler = (): ErrorRequestHandler => (err, _req, res, next) => {
-  if (err && err.code === 'LIMIT_FILE_SIZE') {
-    sendBadRequest(res, 'file too large', 'El archivo supera el tamaño máximo permitido (25 MB).');
-    return;
-  }
-  next(err);
-};
+export const createResourceUploadErrorHandler = (): ErrorRequestHandler =>
+  createFileSizeLimitErrorHandler({
+    message: 'file too large',
+    explanation: 'El archivo supera el tamaño máximo permitido (25 MB).',
+  });

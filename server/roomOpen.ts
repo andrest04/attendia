@@ -1,4 +1,6 @@
 import type { RequestHandler } from 'express';
+import { sendError } from './http';
+import { logOperationalFailure } from './operationalEvents';
 import type { RoomExistenceChecker } from './roomExists';
 
 /*
@@ -35,13 +37,8 @@ export function createRoomOpenHandler(roomExists: RoomExistenceChecker): Request
       const open = await roomExists(roomName);
       res.json({ open });
     } catch (err) {
-      console.error('roomOpen: could not verify room existence', err);
-      res.status(503).json({
-        error: {
-          message: 'room verification failed',
-          explanation: 'No pudimos verificar la sala. Intenta de nuevo en unos segundos.',
-        },
-      });
+      logOperationalFailure({ event: 'room_open_check_failed', operation: 'GET /rooms/:roomName/open', error: err });
+      sendError(res, 503, 'room verification failed', 'No pudimos verificar la sala. Intenta de nuevo en unos segundos.');
     }
   };
 }
