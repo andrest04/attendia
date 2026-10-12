@@ -12,14 +12,25 @@ const flushPromises = () => act(async () => {});
 const roomSid = 'RM00000000000000000000000000000abc';
 
 describe('RecordingViewerPage', () => {
-  const mountPage = () =>
-    mount(
+  // The state mock is shared, so a page left mounted by an earlier test would re-render
+  // against a later test's mock. Unmount everything between tests.
+  let mounted: Array<ReturnType<typeof mount>> = [];
+  afterEach(() => {
+    mounted.forEach(wrapper => wrapper.length && wrapper.unmount());
+    mounted = [];
+  });
+
+  const mountPage = () => {
+    const wrapper = mount(
       <MemoryRouter initialEntries={[`/recording/${roomSid}`]}>
         <Route path="/recording/:roomSid">
           <RecordingViewerPage />
         </Route>
       </MemoryRouter>
     );
+    mounted.push(wrapper);
+    return wrapper;
+  };
 
   it('shows an error state when the authenticated API is unavailable', () => {
     mockUseAppState.mockImplementation(() => ({}));
@@ -177,6 +188,7 @@ describe('RecordingViewerPage', () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const wrapper = mountPage();
     wrapper.unmount();
+    mounted = [];
 
     await act(async () => resolveTicket('https://media.test/late'));
 
