@@ -2,11 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import Participant from '../Participant/Participant';
 import { makeStyles, createStyles, Theme } from '@material-ui/core/styles';
-import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipant';
-import useParticipantsContext from '../../hooks/useParticipantsContext/useParticipantsContext';
-import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
-import useSelectedParticipant from '../VideoProvider/useSelectedParticipant/useSelectedParticipant';
-import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/useScreenShareParticipant';
+import useSpeakerViewTiles from '../../hooks/useSpeakerViewTiles/useSpeakerViewTiles';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -43,15 +39,9 @@ const useStyles = makeStyles((theme: Theme) =>
 
 export default function ParticipantList() {
   const classes = useStyles();
-  const { room } = useVideoContext();
-  const localParticipant = room!.localParticipant;
-  const { speakerViewParticipants } = useParticipantsContext();
-  const [selectedParticipant, setSelectedParticipant] = useSelectedParticipant();
-  const screenShareParticipant = useScreenShareParticipant();
-  const mainParticipant = useMainParticipant();
-  const isRemoteParticipantScreenSharing = screenShareParticipant && screenShareParticipant !== localParticipant;
+  const { localParticipant, tiles, isRemoteParticipantScreenSharing } = useSpeakerViewTiles();
 
-  if (speakerViewParticipants.length === 0) return null; // Don't render this component if there are no remote participants.
+  if (tiles.length === 0) return null; // Don't render this component if there are no remote participants.
 
   return (
     <aside
@@ -62,20 +52,15 @@ export default function ParticipantList() {
       <div className={classes.scrollContainer}>
         <div className={classes.innerScrollContainer}>
           <Participant participant={localParticipant} isLocalParticipant={true} />
-          {speakerViewParticipants.map(participant => {
-            const isSelected = participant === selectedParticipant;
-            const hideParticipant =
-              participant === mainParticipant && participant !== screenShareParticipant && !isSelected;
-            return (
-              <Participant
-                key={participant.sid}
-                participant={participant}
-                isSelected={participant === selectedParticipant}
-                onClick={() => setSelectedParticipant(participant)}
-                hideParticipant={hideParticipant}
-              />
-            );
-          })}
+          {tiles.map(({ participant, isSelected, hidden, select }) => (
+            <Participant
+              key={participant.sid}
+              participant={participant}
+              isSelected={isSelected}
+              onClick={select}
+              hideParticipant={hidden}
+            />
+          ))}
         </div>
       </div>
     </aside>
