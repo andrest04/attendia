@@ -8,11 +8,57 @@ import AttendiaLogo from '../Brand/AttendiaLogo';
 import { routes } from '../../routes';
 import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
 
+/**
+ * The lobby is tinted by role: teacher keeps the default blue palette; the student flow swaps the
+ * page background and decorative circles to amber so the two entry points read differently at a
+ * glance (in-room UI is not affected). Each role is one row of this table, exposed to the styles
+ * below as CSS custom properties on the page root — no per-role override classes to keep in sync.
+ */
+const ROLE_THEME = {
+  teacher: {
+    pageBg: '#f0f5ff',
+    circle1: 'rgba(29,110,237,0.07)',
+    circle2: 'rgba(29,110,237,0.05)',
+    circle3: 'rgba(255,184,0,0.06)',
+    circle4: 'rgba(29,110,237,0.05)',
+    badgeBg: '#e3edfb',
+    badgeBorder: '1px solid rgba(29,110,237,0.18)',
+    badgeDot: '#1d6eed',
+    badgeText: '#1d6eed',
+  },
+  student: {
+    pageBg: '#fffaec',
+    circle1: 'rgba(255,184,0,0.10)',
+    circle2: 'rgba(255,184,0,0.06)',
+    circle3: 'rgba(29,110,237,0.05)',
+    circle4: 'rgba(255,184,0,0.07)',
+    badgeBg: '#fdf3d7',
+    badgeBorder: '1px solid rgba(217,119,6,0.25)',
+    badgeDot: '#d97706',
+    badgeText: '#b45309',
+  },
+};
+
+const roleThemeVariables = (role: keyof typeof ROLE_THEME): React.CSSProperties => {
+  const theme = ROLE_THEME[role];
+  return {
+    '--role-page-bg': theme.pageBg,
+    '--role-circle-1': theme.circle1,
+    '--role-circle-2': theme.circle2,
+    '--role-circle-3': theme.circle3,
+    '--role-circle-4': theme.circle4,
+    '--role-badge-bg': theme.badgeBg,
+    '--role-badge-border': theme.badgeBorder,
+    '--role-badge-dot': theme.badgeDot,
+    '--role-badge-text': theme.badgeText,
+  } as React.CSSProperties;
+};
+
 const useStyles = makeStyles((theme: Theme) => ({
   // ── Full-page layout ─────────────────────────────────────────────────────────
   root: {
     minHeight: '100%',
-    backgroundColor: '#f0f5ff',
+    backgroundColor: 'var(--role-page-bg)',
     // Role tint (blue <-> amber) animates instead of snapping when the user
     // switches role cards on the login/lobby screens.
     transition: 'background-color 0.5s ease',
@@ -43,7 +89,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: 320,
     height: 320,
     borderRadius: '50%',
-    background: 'rgba(29,110,237,0.07)',
+    background: 'var(--role-circle-1)',
     top: -80,
     left: -80,
     pointerEvents: 'none',
@@ -54,7 +100,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: 200,
     height: 200,
     borderRadius: '50%',
-    background: 'rgba(29,110,237,0.05)',
+    background: 'var(--role-circle-2)',
     top: 60,
     right: -40,
     pointerEvents: 'none',
@@ -65,7 +111,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: 260,
     height: 260,
     borderRadius: '50%',
-    background: 'rgba(255,184,0,0.06)',
+    background: 'var(--role-circle-3)',
     bottom: 60,
     right: 80,
     pointerEvents: 'none',
@@ -76,42 +122,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: 180,
     height: 180,
     borderRadius: '50%',
-    background: 'rgba(29,110,237,0.05)',
+    background: 'var(--role-circle-4)',
     bottom: -40,
     left: 120,
     pointerEvents: 'none',
     transition: 'background 0.5s ease',
-  },
-
-  // ── Student (warm) page variant ──────────────────────────────────────────────
-  // The lobby is tinted by role: teacher keeps the default blue palette; the
-  // student flow swaps the page background and decorative circles to amber so the
-  // two entry points read differently at a glance. In-room UI is not affected.
-  // These overrides are defined after the base classes so they win in JSS order.
-  rootStudent: {
-    backgroundColor: '#fffaec',
-  },
-  bgCircle1Student: {
-    background: 'rgba(255,184,0,0.10)',
-  },
-  bgCircle2Student: {
-    background: 'rgba(255,184,0,0.06)',
-  },
-  bgCircle3Student: {
-    background: 'rgba(29,110,237,0.05)',
-  },
-  bgCircle4Student: {
-    background: 'rgba(255,184,0,0.07)',
-  },
-  heroBadgeStudent: {
-    backgroundColor: '#fdf3d7',
-    border: '1px solid rgba(217,119,6,0.25)',
-  },
-  heroBadgeDotStudent: {
-    backgroundColor: '#d97706',
-  },
-  heroBadgeTextStudent: {
-    color: '#b45309',
   },
 
   // ── Header ──────────────────────────────────────────────────────────────────
@@ -180,8 +195,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#e3edfb',
-    border: '1px solid rgba(29,110,237,0.18)',
+    backgroundColor: 'var(--role-badge-bg)',
+    border: 'var(--role-badge-border)',
     borderRadius: 20,
     padding: '7px 17px',
     marginBottom: 'clamp(6px, 1.2vh, 14px)',
@@ -191,7 +206,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     width: 7,
     height: 7,
     borderRadius: '50%',
-    backgroundColor: '#1d6eed',
+    backgroundColor: 'var(--role-badge-dot)',
     flexShrink: 0,
     transition: 'background-color 0.5s ease',
   },
@@ -200,7 +215,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontFamily: 'Poppins, Inter, sans-serif',
     fontWeight: 600,
     fontSize: 12,
-    color: '#1d6eed',
+    color: 'var(--role-badge-text)',
     lineHeight: '18px',
     whiteSpace: 'nowrap',
   },
@@ -354,6 +369,7 @@ const IntroContainer = (props: IntroContainerProps) => {
   const history = useHistory();
   const rootRef = React.useRef<HTMLDivElement>(null);
   const isStudent = props.homeRole === 'student';
+  const roleThemeStyle = roleThemeVariables(isStudent ? 'student' : 'teacher');
   const [createPasswordOpen, setCreatePasswordOpen] = useState(false);
 
   // The header logo doubles as a "go home" control: it returns to the lobby (root) for the
@@ -392,13 +408,13 @@ const IntroContainer = (props: IntroContainerProps) => {
   }, [props.noHero, location.pathname]);
 
   return (
-    <div className={`${classes.root}${isStudent ? ` ${classes.rootStudent}` : ''}`} ref={rootRef}>
+    <div className={classes.root} style={roleThemeStyle} ref={rootRef}>
       {/* Decorative background blobs (clipped so they never create scroll) */}
       <div className={classes.bgDecor} aria-hidden="true">
-        <div className={`${classes.bgCircle1}${isStudent ? ` ${classes.bgCircle1Student}` : ''}`} />
-        <div className={`${classes.bgCircle2}${isStudent ? ` ${classes.bgCircle2Student}` : ''}`} />
-        <div className={`${classes.bgCircle3}${isStudent ? ` ${classes.bgCircle3Student}` : ''}`} />
-        <div className={`${classes.bgCircle4}${isStudent ? ` ${classes.bgCircle4Student}` : ''}`} />
+        <div className={classes.bgCircle1} />
+        <div className={classes.bgCircle2} />
+        <div className={classes.bgCircle3} />
+        <div className={classes.bgCircle4} />
       </div>
 
       {/* Header — shared with Panel Docente so the profile chip looks identical everywhere */}
@@ -463,11 +479,9 @@ const IntroContainer = (props: IntroContainerProps) => {
             <div className={classes.heroLogo}>
               <AttendiaLogo variant="icon" size={46} />
             </div>
-            <div className={`${classes.heroBadge}${isStudent ? ` ${classes.heroBadgeStudent}` : ''}`}>
-              <div className={`${classes.heroBadgeDot}${isStudent ? ` ${classes.heroBadgeDotStudent}` : ''}`} />
-              <span className={`${classes.heroBadgeText}${isStudent ? ` ${classes.heroBadgeTextStudent}` : ''}`}>
-                Plataforma de Videoconferencia
-              </span>
+            <div className={classes.heroBadge}>
+              <div className={classes.heroBadgeDot} />
+              <span className={classes.heroBadgeText}>Plataforma de Videoconferencia</span>
             </div>
             <Typography component="h1" className={classes.heroTitle}>
               Bienvenido a <span className={classes.heroTitleAccent}>attendia</span>
