@@ -9,7 +9,8 @@ import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { dashboardTabPath, resourceKindIcon } from './dashboardHelpers';
+import { resourceKindIcon } from './dashboardHelpers';
+import { routePath } from '../../routes';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
@@ -529,7 +530,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
   // <video>, which also sidesteps blob: URLs' unreliable top-level-navigation
   // rendering in some browsers.
   const handleView = (resource: ResourceRecord) => {
-    window.open(`${dashboardTabPath.recursos}/${resource.id}/ver`, '_blank');
+    window.open(routePath.resourceViewer(resource.id), '_blank');
   };
 
   const handleDelete = (resource: ResourceRecord) => {

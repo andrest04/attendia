@@ -21,6 +21,8 @@ import { DashboardTabId } from './components/TeacherDashboard/types';
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
 import { useAppState } from './state';
+import { resolveScreen } from './resolveScreen';
+import { routes } from './routes';
 
 const Container = styled('div')({
   display: 'grid',
@@ -62,7 +64,7 @@ export default function App() {
     roomState
   );
   useDashboardRouteSync(dashboardActive);
-  const isProfileRoute = location.pathname === '/profile';
+  const isProfileRoute = location.pathname === routes.profile;
   const activeTabFromRoute = (Object.keys(dashboardTabPath) as DashboardTabId[]).find(
     tab => dashboardTabPath[tab] === location.pathname
   );
@@ -74,16 +76,23 @@ export default function App() {
   // flipping to false, so the click appears to do nothing.
   const startClass = (session: { roomName: string; name: string; classId?: string }) => {
     handleStartClass(session);
-    if (isDashboardTabRoute) history.push('/');
+    if (isDashboardTabRoute) history.push(routes.home);
   };
+
+  const screen = resolveScreen({
+    sessionEndedByProfessor,
+    isProfileRoute,
+    initialRole,
+    dashboardActive,
+    isDashboardTabRoute,
+    roomState,
+  });
 
   return (
     <Container style={{ height }}>
-      {sessionEndedByProfessor ? (
-        <SessionEndedScreen />
-      ) : isProfileRoute && initialRole === 'student' ? (
-        <TeacherProfilePage />
-      ) : dashboardActive || isProfileRoute || isDashboardTabRoute ? (
+      {screen === 'sessionEnded' && <SessionEndedScreen />}
+      {screen === 'studentProfile' && <TeacherProfilePage />}
+      {screen === 'dashboard' && (
         <TeacherDashboard
           onStartClass={startClass}
           showProfile={isProfileRoute}
@@ -91,13 +100,15 @@ export default function App() {
           onTabChange={navigateToDashboardTab}
           onNotificationNavigate={history.push}
         />
-      ) : roomState === 'disconnected' ? (
+      )}
+      {screen === 'prejoin' && (
         <PreJoinScreens
           initialClassSession={pendingSession ?? undefined}
           // Only teachers have a dashboard to go back to; students never see the affordance.
           onReturnToDashboard={initialRole === 'teacher' ? handleReturnToDashboard : undefined}
         />
-      ) : (
+      )}
+      {screen === 'room' && (
         <Main>
           <ReconnectingNotification />
           <RecordingNotifications />

@@ -6,6 +6,7 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import PersonIcon from '@material-ui/icons/Person';
 import { useHistory } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
+import { routes } from '../../routes';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -166,7 +167,7 @@ export default function DashboardHeader({
   const openProfile = () => {
     setProfileMenuAnchor(null);
     if (onProfileClick) onProfileClick();
-    else history.push('/profile');
+    else history.push(routes.profile);
   };
 
   const logo = <AttendiaLogo variant="full" size={28} />;
@@ -184,39 +185,41 @@ export default function DashboardHeader({
       {centerLabel && <span className={classes.centerLabel}>{centerLabel}</span>}
       <div className={classes.right}>
         {badge}
-        {showProfile && showNotifications && (notificationContent ? (
-          <>
-            <IconButton
-              className={classes.bell}
-              data-testid="dashboard-header-notifications"
-              aria-label="Abrir notificaciones"
-              aria-controls={notificationMenuAnchor ? 'dashboard-notification-menu' : undefined}
-              aria-haspopup="true"
-              aria-expanded={Boolean(notificationMenuAnchor)}
-              onClick={event => setNotificationMenuAnchor(event.currentTarget)}
-            >
-              <Badge badgeContent={notificationUnreadCount} color="primary" overlap="rectangular">
-                <NotificationsNoneIcon />
-              </Badge>
-            </IconButton>
-            <Popover
-              id="dashboard-notification-menu"
-              anchorEl={notificationMenuAnchor}
-              keepMounted
-              open={Boolean(notificationMenuAnchor)}
-              onClose={closeNotifications}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones', style: { overflow: 'hidden' } }}
-            >
-              {notificationContent(closeNotifications)}
-            </Popover>
-          </>
-        ) : (
-          <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
-            <NotificationsNoneIcon />
-          </span>
-        ))}
+        {showProfile &&
+          showNotifications &&
+          (notificationContent ? (
+            <>
+              <IconButton
+                className={classes.bell}
+                data-testid="dashboard-header-notifications"
+                aria-label="Abrir notificaciones"
+                aria-controls={notificationMenuAnchor ? 'dashboard-notification-menu' : undefined}
+                aria-haspopup="true"
+                aria-expanded={Boolean(notificationMenuAnchor)}
+                onClick={event => setNotificationMenuAnchor(event.currentTarget)}
+              >
+                <Badge badgeContent={notificationUnreadCount} color="primary" overlap="rectangular">
+                  <NotificationsNoneIcon />
+                </Badge>
+              </IconButton>
+              <Popover
+                id="dashboard-notification-menu"
+                anchorEl={notificationMenuAnchor}
+                keepMounted
+                open={Boolean(notificationMenuAnchor)}
+                onClose={closeNotifications}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones', style: { overflow: 'hidden' } }}
+              >
+                {notificationContent(closeNotifications)}
+              </Popover>
+            </>
+          ) : (
+            <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
+              <NotificationsNoneIcon />
+            </span>
+          ))}
         {showProfile && hasMenuItems && (
           <>
             <Button
@@ -277,7 +280,7 @@ export default function DashboardHeader({
                 className={`${classes.avatar} ${classes.avatarPhoto}`}
                 style={{
                   backgroundImage: `url(${professorPhotoURL})`,
-                    border: `2px solid ${identityColor === 'student' ? '#d97706' : '#1d6eed'}`,
+                  border: `2px solid ${identityColor === 'student' ? '#d97706' : '#1d6eed'}`,
                 }}
                 data-testid="dashboard-header-avatar-photo"
               />

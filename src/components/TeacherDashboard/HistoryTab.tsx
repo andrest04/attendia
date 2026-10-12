@@ -6,6 +6,7 @@ import BarChartIcon from '@material-ui/icons/BarChart';
 import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline';
 import { RecordingArtifact, RecordingArtifactStatus, StoredAttentionReport } from '../AttentionProvider/reportTypes';
 import { attentionLevelColor, attentionLevelFromPercent } from './dashboardHelpers';
+import { routePath } from '../../routes';
 import { storedReportDate } from '../AttentionReport/storedReportViewData';
 
 // How often a pending (enqueued/processing) recording's status is re-checked. Twilio
@@ -204,7 +205,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
   }, [onRequestRecording, roomSid]);
 
   const handleView = useCallback(() => {
-    window.open(`/recording/${encodeURIComponent(roomSid)}`, '_blank', 'noopener');
+    window.open(routePath.recording(roomSid), '_blank', 'noopener');
   }, [roomSid]);
 
   if (!report.recordingWasActiveAtEnd) {

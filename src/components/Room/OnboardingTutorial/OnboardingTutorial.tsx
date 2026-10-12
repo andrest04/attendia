@@ -11,6 +11,7 @@ import SecurityIcon from '@material-ui/icons/Security';
 import CloseIcon from '@material-ui/icons/Close';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
+import { routes } from '../../../routes';
 
 // ---------------------------------------------------------------------------
 // localStorage helpers (mirrors rejoinSession.ts pattern — swallow errors)
@@ -548,7 +549,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
           <div className={classes.manualRow}>
             <button
               className={classes.manualLink}
-              onClick={() => window.open('/manual', '_blank', 'noopener')}
+              onClick={() => window.open(routes.manual, '_blank', 'noopener')}
               aria-label="Acceder al manual completo"
               data-testid="onboarding-manual"
             >

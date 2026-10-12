@@ -1,6 +1,7 @@
 import React from 'react';
 import { Redirect, Route, RouteProps } from 'react-router-dom';
 import { useAppState } from '../../state';
+import { routes } from '../../routes';
 
 export default function PrivateRoute({ children, ...rest }: RouteProps) {
   const { isAuthReady, user, profile } = useAppState();
@@ -26,7 +27,7 @@ export default function PrivateRoute({ children, ...rest }: RouteProps) {
         ) : (
           <Redirect
             to={{
-              pathname: '/login',
+              pathname: routes.login,
               state: { from: location },
             }}
           />
