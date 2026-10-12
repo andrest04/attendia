@@ -1,16 +1,14 @@
 import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
-import VideocamOffIcon from '@material-ui/icons/VideocamOff';
-import SmartphoneIcon from '@material-ui/icons/Smartphone';
-import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import MicOffIcon from '@material-ui/icons/MicOff';
-import { isTeacherIdentity, stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import RoleBadge from '../../RoleBadge/RoleBadge';
 import { ParticipantAttention } from '../../AttentionProvider/types';
-import { levelLabel } from '../../AttentionProvider/attentionLabels';
-import { attBadgeBg, attBadgeText, getInitials } from './professorShellHelpers';
+import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
+import { classifyAttention } from '../../AttentionProvider/presence';
+import { getInitials, presenceView } from './professorShellHelpers';
 import { attentionStatusColors } from '../../../theme';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -147,6 +145,39 @@ interface RosterListProps {
 }
 
 /**
+ * What the roster shows next to a participant the attention pipeline knows about: their level
+ * badge when they are measured, otherwise a flag that says why there is no reading (never a
+ * stale or placeholder level).
+ */
+function AttentionDecoration({
+  attention,
+  classes,
+}: {
+  attention: ParticipantAttention;
+  classes: ReturnType<typeof useStyles>;
+}) {
+  const presence = classifyAttention(attention);
+  if (presence !== 'measured') {
+    const { Icon, label, rosterTestId } = presenceView[presence];
+    return (
+      <span className={classes.cameraOffFlag} data-testid={rosterTestId} title={label}>
+        <Icon fontSize="inherit" />
+      </span>
+    );
+  }
+  const level = ATTENTION_LEVEL_STYLE[attention.level];
+  return (
+    <span
+      className={classes.attBadge}
+      data-testid="professor-room-shell-attention-badge"
+      style={{ backgroundColor: level.badgeBg, color: level.badgeText }}
+    >
+      {level.label}
+    </span>
+  );
+}
+
+/**
  * The left-rail participant roster: avatar + name + attention decoration (badge or
  * camera-off / no-measure / unsupported flag) and a per-student moderation kebab.
  * Pins the teacher to the top and owns only the open-menu state.
@@ -190,43 +221,7 @@ export default function RosterList({ participants, attentionByIdentity, onMutePa
                 ⚠
               </span>
             )}
-            {attention?.unsupported ? (
-              <span
-                className={classes.cameraOffFlag}
-                data-testid="professor-room-shell-unsupported-flag"
-                title="No medible (celular)"
-              >
-                <SmartphoneIcon fontSize="inherit" />
-              </span>
-            ) : attention?.cameraOff ? (
-              <span
-                className={classes.cameraOffFlag}
-                data-testid="professor-room-shell-cameraoff-flag"
-                title="Cámara apagada"
-              >
-                <VideocamOffIcon fontSize="inherit" />
-              </span>
-            ) : attention && attention.faces === 0 ? (
-              // Face not detected → don't show a (stale/placeholder) level badge.
-              <span
-                className={classes.cameraOffFlag}
-                data-testid="professor-room-shell-nomeasure-flag"
-                title="Sin medición — rostro no detectado"
-              >
-                <VisibilityOffIcon fontSize="inherit" />
-              </span>
-            ) : attention ? (
-              <span
-                className={classes.attBadge}
-                data-testid="professor-room-shell-attention-badge"
-                style={{
-                  backgroundColor: attBadgeBg[attention.level],
-                  color: attBadgeText[attention.level],
-                }}
-              >
-                {levelLabel[attention.level]}
-              </span>
-            ) : null}
+            {attention && <AttentionDecoration attention={attention} classes={classes} />}
             {/* Moderation kebab — students only (never the professor's own row). */}
             {onMuteParticipant && !isTeacherIdentity(participant.identity) && (
               <div className={classes.rosterMenuWrap}>

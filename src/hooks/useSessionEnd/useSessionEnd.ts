@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import useLatest from '../useLatest/useLatest';
+import { SessionEndedMessage } from '../useClassDataChannel/classProtocol';
 import { useAppState } from '../../state';
-import { clearRejoinSession } from '../../components/PreJoinScreens/rejoinSession';
+import { leaveClass } from '../../components/PreJoinScreens/leaveClass';
 import { ReportEndReason } from '../../components/AttentionProvider/reportTypes';
+import { createApiClient } from '../../state/useFirebaseAuth/apiClient';
 
 /**
  * "End the session for everyone" signaling for the classroom flow.
@@ -28,10 +31,6 @@ import { ReportEndReason } from '../../components/AttentionProvider/reportTypes'
  * publishes one LocalDataTrack per mount, so a second caller would double-publish.
  */
 
-interface SessionEndedMessage {
-  type: 'session-ended';
-}
-
 export interface SessionEndOptions {
   /**
    * Professor-only pre-leave hook, invoked on BOTH exit paths ('ended-for-all'
@@ -54,19 +53,14 @@ export interface SessionEndApi {
 
 export default function useSessionEnd(options: SessionEndOptions = {}): SessionEndApi {
   const { room } = useVideoContext();
-  const { setSessionEndedByProfessor } = useAppState();
+  const { user, setSessionEndedByProfessor } = useAppState();
   const [isEnding, setIsEnding] = useState(false);
   const sendRef = useRef<(message: SessionEndedMessage) => void>(() => undefined);
-  const onProfessorEndRef = useRef<SessionEndOptions['onProfessorEnd']>(undefined);
-
-  useEffect(() => {
-    onProfessorEndRef.current = options.onProfessorEnd;
-  }, [options.onProfessorEnd]);
+  const onProfessorEndRef = useLatest(options.onProfessorEnd);
 
   const leaveAsEnded = useCallback(() => {
-    clearRejoinSession();
     setSessionEndedByProfessor(true);
-    room?.disconnect();
+    leaveClass(room);
   }, [room, setSessionEndedByProfessor]);
 
   const onMessage = useCallback(
@@ -95,14 +89,13 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       // source data is cleared by the provider the moment the room disconnects.
       // The saver never rejects, so this cannot skip the completion request.
       await onProfessorEndRef.current?.('ended-for-all');
-      if (roomName && identity) {
+      if (roomName && identity && user) {
         const endpoint = process.env.REACT_APP_COMPLETE_ROOM_ENDPOINT || '/completeRoom';
         const body: Record<string, unknown> = { room_name: roomName, user_identity: identity };
-        await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        });
+        // The endpoint sits behind the Firebase auth middleware, so the request must carry
+        // the teacher's ID token — without it the server answers 401 and the room is never
+        // completed for the other participants.
+        await createApiClient(user).send(endpoint, { method: 'POST', json: body });
       }
     } catch {
       // Even if completion fails (offline, transient), we still leave and show the
@@ -111,7 +104,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       setIsEnding(false);
       leaveAsEnded();
     }
-  }, [room, leaveAsEnded]);
+  }, [room, user, leaveAsEnded, onProfessorEndRef]);
 
   // "Salir sin cerrar": the professor leaves alone and the class stays open, so no
   // broadcast, no /completeRoom, and no session-ended screen. The report snapshot is
@@ -119,9 +112,8 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   // disconnect() runs, and the in-flight POST survives it (the SPA never unloads).
   const leaveWithoutEnding = useCallback(() => {
     void onProfessorEndRef.current?.('left');
-    clearRejoinSession();
-    room?.disconnect();
-  }, [room]);
+    leaveClass(room);
+  }, [room, onProfessorEndRef]);
 
   return { endSessionForAll, leaveWithoutEnding, isEnding };
 }

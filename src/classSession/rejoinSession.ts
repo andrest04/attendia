@@ -13,44 +13,30 @@
  * a stale identity.
  */
 
+import { createStorageSlot } from '../utils/createStorageSlot';
+
 export interface RejoinSession {
   roomName: string;
   identity: string;
 }
 
-const STORAGE_KEY = 'twilio-video-rejoin-session';
+const slot = createStorageSlot<RejoinSession>({
+  key: 'twilio-video-rejoin-session',
+  parse: stored => {
+    const parsed = stored as { roomName?: unknown; identity?: unknown } | null;
+    return parsed && typeof parsed.roomName === 'string' && typeof parsed.identity === 'string'
+      ? { roomName: parsed.roomName, identity: parsed.identity }
+      : null;
+  },
+});
 
-export function saveRejoinSession(session: RejoinSession): void {
-  try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  } catch {
-    // Storage can be unavailable (private mode, blocked cookies). Auto-rejoin is a
-    // convenience, so a failure here should never break joining a room.
-  }
-}
+// Storage can be unavailable (private mode, blocked cookies). Auto-rejoin is a convenience, so a
+// failure here never breaks joining a room (see createStorageSlot).
+export const saveRejoinSession = (session: RejoinSession): void => slot.write(session);
 
-export function readRejoinSession(): RejoinSession | null {
-  try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
+export const readRejoinSession = (): RejoinSession | null => slot.read();
 
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.roomName === 'string' && typeof parsed.identity === 'string') {
-      return { roomName: parsed.roomName, identity: parsed.identity };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-export function clearRejoinSession(): void {
-  try {
-    window.sessionStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // See saveRejoinSession — never throw from storage access.
-  }
-}
+export const clearRejoinSession = (): void => slot.clear();
 
 /**
  * Returns the stored session only when it belongs to the room currently in the URL.

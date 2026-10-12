@@ -18,7 +18,7 @@ import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
 import useConnectionOptions from './utils/useConnectionOptions/useConnectionOptions';
 import UnsupportedBrowserWarning from './components/UnsupportedBrowserWarning/UnsupportedBrowserWarning';
-import { dashboardTabPath } from './components/TeacherDashboard/dashboardHelpers';
+import { routes, videoAppPaths } from './routes';
 import SnackbarCloseButton from './components/SnackbarCloseButton/SnackbarCloseButton';
 
 // Standalone pages (outside the room) are code-split so their weight — recharts,
@@ -72,61 +72,46 @@ export const VideoApp = () => {
 
 export const AppRoutes = () => (
   <Switch>
-    <PrivateRoute exact path="/">
+    {/* The lobby, the profile and the dashboard tabs: real routes so the URL reflects where the
+        teacher is (bookmarks, refresh, back/forward), all rendering VideoApp — App.tsx derives the
+        screen from the pathname. */}
+    <PrivateRoute exact path={videoAppPaths}>
       <VideoApp />
     </PrivateRoute>
-    <PrivateRoute path="/room/:URLRoomName">
+    <PrivateRoute path={routes.room}>
       <VideoApp />
     </PrivateRoute>
-    <Route path="/login">
+    <Route path={routes.login}>
       <LoginPage />
     </Route>
-    <Route path="/security">
+    <Route path={routes.security}>
       <SecurityPage />
     </Route>
     {/* Full user manual — plain route, opened in a new tab from the in-room tutorial. */}
-    <Route path="/manual">
+    <Route path={routes.manual}>
       <ManualPage />
     </Route>
     {/* A report is loaded from the authenticated teacher's Firestore slice,
                   never from browser storage shared with later users. */}
-    <PrivateRoute exact path="/report/:roomSid">
+    <PrivateRoute exact path={routes.report}>
       <ReportPage />
     </PrivateRoute>
     {/* Teacher class history — needs auth (PrivateRoute) but NOT the SDK
                 providers, which live inside VideoApp, so this stays lightweight. */}
-    <PrivateRoute path="/history">
+    <PrivateRoute path={routes.history}>
       <ClassHistoryPage />
-    </PrivateRoute>
-    <PrivateRoute exact path="/profile">
-      <VideoApp />
-    </PrivateRoute>
-    {/* Teacher dashboard tabs — real routes so the URL reflects the active tab
-                  (bookmarks, refresh, browser back/forward). Same shape as /profile: all
-                  render VideoApp, and App.tsx derives which tab to show from the pathname. */}
-    <PrivateRoute exact path={dashboardTabPath.clases}>
-      <VideoApp />
-    </PrivateRoute>
-    <PrivateRoute exact path={dashboardTabPath.historial}>
-      <VideoApp />
-    </PrivateRoute>
-    <PrivateRoute exact path={dashboardTabPath.recursos}>
-      <VideoApp />
     </PrivateRoute>
     {/* Document viewer, opened in a NEW TAB from the "Ver" button on Recursos — plain
                   standalone page (no SDK providers), same shape as /report. */}
-    <PrivateRoute exact path={`${dashboardTabPath.recursos}/:resourceId/ver`}>
+    <PrivateRoute exact path={routes.resourceViewer}>
       <ResourceViewerPage />
     </PrivateRoute>
     {/* Recording player, opened in a NEW TAB from "Ver grabación" on Historial — plain
                   standalone page (no SDK providers), same shape as /report. */}
-    <PrivateRoute exact path="/recording/:roomSid">
+    <PrivateRoute exact path={routes.recording}>
       <RecordingViewerPage />
     </PrivateRoute>
-    <PrivateRoute exact path={dashboardTabPath.calendario}>
-      <VideoApp />
-    </PrivateRoute>
-    <Redirect to="/" />
+    <Redirect to={routes.home} />
   </Switch>
 );
 

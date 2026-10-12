@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import clsx from 'clsx';
 import Button from '@material-ui/core/Button';
 import PanToolIcon from '@material-ui/icons/PanTool';
-import { useToolbarButtonStyles } from '../toolbarButtonStyles';
+import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
 
 /**
  * RaiseHandButton — presentational toggle. Intentionally transport-agnostic:
@@ -47,15 +46,7 @@ export default function RaiseHandButton({
       aria-label={handRaised ? 'Bajar la mano' : 'Levantar la mano'}
       aria-pressed={handRaised}
       data-testid="raise-hand-button"
-      className={clsx(
-        classes.toolbarButton,
-        plain && classes.chipIcon,
-        {
-          [classes.toolbarButtonActive]: !plain && handRaised,
-          [classes.chipIconActive]: plain && handRaised,
-        },
-        className
-      )}
+      className={toolbarButtonClass(classes, { active: handRaised, plain, className })}
     >
       {iconOnly ? null : handRaised ? 'Bajar mano' : 'Levantar mano'}
     </Button>

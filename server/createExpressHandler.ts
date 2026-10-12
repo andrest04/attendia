@@ -1,27 +1,13 @@
-import 'dotenv/config';
 import type { Request, Response } from 'express';
 import type { ServerlessContext, ServerlessFunction } from './types';
-import Twilio from 'twilio';
-
-const {
-  TWILIO_ACCOUNT_SID,
-  TWILIO_API_KEY_SID,
-  TWILIO_API_KEY_SECRET,
-  TWILIO_CONVERSATIONS_SERVICE_SID,
-  REACT_APP_TWILIO_ENVIRONMENT,
-} = process.env;
-
-export const twilioClient = Twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, {
-  accountSid: TWILIO_ACCOUNT_SID,
-  region: REACT_APP_TWILIO_ENVIRONMENT === 'prod' ? undefined : REACT_APP_TWILIO_ENVIRONMENT,
-});
+import { twilioClient, twilioConfig } from './twilioClient';
 
 const context: ServerlessContext = {
-  ACCOUNT_SID: TWILIO_ACCOUNT_SID,
-  TWILIO_API_KEY_SID,
-  TWILIO_API_KEY_SECRET,
+  ACCOUNT_SID: twilioConfig.accountSid,
+  TWILIO_API_KEY_SID: twilioConfig.apiKeySid,
+  TWILIO_API_KEY_SECRET: twilioConfig.apiKeySecret,
   ROOM_TYPE: 'group',
-  CONVERSATIONS_SERVICE_SID: TWILIO_CONVERSATIONS_SERVICE_SID,
+  CONVERSATIONS_SERVICE_SID: twilioConfig.conversationsServiceSid,
   getTwilioClient: () => twilioClient,
 };
 

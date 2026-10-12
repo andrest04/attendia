@@ -11,27 +11,23 @@ import SecurityIcon from '@material-ui/icons/Security';
 import CloseIcon from '@material-ui/icons/Close';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
+import { routes } from '../../../routes';
+import { createStorageSlot } from '../../../utils/createStorageSlot';
 
 // ---------------------------------------------------------------------------
-// localStorage helpers (mirrors rejoinSession.ts pattern — swallow errors)
+// "Already seen" flag, kept per browser (a failing storage just shows the tour again)
 // ---------------------------------------------------------------------------
 const STORAGE_KEY = 'attendia-onboarding-done';
 
-function isOnboardingDone(): boolean {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
+const onboardingDone = createStorageSlot<true>({
+  key: STORAGE_KEY,
+  area: 'localStorage',
+  parse: stored => (stored === true ? true : null),
+});
 
-function markOnboardingDone(): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, 'true');
-  } catch {
-    // swallow
-  }
-}
+const isOnboardingDone = (): boolean => onboardingDone.read() === true;
+
+const markOnboardingDone = (): void => onboardingDone.write(true);
 
 // ---------------------------------------------------------------------------
 // Step definitions
@@ -548,7 +544,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
           <div className={classes.manualRow}>
             <button
               className={classes.manualLink}
-              onClick={() => window.open('/manual', '_blank', 'noopener')}
+              onClick={() => window.open(routes.manual, '_blank', 'noopener')}
               aria-label="Acceder al manual completo"
               data-testid="onboarding-manual"
             >

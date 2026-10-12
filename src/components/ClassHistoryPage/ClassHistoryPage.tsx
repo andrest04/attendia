@@ -10,11 +10,12 @@ import HistoryIcon from '@material-ui/icons/History';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import { useHistory } from 'react-router-dom';
 
-import AttendiaLogo from '../Brand/AttendiaLogo';
+import StandalonePage, { PageNavButton } from '../StandalonePage/StandalonePage';
 import AttentionReportView, { AttentionReportViewData } from '../AttentionReport/AttentionReportView';
 import { storedReportDate, storedReportToViewData } from '../AttentionReport/storedReportViewData';
 import { StoredAttentionReport } from '../AttentionProvider/reportTypes';
 import { useAppState } from '../../state';
+import { countOf } from '../../utils/pluralize';
 
 /*
  * "Historial de clases" — teacher-facing list of the attention reports persisted
@@ -32,40 +33,6 @@ const endReasonLabel: { [key: string]: string } = {
 };
 
 const useStyles = makeStyles((theme: Theme) => ({
-  root: {
-    backgroundColor: '#f0f5ff',
-    minHeight: '100vh',
-  },
-  nav: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(2),
-    padding: theme.spacing(2, 3),
-    backgroundColor: '#ffffff',
-    borderBottom: '1px solid #e2ecf9',
-  },
-  navDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#e2ecf9',
-  },
-  backButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    border: 'none',
-    background: 'none',
-    cursor: 'pointer',
-    padding: '6px 10px',
-    borderRadius: 8,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
-    color: '#1d6eed',
-    '&:hover': {
-      backgroundColor: '#ebf3ff',
-    },
-  },
   page: {
     maxWidth: 1020,
     margin: '0 auto',
@@ -256,34 +223,28 @@ export default function ClassHistoryPage() {
   const goBackToLobby = () => history.push('/');
 
   return (
-    <div className={classes.root} data-testid="class-history-page">
-      {/* Nav bar */}
-      <nav className={classes.nav}>
-        <AttendiaLogo variant="full" size={28} />
-        <div className={classes.navDivider} />
-        <button
-          type="button"
-          className={classes.backButton}
+    <StandalonePage
+      testId="class-history-page"
+      navStart={
+        <PageNavButton
           onClick={goBackToLobby}
-          data-testid="class-history-back-to-lobby"
+          icon={<ChevronLeftIcon style={{ fontSize: 16 }} />}
+          testId="class-history-back-to-lobby"
         >
-          <ChevronLeftIcon style={{ fontSize: 16 }} />
           Volver
-        </button>
-      </nav>
-
+        </PageNavButton>
+      }
+    >
       {selected ? (
         <>
           <div className={classes.detailBackRow}>
-            <button
-              type="button"
-              className={classes.backButton}
+            <PageNavButton
               onClick={() => setSelected(null)}
-              data-testid="class-history-detail-back"
+              icon={<ChevronLeftIcon style={{ fontSize: 16 }} />}
+              testId="class-history-detail-back"
             >
-              <ChevronLeftIcon style={{ fontSize: 16 }} />
               Volver al historial
-            </button>
+            </PageNavButton>
           </div>
           <AttentionReportView data={toViewData(selected)} />
         </>
@@ -347,13 +308,10 @@ export default function ClassHistoryPage() {
                     </span>
                     <span className={classes.chip}>
                       <PeopleAltIcon className={classes.chipIcon} />
-                      {report.studentCount} {report.studentCount === 1 ? 'estudiante' : 'estudiantes'}
+                      {countOf(report.studentCount, 'estudiante')}
                     </span>
                     <span className={classes.chip}>Promedio {report.groupAverage} / 100</span>
-                    <span className={classes.chip}>
-                      {(report.proctoringAlerts || []).length}{' '}
-                      {(report.proctoringAlerts || []).length === 1 ? 'alerta' : 'alertas'}
-                    </span>
+                    <span className={classes.chip}>{countOf((report.proctoringAlerts || []).length, 'alerta')}</span>
                   </div>
                 </button>
               ))}
@@ -361,6 +319,6 @@ export default function ClassHistoryPage() {
           )}
         </Container>
       )}
-    </div>
+    </StandalonePage>
   );
 }

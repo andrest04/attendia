@@ -6,6 +6,7 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import PersonIcon from '@material-ui/icons/Person';
 import { useHistory } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
+import { routes } from '../../routes';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -109,6 +110,43 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+const IDENTITY_ACCENT = { teacher: '#1d6eed', student: '#d97706' };
+
+/**
+ * The signed-in user's avatar: their photo ringed in the role accent, or an initials-style chip
+ * when they have none. Students keep their amber identity in the shared header instead of the
+ * teacher's blue.
+ */
+function ProfileAvatar({
+  photoUrl,
+  initials,
+  identity,
+  classes,
+}: {
+  photoUrl?: string;
+  initials?: string;
+  identity: 'teacher' | 'student';
+  classes: ReturnType<typeof useStyles>;
+}) {
+  const accent = IDENTITY_ACCENT[identity];
+  return photoUrl ? (
+    <span
+      className={`${classes.avatar} ${classes.avatarPhoto}`}
+      style={{ backgroundImage: `url(${photoUrl})`, border: `2px solid ${accent}` }}
+      data-testid="dashboard-header-avatar-photo"
+    />
+  ) : (
+    <span
+      className={classes.avatar}
+      style={identity === 'student' ? { backgroundColor: accent } : undefined}
+      data-testid="dashboard-header-avatar-initials"
+      aria-label={initials}
+    >
+      <PersonIcon style={{ fontSize: 20 }} />
+    </span>
+  );
+}
+
 interface Props {
   professorName?: string;
   professorInitials?: string;
@@ -166,7 +204,7 @@ export default function DashboardHeader({
   const openProfile = () => {
     setProfileMenuAnchor(null);
     if (onProfileClick) onProfileClick();
-    else history.push('/profile');
+    else history.push(routes.profile);
   };
 
   const logo = <AttendiaLogo variant="full" size={28} />;
@@ -184,39 +222,41 @@ export default function DashboardHeader({
       {centerLabel && <span className={classes.centerLabel}>{centerLabel}</span>}
       <div className={classes.right}>
         {badge}
-        {showProfile && showNotifications && (notificationContent ? (
-          <>
-            <IconButton
-              className={classes.bell}
-              data-testid="dashboard-header-notifications"
-              aria-label="Abrir notificaciones"
-              aria-controls={notificationMenuAnchor ? 'dashboard-notification-menu' : undefined}
-              aria-haspopup="true"
-              aria-expanded={Boolean(notificationMenuAnchor)}
-              onClick={event => setNotificationMenuAnchor(event.currentTarget)}
-            >
-              <Badge badgeContent={notificationUnreadCount} color="primary" overlap="rectangular">
-                <NotificationsNoneIcon />
-              </Badge>
-            </IconButton>
-            <Popover
-              id="dashboard-notification-menu"
-              anchorEl={notificationMenuAnchor}
-              keepMounted
-              open={Boolean(notificationMenuAnchor)}
-              onClose={closeNotifications}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones', style: { overflow: 'hidden' } }}
-            >
-              {notificationContent(closeNotifications)}
-            </Popover>
-          </>
-        ) : (
-          <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
-            <NotificationsNoneIcon />
-          </span>
-        ))}
+        {showProfile &&
+          showNotifications &&
+          (notificationContent ? (
+            <>
+              <IconButton
+                className={classes.bell}
+                data-testid="dashboard-header-notifications"
+                aria-label="Abrir notificaciones"
+                aria-controls={notificationMenuAnchor ? 'dashboard-notification-menu' : undefined}
+                aria-haspopup="true"
+                aria-expanded={Boolean(notificationMenuAnchor)}
+                onClick={event => setNotificationMenuAnchor(event.currentTarget)}
+              >
+                <Badge badgeContent={notificationUnreadCount} color="primary" overlap="rectangular">
+                  <NotificationsNoneIcon />
+                </Badge>
+              </IconButton>
+              <Popover
+                id="dashboard-notification-menu"
+                anchorEl={notificationMenuAnchor}
+                keepMounted
+                open={Boolean(notificationMenuAnchor)}
+                onClose={closeNotifications}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones', style: { overflow: 'hidden' } }}
+              >
+                {notificationContent(closeNotifications)}
+              </Popover>
+            </>
+          ) : (
+            <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
+              <NotificationsNoneIcon />
+            </span>
+          ))}
         {showProfile && hasMenuItems && (
           <>
             <Button
@@ -229,25 +269,12 @@ export default function DashboardHeader({
               aria-expanded={Boolean(profileMenuAnchor)}
               onClick={event => setProfileMenuAnchor(event.currentTarget)}
             >
-              {professorPhotoURL ? (
-                <span
-                  className={`${classes.avatar} ${classes.avatarPhoto}`}
-                  style={{
-                    backgroundImage: `url(${professorPhotoURL})`,
-                    border: `2px solid ${identityColor === 'student' ? '#d97706' : '#1d6eed'}`,
-                  }}
-                  data-testid="dashboard-header-avatar-photo"
-                />
-              ) : (
-                <span
-                  className={classes.avatar}
-                  style={identityColor === 'student' ? { backgroundColor: '#d97706' } : undefined}
-                  data-testid="dashboard-header-avatar-initials"
-                  aria-label={professorInitials}
-                >
-                  <PersonIcon style={{ fontSize: 20 }} />
-                </span>
-              )}
+              <ProfileAvatar
+                photoUrl={professorPhotoURL}
+                initials={professorInitials}
+                identity={identityColor}
+                classes={classes}
+              />
               <span className={classes.name}>{professorName}</span>
               <ExpandMoreIcon className={classes.chevron} />
             </Button>
@@ -272,25 +299,12 @@ export default function DashboardHeader({
         )}
         {showProfile && !hasMenuItems && (
           <span className={classes.profileStatic} data-testid="dashboard-header-profile-static">
-            {professorPhotoURL ? (
-              <span
-                className={`${classes.avatar} ${classes.avatarPhoto}`}
-                style={{
-                  backgroundImage: `url(${professorPhotoURL})`,
-                    border: `2px solid ${identityColor === 'student' ? '#d97706' : '#1d6eed'}`,
-                }}
-                data-testid="dashboard-header-avatar-photo"
-              />
-            ) : (
-              <span
-                className={classes.avatar}
-                style={identityColor === 'student' ? { backgroundColor: '#d97706' } : undefined}
-                data-testid="dashboard-header-avatar-initials"
-                aria-label={professorInitials}
-              >
-                <PersonIcon style={{ fontSize: 20 }} />
-              </span>
-            )}
+            <ProfileAvatar
+              photoUrl={professorPhotoURL}
+              initials={professorInitials}
+              identity={identityColor}
+              classes={classes}
+            />
             <span className={classes.name}>{professorName}</span>
           </span>
         )}

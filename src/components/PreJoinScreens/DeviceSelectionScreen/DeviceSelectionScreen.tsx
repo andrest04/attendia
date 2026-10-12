@@ -7,10 +7,10 @@ import SecurityIcon from '@material-ui/icons/Security';
 import WifiIcon from '@material-ui/icons/Wifi';
 
 import { LocalVideoTrack } from 'twilio-video';
-import { saveRejoinSession } from '../rejoinSession';
-import { readScheduledClassSession } from '../../TeacherDashboard/classSessionContext';
-import { hasConsent, saveConsent } from '../attentionConsent';
-import { isTeacherIdentity } from '../classSessionTypes';
+import { saveRejoinSession } from '../../../classSession/rejoinSession';
+import { readScheduledClassSession } from '../../../classSession/classSessionContext';
+import { hasConsent, saveConsent } from '../../../classSession/attentionConsent';
+import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
 import AttentionConsentModal from '../AttentionConsentModal';
 import LocalVideoPreview from './LocalVideoPreview/LocalVideoPreview';
 import SettingsMenu from './SettingsMenu/SettingsMenu';
@@ -28,6 +28,8 @@ import useStaggeredReveal from '../../../hooks/useStaggeredReveal/useStaggeredRe
 import { useKrispToggle } from '../../../hooks/useKrispToggle/useKrispToggle';
 import SmallCheckIcon from '../../../icons/SmallCheckIcon';
 import InfoIconOutlined from '../../../icons/InfoIconOutlined';
+import { featureFlags } from '../../../utils/featureFlags';
+import { selectCameraTrack } from '../../../utils/trackSelectors';
 
 // Pre-join check states share one icon vocabulary across the device list.
 // 'unavailable' = the check can't run right now and that's expected (e.g. the
@@ -467,9 +469,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
 
   const { hasAudioInputDevices, hasVideoInputDevices, audioOutputDevices } = useDevices();
   const connection = useConnectionQuality();
-  const videoTrack = localTracks.find(track => !track.name.includes('screen') && track.kind === 'video') as
-    | LocalVideoTrack
-    | undefined;
+  const videoTrack = selectCameraTrack(localTracks) as LocalVideoTrack | undefined;
   const lighting = useLightingCheck(videoTrack);
   // A blocked/preempted camera (OS privacy switch, another app holding it) keeps
   // the Twilio track but mutes the underlying MediaStreamTrack, so no real frame
@@ -532,7 +532,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         // (teacher/student), so reconnecting with it restores the correct room shell.
         saveRejoinSession({ roomName, identity: name });
         videoConnect(token);
-        process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true' && chatConnect(token);
+        !featureFlags.isConversationsDisabled() && chatConnect(token);
       })
       // getToken now rejects when the server refuses (e.g. the room-access guard blocking
       // a student for a room the teacher hasn't opened). The error is already surfaced via
@@ -550,7 +550,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
    * not re-prompted — this covers auto-rejoin after a page refresh.
    */
   const handleJoin = () => {
-    const cvEnabled = process.env.REACT_APP_ENABLE_ATTENTION_CV === 'true';
+    const cvEnabled = featureFlags.isAttentionCvEnabled();
     const isTeacher = isTeacherIdentity(name);
 
     if (cvEnabled && !isTeacher && !hasConsent(roomName)) {
@@ -767,12 +767,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
               >
                 Entrar a la sala →
               </button>
-              <Button
-                variant="outlined"
-                color="primary"
-                className={classes.cancelButton}
-                onClick={handleCancel}
-              >
+              <Button variant="outlined" color="primary" className={classes.cancelButton} onClick={handleCancel}>
                 Cancelar
               </Button>
             </div>
@@ -780,7 +775,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         </Grid>
       </Grid>
 
-      {process.env.REACT_APP_ENABLE_ATTENTION_CV === 'true' && (
+      {featureFlags.isAttentionCvEnabled() && (
         <AttentionConsentModal
           open={consentModalOpen}
           onAccept={handleConsentAccept}

@@ -9,7 +9,7 @@ import {
   ClassSessionDraft,
   ClassSessionRole,
   isClassSessionDraftReady,
-} from '../classSessionTypes';
+} from '../../../classSession/classSessionTypes';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // ── Single-card wrapper ───────────────────────────────────────────────────────

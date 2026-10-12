@@ -3,6 +3,8 @@ import React from 'react';
 import MainParticipantInfo from './MainParticipantInfo';
 import AvatarIcon from '../../icons/AvatarIcon';
 import RoleBadge from '../RoleBadge/RoleBadge';
+import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
+import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
 import { shallow } from 'enzyme';
 import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
 
@@ -93,7 +95,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.text()).not.toContain('Reconnecting...');
+    expect(wrapper.find(ReconnectingOverlay).exists()).toBe(false);
   });
 
   it('should render the reconnecting UI when the user is reconnecting', () => {
@@ -102,7 +104,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.text()).toContain('Reconnecting...');
+    expect(wrapper.find(ReconnectingOverlay).exists()).toBe(true);
   });
 
   it('should use the switchOff status of the screen share track when it is available', () => {
@@ -163,7 +165,8 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.find('[data-testid="participant-raised-hand"]').exists()).toBe(true);
+    expect(wrapper.find(RaisedHandBadge).exists()).toBe(true);
+    expect(wrapper.find(RaisedHandBadge).prop('size')).toBe('stage');
   });
 
   it('does not render a raised-hand badge when the main participant is not raising their hand', () => {
@@ -171,6 +174,6 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.find('[data-testid="participant-raised-hand"]').exists()).toBe(false);
+    expect(wrapper.find(RaisedHandBadge).exists()).toBe(false);
   });
 });

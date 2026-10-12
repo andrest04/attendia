@@ -1,7 +1,8 @@
 import { useLocation, useParams } from 'react-router-dom';
 import { useAppState } from '../../state';
-import { getResumableSession } from '../PreJoinScreens/rejoinSession';
-import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
+import { getResumableSession } from '../../classSession/rejoinSession';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
+import { firstResolved } from '../../utils/firstResolved';
 
 /**
  * Resolves which role ('teacher' | 'student') a fresh page load should start as,
@@ -17,22 +18,40 @@ import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
  * whether to show the TeacherDashboard before the prejoin lobby. This is a pure
  * extraction — byte-for-byte the same priority chain PreJoinScreens used inline.
  */
-export default function useInitialRole(): 'teacher' | 'student' {
+type Role = 'teacher' | 'student';
+
+interface RoleSignals {
+  profileRole?: Role;
+  resumableIdentity?: string;
+  urlRoomName?: string;
+  preJoinRole?: Role;
+}
+
+// The priority list, highest first (see the numbered list above). A rule that does not apply
+// answers `undefined`, and the next one is asked.
+const ROLE_RESOLVERS: Array<(signals: RoleSignals) => Role | undefined> = [
+  ({ profileRole }) => profileRole,
+  ({ resumableIdentity }) =>
+    resumableIdentity === undefined ? undefined : isTeacherIdentity(resumableIdentity) ? 'teacher' : 'student',
+  ({ urlRoomName }) => (urlRoomName ? 'student' : undefined),
+  ({ preJoinRole }) => (preJoinRole === 'student' ? 'student' : undefined),
+];
+
+export default function useInitialRole(): Role {
   const { profile } = useAppState();
   const { URLRoomName } = useParams<{ URLRoomName?: string }>();
-  const location = useLocation<{ preJoinRole?: 'teacher' | 'student' }>();
-  const preJoinRole = location.state?.preJoinRole;
+  const location = useLocation<{ preJoinRole?: Role }>();
   const resumable = getResumableSession(URLRoomName);
 
-  return profile
-    ? profile.role
-    : resumable
-    ? isTeacherIdentity(resumable.identity)
-      ? 'teacher'
-      : 'student'
-    : URLRoomName
-    ? 'student'
-    : preJoinRole === 'student'
-    ? 'student'
-    : 'teacher';
+  return (
+    firstResolved<RoleSignals, Role>(
+      {
+        profileRole: profile?.role,
+        resumableIdentity: resumable?.identity,
+        urlRoomName: URLRoomName,
+        preJoinRole: location.state?.preJoinRole,
+      },
+      ROLE_RESOLVERS
+    ) ?? 'teacher'
+  );
 }

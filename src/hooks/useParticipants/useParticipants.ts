@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
-import { RemoteParticipant } from 'twilio-video';
+import { useContext, useState } from 'react';
+import { RemoteParticipant, Room } from 'twilio-video';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import useRosterEvents from '../useRosterEvents/useRosterEvents';
+import { RoomStateContext } from '../../components/ParticipantProvider/roomStateContext';
 
 /**
  * This hook returns an array of the video room's participants. Unlike the hooks
@@ -10,26 +12,27 @@ import useVideoContext from '../useVideoContext/useVideoContext';
  * to or disconnects from the room.
  */
 
-export default function useParticipants() {
-  const { room } = useVideoContext();
-  const [participants, setParticipants] = useState(Array.from(room?.participants.values() ?? []));
+/** The roster state machine, parameterized by room so the shared provider can reuse it. */
+export function useRoomParticipants(room: Room | null | undefined): RemoteParticipant[] {
+  const [participants, setParticipants] = useState<RemoteParticipant[]>(() =>
+    Array.from(room?.participants.values() ?? [])
+  );
 
-  useEffect(() => {
-    if (room) {
-      const participantConnected = (participant: RemoteParticipant) =>
-        setParticipants(prevParticipants => [...prevParticipants, participant]);
-
-      const participantDisconnected = (participant: RemoteParticipant) =>
-        setParticipants(prevParticipants => prevParticipants.filter(p => p !== participant));
-
-      room.on('participantConnected', participantConnected);
-      room.on('participantDisconnected', participantDisconnected);
-      return () => {
-        room.off('participantConnected', participantConnected);
-        room.off('participantDisconnected', participantDisconnected);
-      };
-    }
-  }, [room]);
+  useRosterEvents(room, {
+    onReset: setParticipants,
+    onConnected: participant => setParticipants(prevParticipants => [...prevParticipants, participant]),
+    onDisconnected: participant => setParticipants(prevParticipants => prevParticipants.filter(p => p !== participant)),
+  });
 
   return participants;
+}
+
+export default function useParticipants() {
+  const { room } = useVideoContext();
+  const shared = useContext(RoomStateContext);
+
+  // With a shared roster in place the local subscription is switched off by handing it no room.
+  const own = useRoomParticipants(shared ? undefined : room);
+
+  return shared ? shared.participants : own;
 }

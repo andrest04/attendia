@@ -2,7 +2,8 @@ import { Callback } from '../../../types';
 import { isMobile } from '../../../utils';
 import Video, { ConnectOptions, LocalTrack, Room } from 'twilio-video';
 import { VideoRoomMonitor } from '@twilio/video-room-monitor';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import useLatest from '../../../hooks/useLatest/useLatest';
 
 // @ts-ignore
 window.TwilioVideo = Video;
@@ -10,23 +11,16 @@ window.TwilioVideo = Video;
 export default function useRoom(localTracks: LocalTrack[], onError: Callback, options?: ConnectOptions) {
   const [room, setRoom] = useState<Room | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const optionsRef = useRef(options);
-  const localTracksRef = useRef(localTracks);
-
-  useEffect(() => {
-    // This allows the connect function to always access the most recent version of the options object. This allows us to
-    // reliably use the connect function at any time.
-    optionsRef.current = options;
-  }, [options]);
+  // This allows the connect function to always access the most recent version of the options object. This allows us to
+  // reliably use the connect function at any time.
+  const optionsRef = useLatest(options);
 
   // Keep the latest localTracks in a ref (same pattern as optionsRef above). The connect
   // callback reads from this ref instead of closing over `localTracks`, so a connect
   // reference captured before media was acquired still publishes the current tracks. This
   // is essential for auto-rejoin, where connect is invoked from a closure created at mount
   // (localTracks = []) right after media acquisition setStates the real tracks.
-  useEffect(() => {
-    localTracksRef.current = localTracks;
-  }, [localTracks]);
+  const localTracksRef = useLatest(localTracks);
 
   const connect = useCallback(
     token => {
@@ -77,7 +71,7 @@ export default function useRoom(localTracks: LocalTrack[], onError: Callback, op
         }
       );
     },
-    [onError]
+    [onError, optionsRef, localTracksRef]
   );
 
   return { room, isConnecting, connect };

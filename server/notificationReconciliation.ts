@@ -1,7 +1,11 @@
 import { RequestHandler } from 'express';
+import { effectivelyUnread, timestampMillis } from './firestoreTime';
+import { sendBadRequest } from './http';
+import { ROOM_SID_PATTERN } from './ids';
+import { inboxGeneration, inboxUnreadCount } from './notificationInbox';
 import { ingestReportFailureEpisodes, ReportFailureEpisodeClaim } from './attentionReports';
 import { logOperationalFailure } from './operationalEvents';
-import { canonicalNotificationId, userDocument } from './notifications';
+import { canonicalNotificationId, removalEventTypeForKey, userDocument } from './notifications';
 import {
   CanonicalNotificationCandidate,
   Collection,
@@ -11,9 +15,8 @@ import {
   QueryDocumentSnapshot,
   Transaction,
 } from './notificationsTypes';
-import { authorizeTeacher } from './teacherAuthorization';
+import { teacherHandler } from './teacherHandler';
 
-const ROOM_SID = /^RM[A-Za-z0-9]{32}$/;
 const SOURCE_ID = /^[A-Za-z0-9_-]{8,128}$/;
 const CLASS_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
@@ -54,12 +57,41 @@ export interface ClassNotificationSource {
   tombstoned?: boolean;
 }
 
+// The two moments of a scheduled class that raise a notification. Each phase owns its
+// event type, key suffix and Spanish copy, so deriveClassNotification only decides WHICH
+// phase applies instead of branching on `missed` for every field.
+interface ClassPhase {
+  eventType: 'class.upcoming' | 'class.not_started';
+  keySuffix: string;
+  title(className: string | null): string;
+  message(className: string | null): string;
+}
+
+const CLASS_PHASES: { upcoming: ClassPhase; not_started: ClassPhase } = {
+  upcoming: {
+    eventType: 'class.upcoming',
+    keySuffix: 'upcoming',
+    title: className => (className ? `Clase próxima: ${className}` : 'Clase próxima'),
+    message: className =>
+      className ? `Tu clase "${className}" comienza en 15 minutos.` : 'Tu clase comienza en 15 minutos.',
+  },
+  not_started: {
+    eventType: 'class.not_started',
+    keySuffix: 'not-started',
+    title: className => (className ? `Clase no iniciada: ${className}` : 'Clase no iniciada'),
+    message: className =>
+      className
+        ? `Tu clase "${className}" programada todavía no fue iniciada.`
+        : 'La clase programada todavía no fue iniciada.',
+  },
+};
+
 export function deriveClassNotification(
   source: ClassNotificationSource,
   nowMs: number
 ): NotificationIntent {
   if (typeof source.classId !== 'string' || !CLASS_ID.test(source.classId)) return {};
-  const upcomingKey = `class:${source.classId}:upcoming`;
+  const upcomingKey = `class:${source.classId}:${CLASS_PHASES.upcoming.keySuffix}`;
   if (source.tombstoned) return { removeEventKey: upcomingKey };
   if (source.status !== 'scheduled' || !isTrustedTimestamp(source.scheduledAt) || !Number.isFinite(nowMs)) return {};
   const scheduledAtMs = source.scheduledAt.toMillis();
@@ -67,24 +99,17 @@ export function deriveClassNotification(
   const notStartedAtMs = scheduledAtMs + FIFTEEN_MINUTES_MS;
   if (nowMs < upcomingAtMs) return {};
   const missed = nowMs >= notStartedAtMs;
+  const phase = missed ? CLASS_PHASES.not_started : CLASS_PHASES.upcoming;
   const className = typeof source.title === 'string' && source.title.trim() ? source.title.trim() : null;
   return {
     removeEventKey: missed ? upcomingKey : undefined,
     candidate: {
-      eventType: missed ? 'class.not_started' : 'class.upcoming',
-      eventKey: `class:${source.classId}:${missed ? 'not-started' : 'upcoming'}`,
+      eventType: phase.eventType,
+      eventKey: `class:${source.classId}:${phase.keySuffix}`,
       source: { kind: 'class', classId: source.classId },
       eventOccurrenceAt: new Date(missed ? notStartedAtMs : upcomingAtMs),
-      title: missed
-        ? (className ? `Clase no iniciada: ${className}` : 'Clase no iniciada')
-        : (className ? `Clase próxima: ${className}` : 'Clase próxima'),
-      message: missed
-        ? (className
-          ? `Tu clase "${className}" programada todavía no fue iniciada.`
-          : 'La clase programada todavía no fue iniciada.')
-        : (className
-          ? `Tu clase "${className}" comienza en 15 minutos.`
-          : 'Tu clase comienza en 15 minutos.'),
+      title: phase.title(className),
+      message: phase.message(className),
       destination: { kind: 'classes' },
     },
   };
@@ -104,7 +129,7 @@ export function deriveRecordingNotification(
 ): CanonicalNotificationCandidate | null {
   if (
     typeof source.roomSid !== 'string' ||
-    !ROOM_SID.test(source.roomSid) ||
+    !ROOM_SID_PATTERN.test(source.roomSid) ||
     typeof source.manualRequestId !== 'string' ||
     !SOURCE_ID.test(source.manualRequestId) ||
     !isTrustedTimestamp(source.statusChangedAt)
@@ -135,7 +160,7 @@ export function deriveRecordingNotification(
 export function deriveReportNotification(source: ReportNotificationSource): NotificationIntent {
   if (
     typeof source.reportId !== 'string' ||
-    !ROOM_SID.test(source.reportId) ||
+    !ROOM_SID_PATTERN.test(source.reportId) ||
     typeof source.failureEpisodeId !== 'string' ||
     !SOURCE_ID.test(source.failureEpisodeId)
   ) return {};
@@ -182,21 +207,10 @@ type DiscoveredSources = {
 
 function validClaims(value: unknown): value is ReportFailureEpisodeClaim[] {
   return Array.isArray(value) && value.length <= MAX_PENDING_REPORT_FAILURES && value.every((claim: any) =>
-    claim && typeof claim.reportId === 'string' && ROOM_SID.test(claim.reportId) &&
+    claim && typeof claim.reportId === 'string' && ROOM_SID_PATTERN.test(claim.reportId) &&
     typeof claim.failureEpisodeId === 'string' && FAILURE_CLAIM_ID.test(claim.failureEpisodeId) &&
     typeof claim.firstFailedAtMs === 'number' && Number.isFinite(claim.firstFailedAtMs) && claim.firstFailedAtMs >= 0
   );
-}
-
-function valueMillis(value: any): number | null {
-  const result = value instanceof Date ? value.getTime() : value && typeof value.toMillis === 'function' ? value.toMillis() : NaN;
-  return Number.isFinite(result) ? result : null;
-}
-
-function effectivelyUnread(item: any, readBefore: any): boolean {
-  const createdAt = valueMillis(item.createdAt);
-  const boundary = valueMillis(readBefore);
-  return valueMillis(item.readAt) === null && !(boundary !== null && createdAt !== null && createdAt <= boundary);
 }
 
 async function discoverSources(db: NotificationsDatabase, uid: string, includeAll: boolean): Promise<DiscoveredSources> {
@@ -291,6 +305,16 @@ async function sweepRetiredClassItems(
   return { removals, classSweepAfter: nextClassSweepAfter };
 }
 
+// How each kind of source entry becomes a notification intent.
+const INTENT_DERIVERS: { [kind in SourceEntry['kind']]: (entry: SourceEntry, nowMs: number) => NotificationIntent } = {
+  recording: entry => ({
+    candidate: deriveRecordingNotification({ ...entry.data, roomSid: entry.roomSid }) || undefined,
+  }),
+  report: entry => deriveReportNotification(entry.data),
+  class: (entry, nowMs) =>
+    deriveClassNotification({ ...entry.data, classId: entry.ref.id, tombstoned: entry.tombstoned }, nowMs),
+};
+
 // Read-only: fetches the current data for every recording/report/class source and
 // derives each one's notification intent (create and/or remove a canonical item).
 async function collectSourceIntents(
@@ -315,13 +339,7 @@ async function collectSourceIntents(
     });
   }
 
-  return sourceEntries.map(entry => {
-    if (entry.kind === 'recording') {
-      return { candidate: deriveRecordingNotification({ ...entry.data, roomSid: entry.roomSid }) || undefined };
-    }
-    if (entry.kind === 'report') return deriveReportNotification(entry.data);
-    return deriveClassNotification({ ...entry.data, classId: entry.ref.id, tombstoned: entry.tombstoned }, nowMs);
-  });
+  return sourceEntries.map(entry => INTENT_DERIVERS[entry.kind](entry, nowMs));
 }
 
 type ItemEntry = {
@@ -340,8 +358,7 @@ async function readItemEntries(
   const itemEntries: ItemEntry[] = sweepRemovals.map(entry => ({ ref: entry.ref, snapshot: entry.snapshot, remove: true }));
   for (const intent of intents) {
     if (intent.removeEventKey) {
-      const eventType = intent.removeEventKey.startsWith('class:') ? 'class.upcoming' : 'report.save_failed';
-      const id = canonicalNotificationId(eventType, intent.removeEventKey);
+      const id = canonicalNotificationId(removalEventTypeForKey(intent.removeEventKey), intent.removeEventKey);
       const ref = user.collection('notificationGenerations').doc(String(generation)).collection('items').doc(id);
       itemEntries.push({ ref, snapshot: await transaction.get(ref), remove: true });
     }
@@ -363,7 +380,7 @@ function applyItemEntries(
   state: { [key: string]: any },
   createdAt: () => unknown
 ): { unreadCount: number; changed: boolean } {
-  let unreadCount = Number.isSafeInteger(state.unreadCount) ? Math.max(0, state.unreadCount) : 0;
+  let unreadCount = Math.max(0, inboxUnreadCount(state));
   let changed = false;
   const removed = new Set<string>();
   for (const entry of itemEntries.filter(value => value.remove)) {
@@ -375,8 +392,8 @@ function applyItemEntries(
   }
   for (const entry of itemEntries.filter(value => value.candidate)) {
     const candidate = entry.candidate!;
-    const occurrence = valueMillis(candidate.eventOccurrenceAt);
-    const clearBefore = valueMillis(state.clearBefore);
+    const occurrence = timestampMillis(candidate.eventOccurrenceAt);
+    const clearBefore = timestampMillis(state.clearBefore);
     if (entry.snapshot.exists || occurrence === null || (clearBefore !== null && occurrence <= clearBefore)) continue;
     transaction.create(entry.ref, {
       notificationId: entry.ref.id, ownerUid: uid, ...candidate, createdAt: createdAt(), readAt: null,
@@ -429,7 +446,7 @@ async function reconcileSources(
     const stateRef = user.collection('notificationState').doc('inbox');
     const stateSnapshot = await transaction.get(stateRef);
     const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
-    const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
+    const generation = inboxGeneration(state);
     const items = user.collection('notificationGenerations').doc(String(generation)).collection('items');
 
     // Read phase: every read below must happen before any write (transaction
@@ -457,19 +474,26 @@ export function createReconcileNotificationsHandler(
   now: () => number = Date.now,
   refreshRecordingRequest: RefreshRecordingRequest = async () => undefined
 ): RequestHandler {
-  return async (req, res) => {
-    let uid: string | undefined;
-    try {
-      uid = await authorizeTeacher(db, res);
-      if (!uid) return;
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: 'Las notificaciones solo están disponibles para profesores.',
+      failure: {
+        event: 'notification_reconcile_failed',
+        operation: 'POST /notifications/reconcile',
+        message: 'notification reconciliation failed',
+        explanation: 'No se pudieron actualizar las notificaciones.',
+      },
+    },
+    async ({ uid, req, res }) => {
       const body = req.body || {};
       if (body.scope !== 'all' && body.scope !== 'recordings') {
-        res.status(400).json({ error: { message: 'invalid reconciliation scope', explanation: 'El alcance no es válido.' } });
+        sendBadRequest(res, 'invalid reconciliation scope', 'El alcance no es válido.');
         return;
       }
       const claims = body.pendingReportFailures === undefined ? [] : body.pendingReportFailures;
       if (!validClaims(claims)) {
-        res.status(400).json({ error: { message: 'invalid report failure claims', explanation: 'Los errores pendientes no son válidos.' } });
+        sendBadRequest(res, 'invalid report failure claims', 'Los errores pendientes no son válidos.');
         return;
       }
       if (body.scope === 'all' && claims.length) {
@@ -489,11 +513,8 @@ export function createReconcileNotificationsHandler(
       const result = await reconcileSources(db, uid, body.scope === 'all', serverTimestamp, now);
       res.status(200).json(result);
       await boundedMaintenance(uid).catch(error => logOperationalFailure({
-        event: 'notification_maintenance_failed', operation: 'POST /notifications/reconcile', uid: uid!, error,
+        event: 'notification_maintenance_failed', operation: 'POST /notifications/reconcile', uid, error,
       }));
-    } catch (error) {
-      logOperationalFailure({ event: 'notification_reconcile_failed', operation: 'POST /notifications/reconcile', uid, error });
-      res.status(503).json({ error: { message: 'notification reconciliation failed', explanation: 'No se pudieron actualizar las notificaciones.' } });
     }
-  };
+  );
 }

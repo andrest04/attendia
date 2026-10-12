@@ -1,4 +1,6 @@
 import type { RequestHandler } from 'express';
+import { ExpressRequest, ExpressResponse, sendError } from './http';
+import { logOperationalFailure } from './operationalEvents';
 import type { RoomExistenceChecker } from './roomExists';
 
 export type { RoomExistenceChecker };
@@ -29,10 +31,10 @@ export type { RoomExistenceChecker };
  *      via the server-side REST call in token.js).
  *
  * The suffix check below is intentionally kept in sync with `isTeacherIdentity` in
- * src/components/PreJoinScreens/classSessionTypes.ts (the app's display-side role).
+ * src/classSession/classSessionTypes.ts (the app's display-side role).
  */
 
-// Mirror of TEACHER_DISPLAY_SUFFIX in src/components/PreJoinScreens/classSessionTypes.ts.
+// Mirror of TEACHER_DISPLAY_SUFFIX in src/classSession/classSessionTypes.ts.
 // Keep both in sync.
 const TEACHER_DISPLAY_SUFFIX = '[Profesor]';
 
@@ -44,42 +46,47 @@ export function isTeacherIdentity(identity: unknown): boolean {
     .endsWith(TEACHER_DISPLAY_SUFFIX.toLowerCase());
 }
 
-export function createRoomAccessGuard(roomExists: RoomExistenceChecker): RequestHandler {
+export type ClassRole = 'teacher' | 'student';
+
+/**
+ * Strategy for "who is asking?". Today the role is read from the client-set identity
+ * suffix (a guardrail, see the note above); making this an authenticated control only
+ * means plugging in a resolver backed by something the client cannot forge (the
+ * Firestore profile role, a custom claim) — the guard itself does not change.
+ */
+export type RoleResolver = (req: ExpressRequest, res: ExpressResponse) => ClassRole | Promise<ClassRole>;
+
+export const identitySuffixRole: RoleResolver = req =>
+  isTeacherIdentity((req.body ?? {}).user_identity) ? 'teacher' : 'student';
+
+export function createRoomAccessGuard(
+  roomExists: RoomExistenceChecker,
+  resolveRole: RoleResolver = identitySuffixRole
+): RequestHandler {
   return async (req, res, next) => {
     const body = req.body ?? {};
-    const { user_identity, room_name, create_room } = body;
+    const { room_name, create_room } = body;
 
     // Only gate requests that would create the room. create_room defaults to true to
     // match the token function; explicit create_room:false requests (e.g. the passcode
     // verification probe) never create a room here, so they pass straight through.
     const wouldCreateRoom = create_room !== false;
 
-    if (!wouldCreateRoom || isTeacherIdentity(user_identity) || !room_name) {
+    if (!wouldCreateRoom || !room_name) {
       next();
       return;
     }
 
     try {
-      if (await roomExists(room_name)) {
+      if ((await resolveRole(req, res)) === 'teacher' || (await roomExists(room_name))) {
         next();
         return;
       }
 
-      res.status(403).json({
-        error: {
-          message: 'room not found',
-          explanation:
-            'La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.',
-        },
-      });
+      sendError(res, 403, 'room not found', 'La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.');
     } catch (err) {
-      console.error('roomAccessGuard: could not verify room existence', err);
-      res.status(503).json({
-        error: {
-          message: 'room verification failed',
-          explanation: 'No pudimos verificar la sala. Intenta de nuevo en unos segundos.',
-        },
-      });
+      logOperationalFailure({ event: 'room_access_check_failed', operation: 'POST /token', error: err });
+      sendError(res, 503, 'room verification failed', 'No pudimos verificar la sala. Intenta de nuevo en unos segundos.');
     }
   };
 }

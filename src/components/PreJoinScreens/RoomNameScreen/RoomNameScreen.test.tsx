@@ -3,7 +3,7 @@ import RoomNameScreen from './RoomNameScreen';
 import { shallow } from 'enzyme';
 import { Button, TextField } from '@material-ui/core';
 import { useAppState } from '../../../state';
-import { createDefaultClassSessionDraft } from '../classSessionTypes';
+import { createDefaultClassSessionDraft } from '../../../classSession/classSessionTypes';
 
 jest.mock('../../../state');
 const mockUseAppState = useAppState as jest.Mock<any>;

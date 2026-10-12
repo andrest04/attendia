@@ -9,6 +9,7 @@ import { useAppState } from '../../../state';
 import useDevices from '../../../hooks/useDevices/useDevices';
 import useMediaStreamTrack from '../../../hooks/useMediaStreamTrack/useMediaStreamTrack';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
+import { selectAudioTrack, selectCameraTrack } from '../../../utils/trackSelectors';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -151,10 +152,8 @@ export default function ToolbarDeviceMenu({ kind, disabled, ...rest }: ToolbarDe
   const [isOpen, setIsOpen] = useState(false);
   const close = () => setIsOpen(false);
 
-  const localAudioTrack = localTracks.find(track => track.kind === 'audio') as LocalAudioTrack | undefined;
-  const localVideoTrack = localTracks.find(track => !track.name.includes('screen') && track.kind === 'video') as
-    | LocalVideoTrack
-    | undefined;
+  const localAudioTrack = selectAudioTrack(localTracks) as LocalAudioTrack | undefined;
+  const localVideoTrack = selectCameraTrack(localTracks) as LocalVideoTrack | undefined;
 
   const audioStreamTrack = useMediaStreamTrack(localAudioTrack);
   const videoStreamTrack = useMediaStreamTrack(localVideoTrack);

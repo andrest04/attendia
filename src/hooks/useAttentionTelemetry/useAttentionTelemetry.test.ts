@@ -403,4 +403,35 @@ describe('useAttentionTelemetry', () => {
       jest.useRealTimers();
     }
   });
+
+  describe('when disabled (the CV pipeline is off)', () => {
+    it('is fully inert: publishes no data track and listens to nothing', () => {
+      renderHook(() => useAttentionTelemetry(undefined, false, false, false));
+
+      expect(mockRoom.localParticipant.publishTrack).not.toHaveBeenCalled();
+      expect(mockRoom.listenerCount('participantConnected')).toBe(0);
+    });
+
+    it('runs no staleness sweep', () => {
+      jest.useFakeTimers();
+      try {
+        const setIntervalSpy = jest.spyOn(window, 'setInterval');
+        renderHook(() => useAttentionTelemetry(undefined, false, false, false));
+        expect(setIntervalSpy).not.toHaveBeenCalled();
+        setIntervalSpy.mockRestore();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('reports no remote attention', () => {
+      const { result } = renderHook(() => useAttentionTelemetry(undefined, false, false, false));
+      expect(result.current).toEqual([]);
+    });
+
+    it('is enabled by default, so existing callers are unchanged', () => {
+      renderHook(() => useAttentionTelemetry());
+      expect(mockRoom.localParticipant.publishTrack).toHaveBeenCalledTimes(1);
+    });
+  });
 });

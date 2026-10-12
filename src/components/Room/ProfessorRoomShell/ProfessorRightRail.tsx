@@ -3,14 +3,13 @@ import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import WarningIcon from '@material-ui/icons/Warning';
-import VideocamOffIcon from '@material-ui/icons/VideocamOff';
-import SmartphoneIcon from '@material-ui/icons/Smartphone';
-import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import { AttentionLevel, AttentionTimelinePoint, ParticipantAttention } from '../../AttentionProvider/types';
-import { levelColor } from '../../AttentionProvider/attentionLabels';
+import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
+import { classifyAttention } from '../../AttentionProvider/presence';
 import { attentionStatusColors } from '../../../theme';
+import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
 import GroupAttentionGauge from './GroupAttentionGauge';
-import { ProfessorRightTab } from './professorShellHelpers';
+import { presenceView, ProfessorRightTab } from './professorShellHelpers';
 
 // Code-split the timeline chart: it is the only recharts consumer on the professor
 // room path, so lazy-loading it keeps recharts out of the main bundle. The chunk is
@@ -20,37 +19,10 @@ const AttentionTimelineChart = React.lazy(() => import('./AttentionTimelineChart
 const useStyles = makeStyles((theme: Theme) => ({
   rightRail: {
     backgroundColor: '#ffffff',
-    borderLeft: '1px solid #e2ecf9',
     display: 'grid',
     gridTemplateRows: 'auto 1fr',
     minWidth: 0,
     overflow: 'hidden',
-    // Fade + micro-scale the content in as the column widens so the reveal feels
-    // smooth, not a hard clip (mirrors the left rail).
-    transition: 'opacity 0.24s ease, transform 0.24s ease, border-color 0.2s linear',
-    '@media (prefers-reduced-motion: reduce)': {
-      transition: 'none',
-    },
-  },
-  railCollapsed: {
-    borderColor: 'transparent',
-    opacity: 0,
-    transform: 'scale(0.98)',
-    pointerEvents: 'none',
-  },
-  railClose: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: '#94a3b8',
-    padding: '2px 6px',
-    borderRadius: 4,
-    fontSize: 18,
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    flexShrink: 0,
-    '&:hover': { color: '#1d2f6f', backgroundColor: '#f0f5ff' },
   },
   rightTabs: {
     display: 'flex',
@@ -253,10 +225,11 @@ export default function ProfessorRightRail({
   const classes = useStyles();
 
   return (
-    <aside
-      className={clsx(classes.rightRail, { [classes.railCollapsed]: !open })}
+    <CollapsibleRail
+      side="right"
+      open={open}
+      className={classes.rightRail}
       data-testid="professor-room-shell-right-rail"
-      aria-hidden={!open}
     >
       <div className={classes.rightTabs} data-testid="professor-room-shell-right-tabs">
         <button
@@ -287,15 +260,7 @@ export default function ProfessorRightRail({
           Chat
         </button>
         {onClose && (
-          <button
-            type="button"
-            className={classes.railClose}
-            onClick={onClose}
-            aria-label="Cerrar panel"
-            data-testid="professor-room-shell-close-right"
-          >
-            ×
-          </button>
+          <RailCloseButton onClick={onClose} aria-label="Cerrar panel" data-testid="professor-room-shell-close-right" />
         )}
       </div>
 
@@ -352,53 +317,17 @@ export default function ProfessorRightRail({
         ) : rightTab === 'individual' ? (
           <div data-testid="professor-room-shell-individual-list">
             {sortedParticipants.map(participant => {
-              if (participant.unsupported) {
-                // Mobile device — the CV pipeline is desktop-only, so attention is
-                // simply not measurable here. Distinct from "distracted" or "0%".
+              const presence = classifyAttention(participant);
+              if (presence !== 'measured') {
+                // No reading: say why instead of showing a stale value or a misleading 0%.
+                const { Icon, label, individualTestId } = presenceView[presence];
                 return (
                   <div key={participant.identity} className={classes.individualRow}>
                     <div className={classes.individualHeader}>
                       <span>{participant.identity}</span>
                     </div>
-                    <span
-                      className={classes.individualCameraOff}
-                      data-testid="professor-room-shell-individual-unsupported"
-                    >
-                      <SmartphoneIcon fontSize="inherit" /> No medible (celular)
-                    </span>
-                  </div>
-                );
-              }
-              if (participant.cameraOff) {
-                // Camera off → no live attention. Show a muted state, never the stale value.
-                return (
-                  <div key={participant.identity} className={classes.individualRow}>
-                    <div className={classes.individualHeader}>
-                      <span>{participant.identity}</span>
-                    </div>
-                    <span
-                      className={classes.individualCameraOff}
-                      data-testid="professor-room-shell-individual-cameraoff"
-                    >
-                      <VideocamOffIcon fontSize="inherit" /> Cámara apagada
-                    </span>
-                  </div>
-                );
-              }
-              if (participant.faces === 0) {
-                // Face not detected (turned away / lighting / angle) → the index has
-                // decayed to a placeholder 0. Show "sin medición", NOT "0% attention":
-                // we cannot claim she is distracted if we cannot see her face.
-                return (
-                  <div key={participant.identity} className={classes.individualRow}>
-                    <div className={classes.individualHeader}>
-                      <span>{participant.identity}</span>
-                    </div>
-                    <span
-                      className={classes.individualCameraOff}
-                      data-testid="professor-room-shell-individual-nomeasure"
-                    >
-                      <VisibilityOffIcon fontSize="inherit" /> Sin medición — rostro no detectado
+                    <span className={classes.individualCameraOff} data-testid={individualTestId}>
+                      <Icon fontSize="inherit" /> {label}
                     </span>
                   </div>
                 );
@@ -413,7 +342,7 @@ export default function ProfessorRightRail({
                   <div className={classes.progressTrack}>
                     <div
                       className={classes.progressFill}
-                      style={{ width: `${pct}%`, backgroundColor: levelColor[participant.level] }}
+                      style={{ width: `${pct}%`, backgroundColor: ATTENTION_LEVEL_STYLE[participant.level].color }}
                     />
                   </div>
                 </div>
@@ -424,6 +353,6 @@ export default function ProfessorRightRail({
           rightPanel
         )}
       </div>
-    </aside>
+    </CollapsibleRail>
   );
 }

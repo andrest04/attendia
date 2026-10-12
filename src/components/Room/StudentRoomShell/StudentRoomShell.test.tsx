@@ -1,11 +1,11 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount } from 'enzyme';
 import StudentRoomShell from './StudentRoomShell';
 import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';
 
 describe('StudentRoomShell', () => {
   it('renders the top session status bar without the Ayuda button', () => {
-    const wrapper = shallow(
+    const wrapper = mount(
       <StudentRoomShell stage={<div>stage</div>} sessionName="Matemáticas — Grupo A" participantCount={5} recording />
     );
 
@@ -19,7 +19,7 @@ describe('StudentRoomShell', () => {
   });
 
   it('renders shell primitives and the plain participant count', () => {
-    const wrapper = shallow(
+    const wrapper = mount(
       <StudentRoomShell
         stage={<div data-testid="stage-content">stage</div>}
         toolbarSlot={<div data-testid="toolbar-content">toolbar</div>}
@@ -35,22 +35,22 @@ describe('StudentRoomShell', () => {
   });
 
   it('does not render a notifications panel (notifications are professor-only)', () => {
-    const wrapper = shallow(<StudentRoomShell stage={<div>stage</div>} />);
+    const wrapper = mount(<StudentRoomShell stage={<div>stage</div>} />);
 
     expect(wrapper.find('[data-testid="student-room-shell-notifications-empty"]').exists()).toBe(false);
     expect(wrapper.text()).not.toContain('Notificaciones');
   });
 
   it('renders connectivity banner only when degraded flag is true', () => {
-    const hiddenWrapper = shallow(<StudentRoomShell stage={<div>stage</div>} isConnectivityDegraded={false} />);
+    const hiddenWrapper = mount(<StudentRoomShell stage={<div>stage</div>} isConnectivityDegraded={false} />);
     expect(hiddenWrapper.find('[data-testid="student-room-shell-connectivity-banner"]').exists()).toBe(false);
 
-    const visibleWrapper = shallow(<StudentRoomShell stage={<div>stage</div>} isConnectivityDegraded />);
+    const visibleWrapper = mount(<StudentRoomShell stage={<div>stage</div>} isConnectivityDegraded />);
     expect(visibleWrapper.find('[data-testid="student-room-shell-connectivity-banner"]').exists()).toBe(true);
   });
 
   it('renders provided stage and toolbar slots', () => {
-    const wrapper = shallow(
+    const wrapper = mount(
       <StudentRoomShell
         stage={<div data-testid="stage-content">stage</div>}
         toolbarSlot={<div data-testid="toolbar-content">toolbar</div>}
@@ -62,7 +62,7 @@ describe('StudentRoomShell', () => {
   });
 
   it('renders right panel content', () => {
-    const wrapper = shallow(
+    const wrapper = mount(
       <StudentRoomShell stage={<div>stage</div>} rightPanel={<div data-testid="right-panel-content">panel</div>} />
     );
 
@@ -70,13 +70,13 @@ describe('StudentRoomShell', () => {
   });
 
   it('does not render a separate PiP self-view (the student sees their own gallery tile instead)', () => {
-    const wrapper = shallow(<StudentRoomShell stage={<div>stage</div>} />);
+    const wrapper = mount(<StudentRoomShell stage={<div>stage</div>} />);
 
     expect(wrapper.find('[data-testid="student-room-shell-pip"]').exists()).toBe(false);
   });
 
   it('renders only the chat tab and no attention tab', () => {
-    const wrapper = shallow(<StudentRoomShell stage={<div>stage</div>} />);
+    const wrapper = mount(<StudentRoomShell stage={<div>stage</div>} />);
 
     expect(wrapper.find('[data-testid="student-room-shell-tab-chat"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="student-room-shell-tab-attention"]').exists()).toBe(false);
@@ -84,9 +84,10 @@ describe('StudentRoomShell', () => {
 
   describe('collapsible rails (Meet-style entry)', () => {
     // Rails stay mounted (collapsed to a 0px column) so they can animate open/closed;
-    // aria-hidden reflects the visible state.
+    // aria-hidden reflects the visible state. Mounted (not shallow): the rails are slot
+    // elements of RoomShellLayout, whose host markup only exists once it renders.
     it('marks both rails hidden when leftOpen and rightOpen are false', () => {
-      const wrapper = shallow(
+      const wrapper = mount(
         <StudentRoomShell
           stage={<div>stage</div>}
           rightPanel={<div data-testid="right-panel-content">panel</div>}
@@ -94,15 +95,15 @@ describe('StudentRoomShell', () => {
           rightOpen={false}
         />
       );
-      expect(wrapper.find('[data-testid="student-room-shell-left-rail"]').prop('aria-hidden')).toBe(true);
-      expect(wrapper.find('[data-testid="student-room-shell-right-rail"]').prop('aria-hidden')).toBe(true);
+      expect(wrapper.find('aside[data-testid="student-room-shell-left-rail"]').prop('aria-hidden')).toBe(true);
+      expect(wrapper.find('aside[data-testid="student-room-shell-right-rail"]').prop('aria-hidden')).toBe(true);
       // The stage and toolbar always stay put.
       expect(wrapper.find('[data-testid="student-room-shell-center-stage"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="student-room-shell-toolbar-slot"]').exists()).toBe(true);
     });
 
     it('marks only the right rail visible when just rightOpen is true', () => {
-      const wrapper = shallow(
+      const wrapper = mount(
         <StudentRoomShell
           stage={<div>stage</div>}
           rightPanel={<div data-testid="right-panel-content">panel</div>}
@@ -110,15 +111,15 @@ describe('StudentRoomShell', () => {
           rightOpen
         />
       );
-      expect(wrapper.find('[data-testid="student-room-shell-left-rail"]').prop('aria-hidden')).toBe(true);
-      expect(wrapper.find('[data-testid="student-room-shell-right-rail"]').prop('aria-hidden')).toBe(false);
+      expect(wrapper.find('aside[data-testid="student-room-shell-left-rail"]').prop('aria-hidden')).toBe(true);
+      expect(wrapper.find('aside[data-testid="student-room-shell-right-rail"]').prop('aria-hidden')).toBe(false);
       expect(wrapper.find('[data-testid="right-panel-content"]').exists()).toBe(true);
     });
 
     it('fires the close callbacks from each rail × button', () => {
       const onCloseLeft = jest.fn();
       const onCloseRight = jest.fn();
-      const wrapper = shallow(
+      const wrapper = mount(
         <StudentRoomShell
           stage={<div>stage</div>}
           leftOpen
@@ -127,10 +128,19 @@ describe('StudentRoomShell', () => {
           onCloseRight={onCloseRight}
         />
       );
-      wrapper.find('[data-testid="student-room-shell-close-left"]').simulate('click');
+      wrapper.find('button[data-testid="student-room-shell-close-left"]').simulate('click');
       expect(onCloseLeft).toHaveBeenCalled();
-      wrapper.find('[data-testid="student-room-shell-close-right"]').simulate('click');
+      wrapper.find('button[data-testid="student-room-shell-close-right"]').simulate('click');
       expect(onCloseRight).toHaveBeenCalled();
     });
+  });
+
+  it('shows first + last word initials in the roster, like the professor roster', () => {
+    const wrapper = mount(
+      <StudentRoomShell stage={<div>stage</div>} participants={[{ identity: 'Ana Maria Perez' }]} />
+    );
+
+    expect(wrapper.text()).toContain('AP');
+    expect(wrapper.text()).not.toContain('AM');
   });
 });

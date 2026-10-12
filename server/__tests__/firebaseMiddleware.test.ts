@@ -1,31 +1,4 @@
-/* eslint-disable import/first */
-process.env.REACT_APP_FIREBASE_DATABASE_URL = 'mockURL';
-
-import firebaseAuthMiddleware from '../firebaseAuthMiddleware';
-import firebaseAdmin from 'firebase-admin';
-
-jest.mock('../serviceAccountKey.json', () => ({ mockCertificate: 'foo' }), { virtual: true });
-jest.mock('firebase-admin', () => {
-  const mockVerifyIdToken = jest.fn();
-  const mockFirestore: any = jest.fn(() => ({}));
-  mockFirestore.FieldValue = { serverTimestamp: jest.fn(() => 'server-timestamp') };
-
-  return {
-    initializeApp: jest.fn(),
-    auth: () => ({
-      verifyIdToken: mockVerifyIdToken,
-    }),
-    firestore: mockFirestore,
-    storage: () => ({
-      bucket: jest.fn(() => ({})),
-    }),
-    credential: {
-      cert: jest.fn((cert: any) => cert),
-    },
-  };
-});
-
-const mockRequest: any = { get: jest.fn(() => 'mockToken') };
+import { createFirebaseAuthMiddleware } from '../firebaseAuthMiddleware';
 
 const makeResponse = () => {
   const res: any = { locals: {} };
@@ -34,22 +7,13 @@ const makeResponse = () => {
   return res;
 };
 
+const mockRequest: any = { get: jest.fn(() => 'mockToken') };
 const mockNext = jest.fn();
-
-const mockVerifyIdToken = firebaseAdmin.auth().verifyIdToken as jest.Mock<any>;
+const mockVerifyIdToken = jest.fn();
+const firebaseAuthMiddleware = createFirebaseAuthMiddleware(mockVerifyIdToken);
 
 describe('the firebaseAuthMiddleware function', () => {
   afterEach(jest.clearAllMocks);
-
-  it('should correctly initialize the firebase client exactly once (shared firebaseAdmin module)', async () => {
-    mockVerifyIdToken.mockImplementationOnce(() => Promise.resolve({ uid: 'uid-1', email: 'test@foo.com' }));
-    await firebaseAuthMiddleware(mockRequest, makeResponse(), mockNext);
-    expect(firebaseAdmin.initializeApp).toHaveBeenCalledTimes(1);
-    expect(firebaseAdmin.initializeApp).toHaveBeenCalledWith({
-      credential: { mockCertificate: 'foo' },
-      databaseURL: 'mockURL',
-    });
-  });
 
   it('should return a 401 when there is no authorization header', async () => {
     const mockRequestWithoutHeader: any = { get: () => '' };
@@ -58,6 +22,7 @@ describe('the firebaseAuthMiddleware function', () => {
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.send).toHaveBeenCalled();
     expect(mockNext).not.toHaveBeenCalled();
+    expect(mockVerifyIdToken).not.toHaveBeenCalled();
   });
 
   it('should return a 401 when there is an error verifying the token', async () => {

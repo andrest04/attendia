@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import useLatest from '../useLatest/useLatest';
+import { GrantTurnMessage, isAddressedToMe, RaiseHandMessage } from '../useClassDataChannel/classProtocol';
 
 /**
  * Classroom raise-hand / give-turn signaling over a Twilio LocalDataTrack.
@@ -23,16 +25,6 @@ import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
  * professor who refreshes (auto-rejoin) or joins late rebuild the queue.
  */
 
-interface RaiseHandMessage {
-  type: 'raise-hand';
-  raised: boolean;
-}
-
-interface GrantTurnMessage {
-  type: 'grant-turn';
-  identity: string;
-}
-
 type ClassMessage = RaiseHandMessage | GrantTurnMessage;
 
 export interface RaiseHandApi {
@@ -53,13 +45,9 @@ export default function useRaiseHand(): RaiseHandApi {
   const [raisedHands, setRaisedHands] = useState<string[]>([]);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [turnGrantedCount, setTurnGrantedCount] = useState(0);
-  const isHandRaisedRef = useRef(false);
+  const isHandRaisedRef = useLatest(isHandRaised);
   // Holds the channel's send so the message/connect handlers can re-broadcast.
   const sendRef = useRef<(message: ClassMessage) => void>(() => undefined);
-
-  useEffect(() => {
-    isHandRaisedRef.current = isHandRaised;
-  }, [isHandRaised]);
 
   const onMessage = useCallback(
     (message: ClassMessage, participant) => {
@@ -75,11 +63,7 @@ export default function useRaiseHand(): RaiseHandApi {
           }
           return prev.filter(id => id !== identity);
         });
-      } else if (
-        message.type === 'grant-turn' &&
-        typeof message.identity === 'string' &&
-        message.identity === room?.localParticipant?.identity
-      ) {
+      } else if (message.type === 'grant-turn' && isAddressedToMe(message, room)) {
         setIsHandRaised(false);
         setTurnGrantedCount(count => count + 1);
         sendRef.current({ type: 'raise-hand', raised: false });
@@ -89,11 +73,11 @@ export default function useRaiseHand(): RaiseHandApi {
   );
 
   const onParticipantConnected = useCallback(() => {
-      // Re-announce our raised hand to the late joiner — see the file header note.
-      if (isHandRaisedRef.current) {
-        sendRef.current({ type: 'raise-hand', raised: true });
-      }
-    }, []);
+    // Re-announce our raised hand to the late joiner — see the file header note.
+    if (isHandRaisedRef.current) {
+      sendRef.current({ type: 'raise-hand', raised: true });
+    }
+  }, [isHandRaisedRef]);
 
   const onParticipantDisconnected = useCallback(participant => {
     setRaisedHands(prev => prev.filter(id => id !== participant.identity));

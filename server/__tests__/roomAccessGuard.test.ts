@@ -1,4 +1,4 @@
-import { createRoomAccessGuard, isTeacherIdentity, RoomExistenceChecker } from '../roomAccessGuard';
+import { createRoomAccessGuard, identitySuffixRole, isTeacherIdentity, RoomExistenceChecker } from '../roomAccessGuard';
 
 const makeRes = () => {
   const res: any = {};
@@ -125,5 +125,48 @@ describe('createRoomAccessGuard', () => {
 
     expect(roomExists).toHaveBeenCalledWith('p');
     expect(res.status).toHaveBeenCalledWith(403);
+  });
+
+  describe('role resolution strategy', () => {
+    it('identitySuffixRole reads the role from the client-set identity suffix', () => {
+      expect(identitySuffixRole({ body: { user_identity: 'Ana [Profesor]' } } as any, makeRes())).toBe('teacher');
+      expect(identitySuffixRole({ body: { user_identity: 'María' } } as any, makeRes())).toBe('student');
+      expect(identitySuffixRole({} as any, makeRes())).toBe('student');
+    });
+
+    it('lets a pluggable resolver override the identity suffix (e.g. a verified role)', async () => {
+      roomExists.mockResolvedValue(false);
+      const guard = createRoomAccessGuard(roomExists, async () => 'student');
+      const res = makeRes();
+
+      // A forged teacher suffix no longer opens the room once the role comes from elsewhere.
+      await guard({ body: { user_identity: 'Mallory [Profesor]', room_name: 'p' } } as any, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('lets a resolved teacher through without checking the room', async () => {
+      const guard = createRoomAccessGuard(roomExists, () => 'teacher');
+
+      await guard({ body: { user_identity: 'María', room_name: 'p' } } as any, makeRes(), next);
+
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(roomExists).not.toHaveBeenCalled();
+    });
+
+    it('fails closed with 503 when the resolver throws', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const guard = createRoomAccessGuard(roomExists, () => {
+        throw new Error('role lookup down');
+      });
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'María', room_name: 'p' } } as any, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(next).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
   });
 });

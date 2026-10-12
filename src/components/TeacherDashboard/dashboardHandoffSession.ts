@@ -12,32 +12,20 @@
  * tab and cleared when the tab closes.
  */
 
+import { createStorageSlot } from '../../utils/createStorageSlot';
+
 type PendingSession = { roomName: string; name: string; classId?: string } | null;
 
 interface DashboardHandoffSession {
   pendingSession: PendingSession;
 }
 
-const STORAGE_KEY = 'twilio-video-dashboard-handoff';
+const slot = createStorageSlot<DashboardHandoffSession>({
+  key: 'twilio-video-dashboard-handoff',
+  parse: stored => {
+    if (!stored || typeof stored !== 'object') return null;
 
-export function saveDashboardHandoff(pendingSession: PendingSession): void {
-  try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ pendingSession }));
-  } catch {
-    // Storage can be unavailable (private mode, blocked cookies). This is a refresh
-    // convenience, so a failure here should never break the dashboard-to-prejoin handoff.
-  }
-}
-
-export function readDashboardHandoff(): DashboardHandoffSession | null {
-  try {
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return null;
-
-    const pendingSession = parsed.pendingSession;
+    const pendingSession = (stored as { pendingSession?: any }).pendingSession;
     if (pendingSession === null) return { pendingSession: null };
     if (pendingSession && typeof pendingSession.roomName === 'string' && typeof pendingSession.name === 'string') {
       return {
@@ -49,15 +37,12 @@ export function readDashboardHandoff(): DashboardHandoffSession | null {
       };
     }
     return null;
-  } catch {
-    return null;
-  }
-}
+  },
+});
 
-export function clearDashboardHandoff(): void {
-  try {
-    window.sessionStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // See saveDashboardHandoff — never throw from storage access.
-  }
-}
+// A refresh convenience: a storage failure never breaks the dashboard-to-prejoin handoff.
+export const saveDashboardHandoff = (pendingSession: PendingSession): void => slot.write({ pendingSession });
+
+export const readDashboardHandoff = (): DashboardHandoffSession | null => slot.read();
+
+export const clearDashboardHandoff = (): void => slot.clear();

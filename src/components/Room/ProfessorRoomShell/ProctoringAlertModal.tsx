@@ -3,9 +3,9 @@ import { makeStyles } from '@material-ui/core';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import WarningIcon from '@material-ui/icons/Warning';
 import { ProctoringAlert } from '../../AttentionProvider/types';
-import { proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
+import { PROCTORING_KINDS } from '../../AttentionProvider/proctoring';
 import { attentionStatusColors } from '../../../theme';
-import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { getInitials, proctoringKindIcon, proctoringKindMessage } from './professorShellHelpers';
 
 const useStyles = makeStyles(() => ({
@@ -211,7 +211,7 @@ export default function ProctoringAlertModal({
               <KindIcon style={{ fontSize: 20, color: '#b45309' }} />
             </div>
             <div>
-              <div className={classes.modalTitle}>{proctoringKindLabel[alert.kind]}</div>
+              <div className={classes.modalTitle}>{PROCTORING_KINDS[alert.kind].label}</div>
               <div className={classes.modalCaption}>Proctoring</div>
             </div>
           </div>
@@ -233,7 +233,10 @@ export default function ProctoringAlertModal({
               <div className={classes.studentCardName}>{stripTeacherSuffix(alert.identity)}</div>
               <div className={classes.studentCardRole}>Estudiante · Sesión activa</div>
               <div className={classes.alertBox}>
-                <WarningIcon className={classes.alertBoxIcon} style={{ fontSize: 14, color: attentionStatusColors.medium }} />
+                <WarningIcon
+                  className={classes.alertBoxIcon}
+                  style={{ fontSize: 14, color: attentionStatusColors.medium }}
+                />
                 <span className={classes.alertBoxText}>
                   {proctoringKindMessage(alert.kind, stripTeacherSuffix(alert.identity), alert.detectedAt)}
                 </span>

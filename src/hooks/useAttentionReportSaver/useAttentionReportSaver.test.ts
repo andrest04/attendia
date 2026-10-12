@@ -5,7 +5,7 @@ import { AttentionContext } from '../../components/AttentionProvider';
 import { useAppState } from '../../state';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import { getPendingAttentionReports } from '../../components/AttentionReport/pendingAttentionReports';
-import { saveScheduledClassSession } from '../../components/TeacherDashboard/classSessionContext';
+import { saveScheduledClassSession } from '../../classSession/classSessionContext';
 import { MAX_REPORT_TIMELINE_POINTS } from '../../components/AttentionReport/reportMath';
 
 jest.mock('../../state');

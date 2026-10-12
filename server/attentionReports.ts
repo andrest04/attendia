@@ -1,6 +1,9 @@
 import { RequestHandler } from 'express';
-import { logOperationalFailure } from './operationalEvents';
+import { HttpError, sendBadRequest, sendError } from './http';
+import { ROOM_SID_PATTERN } from './ids';
 import { canonicalNotificationId } from './notifications';
+import { readInbox, readInboxItems, retractInboxItems } from './notificationInbox';
+import { teacherHandler } from './teacherHandler';
 
 /*
  * Firestore-backed per-class attention reports:
@@ -20,10 +23,6 @@ import { canonicalNotificationId } from './notifications';
 
 const VALID_END_REASONS = ['ended-for-all', 'left'];
 
-// Twilio room SIDs are "RM" + 32 hex/alphanumeric chars. Validating the shape also
-// sanitizes the value before it is used as a Firestore document id.
-const ROOM_SID_PATTERN = /^RM[a-zA-Z0-9]{32}$/;
-
 // Defensive caps on incoming arrays — the client-side producers already cap far
 // lower (alerts ≤3), so anything above these is a malformed payload.
 // Mirrors src/components/AttentionReport/reportMath.ts MAX_REPORT_TIMELINE_POINTS
@@ -42,14 +41,6 @@ export interface ReportFailureEpisodeClaim {
   reportId: string;
   failureEpisodeId: string;
   firstFailedAtMs: number;
-}
-
-// Decoded Firebase identity attached by firebaseAuthMiddleware. Duplicated from
-// userProfiles.ts on purpose: each server unit stays independently deployable and
-// testable (same call as the isTeacherIdentity mirror in roomAccessGuard.ts).
-export interface VerifiedFirebaseUser {
-  uid: string;
-  email?: string;
 }
 
 // ─── Structural Firestore slice ────────────────────────────────────────────────
@@ -104,53 +95,7 @@ export interface ReportsDatabase {
   runTransaction<T>(updateFunction: (transaction: ReportTransaction) => Promise<T>): Promise<T>;
 }
 
-function getVerifiedUser(res: Parameters<RequestHandler>[1]): VerifiedFirebaseUser | undefined {
-  const firebaseUser = res.locals && res.locals.firebaseUser;
-  if (firebaseUser && typeof firebaseUser.uid === 'string' && firebaseUser.uid.length > 0) {
-    return firebaseUser as VerifiedFirebaseUser;
-  }
-  return undefined;
-}
-
-function sendTeacherOnly(res: Parameters<RequestHandler>[1]) {
-  res.status(403).json({
-    error: {
-      message: 'teacher role required',
-      explanation: 'El historial de clases solo está disponible para profesores.',
-    },
-  });
-}
-
-function sendBadRequest(res: Parameters<RequestHandler>[1], message: string, explanation: string) {
-  res.status(400).json({ error: { message, explanation } });
-}
-
-/**
- * Resolves whether the verified uid holds role=teacher in Firestore. Returns
- * 'teacher' | 'forbidden'. Throws on Firestore failure (caller maps it to 503).
- */
-async function resolveIsTeacher(db: ReportsDatabase, uid: string): Promise<boolean> {
-  const snapshot = await db
-    .collection('users')
-    .doc(uid)
-    .get();
-  if (!snapshot.exists) return false;
-  const data = snapshot.data() || {};
-  return data.role === 'teacher';
-}
-
-function timestampMillis(value: any): number | null {
-  if (value instanceof Date) return value.getTime();
-  if (!value || typeof value.toMillis !== 'function') return null;
-  const result = value.toMillis();
-  return Number.isFinite(result) ? result : null;
-}
-
-function effectivelyUnread(item: { [key: string]: any }, readBefore: unknown): boolean {
-  const createdAt = timestampMillis(item.createdAt);
-  const boundary = timestampMillis(readBefore);
-  return timestampMillis(item.readAt) === null && !(boundary !== null && createdAt !== null && createdAt <= boundary);
-}
+const TEACHER_ONLY_EXPLANATION = 'El historial de clases solo está disponible para profesores.';
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -285,20 +230,23 @@ function sanitizeReportBody(body: {
 }
 
 export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: () => unknown): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'report_save_failed',
+        operation: 'POST /reports',
+        message: 'report save failed',
+        explanation: 'No pudimos guardar el reporte de la clase. Intenta de nuevo en unos segundos.',
+      },
+      mapError: (error, res) => {
+        if (!HttpError.is(error, 400)) return false;
+        sendBadRequest(res, 'class relation mismatch', 'La clase asociada no corresponde a la sala de la sesión.');
+        return true;
+      },
+    },
+    async ({ uid, req, res }) => {
       const body = req.body ?? {};
       const { report, error } = sanitizeReportBody(body);
       if (!report) {
@@ -311,7 +259,7 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
         return;
       }
 
-      const userRef = db.collection('users').doc(firebaseUser.uid);
+      const userRef = db.collection('users').doc(uid);
       const reportRef = userRef.collection('reports').doc(report.roomSid);
       const episodeRef = failureEpisodeId
         ? userRef.collection('reportFailureEpisodes').doc(failureEpisodeId)
@@ -319,12 +267,9 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
       const classRef = report.classId
         ? db
           .collection('users')
-          .doc(firebaseUser.uid)
+          .doc(uid)
           .collection('classes')
           .doc(report.classId)
-        : undefined;
-      const notificationStateRef = failureEpisodeId
-        ? userRef.collection('notificationState').doc('inbox')
         : undefined;
 
       // The report document id is the room SID. Replaying this request therefore
@@ -332,23 +277,16 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
       await db.runTransaction(async transaction => {
         const classSnapshot = classRef ? await transaction.get(classRef) : undefined;
         const episodeSnapshot = episodeRef ? await transaction.get(episodeRef) : undefined;
-        const stateSnapshot = notificationStateRef ? await transaction.get(notificationStateRef) : undefined;
-        const state = stateSnapshot && stateSnapshot.exists ? stateSnapshot.data() || {} : {};
-        const generation = Number.isSafeInteger(state.currentGeneration) ? state.currentGeneration : 0;
-        const notificationRef = failureEpisodeId
-          ? userRef.collection('notificationGenerations').doc(String(generation)).collection('items').doc(
-            canonicalNotificationId(
-              'report.save_failed', `report:${report.roomSid}:save-failed:${failureEpisodeId}`
-            )
-          )
-          : undefined;
-        const notificationSnapshot = notificationRef ? await transaction.get(notificationRef) : undefined;
+        const inbox = failureEpisodeId ? await readInbox(transaction, userRef) : undefined;
+        const [saveFailedNotification] = inbox
+          ? await readInboxItems(transaction, inbox, [
+            canonicalNotificationId('report.save_failed', `report:${report.roomSid}:save-failed:${failureEpisodeId}`),
+          ])
+          : [];
         if (classSnapshot) {
           const classData = classSnapshot.data();
           if (!classData || classData.roomName !== report.roomName) {
-            const relationError: any = new Error('class relation mismatch');
-            relationError.code = 'class relation mismatch';
-            throw relationError;
+            throw HttpError.badRequest('class relation mismatch');
           }
           transaction.update(classRef!, { status: 'completed', completedAt: serverTimestamp() });
         }
@@ -365,14 +303,8 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
               { merge: true }
             );
           }
-          if (notificationRef && notificationSnapshot && notificationSnapshot.exists) {
-            transaction.delete(notificationRef);
-            if (notificationStateRef && stateSnapshot!.exists &&
-              effectivelyUnread(notificationSnapshot.data() || {}, state.readBefore)) {
-              const unreadCount = Number.isSafeInteger(state.unreadCount) ? state.unreadCount : 0;
-              transaction.update(notificationStateRef, { unreadCount: Math.max(0, unreadCount - 1) });
-            }
-          }
+          // The failure notification is moot once the episode is resolved.
+          if (inbox && saveFailedNotification) retractInboxItems(transaction, inbox, [saveFailedNotification]);
         }
         // merge: true — a replayed save (Feature 1's keepalive-on-unload + pending-queue
         // auto-retry can legitimately resend the same roomSid) must not wipe out the
@@ -381,41 +313,27 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
       });
 
       res.status(201).json({ saved: true, roomSid: report.roomSid });
-    } catch (err) {
-      if ((err as any).code === 'class relation mismatch') {
-        sendBadRequest(res, 'class relation mismatch', 'La clase asociada no corresponde a la sala de la sesión.');
-        return;
-      }
-      logOperationalFailure({ event: 'report_save_failed', operation: 'POST /reports', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'report save failed',
-          explanation: 'No pudimos guardar el reporte de la clase. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 export function createGetReportsHandler(db: ReportsDatabase): RequestHandler {
-  return async (_req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'report_lookup_failed',
+        operation: 'GET /reports',
+        message: 'report lookup failed',
+        explanation: 'No pudimos consultar el historial de clases. Intenta de nuevo en unos segundos.',
+      },
+    },
+    async ({ uid, res }) => {
       // Single-field orderBy on a subcollection — no composite index required.
       const snapshot = await db
         .collection('users')
-        .doc(firebaseUser.uid)
+        .doc(uid)
         .collection('reports')
         .orderBy('endedAt', 'desc')
         .limit(MAX_REPORTS_RETURNED)
@@ -433,47 +351,43 @@ export function createGetReportsHandler(db: ReportsDatabase): RequestHandler {
       });
 
       res.status(200).json(reports);
-    } catch (err) {
-      logOperationalFailure({ event: 'report_lookup_failed', operation: 'GET /reports', uid: firebaseUser.uid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'report lookup failed',
-          explanation: 'No pudimos consultar el historial de clases. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }
 
 /** Fetches one report only from the verified teacher's own subcollection. */
 export function createGetReportHandler(db: ReportsDatabase): RequestHandler {
-  return async (req, res) => {
-    const firebaseUser = getVerifiedUser(res);
-    if (!firebaseUser) {
-      res.status(401).send();
-      return;
-    }
-
-    const roomSid = req.params.roomSid;
-    if (typeof roomSid !== 'string' || !ROOM_SID_PATTERN.test(roomSid)) {
-      sendBadRequest(res, 'invalid roomSid', 'El identificador de la sala no es válido.');
-      return;
-    }
-
-    try {
-      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res);
-        return;
-      }
-
+  return teacherHandler(
+    db,
+    {
+      forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+      failure: {
+        event: 'report_read_failed',
+        operation: 'GET /reports/:roomSid',
+        message: 'report lookup failed',
+        explanation: 'No pudimos consultar el reporte de la clase. Intenta de nuevo en unos segundos.',
+      },
+      // Validate the sid before the role lookup so a malformed request answers 400
+      // even for a non-teacher.
+      preValidate: (req, res) => {
+        const roomSid = req.params.roomSid;
+        if (typeof roomSid !== 'string' || !ROOM_SID_PATTERN.test(roomSid)) {
+          sendBadRequest(res, 'invalid roomSid', 'El identificador de la sala no es válido.');
+          return false;
+        }
+        return true;
+      },
+      logContext: req => ({ roomSid: req.params.roomSid }),
+    },
+    async ({ uid, req, res }) => {
       const snapshot = await db
         .collection('users')
-        .doc(firebaseUser.uid)
+        .doc(uid)
         .collection('reports')
-        .doc(roomSid)
+        .doc(req.params.roomSid)
         .get();
       if (!snapshot.data()) {
-        res.status(404).json({ error: { message: 'report not found', explanation: 'No encontramos ese reporte.' } });
+        sendError(res, 404, 'report not found', 'No encontramos ese reporte.');
         return;
       }
 
@@ -483,14 +397,6 @@ export function createGetReportHandler(db: ReportsDatabase): RequestHandler {
         roomSid: snapshot.id,
         endedAtMs: endedAt && typeof endedAt.toMillis === 'function' ? endedAt.toMillis() : null,
       });
-    } catch (err) {
-      logOperationalFailure({ event: 'report_read_failed', operation: 'GET /reports/:roomSid', uid: firebaseUser.uid, roomSid, error: err });
-      res.status(503).json({
-        error: {
-          message: 'report lookup failed',
-          explanation: 'No pudimos consultar el reporte de la clase. Intenta de nuevo en unos segundos.',
-        },
-      });
     }
-  };
+  );
 }

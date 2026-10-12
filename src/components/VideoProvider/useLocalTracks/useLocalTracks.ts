@@ -14,6 +14,36 @@ const noiseCancellationOptions: NoiseCancellationOptions = {
   vendor: 'krisp',
 };
 
+interface DeviceInput {
+  deviceId: string;
+}
+
+/**
+ * Constraints for acquiring the camera: the app defaults plus, when the device the user
+ * last picked is still plugged in, that exact device. (Both the single-camera toggle and
+ * the audio+video acquisition build the same options.)
+ */
+function buildCameraOptions(
+  selectedDeviceId: string | null,
+  videoInputDevices: DeviceInput[]
+): CreateLocalTrackOptions {
+  const hasSelectedDevice = videoInputDevices.some(device => selectedDeviceId && device.deviceId === selectedDeviceId);
+  return {
+    ...(DEFAULT_VIDEO_CONSTRAINTS as {}),
+    name: `camera-${Date.now()}`,
+    ...(hasSelectedDevice && { deviceId: { exact: selectedDeviceId! } }),
+  };
+}
+
+/** Constraints for acquiring the microphone, honoring the user's last picked device. */
+function buildMicrophoneOptions(selectedDeviceId: string | null, audioInputDevices: DeviceInput[]) {
+  const hasSelectedDevice = audioInputDevices.some(device => selectedDeviceId && device.deviceId === selectedDeviceId);
+  return {
+    noiseCancellationOptions,
+    ...(hasSelectedDevice && { deviceId: { exact: selectedDeviceId! } }),
+  };
+}
+
 export default function useLocalTracks() {
   const { setIsKrispEnabled, setIsKrispInstalled } = useAppState();
   const [audioTrack, setAudioTrack] = useState<LocalAudioTrack>();
@@ -46,17 +76,7 @@ export default function useLocalTracks() {
 
     const { videoInputDevices } = await getDeviceInfo();
 
-    const hasSelectedVideoDevice = videoInputDevices.some(
-      device => selectedVideoDeviceId && device.deviceId === selectedVideoDeviceId
-    );
-
-    const options: CreateLocalTrackOptions = {
-      ...(DEFAULT_VIDEO_CONSTRAINTS as {}),
-      name: `camera-${Date.now()}`,
-      ...(hasSelectedVideoDevice && { deviceId: { exact: selectedVideoDeviceId! } }),
-    };
-
-    return Video.createLocalVideoTrack(options).then(newTrack => {
+    return Video.createLocalVideoTrack(buildCameraOptions(selectedVideoDeviceId, videoInputDevices)).then(newTrack => {
       setVideoTrack(newTrack);
       return newTrack;
     });
@@ -101,13 +121,6 @@ export default function useLocalTracks() {
     const selectedAudioDeviceId = window.localStorage.getItem(SELECTED_AUDIO_INPUT_KEY);
     const selectedVideoDeviceId = window.localStorage.getItem(SELECTED_VIDEO_INPUT_KEY);
 
-    const hasSelectedAudioDevice = audioInputDevices.some(
-      device => selectedAudioDeviceId && device.deviceId === selectedAudioDeviceId
-    );
-    const hasSelectedVideoDevice = videoInputDevices.some(
-      device => selectedVideoDeviceId && device.deviceId === selectedVideoDeviceId
-    );
-
     // In Chrome, it is possible to deny permissions to only audio or only video.
     // If that has happened, then we don't want to attempt to acquire the device.
     const isCameraPermissionDenied = await isPermissionDenied('camera');
@@ -117,15 +130,8 @@ export default function useLocalTracks() {
     const shouldAcquireAudio = hasAudioInputDevices && !isMicrophonePermissionDenied;
 
     const localTrackConstraints = {
-      video: shouldAcquireVideo && {
-        ...(DEFAULT_VIDEO_CONSTRAINTS as {}),
-        name: `camera-${Date.now()}`,
-        ...(hasSelectedVideoDevice && { deviceId: { exact: selectedVideoDeviceId! } }),
-      },
-      audio: shouldAcquireAudio && {
-        noiseCancellationOptions,
-        ...(hasSelectedAudioDevice && { deviceId: { exact: selectedAudioDeviceId! } }),
-      },
+      video: shouldAcquireVideo && buildCameraOptions(selectedVideoDeviceId, videoInputDevices),
+      audio: shouldAcquireAudio && buildMicrophoneOptions(selectedAudioDeviceId, audioInputDevices),
     };
 
     return Video.createLocalTracks(localTrackConstraints)

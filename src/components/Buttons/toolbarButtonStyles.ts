@@ -1,3 +1,4 @@
+import clsx from 'clsx';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 
 /**
@@ -137,3 +138,32 @@ export const useToolbarButtonStyles = makeStyles((theme: Theme) =>
     },
   })
 );
+
+interface ToolbarButtonClassOptions {
+  /** The control is on (mic live, camera on, hand raised, sharing). */
+  active?: boolean;
+  /** Bare icon inside an already-circular chip: no inner circle, the chip is the only shape. */
+  plain?: boolean;
+  /** The caller's own class, always last so it can override. */
+  className?: string;
+}
+
+/**
+ * Composes the class list every toolbar toggle puts on its root `<Button>`: the base look, the
+ * plain-chip variant and the matching active tint. A function (not a wrapper component) on
+ * purpose — the buttons keep rendering a plain MUI `<Button>` as their root element.
+ */
+export function toolbarButtonClass(
+  classes: ReturnType<typeof useToolbarButtonStyles>,
+  { active = false, plain = false, className }: ToolbarButtonClassOptions = {}
+) {
+  return clsx(
+    classes.toolbarButton,
+    plain && classes.chipIcon,
+    {
+      [classes.toolbarButtonActive]: !plain && active,
+      [classes.chipIconActive]: plain && active,
+    },
+    className
+  );
+}

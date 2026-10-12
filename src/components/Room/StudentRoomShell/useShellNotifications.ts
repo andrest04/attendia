@@ -1,13 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Participant } from 'twilio-video';
-import { isTeacherIdentity } from '../../PreJoinScreens/classSessionTypes';
-
-export type ShellNotification = {
-  id: string;
-  text: string;
-  kind: 'participant' | 'local-hand';
-  createdAt: number;
-};
+import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
+import { ShellNotification } from '../shellNotification';
 
 /** The student panel is a lightweight activity log, not a firehose — keep only the most recent few. */
 const MAX_PANEL_NOTIFICATIONS = 3;

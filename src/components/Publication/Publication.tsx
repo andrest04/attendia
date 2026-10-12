@@ -4,6 +4,7 @@ import VideoTrack from '../VideoTrack/VideoTrack';
 
 import { IVideoTrack } from '../../types';
 import { LocalTrackPublication, Participant, RemoteTrackPublication, Track } from 'twilio-video';
+import { isScreenShareName } from '../../utils/trackSelectors';
 
 interface PublicationProps {
   publication: LocalTrackPublication | RemoteTrackPublication;
@@ -26,7 +27,7 @@ export default function Publication({ publication, isLocalParticipant, videoPrio
         <VideoTrack
           track={track as IVideoTrack}
           priority={videoPriority}
-          isLocal={!track.name.includes('screen') && isLocalParticipant}
+          isLocal={!isScreenShareName(track.name) && isLocalParticipant}
         />
       );
     // All participant audio tracks are rendered in ParticipantAudioTracks.tsx

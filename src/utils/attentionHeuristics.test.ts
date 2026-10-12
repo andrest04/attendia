@@ -11,6 +11,9 @@ import {
   computeHeadPoseAngles,
   stepBlinkCounter,
   stepFocusLostStateMachine,
+  createFocusLostState,
+  createWeightedIndex,
+  computeFullAttentionIndex,
   addToRollingWindow,
   computeWindowScore,
   computeEyesScore,
@@ -237,18 +240,18 @@ describe('stepBlinkCounter', () => {
 
 describe('stepFocusLostStateMachine', () => {
   function freshFocusState(): FocusLostState {
-    return { count: 0, totalLostMs: 0, lostSince: null };
+    return createFocusLostState();
   }
 
   it('does not start counting focus lost when head is straight', () => {
     const state = stepFocusLostStateMachine(freshFocusState(), false, 1000);
-    expect(state.lostSince).toBeNull();
+    expect(state.phase).toBe('ok');
     expect(state.count).toBe(0);
   });
 
   it('starts a lost session when head turns', () => {
     const state = stepFocusLostStateMachine(freshFocusState(), true, 1000);
-    expect(state.lostSince).toBe(1000);
+    expect(state).toMatchObject({ phase: 'lost', since: 1000, counted: false });
     expect(state.count).toBe(0); // not yet past threshold
   });
 
@@ -275,7 +278,7 @@ describe('stepFocusLostStateMachine', () => {
     state = stepFocusLostStateMachine(state, false, 3500);
     expect(state.totalLostMs).toBeGreaterThanOrEqual(2500);
     expect(state.totalLostMs).toBeLessThanOrEqual(2500 + 50); // tight upper bound
-    expect(state.lostSince).toBeNull();
+    expect(state.phase).toBe('ok');
   });
 
   it('a single continuous lost session of duration D yields totalLostMs === D (not inflated)', () => {
@@ -294,11 +297,28 @@ describe('stepFocusLostStateMachine', () => {
     expect(state.totalLostMs).toBeLessThanOrEqual(DURATION + 50);
   });
 
-  it('clears lostSince when focus is regained', () => {
+  it('returns to the ok phase when focus is regained', () => {
     let state = freshFocusState();
     state = stepFocusLostStateMachine(state, true, 1000);
     state = stepFocusLostStateMachine(state, false, 2000);
-    expect(state.lostSince).toBeNull();
+    expect(state.phase).toBe('ok');
+  });
+
+  it('marks the run as counted exactly once, keeping its original start time', () => {
+    let state = freshFocusState();
+    state = stepFocusLostStateMachine(state, true, 1000);
+    state = stepFocusLostStateMachine(state, true, 3001);
+    expect(state).toMatchObject({ phase: 'lost', since: 1000, counted: true, count: 1 });
+  });
+
+  it('still counts a run that starts at t=0 (the old negative-timestamp encoding could not)', () => {
+    let state = freshFocusState();
+    state = stepFocusLostStateMachine(state, true, 0);
+    state = stepFocusLostStateMachine(state, true, 2500); // counted
+    state = stepFocusLostStateMachine(state, true, 4000); // must not count again
+    expect(state.count).toBe(1);
+    state = stepFocusLostStateMachine(state, false, 4500);
+    expect(state.totalLostMs).toBe(4500);
   });
 
   it('does not double-increment count for the same sustained loss', () => {
@@ -436,5 +456,30 @@ describe('computeLabAttentionIndex', () => {
   it('clamps and rounds out-of-range inputs to [0, 100]', () => {
     expect(computeLabAttentionIndex(200, 200)).toBe(100);
     expect(computeLabAttentionIndex(-50, -50)).toBe(0);
+  });
+});
+
+describe('createWeightedIndex', () => {
+  it('weights the signals by their ratio, whatever scale the weights are on', () => {
+    const index = createWeightedIndex({ a: 1, b: 3 });
+    expect(index({ a: 100, b: 0 })).toBe(25);
+    expect(index({ a: 0, b: 100 })).toBe(75);
+    expect(createWeightedIndex({ a: 10, b: 30 })({ a: 100, b: 0 })).toBe(25);
+  });
+
+  it('rounds to the nearest integer and clamps to 0-100', () => {
+    const index = createWeightedIndex({ a: 1, b: 1 });
+    expect(index({ a: 1, b: 2 })).toBe(2); // 1.5 → 2
+    expect(index({ a: 150, b: 150 })).toBe(100);
+    expect(index({ a: -20, b: -20 })).toBe(0);
+  });
+
+  it('derives the live (eyes + head) formula from the same table as the full one', () => {
+    // eyes:posture:head is 40:30:30; dropping posture leaves eyes 4/7, head 3/7.
+    expect(computeLabAttentionIndex(70, 0)).toBe(40);
+    expect(computeLabAttentionIndex(0, 70)).toBe(30);
+    expect(computeFullAttentionIndex({ eyes: 100, posture: 0, head: 0 })).toBe(40);
+    expect(computeFullAttentionIndex({ eyes: 0, posture: 100, head: 0 })).toBe(30);
+    expect(computeFullAttentionIndex({ eyes: 80, posture: 75, head: 70 })).toBe(76);
   });
 });

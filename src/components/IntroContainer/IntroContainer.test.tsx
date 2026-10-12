@@ -181,4 +181,43 @@ describe('the IntroContainer component', () => {
       expect(wrapper.find('[data-testid="back-to-dashboard"]').exists()).toBe(false);
     });
   });
+
+  describe('role tint', () => {
+    const rootStyle = (homeRole?: 'student' | 'teacher') =>
+      shallow(
+        <IntroContainer homeRole={homeRole}>
+          <span>Test Content</span>
+        </IntroContainer>
+      ).prop('style') as { [variable: string]: string };
+
+    it('tints the student lobby amber and the teacher lobby blue through CSS variables', () => {
+      const student = rootStyle('student');
+      const teacher = rootStyle('teacher');
+
+      expect(student['--role-page-bg']).toBe('#fffaec');
+      expect(teacher['--role-page-bg']).toBe('#f0f5ff');
+      expect(student['--role-badge-dot']).not.toBe(teacher['--role-badge-dot']);
+    });
+
+    it('defaults to the teacher tint when there is no role', () => {
+      expect(rootStyle(undefined)).toEqual(rootStyle('teacher'));
+    });
+
+    it('defines every variable the styles read for both roles', () => {
+      ['student', 'teacher'].forEach(role => {
+        const style = rootStyle(role as 'student' | 'teacher');
+        [
+          '--role-page-bg',
+          '--role-circle-1',
+          '--role-circle-2',
+          '--role-circle-3',
+          '--role-circle-4',
+          '--role-badge-bg',
+          '--role-badge-border',
+          '--role-badge-dot',
+          '--role-badge-text',
+        ].forEach(variable => expect(style[variable]).toBeTruthy());
+      });
+    });
+  });
 });

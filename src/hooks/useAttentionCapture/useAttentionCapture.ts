@@ -1,20 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { LocalVideoTrack } from 'twilio-video';
 
-import {
-  computeGazeDirection,
-  computeHeadPoseAngles,
-  stepBlinkCounter,
-  stepFocusLostStateMachine,
-  addToRollingWindow,
-  computeEyesScore,
-  computeHeadScore,
-  computeLabAttentionIndex,
-  BlinkState,
-  FocusLostState,
-  RollingWindow,
-  Landmark2D,
-} from '../../utils/attentionHeuristics';
+import { analyzeFrame, AnalysisState, createLandmarker, freshAnalysisState, toFaceFrame } from './frameAnalysis';
 
 // ─── CDN constants (same as AttentionLab) ────────────────────────────────────
 // TODO: replace CDN URLs with self-hosted assets when hardening for production
@@ -27,25 +14,6 @@ const MODEL_URL =
 // 1 Hz is deliberate: the CV pipeline needs to be lightweight enough to run
 // alongside the video call itself. Higher rates can be enabled later via a config.
 export const SAMPLE_INTERVAL_MS = 1000;
-const ROLLING_WINDOW_MS = 10000;
-const BLINK_THRESHOLD = 0.45; // mirrors AttentionLab default
-
-// ─── Per-sample mutable analysis state (not exposed in React state) ───────────
-interface AnalysisState {
-  blink: BlinkState;
-  focusLost: FocusLostState;
-  gazeWindow: RollingWindow;
-  headWindow: RollingWindow;
-}
-
-function freshAnalysisState(): AnalysisState {
-  return {
-    blink: { count: 0, wasClosedLastFrame: false },
-    focusLost: { count: 0, totalLostMs: 0, lostSince: null },
-    gazeWindow: { entries: [], windowMs: ROLLING_WINDOW_MS },
-    headWindow: { entries: [], windowMs: ROLLING_WINDOW_MS },
-  };
-}
 
 // ─── Public output shape ──────────────────────────────────────────────────────
 
@@ -150,29 +118,8 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
         const { FaceLandmarker, FilesetResolver } = vision;
 
         const filesetResolver = await FilesetResolver.forVisionTasks(WASM_CDN);
-        const createOptions = (delegate: 'GPU' | 'CPU') => ({
-          baseOptions: {
-            modelAssetPath: MODEL_URL,
-            delegate,
-          },
-          runningMode: 'VIDEO' as const,
-          // Detect up to 2 faces so the multiface proctoring signal works.
-          numFaces: 2,
-          outputFaceBlendshapes: true,
-          outputFacialTransformationMatrixes: true,
-        });
-
-        // Prefer GPU; fall back to CPU when GPU initialisation fails. Some
-        // machines/browsers lack a usable WebGL context for MediaPipe, which
-        // otherwise leaves the landmarker alive but producing zero detections
-        // (face never recognised → index stuck at 0 for that participant).
-        let fl;
-        try {
-          fl = await FaceLandmarker.createFromOptions(filesetResolver, createOptions('GPU'));
-        } catch (_) {
-          if (disposed) return;
-          fl = await FaceLandmarker.createFromOptions(filesetResolver, createOptions('CPU'));
-        }
+        const fl = await createLandmarker(FaceLandmarker, filesetResolver, MODEL_URL, () => disposed);
+        if (!fl) return;
 
         // Guard: this effect may have been cleaned up while the model was loading.
         if (disposed) {
@@ -207,75 +154,17 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
             return;
           }
 
-          const numFaces: number = detection.faceLandmarks ? detection.faceLandmarks.length : 0;
-
-          let state = analysisRef.current;
-
-          if (numFaces === 0) {
-            // No face detected — push negative samples so the rolling scores
-            // decay toward 0 (same logic as AttentionLab).
-            state = {
-              ...state,
-              gazeWindow: addToRollingWindow(state.gazeWindow, false, now),
-              headWindow: addToRollingWindow(state.headWindow, false, now),
-            };
-          } else {
-            const landmarks: Landmark2D[] = detection.faceLandmarks[0];
-            const blendshapes =
-              detection.faceBlendshapes && detection.faceBlendshapes[0] ? detection.faceBlendshapes[0].categories : [];
-
-            const getBlend = (name: string): number => {
-              const cat = blendshapes.find((c: { categoryName: string }) => c.categoryName === name);
-              return cat ? cat.score : 0;
-            };
-
-            // Blink: average of left+right eyeBlink blendshapes
-            const blinkAvg = (getBlend('eyeBlinkLeft') + getBlend('eyeBlinkRight')) / 2;
-            state = { ...state, blink: stepBlinkCounter(state.blink, blinkAvg, BLINK_THRESHOLD) };
-
-            // Gaze direction from iris landmarks
-            const gaze = computeGazeDirection(landmarks);
-            const eyesClosed = blinkAvg >= BLINK_THRESHOLD;
-            const eyesOnTask = gaze.onScreen && !eyesClosed;
-
-            // Head pose from facial transformation matrix (column-major from MediaPipe)
-            const matData =
-              detection.facialTransformationMatrixes && detection.facialTransformationMatrixes[0]
-                ? Array.from(detection.facialTransformationMatrixes[0].data as Float32Array)
-                : null;
-
-            let headTurned = false;
-            let headDown = false;
-            if (matData) {
-              // MediaPipe returns column-major matrices; pass rowMajor=false
-              const headPose = computeHeadPoseAngles(matData, 30, 20, false);
-              headTurned = headPose.headTurned;
-              headDown = headPose.headDown;
-            }
-
-            // Focus-lost state machine
-            const focusLost = headTurned || headDown;
-            state = {
-              ...state,
-              focusLost: stepFocusLostStateMachine(state.focusLost, focusLost, now),
-              gazeWindow: addToRollingWindow(state.gazeWindow, eyesOnTask, now),
-              headWindow: addToRollingWindow(state.headWindow, !headTurned && !headDown, now),
-            };
-          }
-
-          analysisRef.current = state;
-
-          // Derive output scores from rolling windows
-          const eyes = computeEyesScore(state.gazeWindow);
-          const head = computeHeadScore(state.headWindow);
-          const index = computeLabAttentionIndex(eyes, head);
+          const frame = toFaceFrame(detection);
+          const analysis = analyzeFrame(analysisRef.current, frame, now);
+          analysisRef.current = analysis.state;
+          const { eyes, head, index } = analysis.scores;
 
           setResult({
             capture: 'active',
             index,
             components: { eyes, head },
-            faces: numFaces,
-            multiface: numFaces > 1,
+            faces: frame.faces,
+            multiface: frame.faces > 1,
           });
         }, SAMPLE_INTERVAL_MS);
       } catch (_) {

@@ -5,6 +5,7 @@ import ChatInput from './ChatInput/ChatInput';
 import clsx from 'clsx';
 import MessageList from './MessageList/MessageList';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
+import { featureFlags } from '../../utils/featureFlags';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -65,7 +66,7 @@ export default function ChatWindow(props: ChatWindowProps = {}) {
 export function BaseChatWindow({ embedded = false, isVisible = true }: ChatWindowProps = {}) {
   const classes = useStyles();
   const { isChatWindowOpen, setIsChatWindowOpen, messages, conversation } = useChatContext();
-  const isConversationsDisabled = process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS === 'true';
+  const isConversationsDisabled = featureFlags.isConversationsDisabled();
   const isUnavailable = isConversationsDisabled || !conversation;
   const effectiveVisible = embedded ? isVisible : isChatWindowOpen;
 

@@ -1,8 +1,8 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import { ProctoringAlert } from '../../AttentionProvider/types';
-import { proctoringKindLabel } from '../../AttentionProvider/attentionLabels';
-import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import { PROCTORING_KINDS } from '../../AttentionProvider/proctoring';
+import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { proctoringKindIcon } from './professorShellHelpers';
 
 const useStyles = makeStyles(() => ({
@@ -88,7 +88,7 @@ export default function ProctoringFeed({ visibleAlerts, source, onAlertClick }: 
               <span>{stripTeacherSuffix(alert.identity)}</span>
             </div>
             <span className={classes.proctoringAlertMeta}>
-              {proctoringKindLabel[alert.kind]} · {alert.detectedAt}
+              {PROCTORING_KINDS[alert.kind].label} · {alert.detectedAt}
             </span>
           </div>
         );

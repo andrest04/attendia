@@ -13,14 +13,14 @@ import CalendarTab from './CalendarTab';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
 import { useAppState } from '../../state';
 import ConfirmDialog from './ConfirmDialog';
-import { toClassSessionDisplayName, toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
-import { checkRoomOpen } from '../PreJoinScreens/checkRoomOpen';
+import { toClassSessionDisplayName, toClassSessionRoomName } from '../../classSession/classSessionTypes';
+import { checkRoomOpen } from '../../classSession/checkRoomOpen';
 import { mockDashboardData } from './mockDashboardData';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { UpcomingSession } from './types';
 
 jest.mock('../../state');
-jest.mock('../PreJoinScreens/checkRoomOpen');
+jest.mock('../../classSession/checkRoomOpen');
 jest.mock('./useTeacherNotifications');
 
 const mockUseAppState = useAppState as jest.Mock<any>;

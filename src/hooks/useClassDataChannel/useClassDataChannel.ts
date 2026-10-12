@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { LocalDataTrack, LocalDataTrackOptions, RemoteParticipant } from 'twilio-video';
+import { LocalDataTrackOptions, RemoteParticipant } from 'twilio-video';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import useLatest from '../useLatest/useLatest';
+import { ClassChannel, joinClassChannel } from './classChannelBus';
 
 /**
  * Generic classroom data-channel transport over a Twilio LocalDataTrack.
@@ -26,9 +28,19 @@ import useVideoContext from '../useVideoContext/useVideoContext';
  *
  * DataTracks do NOT replay messages sent before a peer subscribed, so consumers
  * that need late-join recovery re-announce their state from `onParticipantConnected`.
+ *
+ * The transport itself — the published track(s) and the receive loop — is shared by every
+ * consumer in the same room (see classChannelBus.ts); this hook is each consumer's handle
+ * on it. The wire messages are declared in classProtocol.ts.
  */
 
 export interface ClassDataChannelOptions<T> {
+  /**
+   * Whether to take part in the channel at all. While `false` nothing is published and
+   * nothing is listened to — used by consumers whose feature is switched off, so that an
+   * idle feature does not cost every participant a data track. Defaults to `true`.
+   */
+  enabled?: boolean;
   /**
    * Options for the published LocalDataTrack. Omit for a reliable/ordered track;
    * pass `{ ordered: false, maxRetransmits: 0 }` for unreliable telemetry.
@@ -52,142 +64,41 @@ export interface ClassDataChannelApi<T> {
 }
 
 export default function useClassDataChannel<T>({
+  enabled = true,
   trackOptions,
   onMessage,
   onParticipantConnected,
   onParticipantDisconnected,
 }: ClassDataChannelOptions<T>): ClassDataChannelApi<T> {
   const { room } = useVideoContext();
-  const dataTrackRef = useRef<LocalDataTrack | null>(null);
+  const channelRef = useRef<ClassChannel | null>(null);
 
-  // Callbacks and options are held in refs so the publish/receive effects depend
-  // only on [room]. Depending on the callbacks (new identities every render) would
-  // republish the track and re-subscribe every listener on each render. The refs
-  // always hold the latest closure, so event handlers see fresh state.
-  const onMessageRef = useRef(onMessage);
-  const onParticipantConnectedRef = useRef(onParticipantConnected);
-  const onParticipantDisconnectedRef = useRef(onParticipantDisconnected);
-  const trackOptionsRef = useRef(trackOptions);
-
-  useEffect(() => {
-    onMessageRef.current = onMessage;
-    onParticipantConnectedRef.current = onParticipantConnected;
-    onParticipantDisconnectedRef.current = onParticipantDisconnected;
-    trackOptionsRef.current = trackOptions;
-  });
+  // Callbacks and options are read through refs so the join/leave effect depends only on
+  // [room]. Depending on the callbacks (new identities every render) would leave and rejoin
+  // the channel on each render. The refs always hold the latest closure, so event handlers
+  // see fresh state.
+  const latest = useLatest({ onMessage, onParticipantConnected, onParticipantDisconnected });
+  const trackOptionsRef = useLatest(trackOptions);
 
   const send = useCallback((payload: T) => {
-    try {
-      dataTrackRef.current?.send(JSON.stringify(payload));
-    } catch {
-      // Track not yet connected/subscribed — dropping the signal is acceptable.
-    }
+    channelRef.current?.send(payload);
   }, []);
 
-  // Publish one LocalDataTrack per room connection. Unpublish is chained onto the
-  // publish promise so a fast unmount/remount never unpublishes a track Twilio is
-  // still in the middle of publishing (which would leave a dangling publication).
+  // Join the room's shared class channel (see classChannelBus.ts): the transport — the
+  // published DataTrack(s) and the receive loop — is owned once per room, not once per hook.
   useEffect(() => {
-    if (!room || !room.localParticipant) return () => {};
-    const localParticipant = room.localParticipant;
-    const options = trackOptionsRef.current;
-    const dataTrack = options ? new LocalDataTrack(options) : new LocalDataTrack();
-    dataTrackRef.current = dataTrack;
-    const published = Promise.resolve(localParticipant.publishTrack(dataTrack)).catch(() => undefined);
+    if (!enabled || !room || !room.localParticipant) return;
+    const channel = joinClassChannel(room, trackOptionsRef.current, {
+      onMessage: (message, participant) => latest.current.onMessage(message, participant),
+      onParticipantConnected: participant => latest.current.onParticipantConnected?.(participant),
+      onParticipantDisconnected: participant => latest.current.onParticipantDisconnected?.(participant),
+    });
+    channelRef.current = channel;
     return () => {
-      published.then(() => {
-        try {
-          localParticipant.unpublishTrack(dataTrack);
-        } catch {
-          // Already unpublished on disconnect.
-        }
-      });
-      dataTrackRef.current = null;
+      channel.leave();
+      channelRef.current = null;
     };
-  }, [room]);
-
-  // Receive loop: decode every remote message and dispatch it to onMessage.
-  useEffect(() => {
-    const cleanups: Array<() => void> = [];
-    if (!room || !room.localParticipant) return () => cleanups.forEach(off => off());
-    const attachedTracks = new Set<unknown>();
-    // Per-participant bookkeeping so a disconnect can prune just that participant's
-    // listeners/tracks, keeping attachedTracks and the listener set bounded across
-    // a long session (not only on full effect teardown).
-    const participantCleanups = new Map<any, Array<() => void>>();
-    const participantTracks = new Map<any, Set<unknown>>();
-
-    const listen = (emitter: any, event: string, handler: (...args: any[]) => void, owner?: any) => {
-      emitter.on(event, handler);
-      const off = () => emitter.off(event, handler);
-      cleanups.push(off);
-      if (owner) {
-        const offs = participantCleanups.get(owner);
-        if (offs) offs.push(off);
-        else participantCleanups.set(owner, [off]);
-      }
-      return off;
-    };
-
-    const handleMessage = (raw: unknown, participant: any) => {
-      if (typeof raw !== 'string') return;
-      let parsed: T;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        return;
-      }
-      onMessageRef.current(parsed, participant);
-    };
-
-    // Guard against double-subscribing the same track (the initial tracks loop and
-    // a later trackSubscribed can reference the same object; re-subscribes give new ones).
-    const attachDataTrack = (track: any, participant: any) => {
-      if (track && track.kind === 'data' && !attachedTracks.has(track)) {
-        attachedTracks.add(track);
-        const tracks = participantTracks.get(participant);
-        if (tracks) tracks.add(track);
-        else participantTracks.set(participant, new Set([track]));
-        listen(track, 'message', (data: unknown) => handleMessage(data, participant), participant);
-      }
-    };
-
-    const attachParticipant = (participant: any) => {
-      listen(participant, 'trackSubscribed', (track: any) => attachDataTrack(track, participant), participant);
-      participant.tracks?.forEach((publication: any) => attachDataTrack(publication.track, participant));
-    };
-
-    const handleParticipantConnected = (participant: any) => {
-      attachParticipant(participant);
-      onParticipantConnectedRef.current?.(participant);
-    };
-
-    const handleParticipantDisconnected = (participant: any) => {
-      onParticipantDisconnectedRef.current?.(participant);
-      // Prune the participant's listeners and tracks so they don't linger until the
-      // whole effect tears down.
-      const offs = participantCleanups.get(participant);
-      if (offs) {
-        offs.forEach(off => {
-          off();
-          const index = cleanups.indexOf(off);
-          if (index !== -1) cleanups.splice(index, 1);
-        });
-        participantCleanups.delete(participant);
-      }
-      const tracks = participantTracks.get(participant);
-      if (tracks) {
-        tracks.forEach(track => attachedTracks.delete(track));
-        participantTracks.delete(participant);
-      }
-    };
-
-    room.participants.forEach(attachParticipant);
-    listen(room, 'participantConnected', handleParticipantConnected);
-    listen(room, 'participantDisconnected', handleParticipantDisconnected);
-
-    return () => cleanups.forEach(off => off());
-  }, [room]);
+  }, [room, enabled, latest, trackOptionsRef]);
 
   return { send };
 }

@@ -1,26 +1,23 @@
 import React from 'react';
 import clsx from 'clsx';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
-import { LocalAudioTrack, LocalVideoTrack, Participant, RemoteAudioTrack, RemoteVideoTrack } from 'twilio-video';
+import { Participant } from 'twilio-video';
 
 import AudioLevelIndicator from '../AudioLevelIndicator/AudioLevelIndicator';
 import AvatarIcon from '../../icons/AvatarIcon';
-import PanToolIcon from '@material-ui/icons/PanTool';
 import NetworkQualityLevel from '../NetworkQualityLevel/NetworkQualityLevel';
 import PinIcon from './PinIcon/PinIcon';
 import ScreenShareIcon from '../../icons/ScreenShareIcon';
 import Typography from '@material-ui/core/Typography';
 
-import useIsTrackSwitchedOff from '../../hooks/useIsTrackSwitchedOff/useIsTrackSwitchedOff';
-import usePublications from '../../hooks/usePublications/usePublications';
-import useTrack from '../../hooks/useTrack/useTrack';
-import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
+import useParticipantTile from '../../hooks/useParticipantTile/useParticipantTile';
 import { useAppState } from '../../state';
 import { AttentionLevel } from '../AttentionProvider/types';
-import { levelShortLabel as attentionShortLabel } from '../AttentionProvider/attentionLabels';
-import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
-import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
+import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
 import RoleBadge from '../RoleBadge/RoleBadge';
+import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
+import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
 
 const borderWidth = 2;
 
@@ -31,18 +28,6 @@ export interface ParticipantTileAttention {
   /** When true, the camera is off and the level is stale → suppress the badge. */
   cameraOff?: boolean;
 }
-
-// Attendia design: attention badge uses colored background pill (not solid color).
-const attBadgeBg: Record<AttentionLevel, string> = {
-  high: '#d1fae5',
-  medium: '#fff8e1',
-  low: '#fee2e2',
-};
-const attBadgeText: Record<AttentionLevel, string> = {
-  high: '#065f46',
-  medium: '#7c4e00',
-  low: '#991b1b',
-};
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -104,18 +89,6 @@ const useStyles = makeStyles((theme: Theme) =>
           transform: 'scale(0.7)',
         },
       },
-    },
-    reconnectingContainer: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: 'rgba(40, 42, 43, 0.75)',
-      zIndex: 1,
     },
     screenShareIconContainer: {
       background: 'rgba(0, 0, 0, 0.5)',
@@ -217,23 +190,6 @@ const useStyles = makeStyles((theme: Theme) =>
       borderRadius: 20,
       whiteSpace: 'nowrap',
     },
-    // Raised-hand badge — bottom-right corner of the tile of whoever raised their hand.
-    raisedHandBadge: {
-      position: 'absolute',
-      bottom: 8,
-      right: 8,
-      zIndex: 4,
-      width: 30,
-      height: 30,
-      borderRadius: '50%',
-      backgroundColor: '#ffffff',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: 16,
-      lineHeight: 1,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.35)',
-    },
   })
 );
 
@@ -259,25 +215,18 @@ export default function ParticipantInfo({
   isDominantSpeaker,
   attention,
 }: ParticipantInfoProps) {
-  const publications = usePublications(participant);
-
-  const audioPublication = publications.find(p => p.kind === 'audio');
-  const videoPublication = publications.find(p => !p.trackName.includes('screen') && p.kind === 'video');
-
-  const isVideoEnabled = Boolean(videoPublication);
-  const isScreenShareEnabled = publications.find(p => p.trackName.includes('screen'));
-
-  const videoTrack = useTrack(videoPublication);
-  const isVideoSwitchedOff = useIsTrackSwitchedOff(videoTrack as LocalVideoTrack | RemoteVideoTrack);
-
-  const audioTrack = useTrack(audioPublication) as LocalAudioTrack | RemoteAudioTrack | undefined;
-  const isParticipantReconnecting = useParticipantIsReconnecting(participant);
+  const {
+    audioTrack,
+    hasVideoPublication: isVideoEnabled,
+    isSharingScreen: isScreenShareEnabled,
+    isVideoSwitchedOff,
+    isReconnecting: isParticipantReconnecting,
+    isHandRaised,
+  } = useParticipantTile(participant);
 
   const { isGalleryViewActive } = useAppState();
 
   const classes = useStyles();
-
-  const isHandRaised = useRaisedHand(participant.identity);
 
   const hasMultiface = Boolean(attention && attention.multiface);
 
@@ -315,11 +264,11 @@ export default function ParticipantInfo({
                 className={classes.attentionLevelBadge}
                 data-testid="participant-attention-overlay"
                 style={{
-                  backgroundColor: attBadgeBg[attention.level],
-                  color: attBadgeText[attention.level],
+                  backgroundColor: ATTENTION_LEVEL_STYLE[attention.level].badgeBg,
+                  color: ATTENTION_LEVEL_STYLE[attention.level].badgeText,
                 }}
               >
-                {attentionShortLabel[attention.level]}
+                {ATTENTION_LEVEL_STYLE[attention.level].label}
               </span>
             )}
           </>
@@ -341,16 +290,7 @@ export default function ParticipantInfo({
           </span>
         </div>
         <div>{isSelected && <PinIcon />}</div>
-        {isHandRaised && (
-          <span
-            className={classes.raisedHandBadge}
-            data-testid="participant-raised-hand"
-            title="Mano levantada"
-            aria-label="Mano levantada"
-          >
-            <PanToolIcon style={{ color: '#1f2937', fontSize: 16 }} />
-          </span>
-        )}
+        {isHandRaised && <RaisedHandBadge size="tile" />}
       </div>
       <div className={classes.innerContainer}>
         {(!isVideoEnabled || isVideoSwitchedOff) && (
@@ -358,13 +298,7 @@ export default function ParticipantInfo({
             <AvatarIcon />
           </div>
         )}
-        {isParticipantReconnecting && (
-          <div className={classes.reconnectingContainer}>
-            <Typography variant="body1" className={classes.typography}>
-              Reconnecting...
-            </Typography>
-          </div>
-        )}
+        {isParticipantReconnecting && <ReconnectingOverlay compact />}
         {children}
       </div>
     </div>

@@ -1,4 +1,8 @@
 import type { RequestHandler } from 'express';
+import { getVerifiedUser, sendError } from './http';
+import { logOperationalFailure } from './operationalEvents';
+import { resolveIsTeacher, TeacherAuthorizationDatabase } from './teacherAuthorization';
+import { completeRoomVia, RoomCompletingClient } from './twilioGateway';
 
 /*
  * "End the session for everyone" for the classroom flow.
@@ -20,30 +24,11 @@ import type { RequestHandler } from 'express';
  * Any other Twilio error fails closed with a 503.
  */
 
-// Minimal structural shape of the Twilio client used here — keeps this unit
-// decoupled from the full Twilio types and trivially mockable in tests.
-export interface RoomCompletingClient {
-  video: {
-    // Address the versioned resource (v1) directly. The un-versioned `video.rooms`
-    // shortcut still works but logs a deprecation warning in twilio-node v5.
-    v1: { rooms(roomName: string): { update(props: { status: 'completed' }): Promise<unknown> } };
-  };
-}
+export type { RoomCompletingClient };
 
 // Minimal structural Firestore surface — only what is needed to read a user's
 // profile doc and check their role. Decouples this unit from firebase-admin.
-export interface CompleteRoomDocumentSnapshot {
-  exists: boolean;
-  data(): { [key: string]: any } | undefined;
-}
-
-export interface CompleteRoomDatabase {
-  collection(name: string): {
-    doc(id: string): {
-      get(): Promise<CompleteRoomDocumentSnapshot>;
-    };
-  };
-}
+export type CompleteRoomDatabase = TeacherAuthorizationDatabase;
 
 export function createCompleteRoomHandler(
   twilioClient: RoomCompletingClient,
@@ -63,42 +48,29 @@ export function createCompleteRoomHandler(
     // Resolve teacher identity from the server-verified Firebase profile, not
     // from anything the client sends in the request body. Same pattern as
     // resources.ts and userProfiles.ts.
-    const firebaseUser = res.locals?.firebaseUser as { uid: string } | undefined;
+    const firebaseUser = getVerifiedUser(res);
     if (!firebaseUser) {
       res.status(401).send();
       return;
     }
 
     try {
-      const snapshot = await db.collection('users').doc(firebaseUser.uid).get();
-      const isTeacher = snapshot.exists && (snapshot.data()?.role === 'teacher');
-
-      if (!isTeacher) {
-        res.status(403).json({
-          error: {
-            message: 'not allowed',
-            explanation: 'Solo el docente puede terminar la sesión para todos.',
-          },
-        });
+      if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
+        sendError(res, 403, 'not allowed', 'Solo el docente puede terminar la sesión para todos.');
         return;
       }
 
-      await twilioClient.video.v1.rooms(room_name).update({ status: 'completed' });
+      // Idempotent: a 404 (already completed / never created) counts as success.
+      await completeRoomVia(twilioClient, room_name);
       res.json({ completed: true });
-    } catch (err: any) {
-      // 404 = the room was already completed or never existed; the class is closed
-      // either way, so report success and keep the endpoint idempotent.
-      if (err && err.status === 404) {
-        res.json({ completed: true });
-        return;
-      }
-      console.error('completeRoom: could not complete room', err);
-      res.status(503).json({
-        error: {
-          message: 'room completion failed',
-          explanation: 'No pudimos terminar la sesión. Intenta de nuevo en unos segundos.',
-        },
+    } catch (error) {
+      logOperationalFailure({
+        event: 'room_completion_failed',
+        operation: 'POST /completeRoom',
+        uid: firebaseUser.uid,
+        error,
       });
+      sendError(res, 503, 'room completion failed', 'No pudimos terminar la sesión. Intenta de nuevo en unos segundos.');
     }
   };
 }

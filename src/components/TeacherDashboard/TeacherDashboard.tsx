@@ -8,6 +8,7 @@ import DashboardHeader from './DashboardHeader';
 import DashboardSidebar from './DashboardSidebar';
 import NotificationDropdown from './NotificationDropdown';
 import useTeacherNotifications from './useTeacherNotifications';
+import useTeacherNotificationApi from './useTeacherNotificationApi';
 import useTeacherClasses from './useTeacherClasses';
 import useTeacherReports from './useTeacherReports';
 import ClassesTab, { createIdempotencyKey } from './ClassesTab';
@@ -17,9 +18,10 @@ import CalendarTab from './CalendarTab';
 import ConfirmDialog from './ConfirmDialog';
 import QuickStartClassPanel from './QuickStartClassPanel';
 import TeacherProfilePage from '../TeacherProfilePage/TeacherProfilePage';
-import { ReportFailureClaim, TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
 import { dashboardTabPath } from './dashboardHelpers';
+import { routePath } from '../../routes';
 import { clearPendingAttentionReports, getPendingAttentionReports } from '../AttentionReport/pendingAttentionReports';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -68,12 +70,22 @@ interface Props {
   onNotificationNavigate?: (path: string) => void;
 }
 
+type NotificationDestination = TeacherNotification['destination'];
+
+/** Where a notification leads, by what it points at. A new kind of destination must say so here. */
+const destinationResolvers: {
+  [K in NotificationDestination['kind']]: (destination: Extract<NotificationDestination, { kind: K }>) => string;
+} = {
+  classes: () => dashboardTabPath.clases,
+  recording: destination => routePath.recording(destination.roomSid),
+  'report-retry': () => dashboardTabPath.historial,
+};
+
 function notificationDestinationPath(notification: TeacherNotification): string {
-  if (notification.destination.kind === 'classes') return dashboardTabPath.clases;
-  if (notification.destination.kind === 'recording') {
-    return `/recording/${encodeURIComponent(notification.destination.roomSid)}`;
-  }
-  return dashboardTabPath.historial;
+  const resolve = destinationResolvers[notification.destination.kind] as (
+    destination: NotificationDestination
+  ) => string;
+  return resolve(notification.destination);
 }
 
 /**
@@ -111,29 +123,21 @@ export default function TeacherDashboard({
     saveAttentionReport,
     requestRecordingArtifact,
     fetchRecordingArtifactStatus,
-    fetchNotifications,
-    markNotificationRead,
-    markAllNotificationsRead,
-    clearNotifications,
-    reconcileNotifications,
   } = useAppState();
   const userUid = user && 'uid' in user ? user.uid : undefined;
   const [pendingReports, setPendingReports] = useState(() => getPendingAttentionReports(userUid));
-  const notificationApi = useMemo(() => ({
-    fetchNotifications: (cursor?: string) => fetchNotifications!(cursor),
-    markNotificationRead: (id: string) => markNotificationRead!(id),
-    markAllNotificationsRead: (key: string) => markAllNotificationsRead!(key),
-    clearNotifications: (key: string) => clearNotifications!(key),
-    reconcileNotifications: (scope: 'all' | 'recordings', claims?: ReportFailureClaim[]) =>
-      reconcileNotifications!(scope, claims),
-  }), [fetchNotifications, markNotificationRead, markAllNotificationsRead, clearNotifications, reconcileNotifications]);
-  const pendingFailureClaims = useMemo(() => pendingReports.map(report => ({
-    reportId: report.roomSid,
-    failureEpisodeId: report.failureEpisodeId,
-    firstFailedAtMs: report.firstFailedAtMs,
-  })), [pendingReports]);
+  const { api: notificationApi, isAvailable: areNotificationsAvailable } = useTeacherNotificationApi();
+  const pendingFailureClaims = useMemo(
+    () =>
+      pendingReports.map(report => ({
+        reportId: report.roomSid,
+        failureEpisodeId: report.failureEpisodeId,
+        firstFailedAtMs: report.firstFailedAtMs,
+      })),
+    [pendingReports]
+  );
   const notifications = useTeacherNotifications(notificationApi, undefined, pendingFailureClaims, {
-    enabled: Boolean(userUid && fetchNotifications && markNotificationRead && markAllNotificationsRead && clearNotifications && reconcileNotifications),
+    enabled: Boolean(userUid && areNotificationsAvailable),
     userKey: userUid || null,
   });
   // The sidebar's "Iniciar clase" only opens this in-dashboard panel (sidebar/navbar stay put);
@@ -155,11 +159,8 @@ export default function TeacherDashboard({
     cancelExpiredError,
     startClassError,
     isStartingClass,
-    cancelDialogSession,
-    isCancelDialogOpen,
-    setIsCancelDialogOpen,
-    isCancelExpiredDialogOpen,
-    setIsCancelExpiredDialogOpen,
+    cancelDialog,
+    cancelExpiredDialog,
     hasRealClasses,
     sessions,
     dateLabel,
@@ -242,6 +243,80 @@ export default function TeacherDashboard({
       });
   };
 
+  // What each tab shows. Looked up by the active tab, so adding a tab means adding its entry
+  // here (and its icon/label/path in dashboardHelpers), not another conditional in the JSX.
+  const tabViews: Record<DashboardTabId, () => React.ReactNode> = {
+    clases: () => (
+      <ClassesTab
+        // All four stats are now real, computed from attention reports (see
+        // reportStats.ts): sessions-week/active-students/avg-attention are
+        // scoped to this week, hours-taught sums durationMs across every report.
+        stats={stats}
+        dateLabel={dateLabel}
+        sessions={sessions}
+        existingClasses={realClasses}
+        professorName={professorName}
+        onStartClass={handleStartClass}
+        onCreateClass={handleCreateClass}
+        onCancelClass={handleCancelClass}
+        cancellingClassId={cancellingClassId}
+        cancelError={cancelError}
+        onRetryCancel={retryCancelClass}
+        expiredClassesCount={expiredClasses.length}
+        expiredSessions={expiredSessions}
+        onCancelExpiredClasses={handleCancelExpiredClasses}
+        isCancellingExpired={isCancellingExpired}
+        cancelExpiredError={cancelExpiredError}
+        statsAreMock={!hasRealStats}
+        sessionsAreMock={!hasRealClasses}
+        startClassError={startClassError}
+        isStartingClass={isStartingClass}
+      />
+    ),
+    historial: () => (
+      <HistoryTab
+        reports={reports}
+        isLoading={isReportsLoading}
+        error={reportsError}
+        onRetry={loadReports}
+        onOpenReport={report => {
+          window.open(routePath.report(report.roomSid), '_blank', 'noopener');
+        }}
+        onRequestRecording={requestRecordingArtifact}
+        onCheckRecordingStatus={fetchRecordingArtifactStatus}
+      />
+    ),
+    recursos: () => (
+      <ResourcesTab
+        classes={realClasses}
+        expiredClassIds={expiredClassIds}
+        onDeleteClass={handleDeleteClassFromResources}
+      />
+    ),
+    calendario: () => (
+      <CalendarTab
+        classes={fetchClasses ? realClasses : null}
+        isLoading={isClassesLoading}
+        error={classesError}
+        onRetry={loadClasses}
+        onStartClass={classRecord => startScheduledClass(classRecord.id, classRecord.roomName)}
+        onCancelClass={handleCancelClass}
+        cancellingClassId={cancellingClassId}
+        cancelError={cancelError}
+        onRetryCancel={retryCancelClass}
+        expiredClassIds={expiredClassIds}
+      />
+    ),
+  };
+
+  const content = isQuickStartOpen ? (
+    <QuickStartClassPanel professorName={professorName} onCreate={handleQuickStartCreate} />
+  ) : showProfile ? (
+    <TeacherProfilePage />
+  ) : (
+    tabViews[activeTab]()
+  );
+
   return (
     <div className={classes.root} data-testid="teacher-dashboard-root">
       <DashboardHeader
@@ -253,12 +328,15 @@ export default function TeacherDashboard({
         notificationContent={close => (
           <NotificationDropdown
             {...notifications}
-            onNotificationClick={notification => notifications.markRead(notification.notificationId)
-              .then(() => {
-                onNotificationNavigate?.(notificationDestinationPath(notification));
-                close();
-              })
-              .catch(() => undefined)}
+            onNotificationClick={notification =>
+              notifications
+                .markRead(notification.notificationId)
+                .then(() => {
+                  onNotificationNavigate?.(notificationDestinationPath(notification));
+                  close();
+                })
+                .catch(() => undefined)
+            }
             onLoadMore={notifications.loadMore}
             onMarkAllRead={notifications.markAllRead}
             onClearAll={notifications.clearAll}
@@ -287,83 +365,21 @@ export default function TeacherDashboard({
               </Button>
             </div>
           )}
-          {isQuickStartOpen && <QuickStartClassPanel professorName={professorName} onCreate={handleQuickStartCreate} />}
-          {!isQuickStartOpen && showProfile && <TeacherProfilePage />}
-          {!isQuickStartOpen && !showProfile && activeTab === 'clases' && (
-            <ClassesTab
-              // All four stats are now real, computed from attention reports (see
-              // reportStats.ts): sessions-week/active-students/avg-attention are
-              // scoped to this week, hours-taught sums durationMs across every report.
-              stats={stats}
-              dateLabel={dateLabel}
-              sessions={sessions}
-              existingClasses={realClasses}
-              professorName={professorName}
-              onStartClass={handleStartClass}
-              onCreateClass={handleCreateClass}
-              onCancelClass={handleCancelClass}
-              cancellingClassId={cancellingClassId}
-              cancelError={cancelError}
-              onRetryCancel={retryCancelClass}
-              expiredClassesCount={expiredClasses.length}
-              expiredSessions={expiredSessions}
-              onCancelExpiredClasses={handleCancelExpiredClasses}
-              isCancellingExpired={isCancellingExpired}
-              cancelExpiredError={cancelExpiredError}
-              statsAreMock={!hasRealStats}
-              sessionsAreMock={!hasRealClasses}
-              startClassError={startClassError}
-              isStartingClass={isStartingClass}
-            />
-          )}
-          {!isQuickStartOpen && !showProfile && activeTab === 'historial' && (
-            <HistoryTab
-              reports={reports}
-              isLoading={isReportsLoading}
-              error={reportsError}
-              onRetry={loadReports}
-              onOpenReport={report => {
-                window.open(`/report/${encodeURIComponent(report.roomSid)}`, '_blank', 'noopener');
-              }}
-              onRequestRecording={requestRecordingArtifact}
-              onCheckRecordingStatus={fetchRecordingArtifactStatus}
-            />
-          )}
-          {!isQuickStartOpen && !showProfile && activeTab === 'recursos' && (
-            <ResourcesTab
-              classes={realClasses}
-              expiredClassIds={expiredClassIds}
-              onDeleteClass={handleDeleteClassFromResources}
-            />
-          )}
-          {!isQuickStartOpen && !showProfile && activeTab === 'calendario' && (
-            <CalendarTab
-              classes={fetchClasses ? realClasses : null}
-              isLoading={isClassesLoading}
-              error={classesError}
-              onRetry={loadClasses}
-              onStartClass={classRecord => startScheduledClass(classRecord.id, classRecord.roomName)}
-              onCancelClass={handleCancelClass}
-              cancellingClassId={cancellingClassId}
-              cancelError={cancelError}
-              onRetryCancel={retryCancelClass}
-              expiredClassIds={expiredClassIds}
-            />
-          )}
+          {content}
         </div>
       </div>
       <ConfirmDialog
-        open={isCancelDialogOpen}
+        open={cancelDialog.isOpen}
         title="Cancelar clase"
-        message={`¿Cancelar "${cancelDialogSession?.title}"? Esta acción no se puede deshacer.`}
+        message={`¿Cancelar "${cancelDialog.target?.title}"? Esta acción no se puede deshacer.`}
         confirmLabel="Cancelar clase"
         cancelLabel="Volver"
-        isConfirming={cancellingClassId === cancelDialogSession?.id}
+        isConfirming={cancellingClassId === cancelDialog.target?.id}
         onConfirm={confirmCancelClass}
-        onCancel={() => setIsCancelDialogOpen(false)}
+        onCancel={cancelDialog.close}
       />
       <ConfirmDialog
-        open={isCancelExpiredDialogOpen}
+        open={cancelExpiredDialog.isOpen}
         title="Cancelar clases vencidas"
         message={`¿Cancelar ${
           expiredClasses.length === 1 ? 'la clase vencida' : `las ${expiredClasses.length} clases vencidas`
@@ -372,7 +388,7 @@ export default function TeacherDashboard({
         cancelLabel="Volver"
         isConfirming={isCancellingExpired}
         onConfirm={confirmCancelExpiredClasses}
-        onCancel={() => setIsCancelExpiredDialogOpen(false)}
+        onCancel={cancelExpiredDialog.close}
       />
     </div>
   );

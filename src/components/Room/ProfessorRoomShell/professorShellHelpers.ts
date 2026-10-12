@@ -2,8 +2,10 @@ import React from 'react';
 import VideocamOffIcon from '@material-ui/icons/VideocamOff';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
+import SmartphoneIcon from '@material-ui/icons/Smartphone';
 import PersonOutlineIcon from '@material-ui/icons/PersonOutline';
-import { AttentionLevel, ProctoringAlert } from '../../AttentionProvider/types';
+import { ProctoringAlert } from '../../AttentionProvider/types';
+import { AttentionPresence } from '../../AttentionProvider/presence';
 
 // Leaf module for the ProfessorRoomShell family: pure helpers, shared maps, and the
 // right-rail tab type. Kept dependency-light (only AttentionProvider types + MUI
@@ -25,6 +27,41 @@ export const proctoringKindIcon: Record<ProctoringKind, React.ComponentType<{ st
   absent: PersonOutlineIcon,
 };
 
+/**
+ * How the professor's surfaces show a participant WITHOUT an attention reading, keyed by why
+ * (see classifyAttention). The roster draws a small flag (icon + tooltip), the Individual tab a
+ * row with the same icon and label; each surface keeps its own `data-testid`s.
+ */
+export const presenceView: Record<
+  Exclude<AttentionPresence, 'measured'>,
+  { Icon: React.ElementType; label: string; rosterTestId: string; individualTestId: string }
+> = {
+  // Mobile device — the CV pipeline is desktop-only, so attention is simply not measurable
+  // here. Distinct from "distracted" or "0%".
+  unsupported: {
+    Icon: SmartphoneIcon,
+    label: 'No medible (celular)',
+    rosterTestId: 'professor-room-shell-unsupported-flag',
+    individualTestId: 'professor-room-shell-individual-unsupported',
+  },
+  // Camera off → no live attention. Show a muted state, never the stale value.
+  cameraOff: {
+    Icon: VideocamOffIcon,
+    label: 'Cámara apagada',
+    rosterTestId: 'professor-room-shell-cameraoff-flag',
+    individualTestId: 'professor-room-shell-individual-cameraoff',
+  },
+  // Face not detected (turned away / lighting / angle) → the index has decayed to a placeholder
+  // 0. Show "sin medición", NOT "0% attention": we cannot claim someone is distracted if we
+  // cannot see their face.
+  noFace: {
+    Icon: VisibilityOffIcon,
+    label: 'Sin medición — rostro no detectado',
+    rosterTestId: 'professor-room-shell-nomeasure-flag',
+    individualTestId: 'professor-room-shell-individual-nomeasure',
+  },
+};
+
 // Honest, kind-specific copy. Note we do NOT claim an exact face count: the live
 // pipeline does not carry one in the alert and the number fluctuates per sample.
 export function proctoringKindMessage(kind: ProctoringKind, name: string, detectedAt: string): string {
@@ -40,18 +77,6 @@ export function proctoringKindMessage(kind: ProctoringKind, name: string, detect
   }
 }
 
-// Attention level → badge background / text pairs from the attendia design.
-export const attBadgeBg: Record<AttentionLevel, string> = {
-  high: '#d1fae5',
-  medium: '#fff8e1',
-  low: '#fee2e2',
-};
-export const attBadgeText: Record<AttentionLevel, string> = {
-  high: '#065f46',
-  medium: '#7c4e00',
-  low: '#991b1b',
-};
-
 /** Emoji cue for a notification pill, derived from the event copy. */
 export function notificationEmoji(text: string): string {
   if (text.includes('levantó')) return '✋';
@@ -60,12 +85,4 @@ export function notificationEmoji(text: string): string {
   return '🔔';
 }
 
-/** Returns up to 2 uppercase initials from an identity string. */
-export function getInitials(identity: string): string {
-  const parts = identity
-    .replace(/\[.*?\]/g, '')
-    .trim()
-    .split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
+export { getInitials } from '../roomIdentity';

@@ -14,7 +14,7 @@ import { usePagination } from './usePagination/usePagination';
 import useDominantSpeaker from '../../hooks/useDominantSpeaker/useDominantSpeaker';
 import { useAppState } from '../../state';
 import { AttentionContext } from '../AttentionProvider';
-import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 
 const CONTAINER_GUTTER = '50px';
 // On a narrow desktop/tablet window the fixed 50px gutter eats a disproportionate

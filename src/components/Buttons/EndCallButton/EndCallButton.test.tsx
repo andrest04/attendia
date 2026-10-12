@@ -2,7 +2,7 @@ import React from 'react';
 import { shallow } from 'enzyme';
 
 import EndCallButton from './EndCallButton';
-import { clearRejoinSession } from '../../PreJoinScreens/rejoinSession';
+import { clearRejoinSession } from '../../../classSession/rejoinSession';
 
 const mockVideoContext: { room: { disconnect: jest.Mock } | null } = {
   room: {
@@ -11,7 +11,7 @@ const mockVideoContext: { room: { disconnect: jest.Mock } | null } = {
 };
 
 jest.mock('../../../hooks/useVideoContext/useVideoContext', () => () => mockVideoContext);
-jest.mock('../../PreJoinScreens/rejoinSession', () => ({
+jest.mock('../../../classSession/rejoinSession', () => ({
   clearRejoinSession: jest.fn(),
 }));
 

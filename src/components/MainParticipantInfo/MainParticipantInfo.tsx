@@ -1,25 +1,22 @@
 import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
-import { LocalAudioTrack, LocalVideoTrack, Participant, RemoteAudioTrack, RemoteVideoTrack } from 'twilio-video';
+import { Participant } from 'twilio-video';
 
 import AudioLevelIndicator from '../AudioLevelIndicator/AudioLevelIndicator';
 import AvatarIcon from '../../icons/AvatarIcon';
-import PanToolIcon from '@material-ui/icons/PanTool';
 import NetworkQualityLevel from '../NetworkQualityLevel/NetworkQualityLevel';
 import Tooltip from '@material-ui/core/Tooltip';
 import Typography from '@material-ui/core/Typography';
 
 import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
-import useIsTrackSwitchedOff from '../../hooks/useIsTrackSwitchedOff/useIsTrackSwitchedOff';
-import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
-import usePublications from '../../hooks/usePublications/usePublications';
+import useParticipantTile from '../../hooks/useParticipantTile/useParticipantTile';
 import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/useScreenShareParticipant';
-import useTrack from '../../hooks/useTrack/useTrack';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
-import { useRaisedHand } from '../../hooks/useRaiseHand/raisedHandsContext';
-import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
 import RoleBadge from '../RoleBadge/RoleBadge';
+import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
+import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
 
 const useStyles = makeStyles((theme: Theme) => ({
   container: {
@@ -53,18 +50,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     zIndex: 2,
     height: '100%',
     width: '100%',
-  },
-  reconnectingContainer: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(40, 42, 43, 0.75)',
-    zIndex: 1,
   },
   fullWidth: {
     gridArea: '1 / 1 / 2 / 3',
@@ -111,23 +96,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     margin: '0 0.6em',
     animation: `1.25s $pulsate ease-out infinite`,
   },
-  // Raised-hand badge — bottom-right corner of the main tile when this participant raised their hand.
-  raisedHandBadge: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    zIndex: 3,
-    width: 40,
-    height: 40,
-    borderRadius: '50%',
-    backgroundColor: '#ffffff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 22,
-    lineHeight: 1,
-    boxShadow: '0 1px 6px rgba(0,0,0,0.4)',
-  },
   '@keyframes pulsate': {
     '0%': {
       background: `#A90000`,
@@ -155,22 +123,18 @@ export default function MainParticipantInfo({ participant, children }: MainParti
   const screenShareParticipant = useScreenShareParticipant();
   const isRemoteParticipantScreenSharing = screenShareParticipant && screenShareParticipant !== localParticipant;
 
-  const publications = usePublications(participant);
-  const videoPublication = publications.find(p => !p.trackName.includes('screen') && p.kind === 'video');
-  const screenSharePublication = publications.find(p => p.trackName.includes('screen'));
-
-  const videoTrack = useTrack(screenSharePublication || videoPublication);
+  // The main stage shows the screen share in place of the camera when there is one.
+  const {
+    videoTrack,
+    audioTrack,
+    isSharingScreen,
+    isVideoSwitchedOff,
+    isReconnecting: isParticipantReconnecting,
+    isHandRaised,
+  } = useParticipantTile(participant, { preferScreenShare: true });
   const isVideoEnabled = Boolean(videoTrack);
 
-  const audioPublication = publications.find(p => p.kind === 'audio');
-  const audioTrack = useTrack(audioPublication) as LocalAudioTrack | RemoteAudioTrack | undefined;
-
-  const isVideoSwitchedOff = useIsTrackSwitchedOff(videoTrack as LocalVideoTrack | RemoteVideoTrack);
-  const isParticipantReconnecting = useParticipantIsReconnecting(participant);
-
   const isRecording = useIsRecording();
-
-  const isHandRaised = useRaisedHand(participant.identity);
 
   return (
     <div
@@ -187,7 +151,7 @@ export default function MainParticipantInfo({ participant, children }: MainParti
             <Typography variant="body1" color="inherit">
               {stripTeacherSuffix(participant.identity)}
               {isLocal && ' (Yo)'}
-              {screenSharePublication && ' - Screen'}
+              {isSharingScreen && ' - Screen'}
             </Typography>
             {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" className={classes.roleBadge} />}
           </div>
@@ -212,23 +176,8 @@ export default function MainParticipantInfo({ participant, children }: MainParti
           <AvatarIcon />
         </div>
       )}
-      {isParticipantReconnecting && (
-        <div className={classes.reconnectingContainer}>
-          <Typography variant="body1" style={{ color: 'white' }}>
-            Reconnecting...
-          </Typography>
-        </div>
-      )}
-      {isHandRaised && (
-        <span
-          className={classes.raisedHandBadge}
-          data-testid="participant-raised-hand"
-          title="Mano levantada"
-          aria-label="Mano levantada"
-        >
-          <PanToolIcon style={{ color: '#1f2937', fontSize: 22 }} />
-        </span>
-      )}
+      {isParticipantReconnecting && <ReconnectingOverlay />}
+      {isHandRaised && <RaisedHandBadge size="stage" />}
       {children}
     </div>
   );

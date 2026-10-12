@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { clearDashboardHandoff, readDashboardHandoff, saveDashboardHandoff } from './dashboardHandoffSession';
-import { clearScheduledClassSession, saveScheduledClassSession } from './classSessionContext';
+import { clearScheduledClassSession, saveScheduledClassSession } from '../../classSession/classSessionContext';
 
 type PendingSession = { roomName: string; name: string; classId?: string } | null;
 
