@@ -3,7 +3,7 @@ import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import { SessionEndedMessage } from '../useClassDataChannel/classProtocol';
 import { useAppState } from '../../state';
-import { clearRejoinSession } from '../../components/PreJoinScreens/rejoinSession';
+import { leaveClass } from '../../components/PreJoinScreens/leaveClass';
 import { ReportEndReason } from '../../components/AttentionProvider/reportTypes';
 import { createApiClient } from '../../state/useFirebaseAuth/apiClient';
 
@@ -62,9 +62,8 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   }, [options.onProfessorEnd]);
 
   const leaveAsEnded = useCallback(() => {
-    clearRejoinSession();
     setSessionEndedByProfessor(true);
-    room?.disconnect();
+    leaveClass(room);
   }, [room, setSessionEndedByProfessor]);
 
   const onMessage = useCallback(
@@ -116,8 +115,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   // disconnect() runs, and the in-flight POST survives it (the SPA never unloads).
   const leaveWithoutEnding = useCallback(() => {
     void onProfessorEndRef.current?.('left');
-    clearRejoinSession();
-    room?.disconnect();
+    leaveClass(room);
   }, [room]);
 
   return { endSessionForAll, leaveWithoutEnding, isEnding };

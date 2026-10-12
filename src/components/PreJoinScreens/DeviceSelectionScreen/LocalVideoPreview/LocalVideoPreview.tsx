@@ -5,6 +5,7 @@ import { LocalVideoTrack } from 'twilio-video';
 import VideoTrack from '../../../VideoTrack/VideoTrack';
 import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
 import { selectCameraTrack } from '../../../../utils/trackSelectors';
+import { stripTeacherSuffix } from '../../classSessionTypes';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // Outer card: browser-window chrome + video area
@@ -129,9 +130,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 }));
 
 function getInitials(identity: string): string {
-  const parts = identity
-    .replace(/\[Profesor\]/i, '')
-    .trim()
+  const parts = stripTeacherSuffix(identity)
     .split(/\s+/)
     .filter(Boolean);
   if (parts.length === 0) return '?';

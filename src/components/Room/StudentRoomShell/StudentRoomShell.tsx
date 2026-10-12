@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
-import { isTeacherIdentity } from '../../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
 import RoleBadge from '../../RoleBadge/RoleBadge';
 import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';
 
@@ -336,7 +336,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 
 // ── Helper: derive initials from an identity string ──────────────────────────
 function getInitials(identity: string): string {
-  const clean = identity.replace(/\[Profesor\]/gi, '').trim();
+  const clean = stripTeacherSuffix(identity);
   const words = clean.split(/\s+/).filter(Boolean);
   if (words.length >= 2) {
     return (words[0][0] + words[1][0]).toUpperCase();
@@ -361,7 +361,7 @@ function RosterItem({
 }) {
   const isTeacher = isTeacherIdentity(participant.identity);
   const initials = getInitials(participant.identity);
-  const displayName = participant.identity.replace(/\[Profesor\]/gi, '').trim();
+  const displayName = stripTeacherSuffix(participant.identity);
 
   return (
     <div className={classes.rosterItem}>

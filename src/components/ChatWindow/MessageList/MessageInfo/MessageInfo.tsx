@@ -1,6 +1,6 @@
 import React from 'react';
 import { makeStyles, createStyles } from '@material-ui/core/styles';
-import { isTeacherIdentity } from '../../../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../../PreJoinScreens/classSessionTypes';
 
 const useStyles = makeStyles(() =>
   createStyles({
@@ -47,7 +47,7 @@ interface MessageInfoProps {
 export default function MessageInfo({ author, dateCreated, isLocalParticipant }: MessageInfoProps) {
   const classes = useStyles();
   const isTeacher = isTeacherIdentity(author);
-  const displayName = author.replace(/\[Profesor\]/gi, '').trim();
+  const displayName = stripTeacherSuffix(author);
 
   return (
     <div className={`${classes.messageInfoContainer}${isLocalParticipant ? ` ${classes.rightAligned}` : ''}`}>
