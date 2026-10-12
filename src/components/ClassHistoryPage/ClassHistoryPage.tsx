@@ -15,6 +15,7 @@ import AttentionReportView, { AttentionReportViewData } from '../AttentionReport
 import { storedReportDate, storedReportToViewData } from '../AttentionReport/storedReportViewData';
 import { StoredAttentionReport } from '../AttentionProvider/reportTypes';
 import { useAppState } from '../../state';
+import { countOf } from '../../utils/pluralize';
 
 /*
  * "Historial de clases" — teacher-facing list of the attention reports persisted
@@ -307,13 +308,10 @@ export default function ClassHistoryPage() {
                     </span>
                     <span className={classes.chip}>
                       <PeopleAltIcon className={classes.chipIcon} />
-                      {report.studentCount} {report.studentCount === 1 ? 'estudiante' : 'estudiantes'}
+                      {countOf(report.studentCount, 'estudiante')}
                     </span>
                     <span className={classes.chip}>Promedio {report.groupAverage} / 100</span>
-                    <span className={classes.chip}>
-                      {(report.proctoringAlerts || []).length}{' '}
-                      {(report.proctoringAlerts || []).length === 1 ? 'alerta' : 'alertas'}
-                    </span>
+                    <span className={classes.chip}>{countOf((report.proctoringAlerts || []).length, 'alerta')}</span>
                   </div>
                 </button>
               ))}
