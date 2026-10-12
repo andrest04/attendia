@@ -1,6 +1,6 @@
 import { Participant } from 'twilio-video';
 import { useSnackbar, VariantType } from 'notistack';
-import { isTeacherIdentity, stripTeacherSuffix } from '../../components/PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
 import { ProctoringAlert } from '../../components/AttentionProvider/types';
 import { PROCTORING_KINDS } from '../../components/AttentionProvider/proctoring';
 import useOnChange from '../useOnChange/useOnChange';

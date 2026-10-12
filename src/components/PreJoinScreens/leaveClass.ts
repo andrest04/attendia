@@ -1,4 +1,4 @@
-import { clearRejoinSession } from './rejoinSession';
+import { clearRejoinSession } from '../../classSession/rejoinSession';
 
 /**
  * Leaving ON PURPOSE: drop the saved rejoin session, then disconnect.

@@ -4,12 +4,12 @@ import useAutoRejoin from './useAutoRejoin';
 import { useAppState } from '../../state';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
-import { clearRejoinSession, getResumableSession } from './rejoinSession';
+import { clearRejoinSession, getResumableSession } from '../../classSession/rejoinSession';
 
 jest.mock('../../state');
 jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../hooks/useChatContext/useChatContext');
-jest.mock('./rejoinSession');
+jest.mock('../../classSession/rejoinSession');
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;

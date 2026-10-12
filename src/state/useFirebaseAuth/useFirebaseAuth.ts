@@ -15,7 +15,7 @@ import {
   updatePassword,
   updateEmail,
 } from 'firebase/auth';
-import { ClassSessionRole } from '../../components/PreJoinScreens/classSessionTypes';
+import { ClassSessionRole } from '../../classSession/classSessionTypes';
 import {
   AttentionReport,
   RecordingArtifact,

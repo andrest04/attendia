@@ -1,13 +1,13 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { useLocation, useParams } from 'react-router-dom';
 import { useAppState } from '../../state';
-import { getResumableSession } from '../PreJoinScreens/rejoinSession';
+import { getResumableSession } from '../../classSession/rejoinSession';
 import useInitialRole from './useInitialRole';
 
 jest.mock('../../state');
 jest.mock('react-router-dom', () => ({ useParams: jest.fn(), useLocation: jest.fn() }));
-jest.mock('../PreJoinScreens/rejoinSession', () => ({
-  ...jest.requireActual('../PreJoinScreens/rejoinSession'),
+jest.mock('../../classSession/rejoinSession', () => ({
+  ...jest.requireActual('../../classSession/rejoinSession'),
   getResumableSession: jest.fn(),
 }));
 

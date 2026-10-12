@@ -1,5 +1,5 @@
 import { slugifyTitle } from '../classes';
-import { toClassSessionRoomName } from '../../src/components/PreJoinScreens/classSessionTypes';
+import { toClassSessionRoomName } from '../../src/classSession/classSessionTypes';
 
 /**
  * Contract test for the second hand-mirrored helper (the first is the [Profesor]

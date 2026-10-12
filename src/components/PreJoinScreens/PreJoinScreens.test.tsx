@@ -9,8 +9,8 @@ import RoomNameScreen from './RoomNameScreen/RoomNameScreen';
 import { useLocation, useParams } from 'react-router-dom';
 import { useAppState } from '../../state';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
-import { checkRoomOpen } from './checkRoomOpen';
-import { getResumableSession } from './rejoinSession';
+import { checkRoomOpen } from '../../classSession/checkRoomOpen';
+import { getResumableSession } from '../../classSession/rejoinSession';
 import useAutoRejoin from './useAutoRejoin';
 import { Steps } from './steps';
 import { setImmediate } from 'timers';
@@ -33,11 +33,11 @@ jest.mock('react-router-dom', () => ({ useParams: jest.fn(), useLocation: jest.f
 jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../hooks/useChatContext/useChatContext', () => () => ({ connect: jest.fn() }));
 jest.mock('./MediaErrorSnackbar/MediaErrorSnackbar', () => () => null);
-jest.mock('./checkRoomOpen');
+jest.mock('../../classSession/checkRoomOpen');
 // Only getResumableSession is mocked; the role helpers (isTeacherIdentity, stripTeacherSuffix)
 // stay real because they are pure.
-jest.mock('./rejoinSession', () => ({
-  ...jest.requireActual('./rejoinSession'),
+jest.mock('../../classSession/rejoinSession', () => ({
+  ...jest.requireActual('../../classSession/rejoinSession'),
   getResumableSession: jest.fn(),
 }));
 jest.mock('./useAutoRejoin');

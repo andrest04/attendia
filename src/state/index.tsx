@@ -15,7 +15,7 @@ import useFirebaseAuth, {
 } from './useFirebaseAuth/useFirebaseAuth';
 import { useLocalStorageState } from '../hooks/useLocalStorageState/useLocalStorageState';
 import { User } from 'firebase/auth';
-import { ClassSessionRole } from '../components/PreJoinScreens/classSessionTypes';
+import { ClassSessionRole } from '../classSession/classSessionTypes';
 import { AttentionReport, RecordingArtifact, StoredAttentionReport } from '../components/AttentionProvider/reportTypes';
 
 export interface StateContextType {

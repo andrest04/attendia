@@ -1,7 +1,7 @@
 import { useLocation, useParams } from 'react-router-dom';
 import { useAppState } from '../../state';
-import { getResumableSession } from '../PreJoinScreens/rejoinSession';
-import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
+import { getResumableSession } from '../../classSession/rejoinSession';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import { firstResolved } from '../../utils/firstResolved';
 
 /**

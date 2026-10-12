@@ -7,10 +7,10 @@ import SecurityIcon from '@material-ui/icons/Security';
 import WifiIcon from '@material-ui/icons/Wifi';
 
 import { LocalVideoTrack } from 'twilio-video';
-import { saveRejoinSession } from '../rejoinSession';
-import { readScheduledClassSession } from '../../TeacherDashboard/classSessionContext';
-import { hasConsent, saveConsent } from '../attentionConsent';
-import { isTeacherIdentity } from '../classSessionTypes';
+import { saveRejoinSession } from '../../../classSession/rejoinSession';
+import { readScheduledClassSession } from '../../../classSession/classSessionContext';
+import { hasConsent, saveConsent } from '../../../classSession/attentionConsent';
+import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
 import AttentionConsentModal from '../AttentionConsentModal';
 import LocalVideoPreview from './LocalVideoPreview/LocalVideoPreview';
 import SettingsMenu from './SettingsMenu/SettingsMenu';

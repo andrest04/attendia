@@ -1,4 +1,4 @@
-import { createStorageSlot } from '../../utils/createStorageSlot';
+import { createStorageSlot } from '../utils/createStorageSlot';
 
 export interface ScheduledClassSessionContext {
   classId: string;

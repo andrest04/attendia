@@ -2,7 +2,7 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import { useSnackbar } from 'notistack';
 import { useAttention } from '../../AttentionProvider';
-import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { ShellNotification } from '../shellNotification';
 import { buildReportViewData } from '../../AttentionReport/buildReportViewData';

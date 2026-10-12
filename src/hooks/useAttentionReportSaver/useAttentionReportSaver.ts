@@ -6,7 +6,7 @@ import { useAppState } from '../../state';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useLatest from '../useLatest/useLatest';
 import { savePendingAttentionReport } from '../../components/AttentionReport/pendingAttentionReports';
-import { readScheduledClassSession } from '../../components/TeacherDashboard/classSessionContext';
+import { readScheduledClassSession } from '../../classSession/classSessionContext';
 
 /*
  * Snapshots the in-room attention data into a persisted AttentionReport when the

@@ -14,7 +14,7 @@ import useParticipantTile from '../../hooks/useParticipantTile/useParticipantTil
 import { useAppState } from '../../state';
 import { AttentionLevel } from '../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
-import { isTeacherIdentity, stripTeacherSuffix } from '../PreJoinScreens/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
 import RoleBadge from '../RoleBadge/RoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';

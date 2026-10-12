@@ -6,7 +6,7 @@ import path from 'path';
  *
  * The teacher-role marker is the trailing identity suffix `[Profesor]`. Its logic
  * is hand-mirrored in TWO places with NO shared module:
- *   1. src/components/PreJoinScreens/classSessionTypes.ts (display-side role)
+ *   1. src/classSession/classSessionTypes.ts (display-side role)
  *   2. server/roomAccessGuard.ts                          (Express token guard)
  *
  * (A third mirror used to live in patches/@twilio-labs+plugin-rtc+0.9.0.patch,
@@ -24,7 +24,7 @@ import path from 'path';
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
-const CLASS_SESSION_TYPES = path.join(REPO_ROOT, 'src/components/PreJoinScreens/classSessionTypes.ts');
+const CLASS_SESSION_TYPES = path.join(REPO_ROOT, 'src/classSession/classSessionTypes.ts');
 const ROOM_ACCESS_GUARD = path.join(REPO_ROOT, 'server/roomAccessGuard.ts');
 
 const EXPECTED_SUFFIX = '[Profesor]';

@@ -2,7 +2,7 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { PROCTORING_KINDS } from '../../AttentionProvider/proctoring';
-import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { proctoringKindIcon } from './professorShellHelpers';
 
 const useStyles = makeStyles(() => ({

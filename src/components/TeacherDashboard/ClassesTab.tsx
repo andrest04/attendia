@@ -13,7 +13,7 @@ import DateFnsUtils from '@date-io/date-fns';
 import esLocale from 'date-fns/locale/es';
 import { DashboardStat, UpcomingSession } from './types';
 import { statCardIcon } from './dashboardHelpers';
-import { toClassSessionDisplayName, toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
+import { toClassSessionDisplayName, toClassSessionRoomName } from '../../classSession/classSessionTypes';
 import { validateNewClass } from './newClassValidation';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';

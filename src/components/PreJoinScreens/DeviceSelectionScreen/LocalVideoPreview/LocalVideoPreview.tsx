@@ -5,7 +5,7 @@ import { LocalVideoTrack } from 'twilio-video';
 import VideoTrack from '../../../VideoTrack/VideoTrack';
 import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
 import { selectCameraTrack } from '../../../../utils/trackSelectors';
-import { stripTeacherSuffix } from '../../classSessionTypes';
+import { stripTeacherSuffix } from '../../../../classSession/classSessionTypes';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // Outer card: browser-window chrome + video area

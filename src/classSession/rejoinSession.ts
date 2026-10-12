@@ -13,7 +13,7 @@
  * a stale identity.
  */
 
-import { createStorageSlot } from '../../utils/createStorageSlot';
+import { createStorageSlot } from '../utils/createStorageSlot';
 
 export interface RejoinSession {
   roomName: string;

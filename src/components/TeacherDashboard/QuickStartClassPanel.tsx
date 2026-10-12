@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import RoomNameScreen from '../PreJoinScreens/RoomNameScreen/RoomNameScreen';
-import { createCollisionSafeClassSessionAccess } from '../PreJoinScreens/createCollisionSafeClassSessionAccess';
+import { createCollisionSafeClassSessionAccess } from '../../classSession/createCollisionSafeClassSessionAccess';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
   createDefaultClassSessionDraft,
   toClassSessionDisplayName,
-} from '../PreJoinScreens/classSessionTypes';
+} from '../../classSession/classSessionTypes';
 
 // Mirrors IntroContainer's contentColumn/contentCard/backToDashboardLink pixel-for-pixel:
 // this is the exact same card chrome the standalone prejoin route renders around
