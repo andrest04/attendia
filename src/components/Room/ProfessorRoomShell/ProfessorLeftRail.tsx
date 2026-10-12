@@ -1,8 +1,8 @@
 import React from 'react';
-import clsx from 'clsx';
 import { makeStyles } from '@material-ui/core';
 import { ParticipantAttention, ProctoringAlert } from '../../AttentionProvider/types';
 import { ShellNotification } from '../StudentRoomShell/useShellNotifications';
+import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
 import RosterList from './RosterList';
 import HandsRaisedQueue from './HandsRaisedQueue';
 import NotificationsFeed from './NotificationsFeed';
@@ -11,26 +11,10 @@ import ProctoringFeed from './ProctoringFeed';
 const useStyles = makeStyles(() => ({
   leftRail: {
     backgroundColor: '#ffffff',
-    borderRight: '1px solid #e2ecf9',
     display: 'flex',
     flexDirection: 'column',
     minWidth: 0,
     overflowY: 'auto',
-    // Fade + micro-scale the content in as the column widens. The grid handles the
-    // spatial reveal (width 0→228px); this GPU-cheap fade hides the frame-by-frame
-    // reflow so opening reads smooth instead of a hard clip.
-    transition: 'opacity 0.24s ease, transform 0.24s ease, border-color 0.2s linear',
-    '@media (prefers-reduced-motion: reduce)': {
-      transition: 'none',
-    },
-  },
-  // Applied to a rail whose column has collapsed to 0px: drop the seam border, fade
-  // out the content, and block interaction with the clipped content while it is hidden.
-  railCollapsed: {
-    borderColor: 'transparent',
-    opacity: 0,
-    transform: 'scale(0.98)',
-    pointerEvents: 'none',
   },
   leftHeader: {
     padding: '16px 18px 17px',
@@ -44,21 +28,6 @@ const useStyles = makeStyles(() => ({
     display: 'flex',
     alignItems: 'center',
     gap: 8,
-  },
-  // "Close this rail" affordance (× button) in the rail header.
-  railClose: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: '#94a3b8',
-    padding: '2px 6px',
-    borderRadius: 4,
-    fontSize: 18,
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    flexShrink: 0,
-    '&:hover': { color: '#1d2f6f', backgroundColor: '#f0f5ff' },
   },
   leftHeading: {
     fontFamily: 'Poppins, Inter, sans-serif',
@@ -130,11 +99,7 @@ export default function ProfessorLeftRail({
   const classes = useStyles();
 
   return (
-    <aside
-      className={clsx(classes.leftRail, { [classes.railCollapsed]: !open })}
-      data-testid="professor-room-shell-left-rail"
-      aria-hidden={!open}
-    >
+    <CollapsibleRail side="left" open={open} className={classes.leftRail} data-testid="professor-room-shell-left-rail">
       <div className={classes.leftHeader}>
         <span className={classes.leftHeading}>Participantes</span>
         <div className={classes.leftHeaderActions}>
@@ -142,15 +107,11 @@ export default function ProfessorLeftRail({
             {participantCount}
           </span>
           {onClose && (
-            <button
-              type="button"
-              className={classes.railClose}
+            <RailCloseButton
               onClick={onClose}
               aria-label="Cerrar participantes"
               data-testid="professor-room-shell-close-left"
-            >
-              ×
-            </button>
+            />
           )}
         </div>
       </div>
@@ -168,6 +129,6 @@ export default function ProfessorLeftRail({
       {proctoringEnabled && (
         <ProctoringFeed visibleAlerts={visibleAlerts} source={source} onAlertClick={onAlertClick} />
       )}
-    </aside>
+    </CollapsibleRail>
   );
 }
