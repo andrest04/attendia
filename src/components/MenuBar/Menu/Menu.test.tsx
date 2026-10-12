@@ -164,15 +164,26 @@ describe('the Menu component', () => {
       });
 
       it('should disable the Start Recording button when isFetching is true', async () => {
-        mockUseAppState.mockImplementationOnce(() => ({ isFetching: true }));
-        const wrapper = shallow(<Menu />);
+        const appState = (isFetching: boolean) => () => ({
+          isFetching,
+          updateRecordingRules: mockUpdateRecordingRules,
+          roomType: 'group',
+          setIsGalleryViewActive: mockSetIsGalleryViewActive,
+        });
+        // The menu and the recording toggle each read the app state, so the mock must answer every call.
+        mockUseAppState.mockImplementation(appState(true));
+        try {
+          const wrapper = shallow(<Menu />);
 
-        expect(
-          wrapper
-            .find(MenuItem)
-            .at(1)
-            .prop('disabled')
-        ).toBe(true);
+          expect(
+            wrapper
+              .find(MenuItem)
+              .at(1)
+              .prop('disabled')
+          ).toBe(true);
+        } finally {
+          mockUseAppState.mockImplementation(appState(false));
+        }
       });
     });
   });

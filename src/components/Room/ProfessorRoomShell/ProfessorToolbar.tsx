@@ -11,11 +11,10 @@ import StopScreenShareIcon from '@material-ui/icons/StopScreenShare';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import ChatIcon from '../../../icons/ChatIcon';
 import { isMobile } from '../../../utils';
-import { useAppState } from '../../../state';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
-import useIsRecording from '../../../hooks/useIsRecording/useIsRecording';
+import useRecordingToggle from '../../../hooks/useRecordingToggle/useRecordingToggle';
+import useScreenShareControl from '../../../hooks/useScreenShareControl/useScreenShareControl';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
-import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
@@ -232,18 +231,17 @@ export default function ProfessorToolbar({
   onLeave,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
-  const { room, toggleScreenShare, isSharingScreen } = useVideoContext();
-  const screenShareParticipant = useScreenShareParticipant();
+  const { room } = useVideoContext();
+  const { toggleScreenShare, isSharingScreen, disabled: screenShareUnavailable } = useScreenShareControl();
   const { conversation, hasUnreadMessages } = useChatContext();
-  const { updateRecordingRules, isFetching, roomType } = useAppState();
-  const isRecording = useIsRecording();
+  const {
+    supported: supportsRecording,
+    isRecording,
+    busy: isRecordingBusy,
+    toggle: toggleRecording,
+  } = useRecordingToggle();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
-  // Recording rules only exist for group rooms (same gate as the legacy menu).
-  const supportsRecording = roomType !== 'peer-to-peer' && roomType !== 'go';
-  // Same gating as ToggleScreenShareButton: only someone ELSE's share blocks the control.
-  const disableScreenShare = Boolean(screenShareParticipant) && !isSharingScreen;
-  const isScreenShareSupported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
   const chip = clsx(classes.chipLayout, classes.chipDark);
 
   // Secondary controls (screen share, record, proctoring) live behind a "more options"
@@ -313,7 +311,7 @@ export default function ProfessorToolbar({
                     className={clsx(classes.moreMenuItem, { [classes.moreMenuItemProctoringActive]: isSharingScreen })}
                     data-testid="professor-toolbar-screenshare"
                     role="menuitemcheckbox"
-                    disabled={isReconnecting || disableScreenShare || !isScreenShareSupported}
+                    disabled={isReconnecting || screenShareUnavailable}
                     onClick={() => {
                       toggleScreenShare();
                       closeMore();
@@ -356,9 +354,9 @@ export default function ProfessorToolbar({
                   className={clsx(classes.moreMenuItem, { [classes.moreMenuItemRecActive]: isRecording })}
                   data-testid="professor-toolbar-record"
                   role="menuitemcheckbox"
-                  disabled={isFetching || !room}
+                  disabled={isRecordingBusy || !room}
                   onClick={() => {
-                    updateRecordingRules(room!.sid, [{ type: isRecording ? 'exclude' : 'include', all: true }]);
+                    toggleRecording();
                     closeMore();
                   }}
                   aria-checked={isRecording}
