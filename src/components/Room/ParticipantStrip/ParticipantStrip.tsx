@@ -2,11 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles } from '@material-ui/core/styles';
 import Participant from '../../Participant/Participant';
-import useMainParticipant from '../../../hooks/useMainParticipant/useMainParticipant';
-import useParticipantsContext from '../../../hooks/useParticipantsContext/useParticipantsContext';
-import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
-import useSelectedParticipant from '../../VideoProvider/useSelectedParticipant/useSelectedParticipant';
-import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
+import useSpeakerViewTiles from '../../../hooks/useSpeakerViewTiles/useSpeakerViewTiles';
 
 // Tile dimensions: 16:9 aspect ratio, ~120px tall.
 const TILE_HEIGHT = 120;
@@ -53,7 +49,7 @@ const useStyles = makeStyles(() => ({
  * ParticipantStrip renders a horizontal row of camera tiles for the speaker-view
  * stage in the desktop classroom shells (professor + student).
  *
- * Participant ordering and hide logic mirror ParticipantList exactly:
+ * Participant ordering and hide logic are shared with ParticipantList (useSpeakerViewTiles):
  *   - local participant is always first
  *   - remote participants follow in speakerViewParticipants order
  *   - a remote participant whose tile is already shown as the main participant
@@ -63,15 +59,10 @@ const useStyles = makeStyles(() => ({
  */
 export default function ParticipantStrip() {
   const classes = useStyles();
-  const { room } = useVideoContext();
-  const localParticipant = room!.localParticipant;
-  const { speakerViewParticipants } = useParticipantsContext();
-  const [selectedParticipant, setSelectedParticipant] = useSelectedParticipant();
-  const screenShareParticipant = useScreenShareParticipant();
-  const mainParticipant = useMainParticipant();
+  const { localParticipant, tiles } = useSpeakerViewTiles();
 
   // Match ParticipantList: don't render when there are no remote participants.
-  if (speakerViewParticipants.length === 0) return null;
+  if (tiles.length === 0) return null;
 
   return (
     <div className={classes.strip} data-testid="participant-strip">
@@ -80,24 +71,11 @@ export default function ParticipantStrip() {
         <Participant participant={localParticipant} isLocalParticipant={true} />
       </div>
 
-      {speakerViewParticipants.map(participant => {
-        const isSelected = participant === selectedParticipant;
-        // Mirror ParticipantList hide logic exactly:
-        // hide a participant that is already shown as the main participant,
-        // unless they are selected by the user or they are screen-sharing.
-        const hideParticipant =
-          participant === mainParticipant && participant !== screenShareParticipant && !isSelected;
-        return (
-          <div key={participant.sid} className={clsx(classes.tile, { [classes.tileHidden]: hideParticipant })}>
-            <Participant
-              participant={participant}
-              isSelected={isSelected}
-              onClick={() => setSelectedParticipant(participant)}
-              hideParticipant={hideParticipant}
-            />
-          </div>
-        );
-      })}
+      {tiles.map(({ participant, isSelected, hidden, select }) => (
+        <div key={participant.sid} className={clsx(classes.tile, { [classes.tileHidden]: hidden })}>
+          <Participant participant={participant} isSelected={isSelected} onClick={select} hideParticipant={hidden} />
+        </div>
+      ))}
     </div>
   );
 }
