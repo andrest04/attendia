@@ -1,26 +1,11 @@
-import { useEffect, useState } from 'react';
 import { Participant } from 'twilio-video';
+import useEmitterState from '../useEmitterState/useEmitterState';
 
 export default function useParticipantNetworkQualityLevel(participant: Participant | null) {
-  const [networkQualityLevel, setNetworkQualityLevel] = useState<number | null>(
-    participant?.networkQualityLevel ?? null
+  return useEmitterState<Participant | null, number | null>(
+    participant,
+    current => (current ? current.networkQualityLevel : null),
+    { networkQualityLevelChanged: (_participant, newNetworkQualityLevel: number) => newNetworkQualityLevel },
+    { initial: participant?.networkQualityLevel ?? null }
   );
-
-  useEffect(() => {
-    if (!participant) {
-      setNetworkQualityLevel(null);
-      return;
-    }
-
-    const handleNewtorkQualityLevelChange = (newNetworkQualityLevel: number) =>
-      setNetworkQualityLevel(newNetworkQualityLevel);
-
-    setNetworkQualityLevel(participant.networkQualityLevel);
-    participant.on('networkQualityLevelChanged', handleNewtorkQualityLevelChange);
-    return () => {
-      participant.off('networkQualityLevelChanged', handleNewtorkQualityLevelChange);
-    };
-  }, [participant]);
-
-  return networkQualityLevel;
 }

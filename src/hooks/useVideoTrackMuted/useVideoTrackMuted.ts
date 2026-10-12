@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
 import { LocalVideoTrack } from 'twilio-video';
 import useMediaStreamTrack from '../useMediaStreamTrack/useMediaStreamTrack';
+import useEmitterState from '../useEmitterState/useEmitterState';
 
 /**
  * Reports whether a local video track is muted at the source level — i.e. the
@@ -17,26 +17,11 @@ import useMediaStreamTrack from '../useMediaStreamTrack/useMediaStreamTrack';
  */
 export default function useVideoTrackMuted(track?: LocalVideoTrack): boolean {
   const mediaStreamTrack = useMediaStreamTrack(track);
-  const [isMuted, setIsMuted] = useState(Boolean(mediaStreamTrack?.muted));
 
-  useEffect(() => {
-    // Re-sync on track replacement (e.g. camera flip / restart) since the new
-    // mediaStreamTrack may already be muted without firing an event for us.
-    setIsMuted(Boolean(mediaStreamTrack?.muted));
-
-    if (!mediaStreamTrack) {
-      return;
-    }
-
-    const handleMuted = () => setIsMuted(true);
-    const handleUnmuted = () => setIsMuted(false);
-    mediaStreamTrack.addEventListener('mute', handleMuted);
-    mediaStreamTrack.addEventListener('unmute', handleUnmuted);
-    return () => {
-      mediaStreamTrack.removeEventListener('mute', handleMuted);
-      mediaStreamTrack.removeEventListener('unmute', handleUnmuted);
-    };
-  }, [mediaStreamTrack]);
-
-  return isMuted;
+  // Re-synced on track replacement (e.g. camera flip / restart) since the new
+  // mediaStreamTrack may already be muted without firing an event for us.
+  return useEmitterState(mediaStreamTrack, current => Boolean(current?.muted), {
+    mute: () => true,
+    unmute: () => false,
+  });
 }
