@@ -7,8 +7,7 @@ import ScreenShareIcon from '@material-ui/icons/ScreenShare';
 import StopScreenShareIcon from '@material-ui/icons/StopScreenShare';
 import { isMobile } from '../../../utils';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
-import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
-import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
+import useScreenShareControl from '../../../hooks/useScreenShareControl/useScreenShareControl';
 import ChatIcon from '../../../icons/ChatIcon';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
@@ -176,13 +175,10 @@ export default function StudentRoomToolbar({
   onChatToggle,
 }: StudentRoomToolbarProps = {}) {
   const classes = useStyles();
-  const { toggleScreenShare, isSharingScreen } = useVideoContext();
-  const screenShareParticipant = useScreenShareParticipant();
+  const { toggleScreenShare, isSharingScreen, disabled: screenShareUnavailable } = useScreenShareControl();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
   // Same gating as ToggleScreenShareButton: only someone ELSE's share blocks the control.
-  const disableScreenShare = Boolean(screenShareParticipant) && !isSharingScreen;
-  const isScreenShareSupported = Boolean(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
   const chip = clsx(classes.chipLayout, classes.chipDark);
 
   // Screen share lives behind a "more options" kebab so the primary bar stays lean:
@@ -250,7 +246,7 @@ export default function StudentRoomToolbar({
                   className={clsx(classes.moreMenuItem, { [classes.moreMenuItemActive]: isSharingScreen })}
                   data-testid="student-toolbar-screenshare"
                   role="menuitemcheckbox"
-                  disabled={isReconnecting || disableScreenShare || !isScreenShareSupported}
+                  disabled={isReconnecting || screenShareUnavailable}
                   onClick={() => {
                     toggleScreenShare();
                     closeMore();
