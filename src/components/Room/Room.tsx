@@ -18,10 +18,8 @@ import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipan
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
 import TranscriptionsOverlay from '../TranscriptionsOverlay/TranscriptionsOverlay';
-import StudentRoomShell from './StudentRoomShell';
-import { StudentRoomToolbar } from './StudentRoomShell';
-import ProfessorRoomShell, { ProfessorToolbar } from './ProfessorRoomShell';
-import { ProfessorRightTab } from './ProfessorRoomShell/professorShellHelpers';
+import { roomShellFactory, RoomShellContext, RoomShellRole } from './roomShells';
+import { useRoomLayout } from './roomLayout';
 import useShellNotifications from './StudentRoomShell/useShellNotifications';
 import useNotificationToasts from '../../hooks/useNotificationToasts/useNotificationToasts';
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
@@ -29,8 +27,7 @@ import useModeration from '../../hooks/useModeration/useModeration';
 import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctoringWarnings';
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
 import useAttentionReportSaver from '../../hooks/useAttentionReportSaver/useAttentionReportSaver';
-import useCachedIdToken from '../../hooks/useCachedIdToken/useCachedIdToken';
-import { savePendingAttentionReport } from '../AttentionReport/pendingAttentionReports';
+import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity } from '../PreJoinScreens/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
@@ -111,20 +108,16 @@ export default function Room() {
   const classes = useStyles();
   const { isChatWindowOpen } = useChatContext();
   const { isBackgroundSelectionOpen, room } = useVideoContext();
-  const { isGalleryViewActive, setIsGalleryViewActive, user } = useAppState();
+  const { isGalleryViewActive, setIsGalleryViewActive } = useAppState();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   // Between 600-960px the desktop shells still render (isMobile only flips below 600),
-  // but their rails are fixed-width — with BOTH open at once the stage can shrink to a
-  // sliver. On that range, opening one rail auto-closes the other so the stage always
-  // keeps its narrowed-but-usable width (see ProfessorRoomShell/StudentRoomShell down('md') rail widths).
+  // but their rails are fixed-width — see useRoomLayout for how that narrows the rails.
   const isNarrowDesktop = useMediaQuery(theme.breakpoints.down('md'));
   const screenShareParticipant = useScreenShareParticipant();
-  const [professorTab, setProfessorTab] = useState<ProfessorRightTab>('grupo');
-  // Meet-style clean entry: both side rails start collapsed and the professor opens
-  // them from the toolbar (Participantes / Chat / Panel de atención).
-  const [leftOpen, setLeftOpen] = useState(false);
-  const [rightOpen, setRightOpen] = useState(false);
+  // Meet-style clean entry: both side rails start collapsed and the toolbar opens them
+  // (Participantes / Chat / Panel de atención). The layout owns the rails' exclusion rule.
+  const layout = useRoomLayout(isNarrowDesktop);
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
   const { muteParticipant, mutedByProfessorCount } = useModeration();
   const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
@@ -142,29 +135,12 @@ export default function Room() {
   const openTour = useCallback(() => setOnboardingSignal(s => s + 1), []);
   const onboardingValue = useMemo(() => ({ openTour }), [openTour]);
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
-  // `user` is typed as a union with a legacy non-firebase shape (see StateContextType);
-  // narrow to a real firebase User via a method only it has before handing it to
-  // useCachedIdToken, which calls user.getIdToken().
-  const firebaseUser = user && 'getIdToken' in user ? user : null;
-  // Only cached while a teacher is present — the unload-time keepalive POST below is
-  // the only consumer, and it never runs for students.
-  const cachedIdTokenRef = useCachedIdToken(isTeacher ? firebaseUser : null);
   const mainParticipant = useMainParticipant();
   const participants = useParticipants();
   const localParticipantNetworkQuality = useParticipantNetworkQualityLevel(room?.localParticipant ?? null);
   const isConnectivityDegraded =
     typeof localParticipantNetworkQuality === 'number' ? localParticipantNetworkQuality <= 2 : false;
   const notifications = useShellNotifications(participants);
-
-  const toggleLeftRail = useCallback(() => {
-    const next = !leftOpen;
-    setLeftOpen(next);
-    if (next && isNarrowDesktop) setRightOpen(false);
-  }, [isNarrowDesktop, leftOpen]);
-  const openRightRail = useCallback(() => {
-    if (isNarrowDesktop) setLeftOpen(false);
-    setRightOpen(true);
-  }, [isNarrowDesktop]);
 
   // Transient, role-curated toasts (join/leave, raise-hand, turn, recording).
   useNotificationToasts({
@@ -194,63 +170,8 @@ export default function Room() {
   // the user is still free to switch back to gallery view.
   useSetSpeakerViewOnScreenShare(screenShareParticipant, room, setIsGalleryViewActive, isGalleryViewActive);
 
-  // Additional teacher-only beforeunload/pagehide listener: useRoom.tsx already
-  // registers its own listener that disconnects the room, but never persists the
-  // attention report — a tab close or refresh silently dropped it. This one, in
-  // order: (1) synchronously snapshots the report into the localStorage retry
-  // queue (guaranteed durability even if the fetch below never lands), then (2)
-  // fires a best-effort keepalive POST with the id token cached by
-  // useCachedIdToken (a synchronous handler can't await user.getIdToken()).
-  // Latest-value refs (same idiom as useAttentionReportSaver/useSessionEnd) keep
-  // the listener registered once while always reading fresh values.
-  const isTeacherRef = useRef(isTeacher);
-  const buildReportRef = useRef(buildReport);
-  const userRef = useRef(user);
-
-  useEffect(() => {
-    isTeacherRef.current = isTeacher;
-    buildReportRef.current = buildReport;
-    userRef.current = user;
-  }, [isTeacher, buildReport, user]);
-
-  useEffect(() => {
-    const handleUnload = () => {
-      if (!isTeacherRef.current) {
-        return;
-      }
-      const report = buildReportRef.current('left');
-      if (!report) {
-        return;
-      }
-
-      const currentUser = userRef.current;
-      savePendingAttentionReport(currentUser && 'uid' in currentUser ? currentUser.uid : undefined, report);
-
-      const idToken = cachedIdTokenRef.current;
-      if (!idToken) {
-        return;
-      }
-      // Not awaited: keepalive lets the browser keep this request alive past
-      // teardown. The localStorage queue above already guarantees no data loss
-      // if this fails or never completes.
-      fetch('/reports', {
-        method: 'POST',
-        keepalive: true,
-        headers: { 'Content-Type': 'application/json', Authorization: idToken },
-        body: JSON.stringify(report),
-      }).catch(() => {
-        // Swallowed: the pending-report queue is the source of truth for retry.
-      });
-    };
-
-    window.addEventListener('beforeunload', handleUnload);
-    window.addEventListener('pagehide', handleUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleUnload);
-      window.removeEventListener('pagehide', handleUnload);
-    };
-  }, [cachedIdTokenRef]);
+  // Teacher-only: persist the attention report when the tab is closed or refreshed.
+  useUnloadReportPersistence(isTeacher, buildReport);
 
   // Speaker-view stage: ParticipantStrip filmstrip on top + MainParticipant filling remaining space.
   // Used by both desktop shells; not rendered on mobile or in gallery view.
@@ -262,6 +183,27 @@ export default function Room() {
       </div>
     </div>
   );
+
+  const role: RoomShellRole = isTeacher ? 'teacher' : 'student';
+  const shellContext: RoomShellContext = {
+    stage: isGalleryViewActive ? <GalleryView /> : speakerViewStage,
+    session: {
+      name: room?.name || sessionLabel,
+      label: sessionLabel,
+      participantCount,
+      recording: isRecording,
+    },
+    participants,
+    localIdentity: room?.localParticipant?.identity || '',
+    layout,
+    hands: { raisedHands, isHandRaised, setHandRaised, grantTurn },
+    moderation: { muteParticipant, sendWarning },
+    proctoring: { enabled: proctoringEnabled, setEnabled: setProctoringEnabled },
+    notifications,
+    sessionEnd: { endSessionForAll, leaveWithoutEnding },
+    connection: { isDegraded: isConnectivityDegraded, networkQualityLevel: localParticipantNetworkQuality },
+    activeSpeakerLabel,
+  };
 
   return (
     <div
@@ -288,89 +230,8 @@ export default function Room() {
                 <ParticipantList />
               </>
             )
-          ) : isTeacher ? (
-            <ProfessorRoomShell
-              stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
-              toolbarSlot={
-                <ProfessorToolbar
-                  proctoringEnabled={proctoringEnabled}
-                  onProctoringChange={setProctoringEnabled}
-                  participantsOpen={leftOpen}
-                  onParticipantsToggle={toggleLeftRail}
-                  chatOpen={rightOpen && professorTab === 'chat'}
-                  onChatToggle={() => {
-                    if (rightOpen && professorTab === 'chat') {
-                      setRightOpen(false);
-                    } else {
-                      setProfessorTab('chat');
-                      openRightRail();
-                    }
-                  }}
-                  attentionOpen={rightOpen && professorTab !== 'chat'}
-                  onAttentionToggle={() => {
-                    if (rightOpen && professorTab !== 'chat') {
-                      setRightOpen(false);
-                    } else {
-                      setProfessorTab('grupo');
-                      openRightRail();
-                    }
-                  }}
-                  onEndForAll={endSessionForAll}
-                  onLeave={leaveWithoutEnding}
-                />
-              }
-              leftOpen={leftOpen}
-              rightOpen={rightOpen}
-              onCloseLeft={() => setLeftOpen(false)}
-              onCloseRight={() => setRightOpen(false)}
-              rightTab={professorTab}
-              onRightTabChange={setProfessorTab}
-              rightPanel={professorTab === 'chat' ? <ChatWindow embedded isVisible /> : undefined}
-              participants={[
-                ...participants.map(p => ({ identity: p.identity })),
-                { identity: room?.localParticipant?.identity || '', isLocal: true },
-              ]}
-              sessionLabel={sessionLabel}
-              sessionName={room?.name || sessionLabel}
-              participantCount={participantCount}
-              recording={isRecording}
-              handsRaised={raisedHands}
-              onGrantTurn={grantTurn}
-              onMuteParticipant={muteParticipant}
-              onSendWarning={sendWarning}
-              proctoringEnabled={proctoringEnabled}
-              notifications={notifications}
-            />
           ) : (
-            <StudentRoomShell
-              stage={isGalleryViewActive ? <GalleryView /> : speakerViewStage}
-              toolbarSlot={
-                <StudentRoomToolbar
-                  handRaised={isHandRaised}
-                  onHandRaisedChange={setHandRaised}
-                  participantsOpen={leftOpen}
-                  onParticipantsToggle={toggleLeftRail}
-                  chatOpen={rightOpen}
-                  onChatToggle={() => (rightOpen ? setRightOpen(false) : openRightRail())}
-                />
-              }
-              activeSpeakerLabel={activeSpeakerLabel}
-              sessionLabel={sessionLabel}
-              sessionName={room?.name || sessionLabel}
-              participantCount={participantCount}
-              recording={isRecording}
-              isConnectivityDegraded={isConnectivityDegraded}
-              networkQualityLevel={localParticipantNetworkQuality}
-              rightPanel={<ChatWindow embedded isVisible />}
-              leftOpen={leftOpen}
-              rightOpen={rightOpen}
-              onCloseLeft={() => setLeftOpen(false)}
-              onCloseRight={() => setRightOpen(false)}
-              participants={[
-                ...participants.map(p => ({ identity: p.identity, isOnline: true })),
-                { identity: room?.localParticipant?.identity || '', isOnline: true, isLocal: true },
-              ]}
-            />
+            roomShellFactory[role](shellContext)
           )}
 
           {!isDesktopShell && <ChatWindow />}
