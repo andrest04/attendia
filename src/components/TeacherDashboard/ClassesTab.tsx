@@ -14,6 +14,7 @@ import esLocale from 'date-fns/locale/es';
 import { DashboardStat, UpcomingSession } from './types';
 import { statCardIcon } from './dashboardHelpers';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../PreJoinScreens/classSessionTypes';
+import { validateNewClass } from './newClassValidation';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
@@ -520,7 +521,8 @@ export default function ClassesTab({
   const duplicateClass = trimmedTitleInput
     ? existingClasses.find(
         classRecord =>
-          classRecord.status !== 'completed' && classRecord.title.trim().toLowerCase() === trimmedTitleInput.toLowerCase()
+          classRecord.status !== 'completed' &&
+          classRecord.title.trim().toLowerCase() === trimmedTitleInput.toLowerCase()
       )
     : undefined;
 
@@ -554,51 +556,26 @@ export default function ClassesTab({
     event.preventDefault();
     if (!onCreateClass) return;
 
-    const title = titleInput.trim();
-    if (!title) {
-      setFormError('Indica un título para la clase.');
-      return;
-    }
-    const roomName = toClassSessionRoomName(title);
-    if (!dateValue || isNaN(dateValue.getTime()) || !timeValue || isNaN(timeValue.getTime())) {
-      setFormError('Indica la fecha y la hora de la clase.');
-      return;
-    }
-    const studentCount = Number(studentCountInput);
-    if (!Number.isFinite(studentCount) || studentCount < 0) {
-      setFormError('La cantidad de alumnos esperados no es válida.');
-      return;
-    }
-    const durationMinutes = Number(durationMinutesInput);
-    if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
-      setFormError('La duración de la clase no es válida.');
-      return;
-    }
-    const scheduledAtMs = new Date(
-      dateValue.getFullYear(),
-      dateValue.getMonth(),
-      dateValue.getDate(),
-      timeValue.getHours(),
-      timeValue.getMinutes()
-    ).getTime();
-    if (!Number.isFinite(scheduledAtMs)) {
-      setFormError('La fecha y hora indicadas no son válidas.');
-      return;
-    }
-    if (scheduledAtMs < Date.now()) {
-      setFormError('No puedes programar una clase en una fecha u hora pasada.');
+    const validation = validateNewClass(
+      {
+        title: titleInput,
+        date: dateValue,
+        time: timeValue,
+        studentCount: studentCountInput,
+        durationMinutes: durationMinutesInput,
+      },
+      Date.now()
+    );
+    if (!validation.ok) {
+      setFormError(validation.message);
       return;
     }
 
     setFormError(null);
     setIsSubmitting(true);
     onCreateClass({
-      title,
-      scheduledAtMs,
-      studentCount,
-      durationMinutes,
+      ...validation.value,
       idempotencyKey: creationIdempotencyKeyRef.current || createIdempotencyKey(),
-      roomName,
     })
       .then(() => resetForm())
       .catch(err => setFormError(err.message))
@@ -787,7 +764,9 @@ export default function ClassesTab({
 
           {!formError && duplicateClass && (
             <div className={classes.newClassDuplicateWarning} data-testid="dashboard-new-class-duplicate-warning">
-              Ya tienes una clase "{duplicateClass.title}" programada para el {formatDuplicateDateLabel(duplicateClass.scheduledAtMs)}. Puedes crear esta igual si es una sesión distinta.
+              Ya tienes una clase "{duplicateClass.title}" programada para el{' '}
+              {formatDuplicateDateLabel(duplicateClass.scheduledAtMs)}. Puedes crear esta igual si es una sesión
+              distinta.
             </div>
           )}
           {formError && <div className={classes.newClassError}>{formError}</div>}
