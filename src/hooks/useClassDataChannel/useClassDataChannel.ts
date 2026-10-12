@@ -36,6 +36,12 @@ import { ClassChannel, joinClassChannel } from './classChannelBus';
 
 export interface ClassDataChannelOptions<T> {
   /**
+   * Whether to take part in the channel at all. While `false` nothing is published and
+   * nothing is listened to — used by consumers whose feature is switched off, so that an
+   * idle feature does not cost every participant a data track. Defaults to `true`.
+   */
+  enabled?: boolean;
+  /**
    * Options for the published LocalDataTrack. Omit for a reliable/ordered track;
    * pass `{ ordered: false, maxRetransmits: 0 }` for unreliable telemetry.
    */
@@ -58,6 +64,7 @@ export interface ClassDataChannelApi<T> {
 }
 
 export default function useClassDataChannel<T>({
+  enabled = true,
   trackOptions,
   onMessage,
   onParticipantConnected,
@@ -80,7 +87,7 @@ export default function useClassDataChannel<T>({
   // Join the room's shared class channel (see classChannelBus.ts): the transport — the
   // published DataTrack(s) and the receive loop — is owned once per room, not once per hook.
   useEffect(() => {
-    if (!room || !room.localParticipant) return;
+    if (!enabled || !room || !room.localParticipant) return;
     const channel = joinClassChannel(room, trackOptionsRef.current, {
       onMessage: (message, participant) => latest.current.onMessage(message, participant),
       onParticipantConnected: participant => latest.current.onParticipantConnected?.(participant),
@@ -91,7 +98,7 @@ export default function useClassDataChannel<T>({
       channel.leave();
       channelRef.current = null;
     };
-  }, [room, latest, trackOptionsRef]);
+  }, [room, enabled, latest, trackOptionsRef]);
 
   return { send };
 }
