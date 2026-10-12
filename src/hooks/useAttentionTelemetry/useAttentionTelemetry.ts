@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import useLatest from '../useLatest/useLatest';
 import { AttentionTelemetryMessage } from '../useClassDataChannel/classProtocol';
 import { AttentionCaptureResult } from '../useAttentionCapture/useAttentionCapture';
 
@@ -96,6 +97,55 @@ function isAttentionTelemetryMessage(
   );
 }
 
+/**
+ * What the local device is telling the room about itself:
+ * - `measuring`: the capture loop produces real samples (broadcast by the capture effect);
+ * - `camera-off`: no capture loop — heartbeat an explicit camera-off beat;
+ * - `unsupported`: the device cannot run the pipeline (mobile) — heartbeat "unsupported".
+ * The two flags the provider passes can never both be true; if they were, `unsupported` wins.
+ */
+type LocalAttentionStatus = 'measuring' | 'camera-off' | 'unsupported';
+
+const localStatus = (cameraOff: boolean, unsupported: boolean): LocalAttentionStatus =>
+  unsupported ? 'unsupported' : cameraOff ? 'camera-off' : 'measuring';
+
+/** A real sample from the capture loop. */
+const measuredMessage = (result: AttentionCaptureResult): AttentionTelemetryMessage => ({
+  type: 'attention-telemetry',
+  index: result.index,
+  multiface: result.multiface,
+  faces: result.faces,
+  cameraOff: false,
+  unsupported: false,
+});
+
+/** A heartbeat with no measurement behind it: it only says WHY there is none. */
+const beaconMessage = (status: 'camera-off' | 'unsupported'): AttentionTelemetryMessage => ({
+  type: 'attention-telemetry',
+  index: 0,
+  multiface: false,
+  faces: 0,
+  cameraOff: status === 'camera-off',
+  unsupported: status === 'unsupported',
+});
+
+/** Sends `message` immediately and then every `intervalMs` while `active`. */
+function useHeartbeat(
+  active: boolean,
+  message: AttentionTelemetryMessage,
+  send: (m: AttentionTelemetryMessage) => void,
+  intervalMs: number
+) {
+  const messageRef = useLatest(message);
+  useEffect(() => {
+    if (!active) return;
+    const beat = () => send(messageRef.current);
+    beat();
+    const id = window.setInterval(beat, intervalMs);
+    return () => window.clearInterval(id);
+  }, [active, send, intervalMs, messageRef]);
+}
+
 export default function useAttentionTelemetry(
   localResult?: AttentionCaptureResult,
   cameraOff: boolean = false,
@@ -103,6 +153,7 @@ export default function useAttentionTelemetry(
 ): RemoteAttention[] {
   const { room } = useVideoContext();
   const [remoteAttention, setRemoteAttention] = useState<Map<string, StoredRemoteAttention>>(new Map());
+  const status = localStatus(cameraOff, unsupported);
 
   // Unreliable + unordered track: this is "latest value wins" telemetry, not a
   // delivery-guaranteed event. See the header comment for why reliable delivery
@@ -142,42 +193,20 @@ export default function useAttentionTelemetry(
   // Broadcast local attention whenever capture is active.
   useEffect(() => {
     if (!localResult || localResult.capture !== 'active') return;
-    send({
-      type: 'attention-telemetry',
-      index: localResult.index,
-      multiface: localResult.multiface,
-      faces: localResult.faces,
-      cameraOff: false,
-      unsupported: false,
-    });
+    send(measuredMessage(localResult));
   }, [localResult, send]);
 
-  // Camera-off heartbeat: while the local camera is off, capture is inactive and
-  // would stop broadcasting entirely. Send an explicit camera-off signal immediately
-  // and then on an interval so the professor sees "Cámara apagada" instead of a
-  // frozen last value, and late-joining professors learn about it within 1 second.
-  useEffect(() => {
-    if (!cameraOff) return;
-    const beat = () =>
-      send({ type: 'attention-telemetry', index: 0, multiface: false, faces: 0, cameraOff: true, unsupported: false });
-    beat();
-    const id = window.setInterval(beat, CAMERA_OFF_HEARTBEAT_MS);
-    return () => window.clearInterval(id);
-  }, [cameraOff, send]);
+  // Camera-off heartbeat: while the local camera is off, capture is inactive and would stop
+  // broadcasting entirely. Send an explicit camera-off signal immediately and then on an
+  // interval so the professor sees "Cámara apagada" instead of a frozen last value, and
+  // late-joining professors learn about it within 1 second.
+  useHeartbeat(status === 'camera-off', beaconMessage('camera-off'), send, CAMERA_OFF_HEARTBEAT_MS);
 
-  // Unsupported-device heartbeat: a mobile student never runs capture (the CV
-  // pipeline is desktop-only), so without this it would broadcast nothing and be
-  // invisible to the professor — indistinguishable from "not joined". Beat an
-  // explicit unsupported signal so the professor sees "No medible (celular)"
-  // instead of silence. Mirrors the camera-off heartbeat.
-  useEffect(() => {
-    if (!unsupported) return;
-    const beat = () =>
-      send({ type: 'attention-telemetry', index: 0, multiface: false, faces: 0, cameraOff: false, unsupported: true });
-    beat();
-    const id = window.setInterval(beat, CAMERA_OFF_HEARTBEAT_MS);
-    return () => window.clearInterval(id);
-  }, [unsupported, send]);
+  // Unsupported-device heartbeat: a mobile student never runs capture (the CV pipeline is
+  // desktop-only), so without this it would broadcast nothing and be invisible to the professor
+  // — indistinguishable from "not joined". Beat an explicit unsupported signal so the professor
+  // sees "No medible (celular)" instead of silence. Mirrors the camera-off heartbeat.
+  useHeartbeat(status === 'unsupported', beaconMessage('unsupported'), send, CAMERA_OFF_HEARTBEAT_MS);
 
   // Staleness sweep: drop entries not refreshed within STALE_TTL_MS. A participant
   // that goes silent (crash, abrupt drop without a disconnect event) expires; a
@@ -201,7 +230,8 @@ export default function useAttentionTelemetry(
     return () => window.clearInterval(id);
   }, [room]);
 
-  // Convert the map to a stable array for consumers, stripping the internal
-  // receivedAt timestamp (consumers must not see transport bookkeeping).
-  return Array.from(remoteAttention.values()).map(({ receivedAt, ...rest }) => rest);
+  // Convert the map to a stable array for consumers, stripping the internal receivedAt
+  // timestamp (consumers must not see transport bookkeeping). Memoized on the map so consumers
+  // only see a new array when the data actually changed.
+  return useMemo(() => Array.from(remoteAttention.values()).map(({ receivedAt, ...rest }) => rest), [remoteAttention]);
 }
