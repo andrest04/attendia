@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
+import { getInitials } from '../roomIdentity';
 import RoleBadge from '../../RoleBadge/RoleBadge';
 import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';
 import RoomShellLayout from '../ShellLayout/RoomShellLayout';
@@ -243,16 +244,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexDirection: 'column' as const,
   },
 }));
-
-// ── Helper: derive initials from an identity string ──────────────────────────
-function getInitials(identity: string): string {
-  const clean = stripTeacherSuffix(identity);
-  const words = clean.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) {
-    return (words[0][0] + words[1][0]).toUpperCase();
-  }
-  return clean.slice(0, 2).toUpperCase();
-}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 

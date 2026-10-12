@@ -1,7 +1,7 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import { ParticipantAttention, ProctoringAlert } from '../../AttentionProvider/types';
-import { ShellNotification } from '../StudentRoomShell/useShellNotifications';
+import { ShellNotification } from '../shellNotification';
 import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
 import RosterList from './RosterList';
 import HandsRaisedQueue from './HandsRaisedQueue';

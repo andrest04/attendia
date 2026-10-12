@@ -7,7 +7,7 @@ import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctori
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
 import StudentRoomShell, { StudentRoomToolbar } from './StudentRoomShell';
 import ProfessorRoomShell, { ProfessorToolbar } from './ProfessorRoomShell';
-import { ShellNotification } from './StudentRoomShell/useShellNotifications';
+import { ShellNotification } from './shellNotification';
 import { useRoomLayout } from './roomLayout';
 
 export type RoomShellRole = 'teacher' | 'student';

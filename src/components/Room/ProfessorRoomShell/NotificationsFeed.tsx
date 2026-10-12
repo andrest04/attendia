@@ -1,6 +1,6 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
-import { ShellNotification } from '../StudentRoomShell/useShellNotifications';
+import { ShellNotification } from '../shellNotification';
 import { notificationEmoji } from './professorShellHelpers';
 
 const useStyles = makeStyles(() => ({
