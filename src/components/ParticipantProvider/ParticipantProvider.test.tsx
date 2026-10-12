@@ -96,7 +96,7 @@ describe('the ParticipantProvider component', () => {
         room.emit('dominantSpeakerChanged', room.participants.get('b'));
         room.emit('participantConnected', makeParticipant('d'));
       });
-      expect(result.current.dominantSpeaker.sid).toBe('b');
+      expect(result.current.dominantSpeaker!.sid).toBe('b');
       expect(result.current.participants.map(p => p.sid)).toEqual(['a', 'b', 'c', 'd']);
 
       act(() => {
@@ -104,7 +104,7 @@ describe('the ParticipantProvider component', () => {
         sharer.tracks.set('t1', { trackName: 'screen' });
         room.emit('trackPublished');
       });
-      expect(result.current.screenShare.sid).toBe('c');
+      expect(result.current.screenShare!.sid).toBe('c');
     });
 
     it('does not attach more room listeners when more components consume the hooks', () => {
@@ -145,7 +145,7 @@ describe('the ParticipantProvider component', () => {
       });
 
       expect(result.current.withNulls).toBeNull();
-      expect(result.current.withoutNulls.sid).toBe('a'); // nulls are ignored for the shared value
+      expect(result.current.withoutNulls!.sid).toBe('a'); // nulls are ignored for the shared value
     });
   });
 
@@ -165,6 +165,6 @@ describe('the ParticipantProvider component', () => {
     act(() => {
       room.emit('dominantSpeakerChanged', room.participants.get('a'));
     });
-    expect(result.current.dominantSpeaker.sid).toBe('a');
+    expect(result.current.dominantSpeaker!.sid).toBe('a');
   });
 });

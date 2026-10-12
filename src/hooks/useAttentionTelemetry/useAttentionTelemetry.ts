@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import { AttentionTelemetryMessage } from '../useClassDataChannel/classProtocol';
 import { AttentionCaptureResult } from '../useAttentionCapture/useAttentionCapture';
 
 /**
@@ -57,16 +58,6 @@ const STALE_TTL_MS = 5000;
 
 // How often the staleness sweep runs.
 const STALE_SWEEP_MS = 1000;
-
-interface AttentionTelemetryMessage {
-  type: 'attention-telemetry';
-  index: number;
-  multiface: boolean;
-  faces: number;
-  cameraOff: boolean;
-  /** True when this device cannot run the CV pipeline at all (mobile). */
-  unsupported: boolean;
-}
 
 export interface RemoteAttention {
   /** Maps to the Twilio participant identity string. */

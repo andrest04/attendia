@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import { isAddressedToMe, MuteAudioMessage } from '../useClassDataChannel/classProtocol';
 
 /**
  * Classroom moderation signaling over a Twilio LocalDataTrack.
@@ -26,11 +27,6 @@ import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
  *   Twilio participant, never the payload.
  */
 
-interface MuteAudioMessage {
-  type: 'mute-audio';
-  identity: string;
-}
-
 type ModerationMessage = MuteAudioMessage;
 
 export interface ModerationApi {
@@ -48,11 +44,7 @@ export default function useModeration(): ModerationApi {
     onMessage: message => {
       const localParticipant = room?.localParticipant;
       if (!localParticipant) return;
-      if (
-        message.type === 'mute-audio' &&
-        typeof message.identity === 'string' &&
-        message.identity === localParticipant.identity
-      ) {
+      if (message.type === 'mute-audio' && isAddressedToMe(message, room)) {
         // Honor the request by disabling our OWN audio track (soft mute — the track
         // stays published, so the student can re-enable it from their mic button).
         // Only act on tracks that are actually enabled, and bump the count (which

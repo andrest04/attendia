@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import { isAddressedToMe, ProctoringWarningMessage } from '../useClassDataChannel/classProtocol';
 import { ProctoringAlert } from '../../components/AttentionProvider/types';
 
 /**
@@ -24,12 +25,6 @@ import { ProctoringAlert } from '../../components/AttentionProvider/types';
  *   sender identity is the Twilio participant, never the payload.
  */
 
-interface ProctoringWarningMessage {
-  type: 'proctoring-warning';
-  identity: string;
-  kind: ProctoringAlert['kind'];
-}
-
 type WarningMessage = ProctoringWarningMessage;
 
 export interface ProctoringWarningsApi {
@@ -48,12 +43,7 @@ export default function useProctoringWarnings(): ProctoringWarningsApi {
 
   const { send } = useClassDataChannel<WarningMessage>({
     onMessage: message => {
-      if (
-        message.type === 'proctoring-warning' &&
-        typeof message.identity === 'string' &&
-        typeof message.kind === 'string' &&
-        message.identity === room?.localParticipant?.identity
-      ) {
+      if (message.type === 'proctoring-warning' && typeof message.kind === 'string' && isAddressedToMe(message, room)) {
         setLastWarningKind(message.kind);
         setWarnedByProfessorCount(count => count + 1);
       }

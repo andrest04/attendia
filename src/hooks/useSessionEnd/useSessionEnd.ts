@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
+import { SessionEndedMessage } from '../useClassDataChannel/classProtocol';
 import { useAppState } from '../../state';
 import { clearRejoinSession } from '../../components/PreJoinScreens/rejoinSession';
 import { ReportEndReason } from '../../components/AttentionProvider/reportTypes';
@@ -28,10 +29,6 @@ import { createApiClient } from '../../state/useFirebaseAuth/apiClient';
  * Call this ONCE per room (in Room.tsx), like useRaiseHand — useClassDataChannel
  * publishes one LocalDataTrack per mount, so a second caller would double-publish.
  */
-
-interface SessionEndedMessage {
-  type: 'session-ended';
-}
 
 export interface SessionEndOptions {
   /**
