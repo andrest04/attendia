@@ -46,62 +46,32 @@ import SanFranciscoThumb from '../../../images/thumb/SanFrancisco.jpg';
 import { useLocalStorageState } from '../../../hooks/useLocalStorageState/useLocalStorageState';
 import { BackgroundSettings } from './backgroundSettingsTypes';
 
-const imageNames: string[] = [
-  'Abstract',
-  'Boho Home',
-  'Bookshelf',
-  'Coffee Shop',
-  'Contemporary',
-  'Cozy Home',
-  'Desert',
-  'Fishing',
-  'Flower',
-  'Kitchen',
-  'Modern Home',
-  'Nature',
-  'Ocean',
-  'Patio',
-  'Plant',
-  'San Francisco',
+// One entry per virtual background: its name, the thumbnail the picker shows and the full image the
+// processor draws. They used to be three parallel arrays that only agreed by index.
+const BACKGROUND_IMAGES = [
+  { name: 'Abstract', thumbnail: AbstractThumb, src: Abstract },
+  { name: 'Boho Home', thumbnail: BohoHomeThumb, src: BohoHome },
+  { name: 'Bookshelf', thumbnail: BookshelfThumb, src: Bookshelf },
+  { name: 'Coffee Shop', thumbnail: CoffeeShopThumb, src: CoffeeShop },
+  { name: 'Contemporary', thumbnail: ContemporaryThumb, src: Contemporary },
+  { name: 'Cozy Home', thumbnail: CozyHomeThumb, src: CozyHome },
+  { name: 'Desert', thumbnail: DesertThumb, src: Desert },
+  { name: 'Fishing', thumbnail: FishingThumb, src: Fishing },
+  { name: 'Flower', thumbnail: FlowerThumb, src: Flower },
+  { name: 'Kitchen', thumbnail: KitchenThumb, src: Kitchen },
+  { name: 'Modern Home', thumbnail: ModernHomeThumb, src: ModernHome },
+  { name: 'Nature', thumbnail: NatureThumb, src: Nature },
+  { name: 'Ocean', thumbnail: OceanThumb, src: Ocean },
+  { name: 'Patio', thumbnail: PatioThumb, src: Patio },
+  { name: 'Plant', thumbnail: PlantThumb, src: Plant },
+  { name: 'San Francisco', thumbnail: SanFranciscoThumb, src: SanFrancisco },
 ];
 
-const images = [
-  AbstractThumb,
-  BohoHomeThumb,
-  BookshelfThumb,
-  CoffeeShopThumb,
-  ContemporaryThumb,
-  CozyHomeThumb,
-  DesertThumb,
-  FishingThumb,
-  FlowerThumb,
-  KitchenThumb,
-  ModernHomeThumb,
-  NatureThumb,
-  OceanThumb,
-  PatioThumb,
-  PlantThumb,
-  SanFranciscoThumb,
-];
+const imageNames: string[] = BACKGROUND_IMAGES.map(image => image.name);
 
-const rawImagePaths = [
-  Abstract,
-  BohoHome,
-  Bookshelf,
-  CoffeeShop,
-  Contemporary,
-  CozyHome,
-  Desert,
-  Fishing,
-  Flower,
-  Kitchen,
-  ModernHome,
-  Nature,
-  Ocean,
-  Patio,
-  Plant,
-  SanFrancisco,
-];
+const images = BACKGROUND_IMAGES.map(image => image.thumbnail);
+
+const rawImagePaths = BACKGROUND_IMAGES.map(image => image.src);
 
 let imageElements = new Map();
 
