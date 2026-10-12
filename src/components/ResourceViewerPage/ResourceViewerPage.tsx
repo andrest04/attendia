@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { makeStyles, Theme } from '@material-ui/core/styles';
-import Typography from '@material-ui/core/Typography';
+import { makeStyles } from '@material-ui/core/styles';
 import CloseIcon from '@material-ui/icons/Close';
 
-import AttendiaLogo from '../Brand/AttendiaLogo';
+import StandalonePage, { PageMessageCard, PageNavButton, PageTitle } from '../StandalonePage/StandalonePage';
+import useAsyncResource from '../../hooks/useAsyncResource/useAsyncResource';
 import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
@@ -18,54 +18,7 @@ import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
  * both the resource lookup and the file bytes to the verified Firebase uid.
  */
 
-const useStyles = makeStyles((theme: Theme) => ({
-  root: {
-    backgroundColor: '#f0f5ff',
-    height: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  nav: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(2),
-    padding: theme.spacing(2, 3),
-    backgroundColor: '#ffffff',
-    borderBottom: '1px solid #e2ecf9',
-    flexShrink: 0,
-  },
-  navDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#e2ecf9',
-  },
-  resourceName: {
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    color: '#0f172a',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  closeButton: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 4,
-    border: 'none',
-    background: 'none',
-    cursor: 'pointer',
-    padding: '6px 10px',
-    borderRadius: 8,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
-    color: '#1d6eed',
-    marginLeft: 'auto',
-    flexShrink: 0,
-    '&:hover': {
-      backgroundColor: '#ebf3ff',
-    },
-  },
+const useStyles = makeStyles(() => ({
   body: {
     flex: 1,
     minHeight: 0,
@@ -82,95 +35,69 @@ const useStyles = makeStyles((theme: Theme) => ({
     height: '100%',
     backgroundColor: '#000000',
   },
-  emptyCard: {
-    maxWidth: 480,
-    margin: '15vh auto 0',
-    backgroundColor: '#ffffff',
-    border: '1px solid #e2ecf9',
-    borderRadius: 20,
-    boxShadow: '0px 2px 12px 0px rgba(29,110,237,0.08), 0px 1px 3px 0px rgba(0,0,0,0.04)',
-    padding: theme.spacing(6, 4),
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: '0.9375rem',
-    color: '#64748b',
-    lineHeight: 1.6,
-  },
 }));
 
 function needsConvertedPreview(kind: ResourceRecord['kind']): boolean {
   return kind === 'presentation' || kind === 'word';
 }
 
+const FAILURE_MESSAGE = 'No pudimos cargar el recurso.';
+
 export default function ResourceViewerPage() {
   const classes = useStyles();
   const { resourceId } = useParams<{ resourceId: string }>();
   const { fetchResources, fetchResourceDownloadUrl, fetchResourcePreviewUrl } = useAppState();
+  const isAvailable = Boolean(fetchResources && fetchResourceDownloadUrl && fetchResourcePreviewUrl);
 
-  const [resource, setResource] = useState<ResourceRecord | null>(null);
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Stage 1: find the resource, so its name shows in the bar while the file is still loading.
+  const loadResource = useMemo(
+    () =>
+      isAvailable
+        ? () =>
+            fetchResources!().then(resources => {
+              const found = resources.find(r => r.id === resourceId);
+              if (!found) throw new Error('El recurso solicitado no existe.');
+              return found;
+            })
+        : null,
+    [isAvailable, fetchResources, resourceId]
+  );
+  const { data: resource, error: resourceError } = useAsyncResource(loadResource, { failureMessage: FAILURE_MESSAGE });
 
-  useEffect(() => {
-    if (!fetchResources || !fetchResourceDownloadUrl || !fetchResourcePreviewUrl) {
-      setError('No pudimos validar tu acceso a este recurso.');
-      return;
-    }
+  // Stage 2: fetch the file as a blob and expose it as an object URL, released with the page.
+  const loadFile = useMemo(
+    () =>
+      resource && isAvailable
+        ? () =>
+            (needsConvertedPreview(resource.kind)
+              ? fetchResourcePreviewUrl!(resource.id)
+              : fetchResourceDownloadUrl!(resource.id)
+            ).then(blob => URL.createObjectURL(blob))
+        : null,
+    [resource, isAvailable, fetchResourcePreviewUrl, fetchResourceDownloadUrl]
+  );
+  const { data: objectUrl, error: fileError } = useAsyncResource(loadFile, {
+    failureMessage: FAILURE_MESSAGE,
+    dispose: url => URL.revokeObjectURL(url),
+  });
 
-    let cancelled = false;
-    let createdUrl: string | null = null;
-
-    fetchResources()
-      .then(resources => {
-        if (cancelled) return;
-        const found = resources.find(r => r.id === resourceId);
-        if (!found) {
-          setError('El recurso solicitado no existe.');
-          return;
-        }
-        setResource(found);
-
-        const fetchBlob = needsConvertedPreview(found.kind)
-          ? fetchResourcePreviewUrl(found.id)
-          : fetchResourceDownloadUrl(found.id);
-
-        return fetchBlob.then(blob => {
-          if (cancelled) return;
-          createdUrl = URL.createObjectURL(blob);
-          setObjectUrl(createdUrl);
-        });
-      })
-      .catch(err => {
-        if (!cancelled) setError(err.message || 'No pudimos cargar el recurso.');
-      });
-
-    return () => {
-      cancelled = true;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resourceId, fetchResources, fetchResourceDownloadUrl, fetchResourcePreviewUrl]);
+  const error = isAvailable ? resourceError || fileError : 'No pudimos validar tu acceso a este recurso.';
 
   return (
-    <div className={classes.root} data-testid="resource-viewer-page">
-      <nav className={classes.nav}>
-        <AttendiaLogo variant="full" size={28} />
-        <div className={classes.navDivider} />
-        <Typography variant="body2" className={classes.resourceName}>
-          {resource?.name || 'Vista previa'}
-        </Typography>
-        <button
-          type="button"
-          className={classes.closeButton}
+    <StandalonePage
+      testId="resource-viewer-page"
+      fill
+      navStart={<PageTitle tone="strong">{resource?.name || 'Vista previa'}</PageTitle>}
+      navEnd={
+        <PageNavButton
           onClick={() => window.close()}
-          data-testid="resource-viewer-page-close"
+          icon={<CloseIcon style={{ fontSize: 16 }} />}
+          testId="resource-viewer-page-close"
         >
-          <CloseIcon style={{ fontSize: 16 }} />
           Cerrar
-        </button>
-      </nav>
-
+        </PageNavButton>
+      }
+    >
       <div className={classes.body}>
         {objectUrl && resource ? (
           resource.kind === 'video' ? (
@@ -184,11 +111,9 @@ export default function ResourceViewerPage() {
             />
           )
         ) : (
-          <div className={classes.emptyCard} data-testid="resource-viewer-empty">
-            <Typography className={classes.emptyText}>{error || 'Cargando el documento...'}</Typography>
-          </div>
+          <PageMessageCard testId="resource-viewer-empty">{error || 'Cargando el documento...'}</PageMessageCard>
         )}
       </div>
-    </div>
+    </StandalonePage>
   );
 }
