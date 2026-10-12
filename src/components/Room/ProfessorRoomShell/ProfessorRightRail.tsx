@@ -9,6 +9,7 @@ import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import { AttentionLevel, AttentionTimelinePoint, ParticipantAttention } from '../../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
 import { attentionStatusColors } from '../../../theme';
+import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import { ProfessorRightTab } from './professorShellHelpers';
 
@@ -20,37 +21,10 @@ const AttentionTimelineChart = React.lazy(() => import('./AttentionTimelineChart
 const useStyles = makeStyles((theme: Theme) => ({
   rightRail: {
     backgroundColor: '#ffffff',
-    borderLeft: '1px solid #e2ecf9',
     display: 'grid',
     gridTemplateRows: 'auto 1fr',
     minWidth: 0,
     overflow: 'hidden',
-    // Fade + micro-scale the content in as the column widens so the reveal feels
-    // smooth, not a hard clip (mirrors the left rail).
-    transition: 'opacity 0.24s ease, transform 0.24s ease, border-color 0.2s linear',
-    '@media (prefers-reduced-motion: reduce)': {
-      transition: 'none',
-    },
-  },
-  railCollapsed: {
-    borderColor: 'transparent',
-    opacity: 0,
-    transform: 'scale(0.98)',
-    pointerEvents: 'none',
-  },
-  railClose: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: '#94a3b8',
-    padding: '2px 6px',
-    borderRadius: 4,
-    fontSize: 18,
-    lineHeight: 1,
-    display: 'flex',
-    alignItems: 'center',
-    flexShrink: 0,
-    '&:hover': { color: '#1d2f6f', backgroundColor: '#f0f5ff' },
   },
   rightTabs: {
     display: 'flex',
@@ -253,10 +227,11 @@ export default function ProfessorRightRail({
   const classes = useStyles();
 
   return (
-    <aside
-      className={clsx(classes.rightRail, { [classes.railCollapsed]: !open })}
+    <CollapsibleRail
+      side="right"
+      open={open}
+      className={classes.rightRail}
       data-testid="professor-room-shell-right-rail"
-      aria-hidden={!open}
     >
       <div className={classes.rightTabs} data-testid="professor-room-shell-right-tabs">
         <button
@@ -287,15 +262,7 @@ export default function ProfessorRightRail({
           Chat
         </button>
         {onClose && (
-          <button
-            type="button"
-            className={classes.railClose}
-            onClick={onClose}
-            aria-label="Cerrar panel"
-            data-testid="professor-room-shell-close-right"
-          >
-            ×
-          </button>
+          <RailCloseButton onClick={onClose} aria-label="Cerrar panel" data-testid="professor-room-shell-close-right" />
         )}
       </div>
 
@@ -424,6 +391,6 @@ export default function ProfessorRightRail({
           rightPanel
         )}
       </div>
-    </aside>
+    </CollapsibleRail>
   );
 }

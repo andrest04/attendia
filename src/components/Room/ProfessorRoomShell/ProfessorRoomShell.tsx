@@ -1,12 +1,12 @@
 import React from 'react';
-import clsx from 'clsx';
-import { makeStyles, Theme } from '@material-ui/core';
+import { makeStyles } from '@material-ui/core';
 import { useSnackbar } from 'notistack';
 import { useAttention } from '../../AttentionProvider';
 import { stripTeacherSuffix } from '../../PreJoinScreens/classSessionTypes';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { ShellNotification } from '../StudentRoomShell/useShellNotifications';
 import { buildReportViewData } from '../../AttentionReport/buildReportViewData';
+import RoomShellLayout from '../ShellLayout/RoomShellLayout';
 import SessionStatusBar from './SessionStatusBar';
 import ProfessorLeftRail from './ProfessorLeftRail';
 import ProfessorRightRail from './ProfessorRightRail';
@@ -14,57 +14,7 @@ import ProctoringAlertModal from './ProctoringAlertModal';
 import LiveReportModal from './LiveReportModal';
 import { ProfessorRightTab } from './professorShellHelpers';
 
-const useStyles = makeStyles((theme: Theme) => ({
-  root: {
-    display: 'flex',
-    flexDirection: 'column',
-    width: '100%',
-    height: '100%',
-    minHeight: 0,
-    backgroundColor: '#f0f5ff',
-    position: 'relative',
-  },
-  body: {
-    flex: 1,
-    minHeight: 0,
-    display: 'grid',
-    gridTemplateRows: '1fr',
-    overflow: 'hidden',
-    // Smoothly animate the rails opening/closing. The grid always keeps THREE
-    // tracks (closed rails collapse to 0px, not removed) so the column widths are
-    // interpolable — a changing track count would snap instead of transition.
-    transition: 'grid-template-columns 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
-    '@media (prefers-reduced-motion: reduce)': {
-      transition: 'none',
-    },
-  },
-  // Column templates keyed by which rails are open. Both rails collapse on entry
-  // (Meet-style clean stage); the professor opens them from the toolbar, so the
-  // video stage owns the full width until then. The down('md') variants narrow the
-  // fixed rails on tight desktop widths (960-1280) so the stage stays usable.
-  bodyBoth: {
-    gridTemplateColumns: '228px 1fr 280px',
-    [theme.breakpoints.down('md')]: {
-      gridTemplateColumns: '200px 1fr 240px',
-    },
-  },
-  bodyLeftOnly: {
-    gridTemplateColumns: '228px 1fr 0px',
-    [theme.breakpoints.down('md')]: {
-      gridTemplateColumns: '200px 1fr 0px',
-    },
-  },
-  bodyRightOnly: {
-    gridTemplateColumns: '0px 1fr 280px',
-    [theme.breakpoints.down('md')]: {
-      gridTemplateColumns: '0px 1fr 240px',
-    },
-  },
-  bodyNoRails: {
-    gridTemplateColumns: '0px 1fr 0px',
-  },
-
-  // ── CENTER ──
+const useStyles = makeStyles(() => ({
   center: {
     minWidth: 0,
     display: 'grid',
@@ -76,14 +26,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     minHeight: 0,
     overflow: 'hidden',
     position: 'relative',
-  },
-  // Full-width footer spanning the whole shell, so the controls stay centered on
-  // screen regardless of which rails are open (Meet-style control bar).
-  toolbar: {
-    flexShrink: 0,
-    backgroundColor: '#0f1e45',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    padding: theme.spacing(1.25, 2),
   },
 }));
 
@@ -244,17 +186,14 @@ export default function ProfessorRoomShell({
   };
 
   return (
-    <section className={classes.root} data-testid="professor-room-shell-root">
-      <SessionStatusBar sessionName={sessionName} studentCount={studentCount} recording={recording} />
-      <div
-        className={clsx(classes.body, {
-          [classes.bodyBoth]: leftOpen && rightOpen,
-          [classes.bodyLeftOnly]: leftOpen && !rightOpen,
-          [classes.bodyRightOnly]: !leftOpen && rightOpen,
-          [classes.bodyNoRails]: !leftOpen && !rightOpen,
-        })}
-      >
-        {/* ── LEFT RAIL ── (always mounted so it can animate open/closed) */}
+    <RoomShellLayout
+      variant="professor"
+      testIdPrefix="professor-room-shell"
+      statusBar={<SessionStatusBar sessionName={sessionName} studentCount={studentCount} recording={recording} />}
+      leftOpen={leftOpen}
+      rightOpen={rightOpen}
+      /* Rails are always mounted so they can animate open/closed. */
+      leftRail={
         <ProfessorLeftRail
           open={leftOpen}
           onClose={onCloseLeft}
@@ -270,13 +209,13 @@ export default function ProfessorRoomShell({
           source={source}
           onAlertClick={setProctoringModalAlert}
         />
-
-        {/* ── CENTER STAGE ── */}
+      }
+      center={
         <div className={classes.center} data-testid="professor-room-shell-center-stage">
           <div className={classes.stageContent}>{stage}</div>
         </div>
-
-        {/* ── RIGHT RAIL ── (always mounted so it can animate open/closed) */}
+      }
+      rightRail={
         <ProfessorRightRail
           open={rightOpen}
           onClose={onCloseRight}
@@ -292,13 +231,9 @@ export default function ProfessorRoomShell({
           onOpenReport={handleOpenReport}
           rightPanel={rightPanel}
         />
-      </div>
-
-      {/* ── TOOLBAR (full-width footer, always screen-centered) ── */}
-      <div className={classes.toolbar} data-testid="professor-room-shell-toolbar-slot">
-        {toolbarSlot}
-      </div>
-
+      }
+      toolbar={toolbarSlot}
+    >
       {/* ── PROCTORING MODAL ── */}
       {proctoringModalAlert && (
         <ProctoringAlertModal
@@ -313,6 +248,6 @@ export default function ProfessorRoomShell({
       {isLiveReportOpen && liveReportViewData && (
         <LiveReportModal data={liveReportViewData} onClose={handleCloseLiveReport} />
       )}
-    </section>
+    </RoomShellLayout>
   );
 }
