@@ -5,6 +5,7 @@ import DashboardHeader from '../TeacherDashboard/DashboardHeader';
 import CreatePasswordDialog from './CreatePasswordDialog/CreatePasswordDialog';
 import { useHistory, useLocation } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
+import { routes } from '../../routes';
 import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -359,12 +360,12 @@ const IntroContainer = (props: IntroContainerProps) => {
   // current role. Navigating to '/' remounts PreJoinScreens at the room-name step, and the
   // role is preserved via location.state (mirrors how LoginPage seeds the role).
   const goHome = () => {
-    history.push({ pathname: '/', state: props.homeRole ? { preJoinRole: props.homeRole } : undefined });
+    history.push({ pathname: routes.home, state: props.homeRole ? { preJoinRole: props.homeRole } : undefined });
   };
 
   const openProfile = () => {
     props.onProfileClick?.();
-    history.push('/profile');
+    history.push(routes.profile);
   };
 
   const professorName = profile?.displayName || user?.displayName || undefined;
@@ -373,7 +374,7 @@ const IntroContainer = (props: IntroContainerProps) => {
 
   // Hidden when "Volver al panel" is showing (roomNameStep reached from the TeacherDashboard):
   // that link is already the way back, so the account menu here would be redundant.
-  const showProfile = Boolean(user && location.pathname !== '/login' && !props.onReturnToDashboard);
+  const showProfile = Boolean(user && location.pathname !== routes.login && !props.onReturnToDashboard);
 
   // Guard defensively because test mocks may not carry email/providerData.
   const firebaseUser = user as { email?: string | null; providerData?: ({ providerId: string } | null)[] } | null;
@@ -416,7 +417,9 @@ const IntroContainer = (props: IntroContainerProps) => {
             <>
               Clase: <strong>{props.headerRoomName}</strong>
             </>
-          ) : undefined
+          ) : (
+            undefined
+          )
         }
         badge={
           props.headerRoomName ? (
@@ -424,7 +427,9 @@ const IntroContainer = (props: IntroContainerProps) => {
               <span className={classes.presessionDot} />
               Pre-sesión
             </span>
-          ) : undefined
+          ) : (
+            undefined
+          )
         }
         extraMenuItems={
           showProfile ? (
@@ -444,7 +449,9 @@ const IntroContainer = (props: IntroContainerProps) => {
                 </MenuItem>
               )}
             </>
-          ) : undefined
+          ) : (
+            undefined
+          )
         }
       />
       <CreatePasswordDialog open={createPasswordOpen} onClose={() => setCreatePasswordOpen(false)} />
