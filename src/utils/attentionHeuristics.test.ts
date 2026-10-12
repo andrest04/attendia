@@ -11,6 +11,7 @@ import {
   computeHeadPoseAngles,
   stepBlinkCounter,
   stepFocusLostStateMachine,
+  createFocusLostState,
   addToRollingWindow,
   computeWindowScore,
   computeEyesScore,
@@ -237,18 +238,18 @@ describe('stepBlinkCounter', () => {
 
 describe('stepFocusLostStateMachine', () => {
   function freshFocusState(): FocusLostState {
-    return { count: 0, totalLostMs: 0, lostSince: null };
+    return createFocusLostState();
   }
 
   it('does not start counting focus lost when head is straight', () => {
     const state = stepFocusLostStateMachine(freshFocusState(), false, 1000);
-    expect(state.lostSince).toBeNull();
+    expect(state.phase).toBe('ok');
     expect(state.count).toBe(0);
   });
 
   it('starts a lost session when head turns', () => {
     const state = stepFocusLostStateMachine(freshFocusState(), true, 1000);
-    expect(state.lostSince).toBe(1000);
+    expect(state).toMatchObject({ phase: 'lost', since: 1000, counted: false });
     expect(state.count).toBe(0); // not yet past threshold
   });
 
@@ -275,7 +276,7 @@ describe('stepFocusLostStateMachine', () => {
     state = stepFocusLostStateMachine(state, false, 3500);
     expect(state.totalLostMs).toBeGreaterThanOrEqual(2500);
     expect(state.totalLostMs).toBeLessThanOrEqual(2500 + 50); // tight upper bound
-    expect(state.lostSince).toBeNull();
+    expect(state.phase).toBe('ok');
   });
 
   it('a single continuous lost session of duration D yields totalLostMs === D (not inflated)', () => {
@@ -294,11 +295,28 @@ describe('stepFocusLostStateMachine', () => {
     expect(state.totalLostMs).toBeLessThanOrEqual(DURATION + 50);
   });
 
-  it('clears lostSince when focus is regained', () => {
+  it('returns to the ok phase when focus is regained', () => {
     let state = freshFocusState();
     state = stepFocusLostStateMachine(state, true, 1000);
     state = stepFocusLostStateMachine(state, false, 2000);
-    expect(state.lostSince).toBeNull();
+    expect(state.phase).toBe('ok');
+  });
+
+  it('marks the run as counted exactly once, keeping its original start time', () => {
+    let state = freshFocusState();
+    state = stepFocusLostStateMachine(state, true, 1000);
+    state = stepFocusLostStateMachine(state, true, 3001);
+    expect(state).toMatchObject({ phase: 'lost', since: 1000, counted: true, count: 1 });
+  });
+
+  it('still counts a run that starts at t=0 (the old negative-timestamp encoding could not)', () => {
+    let state = freshFocusState();
+    state = stepFocusLostStateMachine(state, true, 0);
+    state = stepFocusLostStateMachine(state, true, 2500); // counted
+    state = stepFocusLostStateMachine(state, true, 4000); // must not count again
+    expect(state.count).toBe(1);
+    state = stepFocusLostStateMachine(state, false, 4500);
+    expect(state.totalLostMs).toBe(4500);
   });
 
   it('does not double-increment count for the same sustained loss', () => {

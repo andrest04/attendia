@@ -57,17 +57,25 @@ export interface BlinkState {
   wasClosedLastFrame: boolean;
 }
 
-/** Immutable focus-lost state machine state; step via stepFocusLostStateMachine(). */
-export interface FocusLostState {
+interface FocusLostTotals {
   /** Number of sustained focus-lost events (each ≥ 2 s). */
   count: number;
-  /** Cumulative ms with focus lost. */
+  /** Cumulative ms with focus lost (accumulated once, when each lost run ends). */
   totalLostMs: number;
-  /**
-   * Timestamp (ms) when the current focus-lost run started, or null when
-   * focus is not currently lost.
-   */
-  lostSince: number | null;
+}
+
+/**
+ * Immutable focus-lost state machine state; step via stepFocusLostStateMachine().
+ * Two phases, so "already counted" is an explicit flag rather than being smuggled into
+ * the sign of a timestamp:
+ *  - `ok`: focus is not currently lost.
+ *  - `lost`: focus has been lost since `since` (ms); `counted` flips to true once the run
+ *    has been sustained long enough to count as an event, so it counts exactly once.
+ */
+export type FocusLostState = FocusLostTotals & ({ phase: 'ok' } | { phase: 'lost'; since: number; counted: boolean });
+
+export function createFocusLostState(): FocusLostState {
+  return { count: 0, totalLostMs: 0, phase: 'ok' };
 }
 
 /** A single time-stamped boolean sample in a rolling window. */
@@ -252,49 +260,30 @@ export function stepFocusLostStateMachine(
   thresholdMs = FOCUS_LOST_THRESHOLD_MS
 ): FocusLostState {
   if (!isLost) {
-    // Focus regained: accumulate the completed session duration into totalLostMs
-    // (exactly once, on exit). lostSince is stored as a negative value when the
-    // event was already counted; take the absolute value to get the real start time.
-    if (state.lostSince === null) {
-      // Was not lost — nothing to accumulate.
-      return state;
-    }
-    const lostSinceAbs = Math.abs(state.lostSince);
-    const elapsed = nowMs - lostSinceAbs;
+    // Was not lost — nothing to accumulate.
+    if (state.phase === 'ok') return state;
+    // Focus regained: accumulate the completed run into totalLostMs (exactly once, on exit).
     return {
+      phase: 'ok',
       count: state.count,
-      totalLostMs: state.totalLostMs + Math.max(0, elapsed),
-      lostSince: null,
+      totalLostMs: state.totalLostMs + Math.max(0, nowMs - state.since),
     };
   }
 
-  // Focus is lost
-  if (state.lostSince === null) {
-    // Start a new lost session
-    return { ...state, lostSince: nowMs };
+  // Focus is lost. Start a new lost run.
+  if (state.phase === 'ok') {
+    return { phase: 'lost', count: state.count, totalLostMs: state.totalLostMs, since: nowMs, counted: false };
   }
 
-  // We encode "already counted for this session" as a negative lostSince.
-  const alreadyCounted = state.lostSince < 0;
-  const lostSinceAbs = Math.abs(state.lostSince);
-  const elapsed = nowMs - lostSinceAbs;
-
-  if (!alreadyCounted && elapsed >= thresholdMs) {
-    // First time crossing the threshold for this loss session — count the event.
-    // Mark as counted by negating lostSince (preserves the start time so that
-    // the exact duration can be accumulated on focus-regained exit).
-    // Do NOT add to totalLostMs here; accumulation happens once on exit.
-    return {
-      count: state.count + 1,
-      totalLostMs: state.totalLostMs,
-      lostSince: -lostSinceAbs,
-    };
+  if (!state.counted && nowMs - state.since >= thresholdMs) {
+    // First time crossing the threshold for this run — count the event and remember that
+    // we did. Do NOT add to totalLostMs here; accumulation happens once on exit.
+    return { ...state, count: state.count + 1, counted: true };
   }
 
-  // Still within the session (not yet past threshold, or already counted):
-  // do NOT accumulate totalLostMs per-frame — that causes quadratic growth.
-  // Callers that need a live "lost so far" value should compute
-  // (nowMs - Math.abs(state.lostSince)) at read time without mutating state.
+  // Still within the run (not yet past threshold, or already counted): do NOT accumulate
+  // totalLostMs per-frame — that causes quadratic growth. Callers that need a live "lost
+  // so far" value can compute (nowMs - state.since) at read time without mutating state.
   return state;
 }
 

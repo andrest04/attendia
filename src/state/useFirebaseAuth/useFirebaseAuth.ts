@@ -23,6 +23,7 @@ import {
 } from '../../components/AttentionProvider/reportTypes';
 import { ResourceFileKind } from '../../components/TeacherDashboard/types';
 import { ClientApiError, createApiClient, throwOnErrorResponse, withUser } from './apiClient';
+import { featureFlags } from '../../utils/featureFlags';
 
 // Re-exported so existing importers keep working; the class lives with the API client.
 export { ClientApiError };
@@ -358,7 +359,7 @@ export default function useFirebaseAuth() {
         json: {
           user_identity,
           room_name,
-          create_conversation: process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS !== 'true',
+          create_conversation: !featureFlags.isConversationsDisabled(),
         },
       }),
     [user]
