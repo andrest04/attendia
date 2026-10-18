@@ -440,4 +440,30 @@ describe('useAttentionCapture', () => {
     setIntervalSpy.mockRestore();
     unmount();
   });
+  it('warns once (diagnosable) when MediaPipe fails to load, and stays inactive', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockForVisionTasks.mockRejectedValue(new Error('CDN unreachable'));
+      const { result, rerender, unmount } = renderHook(
+        ({ track }: { track?: LocalVideoTrack }) => useAttentionCapture(track),
+        { initialProps: { track: makeMockTrack() } }
+      );
+
+      await act(async () => {
+        await flushPromises();
+      });
+      // A second failed load (track swap) does not repeat the warning.
+      await act(async () => {
+        rerender({ track: makeMockTrack() });
+        await flushPromises();
+      });
+
+      expect(result.current.capture).toBe('inactive');
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0][0]).toMatch(/attention/i);
+      unmount();
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });

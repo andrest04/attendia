@@ -81,14 +81,16 @@ describe('useAttentionTelemetry', () => {
     expect(mockRoom.localParticipant.unpublishTrack).toHaveBeenCalled();
   });
 
-  it('does not send when localResult is undefined', () => {
+  it('sends no measured sample when localResult is undefined, only a pending heartbeat', () => {
     renderHook(() => useAttentionTelemetry(undefined));
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(mockSend.mock.calls[0][0])).toMatchObject({ pending: true, faces: 0, cameraOff: false });
   });
 
-  it('does not send when capture is inactive', () => {
+  it('sends no measured sample while capture is inactive, only a pending heartbeat', () => {
     renderHook(() => useAttentionTelemetry(inactiveResult));
-    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(mockSend.mock.calls[0][0])).toMatchObject({ pending: true });
   });
 
   it('sends a well-formed attention-telemetry message when capture is active', () => {
@@ -107,15 +109,102 @@ describe('useAttentionTelemetry', () => {
     expect(mockSend).toHaveBeenCalledTimes(2);
   });
 
-  it('stops sending when localResult transitions from active to inactive', () => {
+  it('switches to the pending heartbeat when localResult transitions from active to inactive', () => {
     const { rerender } = renderHook(({ result }) => useAttentionTelemetry(result), {
       initialProps: { result: activeResult(70) },
     });
     expect(mockSend).toHaveBeenCalledTimes(1);
 
     rerender({ result: inactiveResult });
-    // still only 1 call — no extra send on transition to inactive
-    expect(mockSend).toHaveBeenCalledTimes(1);
+    // no measured sample for the inactive result — the "no reading yet" beat instead
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(mockSend.mock.calls[1][0])).toMatchObject({ pending: true, index: 0, faces: 0 });
+  });
+
+  describe('pending heartbeat (camera on, no reading yet: MediaPipe loading or failed)', () => {
+    it('beats an explicit pending signal at 1 Hz while capture is not producing samples', () => {
+      jest.useFakeTimers();
+      try {
+        renderHook(() => useAttentionTelemetry(inactiveResult, false, false));
+        expect(JSON.parse(mockSend.mock.calls[0][0])).toEqual({
+          type: 'attention-telemetry',
+          index: 0,
+          multiface: false,
+          faces: 0,
+          cameraOff: false,
+          unsupported: false,
+          pending: true,
+        });
+
+        act(() => {
+          jest.advanceTimersByTime(1000);
+        });
+        expect(mockSend).toHaveBeenCalledTimes(2);
+        expect(JSON.parse(mockSend.mock.calls[1][0]).pending).toBe(true);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('stops beating once capture produces real samples, which carry no pending field', () => {
+      jest.useFakeTimers();
+      try {
+        const { rerender } = renderHook(({ result }) => useAttentionTelemetry(result), {
+          initialProps: { result: inactiveResult },
+        });
+        rerender({ result: activeResult(64) });
+        const calls = mockSend.mock.calls.length;
+        expect(mockSend).toHaveBeenLastCalledWith(telemetryMsg(64, 1));
+
+        act(() => {
+          jest.advanceTimersByTime(3000);
+        });
+        expect(mockSend).toHaveBeenCalledTimes(calls);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('is not sent when the camera is off or the device is unsupported', () => {
+      renderHook(() => useAttentionTelemetry(inactiveResult, true));
+      renderHook(() => useAttentionTelemetry(inactiveResult, false, true));
+      mockSend.mock.calls.forEach(([raw]) => expect(JSON.parse(raw).pending).toBeUndefined());
+    });
+
+    it('marks a remote pending message as pending (and not camera-off)', () => {
+      const bob = createParticipant('student-bob');
+      const bobData = createDataTrack();
+      const { result } = renderHook(() => useAttentionTelemetry());
+      act(() => {
+        mockRoom.emit('participantConnected', bob);
+        bob.emit('trackSubscribed', bobData);
+        bobData.emit(
+          'message',
+          JSON.stringify({
+            type: 'attention-telemetry',
+            index: 0,
+            multiface: false,
+            faces: 0,
+            cameraOff: false,
+            unsupported: false,
+            pending: true,
+          })
+        );
+      });
+      expect(result.current[0]).toMatchObject({ pending: true, cameraOff: false });
+    });
+
+    it('treats a message from an older sender (no pending field) as not pending', () => {
+      const bob = createParticipant('student-bob');
+      const bobData = createDataTrack();
+      const { result } = renderHook(() => useAttentionTelemetry());
+      act(() => {
+        mockRoom.emit('participantConnected', bob);
+        bob.emit('trackSubscribed', bobData);
+        bobData.emit('message', telemetryMsg(82));
+      });
+      expect(result.current[0]).toMatchObject({ index: 82, pending: false });
+    });
   });
 
   it('produces a RemoteAttention entry for a remote participant telemetry message', () => {
@@ -128,7 +217,15 @@ describe('useAttentionTelemetry', () => {
       bobData.emit('message', telemetryMsg(82));
     });
     expect(result.current).toEqual([
-      { identity: 'student-bob', index: 82, multiface: false, faces: 1, cameraOff: false, unsupported: false },
+      {
+        identity: 'student-bob',
+        index: 82,
+        multiface: false,
+        faces: 1,
+        cameraOff: false,
+        unsupported: false,
+        pending: false,
+      },
     ]);
   });
 
@@ -171,6 +268,7 @@ describe('useAttentionTelemetry', () => {
       faces: 1,
       cameraOff: false,
       unsupported: false,
+      pending: false,
     });
     expect(bob_).toEqual({
       identity: 'student-bob',
@@ -179,6 +277,7 @@ describe('useAttentionTelemetry', () => {
       faces: 2,
       cameraOff: false,
       unsupported: false,
+      pending: false,
     });
   });
 
@@ -204,7 +303,15 @@ describe('useAttentionTelemetry', () => {
     const { result } = renderHook(() => useAttentionTelemetry());
     act(() => void carolData.emit('message', telemetryMsg(77)));
     expect(result.current).toEqual([
-      { identity: 'student-carol', index: 77, multiface: false, faces: 1, cameraOff: false, unsupported: false },
+      {
+        identity: 'student-carol',
+        index: 77,
+        multiface: false,
+        faces: 1,
+        cameraOff: false,
+        unsupported: false,
+        pending: false,
+      },
     ]);
   });
 
@@ -313,12 +420,13 @@ describe('useAttentionTelemetry', () => {
   it('stops the camera-off heartbeat when cameraOff returns to false', () => {
     jest.useFakeTimers();
     try {
-      const { rerender } = renderHook(({ off }) => useAttentionTelemetry(undefined, off), {
-        initialProps: { off: true },
+      const { rerender } = renderHook(({ off, result }) => useAttentionTelemetry(result, off), {
+        initialProps: { off: true, result: inactiveResult },
       });
       expect(mockSend).toHaveBeenCalledTimes(1);
 
-      rerender({ off: false });
+      // Camera back on with capture already sampling: no heartbeat of any kind.
+      rerender({ off: false, result: activeResult(70) });
       const callsAfterStop = mockSend.mock.calls.length;
 
       act(() => {

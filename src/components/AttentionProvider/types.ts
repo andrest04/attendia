@@ -50,6 +50,12 @@ export interface ParticipantAttention {
    */
   unsupported?: boolean;
   /**
+   * True when the camera is on but there is no reading yet: the student's analysis is still
+   * loading or failed (explicit heartbeat), or a connected student has sent no telemetry at all.
+   * UI shows "Analizando…", never "Cámara apagada". Optional: absent in ad-hoc fixtures.
+   */
+  pending?: boolean;
+  /**
    * Session history of the index, accumulated at the sampling cadence while the
    * camera is on. Optional: present on live data; absent in ad-hoc
    * fixtures, where consumers fall back to `index`.

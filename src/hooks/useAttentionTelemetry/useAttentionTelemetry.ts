@@ -39,6 +39,14 @@ import { AttentionCaptureResult } from '../useAttentionCapture/useAttentionCaptu
  *   (index 0, cameraOff true) at CAMERA_OFF_HEARTBEAT_MS so the remote entry
  *   stays fresh AND explicitly flagged as camera-off (not stale).
  *
+ * Pending heartbeat ("camera on, no reading yet"):
+ * - While the camera is on but capture is not producing samples (MediaPipe still loading, or it
+ *   failed to load), the hook beats { index 0, faces 0, cameraOff false, pending true } at the
+ *   same cadence, so the professor sees "Analizando…" instead of nothing (which used to read as
+ *   "Cámara apagada"). `pending` is an ADDITIVE optional wire field: older receivers ignore it
+ *   (they see a no-face sample), and messages from older senders (no field) parse as not pending.
+ *   Real samples never carry it, so their bytes are unchanged.
+ *
  * Staleness TTL:
  * - Any remote entry not refreshed within STALE_TTL_MS is swept out. A camera-off
  *   student keeps heartbeating so it survives; a silently-crashed/disconnected
@@ -73,6 +81,8 @@ export interface RemoteAttention {
   cameraOff: boolean;
   /** True when the participant's device cannot run the pipeline at all (mobile). */
   unsupported: boolean;
+  /** True when the camera is on but the sender's analysis has no reading yet (loading/failed). */
+  pending: boolean;
 }
 
 /** Internal entry: RemoteAttention plus the receive timestamp used for TTL expiry. */
@@ -81,11 +91,18 @@ interface StoredRemoteAttention extends RemoteAttention {
   receivedAt: number;
 }
 
+/**
+ * The telemetry message as it travels on the wire: the shared protocol shape plus the additive,
+ * optional `pending` flag (only present on the "no reading yet" heartbeat).
+ */
+export type AttentionTelemetryWireMessage = AttentionTelemetryMessage & { pending?: boolean };
+
 function isAttentionTelemetryMessage(
   value: unknown
 ): value is Omit<AttentionTelemetryMessage, 'cameraOff' | 'unsupported'> & {
   cameraOff?: boolean;
   unsupported?: boolean;
+  pending?: boolean;
 } {
   if (typeof value !== 'object' || value === null) return false;
   const msg = value as Record<string, unknown>;
@@ -120,20 +137,22 @@ const measuredMessage = (result: AttentionCaptureResult): AttentionTelemetryMess
 });
 
 /** A heartbeat with no measurement behind it: it only says WHY there is none. */
-const beaconMessage = (status: 'camera-off' | 'unsupported'): AttentionTelemetryMessage => ({
+const beaconMessage = (status: 'camera-off' | 'unsupported' | 'pending'): AttentionTelemetryWireMessage => ({
   type: 'attention-telemetry',
   index: 0,
   multiface: false,
   faces: 0,
   cameraOff: status === 'camera-off',
   unsupported: status === 'unsupported',
+  // Only the pending beat carries the field, so camera-off/unsupported beats stay byte-identical.
+  ...(status === 'pending' ? { pending: true } : {}),
 });
 
 /** Sends `message` immediately and then every `intervalMs` while `active`. */
 function useHeartbeat(
   active: boolean,
-  message: AttentionTelemetryMessage,
-  send: (m: AttentionTelemetryMessage) => void,
+  message: AttentionTelemetryWireMessage,
+  send: (m: AttentionTelemetryWireMessage) => void,
   intervalMs: number
 ) {
   const messageRef = useLatest(message);
@@ -164,7 +183,7 @@ export default function useAttentionTelemetry(
   // Unreliable + unordered track: this is "latest value wins" telemetry, not a
   // delivery-guaranteed event. See the header comment for why reliable delivery
   // collapses the group index to 0 under congestion.
-  const { send } = useClassDataChannel<AttentionTelemetryMessage>({
+  const { send } = useClassDataChannel<AttentionTelemetryWireMessage>({
     enabled,
     trackOptions: { ordered: false, maxRetransmits: 0 },
     onMessage: (parsed, participant) => {
@@ -179,6 +198,8 @@ export default function useAttentionTelemetry(
         cameraOff: parsed.cameraOff === true,
         // Backward compatible: older senders omit unsupported → treat as supported.
         unsupported: parsed.unsupported === true,
+        // Backward compatible: older senders omit pending → a real (or no-face) sample.
+        pending: parsed.pending === true,
         receivedAt: Date.now(),
       };
 
@@ -214,6 +235,17 @@ export default function useAttentionTelemetry(
   // — indistinguishable from "not joined". Beat an explicit unsupported signal so the professor
   // sees "No medible (celular)" instead of silence. Mirrors the camera-off heartbeat.
   useHeartbeat(status === 'unsupported', beaconMessage('unsupported'), send, CAMERA_OFF_HEARTBEAT_MS);
+
+  // Pending heartbeat: the camera is on but capture produces no samples — MediaPipe is still
+  // loading or failed to load. Without it the student would send nothing and the professor would
+  // read "Cámara apagada". Stops as soon as capture is active (real samples take over).
+  const capturing = Boolean(localResult && localResult.capture === 'active');
+  useHeartbeat(
+    enabled && status === 'measuring' && !capturing,
+    beaconMessage('pending'),
+    send,
+    CAMERA_OFF_HEARTBEAT_MS
+  );
 
   // Staleness sweep: drop entries not refreshed within STALE_TTL_MS. A participant
   // that goes silent (crash, abrupt drop without a disconnect event) expires; a

@@ -433,6 +433,37 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-individual-nomeasure"]').length).toBe(1);
   });
 
+  it('shows "Analizando…" (not "Cámara apagada") for a student whose analysis has no reading yet', () => {
+    mockUseAttention.mockImplementation(() => ({
+      ...baseAttention,
+      participants: [
+        { identity: 'Ana García', index: 85, level: 'high' as const, multiface: false, cameraOff: false, faces: 1 },
+        {
+          identity: 'Luis',
+          index: 0,
+          level: 'low' as const,
+          multiface: false,
+          cameraOff: false,
+          faces: 0,
+          pending: true,
+        },
+      ],
+    }));
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        rightTab="individual"
+        participants={[{ identity: 'Ana García' }, { identity: 'Luis' }]}
+      />
+    );
+    const list = wrapper.find('[data-testid="professor-room-shell-individual-list"]');
+    expect(list.text()).toContain('Analizando');
+    expect(list.text()).not.toContain('Cámara apagada');
+    expect(wrapper.find('[data-testid="professor-room-shell-individual-pending"]').length).toBe(1);
+    expect(wrapper.find('[data-testid="professor-room-shell-pending-flag"]').length).toBe(1);
+    expect(wrapper.find('[data-testid="professor-room-shell-cameraoff-flag"]').length).toBe(0);
+  });
+
   it('shows "No medible (celular)" in the individual tab for a mobile student', () => {
     mockUseAttention.mockImplementation(() => ({
       ...baseAttention,

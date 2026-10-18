@@ -62,6 +62,7 @@ import useAttendanceRoster from './useAttendanceRoster';
 import useGroupTimeline from './useGroupTimeline';
 import useProctoringFeed from './useProctoringFeed';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import useLatest from '../../hooks/useLatest/useLatest';
@@ -149,6 +150,12 @@ export const AttentionProvider: React.FC = ({ children }) => {
   const remoteAttentionRef = useLatest(remoteAttention);
 
   const attended = useAttendanceRoster(room);
+  // Who is in the room right now: a connected student with no telemetry is "no reading yet",
+  // not "camera off" (that is only ever the student's own explicit report).
+  const remoteParticipants = useParticipants();
+  const connected = useMemo<ReadonlySet<string>>(() => new Set(remoteParticipants.map(p => p.identity)), [
+    remoteParticipants,
+  ]);
   const { timeline, fullTimeline, history } = useGroupTimeline(remoteAttentionRef, isLive);
   const proctoringAlerts = useProctoringFeed(remoteAttentionRef, isLive);
 
@@ -161,6 +168,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
         // Live path — real aggregates from telemetry (desktop or phone).
         const participants = buildParticipants({
           attended,
+          connected,
           history: history.current,
           live: remoteAttention,
           attentionLevel,
@@ -195,7 +203,17 @@ export const AttentionProvider: React.FC = ({ children }) => {
         };
         // `history` is a ref mutated in step with `timeline`/`fullTimeline`, which are therefore
         // the dependencies that carry its changes.
-      }, [isLive, attended, history, remoteAttention, captureResult, timeline, fullTimeline, proctoringAlerts])}
+      }, [
+        isLive,
+        attended,
+        connected,
+        history,
+        remoteAttention,
+        captureResult,
+        timeline,
+        fullTimeline,
+        proctoringAlerts,
+      ])}
     >
       {children}
     </AttentionContext.Provider>

@@ -625,6 +625,19 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     expect(result.current.participants.some(p => p.identity === 'student-already-there')).toBe(true);
   });
 
+  it('shows a connected student who has sent no telemetry yet as pending, not camera off', () => {
+    const room = createFakeRoom();
+    room.participants.set('SID456', { identity: 'student-loading' });
+    mockUseVideoContext.mockReturnValue({ room, localTracks: [] });
+    mockUseAttentionTelemetry.mockReturnValue([]);
+
+    const { result } = renderHook(useAttention, { wrapper });
+
+    const row = result.current.participants.find(p => p.identity === 'student-loading')!;
+    expect(row).toMatchObject({ pending: true, cameraOff: false });
+    expect(result.current.groupDataAvailable).toBe(false);
+  });
+
   it('labels live timeline points with second-level resolution (HH:MM:SS)', () => {
     // Fluidity #3: HH:MM labels collapse all points of the same minute onto one
     // tick, which reads as a flat step. Second-level labels let the axis advance.

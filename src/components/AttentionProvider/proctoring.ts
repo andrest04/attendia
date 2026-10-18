@@ -52,6 +52,8 @@ export interface ProctoringSample {
   faces: number;
   index: number;
   unsupported?: boolean;
+  /** Camera on but no reading yet: there is nothing to judge, so it raises nothing. */
+  pending?: boolean;
 }
 
 /**
@@ -72,6 +74,8 @@ const DETECTORS: Array<{ kind: ProctoringKind; matches(sample: ProctoringSample)
 export function classifyProctoring(sample: ProctoringSample): ProctoringKind | null {
   // A mobile (unsupported) device cannot measure — it is not a proctoring event.
   if (sample.unsupported) return null;
+  // No reading yet (analysis loading or failed) is not an absence either.
+  if (sample.pending) return null;
   const detector = DETECTORS.find(candidate => candidate.matches(sample));
   return detector ? detector.kind : null;
 }
