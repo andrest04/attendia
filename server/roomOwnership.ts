@@ -10,7 +10,7 @@ import { fetchRoomVia, RoomDetails, RoomDetailsClient } from './twilioGateway';
 /*
  * Who owns a classroom room, recorded server-side.
  *
- *   roomOwners/{roomOwnerKey(roomName)} = { uid, roomName, claimedAt, refreshedAt }
+ *   roomOwners/{roomOwnerKey(roomName)} = { uid, roomName, claimedAt, refreshedAt, claimsHistory }
  *
  * Claimed when a PROFILE-VERIFIED teacher gets a token for the room (see the token guard
  * in roomAccessGuard.ts). A room name is reusable once its class is closed, so another
@@ -21,8 +21,18 @@ import { fetchRoomVia, RoomDetails, RoomDetailsClient } from './twilioGateway';
  * `claimedAt` marks when THIS uid's ownership began: it is set on the first claim and on a
  * takeover, and kept on every same-uid re-claim (refresh, auto-rejoin, reopening the room
  * later). `refreshedAt` is bumped on every claim and only feeds the fresh window. The
- * session binder uses `claimedAt` to refuse a room SID created before the current owner
- * took the name over (a previous teacher's class).
+ * session binder resolves who owned the name when a room SID was created (see below).
+ *
+ *   roomOwners/{key}/claims/{autoId} = { uid, claimedAt }
+ *
+ * Append-only claims history: one entry per ownership period, written in the claim
+ * transaction exactly when a new `claimedAt` is set (first claim, takeover). The binder
+ * binds a SID to the uid of the latest entry with `claimedAt <= dateCreated + skew`, so an
+ * honest teacher's queued report still binds after another teacher took the name over.
+ * `claimsHistory: true` marks an owner document whose current period is in the history; a
+ * same-uid re-claim of an unmarked (pre-history) document backfills its period once. Owner
+ * documents never re-claimed since have no entries: for them the binder falls back (one-off
+ * legacy path) to "current owner whose claimedAt predates the room".
  *
  * The document id is the base64url of the room name: a room name is client input, and
  * Firestore rejects (or re-routes) ids containing `/`, `.`/`..` or `__x__`. The plain name
@@ -32,14 +42,16 @@ import { fetchRoomVia, RoomDetails, RoomDetailsClient } from './twilioGateway';
  *
  * Binds one Twilio room SID (one class session) to the teacher who ran it. Created on the
  * first POST /reports, after Twilio confirms the SID's unique name is the report's room
- * and roomOwners says this uid has owned that room since before it was created; first writer wins (`create()`). Recording
- * requests require it, so a teacher cannot request a composition of someone else's class.
+ * and the claims history says this uid owned that room when Twilio created it; first
+ * writer wins (`create()`). Recording requests require it, so a teacher cannot request a
+ * composition of someone else's class.
  *
  * Like the other route leaves, this module has zero firebase-admin imports: the
  * structural interfaces below are satisfied by the real admin Firestore instance.
  */
 
 export const ROOM_OWNERS_COLLECTION = 'roomOwners';
+export const ROOM_OWNER_CLAIMS_SUBCOLLECTION = 'claims';
 
 export interface OwnershipSnapshot {
   exists?: boolean;
@@ -55,8 +67,13 @@ export interface RoomClaimTransaction {
   set(reference: OwnershipDocumentReference, data: { [key: string]: any }): unknown;
 }
 
+/** A roomOwners document: readable, with an auto-id claims history subcollection. */
+export interface RoomOwnerDocumentReference extends OwnershipDocumentReference {
+  collection(name: string): { doc(): OwnershipDocumentReference };
+}
+
 export interface RoomClaimDatabase {
-  collection(name: string): { doc(id: string): OwnershipDocumentReference };
+  collection(name: string): { doc(id: string): RoomOwnerDocumentReference };
   runTransaction<T>(updateFunction: (transaction: RoomClaimTransaction) => Promise<T>): Promise<T>;
 }
 
@@ -104,7 +121,11 @@ export async function claimRoomOwnership(
     if (owner && owner.uid !== uid && (isFreshClaim(owner, now()) || (await roomExists(roomName)))) return false;
     const keepClaimedAt = owner !== undefined && owner.uid === uid && owner.claimedAt !== undefined;
     const claimedAt = keepClaimedAt ? owner!.claimedAt : timestamp();
-    transaction.set(ownerRef, { uid, roomName, claimedAt, refreshedAt: timestamp() });
+    transaction.set(ownerRef, { uid, roomName, claimedAt, refreshedAt: timestamp(), claimsHistory: true });
+    // A new ownership period (or a pre-history one not yet recorded): append it (auto id).
+    if (!keepClaimedAt || owner!.claimsHistory !== true) {
+      transaction.set(ownerRef.collection(ROOM_OWNER_CLAIMS_SUBCOLLECTION).doc(), { uid, claimedAt });
+    }
     return true;
   });
 }
@@ -148,8 +169,17 @@ export function createRoomDetailsFetcher(client: RoomDetailsClient): RoomDetails
   return roomSid => fetchRoomVia(client, roomSid);
 }
 
+/** The single-field claims-history query (where + orderBy on `claimedAt`: no composite index). */
+export interface ClaimHistoryQuery {
+  where(field: string, op: '<=', value: unknown): ClaimHistoryQuery;
+  orderBy(field: string, direction: 'desc'): ClaimHistoryQuery;
+  limit(count: number): ClaimHistoryQuery;
+  get(): Promise<{ docs: OwnershipSnapshot[] }>;
+}
+
 export interface RoomSessionDocumentReference extends OwnershipDocumentReference {
   create(data: { [key: string]: any }): Promise<unknown>;
+  collection(name: string): ClaimHistoryQuery;
 }
 
 export interface RoomSessionDatabase {
@@ -174,14 +204,53 @@ export type RoomSessionVerdict =
 export type RoomSessionBinder = (claim: RoomSessionClaim) => Promise<RoomSessionVerdict>;
 
 /**
- * The owner may bind a SID only if its ownership began before Twilio created that room
- * (within the clock skew). A later claimedAt means the name changed hands after this class
- * started: the SID belongs to the previous owner. Unknown times fail closed.
+ * Legacy rule (owner documents with no claims history): the current owner may bind a SID
+ * only if its ownership began before Twilio created that room (within the clock skew).
+ * Unknown times fail closed.
  */
 function claimPredatesRoom(owner: { [key: string]: any }, room: RoomDetails): boolean {
   const claimedAt = timestampMillis(owner.claimedAt);
   const createdAt = timestampMillis(room.dateCreated);
   return claimedAt !== null && createdAt !== null && claimedAt <= createdAt + ROOM_CLAIM_CLOCK_SKEW_MS;
+}
+
+async function legacyOwnerVerdict(
+  db: RoomSessionDatabase,
+  { roomName, uid }: RoomSessionClaim,
+  room: RoomDetails
+): Promise<RoomSessionVerdict | null> {
+  const owner = await readRoomOwner(db, roomName);
+  if (!owner || owner.uid !== uid) return 'not-room-owner';
+  return claimPredatesRoom(owner, room) ? null : 'stale-owner';
+}
+
+/**
+ * Who owned the room name when Twilio created the room: the latest claims-history entry
+ * with `claimedAt <= dateCreated + skew`. Null (bindable) when that is the caller; with no
+ * history at all, the legacy current-owner rule decides. Lookup errors propagate.
+ */
+async function ownerAtCreationVerdict(
+  db: RoomSessionDatabase,
+  claim: RoomSessionClaim,
+  room: RoomDetails
+): Promise<RoomSessionVerdict | null> {
+  const createdAt = timestampMillis(room.dateCreated);
+  if (createdAt === null) return 'stale-owner';
+  const claims = db
+    .collection(ROOM_OWNERS_COLLECTION)
+    .doc(roomOwnerKey(claim.roomName))
+    .collection(ROOM_OWNER_CLAIMS_SUBCOLLECTION);
+  const [atCreation] = (
+    await claims
+      .where('claimedAt', '<=', new Date(createdAt + ROOM_CLAIM_CLOCK_SKEW_MS))
+      .orderBy('claimedAt', 'desc')
+      .limit(1)
+      .get()
+  ).docs;
+  if (atCreation) return (atCreation.data() ?? {}).uid === claim.uid ? null : 'not-room-owner';
+  // Every recorded period began after this room was created: its owner is unknown.
+  if ((await claims.limit(1).get()).docs.length > 0) return 'stale-owner';
+  return legacyOwnerVerdict(db, claim, room);
 }
 
 function verdictForBoundSession(session: { [key: string]: any }, { roomName, uid }: RoomSessionClaim): RoomSessionVerdict {
@@ -209,9 +278,8 @@ export function createRoomSessionBinder(
     const room = await fetchRoom(claim.roomSid);
     if (!room) return 'room-not-found';
     if (room.uniqueName !== claim.roomName) return 'room-mismatch';
-    const owner = await readRoomOwner(db, claim.roomName);
-    if (!owner || owner.uid !== claim.uid) return 'not-room-owner';
-    if (!claimPredatesRoom(owner, room)) return 'stale-owner';
+    const refusal = await ownerAtCreationVerdict(db, claim, room);
+    if (refusal) return refusal;
 
     try {
       await sessionRef.create({ uid: claim.uid, roomName: claim.roomName, boundAt: timestamp() });

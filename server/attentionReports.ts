@@ -237,7 +237,8 @@ const unconfiguredSessionBinder: RoomSessionBinder = () =>
 /**
  * `bindSession` (roomOwnership.ts createRoomSessionBinder) ties the report's roomSid to
  * the verified teacher before anything is written: the session must be theirs, its
- * Twilio unique name must be the report's roomName, and they must own that room.
+ * Twilio unique name must be the report's roomName, and they must have owned that room
+ * when Twilio created it (claims history; a later owner of the name cannot bind it).
  */
 export function createPostReportHandler(
   db: ReportsDatabase,

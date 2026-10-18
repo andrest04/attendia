@@ -7,18 +7,27 @@ import {
   ROOM_CLAIM_CLOCK_SKEW_MS,
   isRoomOwner,
   isRoomSessionOwner,
+  ROOM_OWNER_CLAIMS_SUBCOLLECTION,
   roomOwnerKey,
   RoomClaimDatabase,
 } from '../roomOwnership';
+import { timestampMillis } from '../firestoreTime';
 
 // Fake of the Firestore surface the claim uses: roomOwners/{key} read and written
-// inside one transaction. `owners` is the backing store, keyed by document id.
+// inside one transaction, plus auto-id docs of its claims history subcollection.
+// `owners` is the backing store, keyed by document id ("key/claims/auto-N" for history).
 const makeClaimDb = (owners: { [key: string]: any } = {}) => {
   const docIds: string[] = [];
+  let autoId = 0;
+  const docRef = (id: string): any => ({
+    id,
+    get: () => Promise.resolve({ exists: id in owners, data: () => owners[id] }),
+    collection: (sub: string) => ({ doc: () => docRef(`${id}/${sub}/auto-${++autoId}`) }),
+  });
   const collection = jest.fn((_name: string) => ({
     doc: jest.fn((id: string) => {
       docIds.push(id);
-      return { id, get: () => Promise.resolve({ exists: id in owners, data: () => owners[id] }) };
+      return docRef(id);
     }),
   }));
   const transactionSet = jest.fn((ref: any, data: any) => {
@@ -30,6 +39,10 @@ const makeClaimDb = (owners: { [key: string]: any } = {}) => {
 };
 
 const timestamp = () => 'server-timestamp';
+const claimHistory = (owners: { [key: string]: any }, roomName: string) =>
+  Object.keys(owners)
+    .filter(id => id.startsWith(`${roomOwnerKey(roomName)}/${ROOM_OWNER_CLAIMS_SUBCOLLECTION}/`))
+    .map(id => owners[id]);
 
 describe('roomOwnerKey', () => {
   it('encodes the room name into a Firestore-safe document id', () => {
@@ -48,12 +61,14 @@ describe('claimRoomOwnership', () => {
 
     expect(claimed).toBe(true);
     expect(collection).toHaveBeenCalledWith('roomOwners');
-    expect(transactionSet).toHaveBeenCalledTimes(1);
+    // The owner document plus one claims-history entry, in the same transaction.
+    expect(transactionSet).toHaveBeenCalledTimes(2);
     expect(owners[roomOwnerKey('clase-1')]).toEqual({
       uid: 'uid-1',
       roomName: 'clase-1',
       claimedAt: 'server-timestamp',
       refreshedAt: 'server-timestamp',
+      claimsHistory: true,
     });
     expect(roomExists).not.toHaveBeenCalled();
   });
@@ -119,6 +134,7 @@ describe('claimRoomOwnership', () => {
       roomName: 'clase-1',
       claimedAt: 'server-timestamp',
       refreshedAt: 'server-timestamp',
+      claimsHistory: true,
     });
   });
 
@@ -144,6 +160,46 @@ describe('claimRoomOwnership', () => {
     expect(owners[roomOwnerKey('clase-1')].claimedAt).toBe('server-timestamp');
   });
 
+  it('appends a claims-history entry when a new ownership period starts, not on a same-uid re-claim', async () => {
+    const { db, owners } = makeClaimDb();
+    const roomExists = jest.fn().mockResolvedValue(false);
+
+    await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp });
+    expect(claimHistory(owners, 'clase-1')).toEqual([{ uid: 'uid-1', claimedAt: 'server-timestamp' }]);
+
+    await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp: () => 'later' });
+    expect(claimHistory(owners, 'clase-1')).toHaveLength(1);
+
+    // A takeover by another uid (outside the fresh window, room closed) starts a new period.
+    const later = () => Date.now() + 3600 * 1000;
+    await claimRoomOwnership(db, 'clase-1', 'uid-2', { roomExists, timestamp: () => 'takeover', now: later });
+    expect(claimHistory(owners, 'clase-1')).toEqual([
+      { uid: 'uid-1', claimedAt: 'server-timestamp' },
+      { uid: 'uid-2', claimedAt: 'takeover' },
+    ]);
+  });
+
+  it('backfills the period of a pre-history owner document once, on its next same-uid re-claim', async () => {
+    const firstClaim = new Date('2026-10-01T10:00:00Z');
+    const { db, owners } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'uid-1', roomName: 'clase-1', claimedAt: firstClaim },
+    });
+
+    await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists: jest.fn(), timestamp });
+    await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists: jest.fn(), timestamp });
+
+    expect(claimHistory(owners, 'clase-1')).toEqual([{ uid: 'uid-1', claimedAt: firstClaim }]);
+    expect(owners[roomOwnerKey('clase-1')].claimsHistory).toBe(true);
+  });
+
+  it('writes no history entry when the claim is refused', async () => {
+    const { db, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1' } });
+    const roomExists = jest.fn().mockResolvedValue(true);
+
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(false);
+    expect(claimHistory(owners, 'clase-1')).toEqual([]);
+  });
+
   it('propagates a Twilio lookup failure so the caller fails closed', async () => {
     const { db } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1' } });
     const roomExists = jest.fn().mockRejectedValue(new Error('twilio down'));
@@ -160,8 +216,36 @@ describe('claimRoomOwnership', () => {
   });
 });
 
-// Path-keyed Firestore fake ("collection/id" -> data) for the read/create helpers.
+// Single-field query fake over the direct children of `prefix` in a path-keyed store:
+// where('claimedAt', '<=', x), orderBy('claimedAt', 'desc') and limit(n).
+type QueryState = { max?: unknown; descending?: boolean; count?: number };
+const makeQuery = (store: { [path: string]: any }, prefix: string, queries: any[], state: QueryState = {}): any => ({
+  where: (field: string, op: string, value: unknown) => {
+    queries.push({ where: [field, op, value] });
+    return makeQuery(store, prefix, queries, { ...state, max: value });
+  },
+  orderBy: (field: string, direction: string) => {
+    queries.push({ orderBy: [field, direction] });
+    return makeQuery(store, prefix, queries, { ...state, descending: direction === 'desc' });
+  },
+  limit: (count: number) => makeQuery(store, prefix, queries, { ...state, count }),
+  get: async () => {
+    if (store.__queryError) throw store.__queryError;
+    const millis = (value: unknown) => timestampMillis(value) ?? NaN;
+    let entries = Object.keys(store)
+      .filter(path => path.startsWith(prefix) && !path.slice(prefix.length).includes('/'))
+      .map(path => store[path]);
+    if (state.max !== undefined) entries = entries.filter(entry => millis(entry.claimedAt) <= millis(state.max));
+    if (state.descending) entries.sort((a, b) => millis(b.claimedAt) - millis(a.claimedAt));
+    if (state.count !== undefined) entries = entries.slice(0, state.count);
+    return { docs: entries.map(entry => ({ data: () => entry })) };
+  },
+});
+
+// Path-keyed Firestore fake ("collection/id" -> data) for the read/create helpers; a
+// document's subcollection lives at "collection/id/sub/childId".
 const makeStoreDb = (store: { [path: string]: any } = {}) => {
+  const queries: any[] = [];
   const create = jest.fn(async (path: string, data: any) => {
     if (path in store) throw Object.assign(new Error('already exists'), { code: 6 });
     store[path] = data;
@@ -172,10 +256,11 @@ const makeStoreDb = (store: { [path: string]: any } = {}) => {
       return {
         get: () => Promise.resolve({ exists: path in store, data: () => store[path] }),
         create: (data: any) => create(path, data),
+        collection: (sub: string) => makeQuery(store, `${path}/${sub}/`, queries),
       };
     },
   }));
-  return { db: { collection } as any, store, create, collection };
+  return { db: { collection } as any, store, create, collection, queries };
 };
 
 const SID = 'RM00000000000000000000000000000abc';
@@ -250,7 +335,7 @@ describe('createRoomSessionBinder', () => {
 
   it('refuses when the uid does not own the room', async () => {
     const { db, create } = makeStoreDb({ [ownerPath('clase-1')]: { uid: 'other' } });
-    const fetchRoom = jest.fn().mockResolvedValue({ sid: SID, uniqueName: 'clase-1' });
+    const fetchRoom = roomClase1();
     expect(await createRoomSessionBinder(db, fetchRoom, timestamp)(claim)).toBe('not-room-owner');
     expect(create).not.toHaveBeenCalled();
   });
@@ -301,6 +386,94 @@ describe('createRoomSessionBinder', () => {
     expect(await createRoomSessionBinder(noClaim.db, roomClase1(), timestamp)(claim)).toBe('stale-owner');
     expect(noDate.create).not.toHaveBeenCalled();
     expect(noClaim.create).not.toHaveBeenCalled();
+  });
+
+  // ─── Owner at room creation (claims history) ───
+  const claimPath = (roomName: string, id: string) => `${ownerPath(roomName)}/${ROOM_OWNER_CLAIMS_SUBCOLLECTION}/${id}`;
+  const at = (time: string) => new Date(`2026-10-18T${time}Z`);
+  const sidOf = (n: number) => `RM0000000000000000000000000000000${n}`;
+  const roomCreated = (dateCreated: Date) =>
+    jest.fn(async (roomSid: string) => ({ sid: roomSid, uniqueName: 'clase-1', dateCreated }));
+  const bind = (db: any, fetchRoom: any, roomSid: string, uid: string) =>
+    createRoomSessionBinder(db, fetchRoom, timestamp)({ roomSid, roomName: 'clase-1', uid });
+  // A ran a class at 10:00, B took the name over at 11:00 (B is the current owner).
+  const aThenB = () => ({
+    [ownerPath('clase-1')]: { uid: 'uid-b', roomName: 'clase-1', claimedAt: at('11:00:00') },
+    [claimPath('clase-1', 'c1')]: { uid: 'uid-a', claimedAt: at('10:00:00') },
+    [claimPath('clase-1', 'c2')]: { uid: 'uid-b', claimedAt: at('11:00:00') },
+  });
+
+  it("binds A's queued report after B took the name over (owner at creation, not the current owner)", async () => {
+    const { db, store } = makeStoreDb(aThenB());
+
+    expect(await bind(db, roomCreated(at('10:00:01')), sidOf(1), 'uid-a')).toBe('bound');
+    expect(store[`roomSessions/${sidOf(1)}`].uid).toBe('uid-a');
+  });
+
+  it("refuses B binding A's SID even though B owns the name now", async () => {
+    const { db, create } = makeStoreDb(aThenB());
+
+    expect(await bind(db, roomCreated(at('10:00:01')), sidOf(1), 'uid-b')).toBe('not-room-owner');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('resolves both directions of an A -> B -> A handover', async () => {
+    const history = () => ({
+      ...aThenB(),
+      [ownerPath('clase-1')]: { uid: 'uid-a', roomName: 'clase-1', claimedAt: at('12:00:00') },
+      [claimPath('clase-1', 'c3')]: { uid: 'uid-a', claimedAt: at('12:00:00') },
+    });
+    const aClass = roomCreated(at('10:00:01'));
+    const bClass = roomCreated(at('11:00:01'));
+    const aAgain = roomCreated(at('12:00:01'));
+
+    expect(await bind(makeStoreDb(history()).db, aClass, sidOf(1), 'uid-a')).toBe('bound');
+    expect(await bind(makeStoreDb(history()).db, aClass, sidOf(1), 'uid-b')).toBe('not-room-owner');
+    expect(await bind(makeStoreDb(history()).db, bClass, sidOf(2), 'uid-b')).toBe('bound');
+    expect(await bind(makeStoreDb(history()).db, bClass, sidOf(2), 'uid-a')).toBe('not-room-owner');
+    expect(await bind(makeStoreDb(history()).db, aAgain, sidOf(3), 'uid-a')).toBe('bound');
+    expect(await bind(makeStoreDb(history()).db, aAgain, sidOf(3), 'uid-b')).toBe('not-room-owner');
+  });
+
+  it('applies the clock skew to the history lookup with a single-field query', async () => {
+    const { db, queries } = makeStoreDb(aThenB());
+    // B's claim landed a moment after Twilio created B's room: still B's class.
+    const createdJustBefore = new Date(at('11:00:00').getTime() - ROOM_CLAIM_CLOCK_SKEW_MS + 1);
+
+    expect(await bind(db, roomCreated(createdJustBefore), sidOf(2), 'uid-b')).toBe('bound');
+    expect(queries).toEqual(
+      expect.arrayContaining([
+        { where: ['claimedAt', '<=', new Date(createdJustBefore.getTime() + ROOM_CLAIM_CLOCK_SKEW_MS)] },
+        { orderBy: ['claimedAt', 'desc'] },
+      ])
+    );
+    expect(new Set(queries.map(query => (query.where || query.orderBy)[0]))).toEqual(new Set(['claimedAt']));
+  });
+
+  it('refuses a room created before every recorded claim (its owner is unknown)', async () => {
+    const { db, create } = makeStoreDb({
+      [ownerPath('clase-1')]: { uid: 'uid-a', roomName: 'clase-1', claimedAt: at('11:00:00') },
+      [claimPath('clase-1', 'c1')]: { uid: 'uid-a', claimedAt: at('11:00:00') },
+    });
+
+    expect(await bind(db, roomCreated(at('09:00:00')), sidOf(1), 'uid-a')).toBe('stale-owner');
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the current-owner rule for a legacy owner document with no history', async () => {
+    const legacy = () => ({ [ownerPath('clase-1')]: { uid: 'uid-a', roomName: 'clase-1', claimedAt: at('10:00:00') } });
+
+    expect(await bind(makeStoreDb(legacy()).db, roomCreated(at('10:00:01')), sidOf(1), 'uid-a')).toBe('bound');
+    expect(await bind(makeStoreDb(legacy()).db, roomCreated(at('10:00:01')), sidOf(1), 'uid-b')).toBe('not-room-owner');
+    expect(await bind(makeStoreDb(legacy()).db, roomCreated(at('09:00:00')), sidOf(1), 'uid-a')).toBe('stale-owner');
+  });
+
+  it('fails closed when the claims-history lookup fails', async () => {
+    const { db, store, create } = makeStoreDb(aThenB());
+    store.__queryError = new Error('firestore down');
+
+    await expect(bind(db, roomCreated(at('10:00:01')), sidOf(1), 'uid-a')).rejects.toThrow('firestore down');
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('propagates Twilio failures', async () => {
