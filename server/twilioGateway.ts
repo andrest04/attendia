@@ -48,6 +48,8 @@ export async function roomExistsVia(client: RoomFetchingClient, roomName: string
 export interface RoomDetails {
   sid: string;
   uniqueName: string;
+  /** When Twilio created the room (twilio-node parses it into a Date). */
+  dateCreated?: Date;
 }
 
 export interface RoomDetailsClient {
@@ -62,7 +64,7 @@ export interface RoomDetailsClient {
 export async function fetchRoomVia(client: RoomDetailsClient, roomSid: string): Promise<RoomDetails | null> {
   try {
     const room = await client.video.v1.rooms(roomSid).fetch();
-    return { sid: room.sid, uniqueName: room.uniqueName };
+    return { sid: room.sid, uniqueName: room.uniqueName, dateCreated: room.dateCreated };
   } catch (error) {
     if (isTwilioNotFound(error)) return null;
     throw error;

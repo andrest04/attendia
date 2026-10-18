@@ -3,6 +3,8 @@ import {
   createRecordingRulesGuard,
   createRoomClaimer,
   createRoomSessionBinder,
+  FRESH_CLAIM_WINDOW_MS,
+  ROOM_CLAIM_CLOCK_SKEW_MS,
   isRoomOwner,
   isRoomSessionOwner,
   roomOwnerKey,
@@ -47,17 +49,77 @@ describe('claimRoomOwnership', () => {
     expect(claimed).toBe(true);
     expect(collection).toHaveBeenCalledWith('roomOwners');
     expect(transactionSet).toHaveBeenCalledTimes(1);
-    expect(owners[roomOwnerKey('clase-1')]).toEqual({ uid: 'uid-1', roomName: 'clase-1', claimedAt: 'server-timestamp' });
+    expect(owners[roomOwnerKey('clase-1')]).toEqual({
+      uid: 'uid-1',
+      roomName: 'clase-1',
+      claimedAt: 'server-timestamp',
+      refreshedAt: 'server-timestamp',
+    });
     expect(roomExists).not.toHaveBeenCalled();
   });
 
-  it('re-claims a room the same uid already owns without asking Twilio', async () => {
-    const { db, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'uid-1', roomName: 'clase-1' } });
+  it('re-claims a room the same uid already owns without asking Twilio, keeping claimedAt', async () => {
+    const firstClaim = new Date('2026-10-01T10:00:00Z');
+    const { db, owners } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'uid-1', roomName: 'clase-1', claimedAt: firstClaim },
+    });
     const roomExists = jest.fn();
 
     expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(true);
-    expect(owners[roomOwnerKey('clase-1')].claimedAt).toBe('server-timestamp');
+    expect(owners[roomOwnerKey('clase-1')].claimedAt).toBe(firstClaim);
+    expect(owners[roomOwnerKey('clase-1')].refreshedAt).toBe('server-timestamp');
     expect(roomExists).not.toHaveBeenCalled();
+  });
+
+  it('sets claimedAt on a same-uid re-claim of a legacy record that has none', async () => {
+    const { db, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'uid-1', roomName: 'clase-1' } });
+
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists: jest.fn(), timestamp })).toBe(true);
+    expect(owners[roomOwnerKey('clase-1')].claimedAt).toBe('server-timestamp');
+  });
+
+  it('treats another uid claim inside the fresh window as live even before the room exists', async () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const { db, transactionSet } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1', claimedAt: new Date(now - FRESH_CLAIM_WINDOW_MS + 1000) },
+    });
+    const roomExists = jest.fn().mockResolvedValue(false);
+
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp, now: () => now })).toBe(false);
+    expect(transactionSet).not.toHaveBeenCalled();
+  });
+
+  it('uses the latest refresh of another uid claim for the fresh window', async () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const { db } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: {
+        uid: 'other',
+        roomName: 'clase-1',
+        claimedAt: new Date(now - 3600000),
+        refreshedAt: new Date(now - 5000),
+      },
+    });
+
+    expect(
+      await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists: jest.fn().mockResolvedValue(false), timestamp, now: () => now })
+    ).toBe(false);
+  });
+
+  it('takes over another uid claim older than the fresh window once its room is closed', async () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const { db, owners } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1', claimedAt: new Date(now - FRESH_CLAIM_WINDOW_MS - 1000) },
+    });
+
+    expect(
+      await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists: jest.fn().mockResolvedValue(false), timestamp, now: () => now })
+    ).toBe(true);
+    expect(owners[roomOwnerKey('clase-1')]).toEqual({
+      uid: 'uid-1',
+      roomName: 'clase-1',
+      claimedAt: 'server-timestamp',
+      refreshedAt: 'server-timestamp',
+    });
   });
 
   it('refuses while another uid owns the room and it is currently open', async () => {
@@ -70,12 +132,16 @@ describe('claimRoomOwnership', () => {
     expect(owners[roomOwnerKey('clase-1')].uid).toBe('other');
   });
 
-  it('takes over a room another uid owned once that class is closed', async () => {
-    const { db, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1' } });
+  it('takes over a room another uid owned once that class is closed, with a fresh claimedAt', async () => {
+    const { db, owners } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1', claimedAt: new Date('2026-10-01T10:00:00Z') },
+    });
     const roomExists = jest.fn().mockResolvedValue(false);
 
     expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(true);
     expect(owners[roomOwnerKey('clase-1')].uid).toBe('uid-1');
+    // The takeover restarts claimedAt, so the binder refuses the previous class's SID.
+    expect(owners[roomOwnerKey('clase-1')].claimedAt).toBe('server-timestamp');
   });
 
   it('propagates a Twilio lookup failure so the caller fails closed', async () => {
@@ -153,9 +219,16 @@ describe('createRoomSessionBinder', () => {
     expect(await createRoomSessionBinder(db, jest.fn(), timestamp)(claim)).toBe('room-mismatch');
   });
 
+  // The owner claimed the name before Twilio created this SID's room.
+  const CLAIMED_AT = new Date('2026-10-18T10:00:00Z');
+  const ROOM_CREATED = new Date('2026-10-18T10:00:01Z');
+  const ownedClase1 = () => ({ [ownerPath('clase-1')]: { uid: 'uid-1', roomName: 'clase-1', claimedAt: CLAIMED_AT } });
+  const roomClase1 = (dateCreated: Date = ROOM_CREATED) =>
+    jest.fn().mockResolvedValue({ sid: SID, uniqueName: 'clase-1', dateCreated });
+
   it('binds a new session once Twilio confirms the unique name and the uid owns the room', async () => {
-    const { db, store } = makeStoreDb({ [ownerPath('clase-1')]: { uid: 'uid-1', roomName: 'clase-1' } });
-    const fetchRoom = jest.fn().mockResolvedValue({ sid: SID, uniqueName: 'clase-1' });
+    const { db, store } = makeStoreDb(ownedClase1());
+    const fetchRoom = roomClase1();
 
     expect(await createRoomSessionBinder(db, fetchRoom, timestamp)(claim)).toBe('bound');
     expect(fetchRoom).toHaveBeenCalledWith(SID);
@@ -183,16 +256,51 @@ describe('createRoomSessionBinder', () => {
   });
 
   it('resolves a create race by re-reading the winner', async () => {
-    const store: { [path: string]: any } = { [ownerPath('clase-1')]: { uid: 'uid-1' } };
+    const store: { [path: string]: any } = ownedClase1();
     const { db, create } = makeStoreDb(store);
     const fetchRoom = jest.fn(async () => {
       // Another request binds the session between our read and our create().
       store[`roomSessions/${SID}`] = { uid: 'other', roomName: 'clase-1' };
-      return { sid: SID, uniqueName: 'clase-1' };
+      return { sid: SID, uniqueName: 'clase-1', dateCreated: ROOM_CREATED };
     });
 
     expect(await createRoomSessionBinder(db, fetchRoom, timestamp)(claim)).toBe('foreign-session');
     expect(create).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses a stale SID: a new owner of the name cannot bind the previous class session', async () => {
+    // Teacher A ran SID at 10:00; the class closed and uid-1 reclaimed the name at 11:00.
+    const { db, create } = makeStoreDb({
+      [ownerPath('clase-1')]: { uid: 'uid-1', roomName: 'clase-1', claimedAt: new Date('2026-10-18T11:00:00Z') },
+    });
+
+    expect(await createRoomSessionBinder(db, roomClase1(new Date('2026-10-18T10:00:00Z')), timestamp)(claim)).toBe(
+      'stale-owner'
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('tolerates a small clock skew between the claim and the room creation', async () => {
+    const { db } = makeStoreDb(ownedClase1());
+    const createdJustBefore = new Date(CLAIMED_AT.getTime() - ROOM_CLAIM_CLOCK_SKEW_MS + 1);
+
+    expect(await createRoomSessionBinder(db, roomClase1(createdJustBefore), timestamp)(claim)).toBe('bound');
+  });
+
+  it('still binds a later class of the same owner (claimedAt kept across re-claims)', async () => {
+    const { db } = makeStoreDb(ownedClase1());
+
+    expect(await createRoomSessionBinder(db, roomClase1(new Date('2026-10-25T10:00:00Z')), timestamp)(claim)).toBe('bound');
+  });
+
+  it('fails closed when the room creation time or the claim time is unknown', async () => {
+    const noDate = makeStoreDb(ownedClase1());
+    expect(await createRoomSessionBinder(noDate.db, jest.fn().mockResolvedValue({ sid: SID, uniqueName: 'clase-1' }), timestamp)(claim)).toBe('stale-owner');
+
+    const noClaim = makeStoreDb({ [ownerPath('clase-1')]: { uid: 'uid-1', roomName: 'clase-1' } });
+    expect(await createRoomSessionBinder(noClaim.db, roomClase1(), timestamp)(claim)).toBe('stale-owner');
+    expect(noDate.create).not.toHaveBeenCalled();
+    expect(noClaim.create).not.toHaveBeenCalled();
   });
 
   it('propagates Twilio failures', async () => {

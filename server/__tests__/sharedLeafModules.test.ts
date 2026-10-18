@@ -212,9 +212,12 @@ describe('twilioGateway', () => {
     ).rejects.toEqual({ status: 500 });
   });
 
-  it('fetchRoomVia returns the sid and unique name, null on 404, and rethrows anything else', async () => {
-    const client = roomsClient({ fetch: jest.fn().mockResolvedValue({ sid: 'RM1', uniqueName: 'clase-1', status: 'completed' }) });
-    await expect(fetchRoomVia(client, 'RM1')).resolves.toEqual({ sid: 'RM1', uniqueName: 'clase-1' });
+  it('fetchRoomVia returns the sid, unique name and creation time, null on 404, and rethrows anything else', async () => {
+    const dateCreated = new Date('2026-10-18T10:00:00Z');
+    const client = roomsClient({
+      fetch: jest.fn().mockResolvedValue({ sid: 'RM1', uniqueName: 'clase-1', status: 'completed', dateCreated }),
+    });
+    await expect(fetchRoomVia(client, 'RM1')).resolves.toEqual({ sid: 'RM1', uniqueName: 'clase-1', dateCreated });
     expect(client.video.v1.rooms).toHaveBeenCalledWith('RM1');
 
     await expect(fetchRoomVia(roomsClient({ fetch: jest.fn().mockRejectedValue(notFound) }), 'RM1')).resolves.toBeNull();
