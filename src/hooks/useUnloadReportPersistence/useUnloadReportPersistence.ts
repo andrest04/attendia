@@ -13,7 +13,8 @@ import useLatest from '../useLatest/useLatest';
  *  1. synchronously snapshots the report into the localStorage retry queue (guaranteed durability
  *     even if the fetch below never lands), then
  *  2. fires a best-effort keepalive POST with the id token cached by useCachedIdToken (a
- *     synchronous handler cannot await `user.getIdToken()`).
+ *     synchronous handler cannot await `user.getIdToken()`), unless the body exceeds the browser
+ *     keepalive cap (see MAX_KEEPALIVE_BODY_BYTES).
  *
  * Browsers fire both `beforeunload` and `pagehide` for one unload, so a run within
  * UNLOAD_DEDUPE_WINDOW_MS of the previous handled one is skipped: one unload means one queue write
@@ -26,6 +27,14 @@ import useLatest from '../useLatest/useLatest';
  */
 /** beforeunload and pagehide of the same unload land well inside this window. */
 export const UNLOAD_DEDUPE_WINDOW_MS = 1000;
+
+/**
+ * Browsers cap the bodies of all in-flight keepalive requests at 64 KiB and reject a larger one
+ * outright. A long class's report exceeds that, so above this (slightly lower, leaving room for
+ * other in-flight keepalive requests) the POST is skipped: the report is already in the
+ * localStorage queue, and the dashboard retry sends it with a normal fetch.
+ */
+export const MAX_KEEPALIVE_BODY_BYTES = 60 * 1024;
 
 export default function useUnloadReportPersistence(
   isTeacher: boolean,
@@ -68,13 +77,18 @@ export default function useUnloadReportPersistence(
       if (!idToken) {
         return;
       }
+      const body = JSON.stringify(report);
+      // Blob size is the UTF-8 byte length (the cap is in bytes, not characters).
+      if (new Blob([body]).size > MAX_KEEPALIVE_BODY_BYTES) {
+        return;
+      }
       // Not awaited: keepalive lets the browser keep this request alive past teardown. The
       // localStorage queue above already guarantees no data loss if this fails or never completes.
       fetch('/reports', {
         method: 'POST',
         keepalive: true,
         headers: { 'Content-Type': 'application/json', Authorization: idToken },
-        body: JSON.stringify(report),
+        body,
       }).catch(() => {
         // Swallowed: the pending-report queue is the source of truth for retry.
       });

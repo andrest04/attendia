@@ -48,6 +48,7 @@ import {
 } from './classes';
 import multer from 'multer';
 import { createFirebaseAuthMiddleware } from './firebaseAuthMiddleware';
+import { createJsonBodyErrorHandler, createJsonBodyParser } from './jsonBodyParser';
 import {
   createClearNotificationsHandler,
   createGetNotificationsHandler,
@@ -71,7 +72,10 @@ const authMiddleware = createFirebaseAuthMiddleware(idToken => auth.verifyIdToke
 
 const app = express();
 const drainOneClearBatch = createDrainOneClearBatch(firestore, serverTimestamp);
-app.use(express.json());
+// Default 100kb JSON limit everywhere except POST /reports (long-class timelines), and a
+// body-parser 413 answered as JSON instead of an HTML page. See jsonBodyParser.ts.
+app.use(createJsonBodyParser());
+app.use(createJsonBodyErrorHandler());
 
 // This server reuses the serverless functions shipped inside the "plugin-rtc" Twilio
 // CLI Plugin package directly from node_modules (no Twilio Serverless deploy step).

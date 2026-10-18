@@ -1,5 +1,5 @@
 import { renderHook } from '@testing-library/react-hooks';
-import useUnloadReportPersistence from './useUnloadReportPersistence';
+import useUnloadReportPersistence, { MAX_KEEPALIVE_BODY_BYTES } from './useUnloadReportPersistence';
 import { useAppState } from '../../state';
 import useCachedIdToken from '../useCachedIdToken/useCachedIdToken';
 import { savePendingAttentionReport } from '../../components/AttentionReport/pendingAttentionReports';
@@ -108,6 +108,34 @@ describe('useUnloadReportPersistence', () => {
 
     expect(mockSavePending).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('queues but does not post a report whose body exceeds the keepalive cap', () => {
+    // A long class: the browser would reject this keepalive request outright.
+    const bigReport = { roomSid: 'RM123', filler: 'x'.repeat(MAX_KEEPALIVE_BODY_BYTES) } as any;
+    renderHook(() => useUnloadReportPersistence(true, () => bigReport));
+
+    fireUnload();
+
+    expect(mockSavePending).toHaveBeenCalledWith('uid-1', bigReport);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('counts the body in UTF-8 bytes, so multi-byte text near the cap is not posted', () => {
+    // Fewer characters than the cap, but more bytes once encoded (each "ñ" is 2 bytes).
+    const accentedReport = {
+      roomSid: 'RM123',
+      filler: 'ñ'.repeat(Math.ceil(MAX_KEEPALIVE_BODY_BYTES / 2) + 10),
+    } as any;
+    renderHook(() => useUnloadReportPersistence(true, () => accentedReport));
+
+    fireUnload();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the cap below the 64 KiB browser keepalive budget', () => {
+    expect(MAX_KEEPALIVE_BODY_BYTES).toBeLessThan(64 * 1024);
   });
 
   it('swallows a failed keepalive post', async () => {
