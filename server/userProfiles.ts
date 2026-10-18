@@ -94,6 +94,8 @@ function toProfileResponse(data: { [key: string]: any }): UserProfile {
 // resources.ts's MAX_FILE_SIZE_BYTES). Client already resizes/compresses avatars to
 // ~256px JPEG/WebP before upload, so 2 MB is comfortable headroom.
 export const MAX_AVATAR_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+// multer limits for POST /profile/avatar (any profile may upload — no role gate).
+export const AVATAR_UPLOAD_LIMITS = { fileSize: MAX_AVATAR_FILE_SIZE_BYTES, files: 1, fields: 10 };
 const ALLOWED_AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/webp']);
 
 function isProfileOwnerRole(data: { [key: string]: any } | undefined): boolean {
@@ -343,11 +345,21 @@ export function createUploadAvatarHandler(db: ProfileDatabase, fileStorage: File
   };
 }
 
-export const createAvatarUploadErrorHandler = (): ErrorRequestHandler =>
-  createFileSizeLimitErrorHandler({
+export const createAvatarUploadErrorHandler = (): ErrorRequestHandler => {
+  const fileSizeHandler = createFileSizeLimitErrorHandler({
     message: 'file too large',
     explanation: 'La foto supera el tamaño máximo permitido (2 MB).',
   });
+  // Any other multer limit (file/field count, unexpected field) is also the client's fault.
+  return (err, req, res, next) =>
+    fileSizeHandler(err, req, res, (rest?: any) => {
+      if (rest && typeof rest.code === 'string' && rest.code.startsWith('LIMIT_')) {
+        sendBadRequest(res, 'invalid upload', 'Sube una sola foto por vez.');
+        return;
+      }
+      next(rest);
+    });
+};
 
 // DELETE /profile/avatar. Deletes the stored file before clearing its profile fields, and
 // marks avatarRemoved so the client stops falling back to the auth provider's photo too

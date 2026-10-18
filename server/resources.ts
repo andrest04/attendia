@@ -4,7 +4,7 @@ import { FileStorage } from './fileStorage';
 import { deleteQuietly, withUploadCompensation } from './fileStorageGuards';
 import { DocumentConverter } from './documentConverter';
 import { createFileSizeLimitErrorHandler, sendBadRequest, sendError } from './http';
-import { teacherHandler } from './teacherHandler';
+import { createTeacherGate, teacherHandler } from './teacherHandler';
 
 /*
  * Teacher "Recursos" (class materials): the file bytes live in Appwrite Storage (a
@@ -42,6 +42,10 @@ export type ResourceKind = 'pdf' | 'presentation' | 'word' | 'zip' | 'video';
 // before forwarding them to Appwrite. The Appwrite bucket itself allows up to 100MB;
 // the server deliberately enforces the tighter 25MB here.
 export const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
+
+// multer limits for POST /resources: one file and a handful of text fields. Without the
+// count caps a client could stream many parts that are parsed before the handler runs.
+export const RESOURCE_UPLOAD_LIMITS = { fileSize: MAX_FILE_SIZE_BYTES, files: 1, fields: 10 };
 
 const MAX_NAME_LENGTH = 200;
 const MAX_ROOM_LABEL_LENGTH = 120;
@@ -235,6 +239,20 @@ export function createGetResourcesHandler(db: ResourcesDatabase): RequestHandler
     }
   );
 }
+
+// Mounted BEFORE multer on POST /resources (see index.ts) so a non-teacher gets the 403
+// without the server ever buffering their upload. createUploadResourceHandler keeps its
+// own role check as defense in depth.
+export const createResourceUploadTeacherGate = (db: ResourcesDatabase): RequestHandler =>
+  createTeacherGate(db, {
+    forbiddenExplanation: TEACHER_ONLY_EXPLANATION,
+    failure: {
+      event: 'resource_save_failed',
+      operation: 'POST /resources',
+      message: 'resource save failed',
+      explanation: 'No pudimos subir el archivo. Intenta de nuevo en unos segundos.',
+    },
+  });
 
 export function createUploadResourceHandler(
   db: ResourcesDatabase,
@@ -529,8 +547,18 @@ export function createDeleteResourceHandler(db: ResourcesDatabase, fileStorage: 
   );
 }
 
-export const createResourceUploadErrorHandler = (): ErrorRequestHandler =>
-  createFileSizeLimitErrorHandler({
+export const createResourceUploadErrorHandler = (): ErrorRequestHandler => {
+  const fileSizeHandler = createFileSizeLimitErrorHandler({
     message: 'file too large',
     explanation: 'El archivo supera el tamaño máximo permitido (25 MB).',
   });
+  // Any other multer limit (file/field count, unexpected field) is also the client's fault.
+  return (err, req, res, next) =>
+    fileSizeHandler(err, req, res, (rest?: any) => {
+      if (rest && typeof rest.code === 'string' && rest.code.startsWith('LIMIT_')) {
+        sendBadRequest(res, 'invalid upload', 'Sube un solo archivo por vez.');
+        return;
+      }
+      next(rest);
+    });
+};

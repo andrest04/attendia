@@ -76,3 +76,16 @@ export function teacherHandler(
     }
   };
 }
+
+/**
+ * The same 401 → teacher role lookup → 403 / 503 skeleton as a pass-through middleware,
+ * for routes that must refuse a non-teacher BEFORE an expensive step runs — e.g. mounted
+ * ahead of multer so a student's 25 MB upload is never buffered into memory. The route's
+ * own handler may keep its role check as defense in depth.
+ */
+export function createTeacherGate(
+  db: TeacherAuthorizationDatabase,
+  options: Pick<TeacherHandlerOptions, 'forbiddenExplanation' | 'forbiddenMessage' | 'failure'>
+): RequestHandler {
+  return teacherHandler(db, options, async ({ next }) => next());
+}

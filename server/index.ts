@@ -23,7 +23,7 @@ import {
   createUploadAvatarHandler,
   createDeleteAvatarHandler,
   createAvatarUploadErrorHandler,
-  MAX_AVATAR_FILE_SIZE_BYTES,
+  AVATAR_UPLOAD_LIMITS,
 } from './userProfiles';
 import { createClientOperationalEventHandler } from './operationalEvents';
 import { createGetReportHandler, createGetReportsHandler, createPostReportHandler } from './attentionReports';
@@ -41,7 +41,8 @@ import {
   createPreviewResourceHandler,
   createDeleteResourceHandler,
   createResourceUploadErrorHandler,
-  MAX_FILE_SIZE_BYTES,
+  createResourceUploadTeacherGate,
+  RESOURCE_UPLOAD_LIMITS,
 } from './resources';
 import { createGotenbergDocumentConverter } from './gotenbergDocumentConverter';
 import { createAppwriteFileStorage } from './appwriteFileStorage';
@@ -123,7 +124,7 @@ app.all('/recordingrules', authMiddleware, createRecordingRulesGuard(firestore, 
 app.get('/profile', authMiddleware, createGetProfileHandler(firestore));
 app.post('/profile', authMiddleware, createPostProfileHandler(firestore, serverTimestamp));
 app.patch('/profile', authMiddleware, createPatchProfileHandler(firestore));
-const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_AVATAR_FILE_SIZE_BYTES } });
+const avatarUpload = multer({ storage: multer.memoryStorage(), limits: AVATAR_UPLOAD_LIMITS });
 app.post('/profile/avatar', authMiddleware, avatarUpload.single('file'), createAvatarUploadErrorHandler(), createUploadAvatarHandler(firestore, avatarStorage));
 app.delete('/profile/avatar', authMiddleware, createDeleteAvatarHandler(firestore, avatarStorage));
 app.post('/operational-events', authMiddleware, createClientOperationalEventHandler());
@@ -169,13 +170,15 @@ app.get(
 // Teacher-only "Recursos" tab: users/{uid}/resources/{fileId} metadata in Firestore,
 // file bytes in Appwrite Storage (private bucket — see resources.ts and
 // appwriteFileStorage.ts). Uploads are buffered in memory (multer) before being
-// forwarded to Appwrite. See resources.ts for the validation/role checks.
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE_BYTES } });
+// forwarded to Appwrite, so the teacher gate runs BEFORE multer: a student's upload is
+// refused with 403 without being buffered. See resources.ts for the validation/role checks.
+const upload = multer({ storage: multer.memoryStorage(), limits: RESOURCE_UPLOAD_LIMITS });
 
 app.get('/resources', authMiddleware, createGetResourcesHandler(firestore));
 app.post(
   '/resources',
   authMiddleware,
+  createResourceUploadTeacherGate(firestore),
   upload.single('file'),
   createResourceUploadErrorHandler(),
   createUploadResourceHandler(firestore, serverTimestamp, resourceStorage)
