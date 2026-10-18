@@ -2,7 +2,12 @@ import './bootstrap-globals';
 import { createExpressHandler } from './createExpressHandler';
 import { twilioClient } from './twilioClient';
 import { createProfileRoleResolver, createRoomAccessGuard } from './roomAccessGuard';
-import { createRoomClaimer } from './roomOwnership';
+import {
+  createRecordingRulesGuard,
+  createRoomClaimer,
+  createRoomDetailsFetcher,
+  createRoomSessionBinder,
+} from './roomOwnership';
 import { createRoomExists } from './roomExists';
 import { createRoomOpenHandler } from './roomOpen';
 import { createCompleteRoomHandler } from './completeRoom';
@@ -108,7 +113,9 @@ app.all(
   createRoomAccessGuard(roomExists, createProfileRoleResolver(firestore), roomClaimer),
   tokenEndpoint
 );
-app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
+// Only the teacher who owns the room behind room_sid may change its recording rules.
+const fetchRoom = createRoomDetailsFetcher(twilioClient);
+app.all('/recordingrules', authMiddleware, createRecordingRulesGuard(firestore, fetchRoom), recordingRulesEndpoint);
 
 // Firestore-backed user profiles (users/{uid} → { displayName, email, role, createdAt }).
 // The role is always resolved server-side from the verified uid. Both sit behind the
@@ -126,7 +133,13 @@ app.post('/operational-events', authMiddleware, createClientOperationalEventHand
 // Teacher-only: both handlers re-resolve the role from Firestore server-side.
 app.get('/reports', authMiddleware, createGetReportsHandler(firestore));
 app.get('/reports/:roomSid', authMiddleware, createGetReportHandler(firestore));
-app.post('/reports', authMiddleware, createPostReportHandler(firestore, serverTimestamp));
+// The first save binds roomSessions/{roomSid} to the teacher (Twilio unique name + roomOwners
+// verified); recording requests require that binding. See roomOwnership.ts.
+app.post(
+  '/reports',
+  authMiddleware,
+  createPostReportHandler(firestore, serverTimestamp, createRoomSessionBinder(firestore, fetchRoom, serverTimestamp))
+);
 
 // Teacher-requested Twilio recording (Composition) artifacts for a completed class,
 // stored on the same report doc as a `recording` field. Server-proxied end to end so
@@ -223,7 +236,7 @@ app.post(
 // Teacher-only "end the session for everyone": completes the Twilio room so all
 // participants are disconnected and the class can no longer be rejoined. The
 // teacher role is resolved server-side from the Firestore profile, not from the
-// request body. See completeRoom.ts.
+// request body, and only the uid in roomOwners/{room} may end it. See completeRoom.ts.
 app.post('/completeRoom', authMiddleware, createCompleteRoomHandler(twilioClient, firestore));
 
 // Read-only probe so the student prejoin can warn "the class isn't open yet" BEFORE the

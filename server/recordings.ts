@@ -2,6 +2,7 @@ import { RequestHandler } from 'express';
 import { sendBadRequest, sendError, getVerifiedUser, ExpressResponse } from './http';
 import { ROOM_SID_PATTERN } from './ids';
 import { logOperationalFailure } from './operationalEvents';
+import { isRoomSessionOwner } from './roomOwnership';
 import { teacherHandler } from './teacherHandler';
 import { createTicketSigner } from './ticketSigner';
 
@@ -317,6 +318,19 @@ export function createRequestRecordingHandler(
           return;
         }
         res.status(200).json({ recording: existingRequest, request: existingRequest });
+        return;
+      }
+
+      // A NEW composition needs the room session bound to this uid (roomSessions, written
+      // by POST /reports after Twilio + roomOwners verification). Replays above still work
+      // for legacy reports; a report copied under someone else's roomSid cannot start one.
+      if (!(await isRoomSessionOwner(db, roomSid, uid))) {
+        sendError(
+          res,
+          403,
+          'room session not owned',
+          'No podemos solicitar la grabación: esta clase no está registrada a tu nombre.'
+        );
         return;
       }
 

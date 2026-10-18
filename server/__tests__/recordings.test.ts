@@ -33,7 +33,10 @@ const makeDb = () => {
   const reportDoc = jest.fn(() => ({ get: reportGet, update: reportUpdate, collection: reportCollection }));
   const reportsCollection = jest.fn(() => ({ doc: reportDoc }));
   const userDoc = jest.fn(() => ({ get: userGet, collection: reportsCollection }));
-  const collection = jest.fn(() => ({ doc: userDoc }));
+  // roomSessions/{sid}: seeded so uid-1 owns the session by default.
+  const sessionGet = jest.fn().mockResolvedValue({ exists: true, data: () => ({ uid: 'uid-1', roomName: 'clase-1' }) });
+  const sessionDoc = jest.fn(() => ({ get: sessionGet }));
+  const collection = jest.fn((name: string) => (name === 'roomSessions' ? { doc: sessionDoc } : { doc: userDoc }));
   const runTransaction = jest.fn(async (fn: any) => fn({
     get: (ref: any) => ref.get(),
     update: (ref: any, data: any) => ref.update(data),
@@ -41,7 +44,7 @@ const makeDb = () => {
   const db = ({ collection, runTransaction } as unknown) as RecordingsDatabase;
   return {
     db, collection, userDoc, userGet, reportsCollection, reportDoc, reportGet, reportUpdate, runTransaction,
-    reportCollection, requestDoc, requestGet, requestCreate, requestUpdate,
+    reportCollection, requestDoc, requestGet, requestCreate, requestUpdate, sessionDoc, sessionGet,
   };
 };
 
@@ -107,6 +110,54 @@ describe('createRequestRecordingHandler', () => {
     expect(replayRes.json).toHaveBeenCalledWith(expect.objectContaining({
       request: expect.objectContaining({ manualRequestId: MANUAL_REQUEST_ID, status: 'enqueued' }),
     }));
+  });
+
+  it("refuses with 403 to start a recording for a room session another uid owns", async () => {
+    const { db, userGet, reportGet, requestGet, requestCreate, sessionDoc, sessionGet } = makeDb();
+    const { client, create } = makeClient();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    reportGet.mockResolvedValue({ data: () => ({ recordingWasActiveAtEnd: true }) });
+    requestGet.mockResolvedValue({ exists: false, data: () => undefined });
+    sessionGet.mockResolvedValue({ exists: true, data: () => ({ uid: 'other-teacher', roomName: 'clase-1' }) });
+    const res = makeRes();
+
+    await createRequestRecordingHandler(db, client, () => SERVER_TIMESTAMP)(request(), res, jest.fn());
+
+    expect(sessionDoc).toHaveBeenCalledWith(VALID_ROOM_SID);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(requestCreate).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('refuses with 403 to start a recording when the session was never bound (legacy report)', async () => {
+    const { db, userGet, reportGet, requestGet, requestCreate, sessionGet } = makeDb();
+    const { client, create } = makeClient();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    reportGet.mockResolvedValue({ data: () => ({ recordingWasActiveAtEnd: true }) });
+    requestGet.mockResolvedValue({ exists: false, data: () => undefined });
+    sessionGet.mockResolvedValue({ exists: false, data: () => undefined });
+    const res = makeRes();
+
+    await createRequestRecordingHandler(db, client, () => SERVER_TIMESTAMP)(request(), res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(requestCreate).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('still replays an existing request for a legacy report without a bound session', async () => {
+    const { db, userGet, reportGet, requestGet, sessionGet } = makeDb();
+    const { client, create } = makeClient();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    reportGet.mockResolvedValue({ data: () => ({ recordingWasActiveAtEnd: true }) });
+    requestGet.mockResolvedValue({ exists: true, data: () => ({ manualRequestId: MANUAL_REQUEST_ID, status: 'enqueued', compositionSid: 'CJone' }) });
+    sessionGet.mockResolvedValue({ exists: false, data: () => undefined });
+    const res = makeRes();
+
+    await createRequestRecordingHandler(db, client, () => SERVER_TIMESTAMP)(request(), res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('surfaces a claimed request without a provider SID as operationally ambiguous and never recreates it', async () => {

@@ -1,4 +1,4 @@
-import { RequestHandler } from 'express';
+import { NextFunction, RequestHandler } from 'express';
 import { ExpressRequest, ExpressResponse, getVerifiedUser, sendError, sendTeacherOnly } from './http';
 import { logOperationalFailure } from './operationalEvents';
 import { resolveIsTeacher, TeacherAuthorizationDatabase } from './teacherAuthorization';
@@ -19,11 +19,15 @@ export interface TeacherHandlerContext {
   uid: string;
   req: ExpressRequest;
   res: ExpressResponse;
+  /** Lets a teacher-only MIDDLEWARE (e.g. the /recordingrules ownership gate) pass on. */
+  next: NextFunction;
 }
 
 export interface TeacherHandlerOptions {
   /** Spanish explanation sent with the 403 when the caller is not a teacher. */
   forbiddenExplanation: string;
+  /** Machine message of that 403; defaults to 'teacher role required'. */
+  forbiddenMessage?: string;
   /** Operational-failure event + the 503 body used when `work` (or the lookup) throws. */
   failure: { event: string; operation: string; message: string; explanation: string };
   /**
@@ -42,7 +46,7 @@ export function teacherHandler(
   options: TeacherHandlerOptions,
   work: (context: TeacherHandlerContext) => Promise<void>
 ): RequestHandler {
-  return async (req, res) => {
+  return async (req, res, next) => {
     const firebaseUser = getVerifiedUser(res);
     if (!firebaseUser) {
       res.status(401).send();
@@ -53,10 +57,11 @@ export function teacherHandler(
 
     try {
       if (!(await resolveIsTeacher(db, firebaseUser.uid))) {
-        sendTeacherOnly(res, options.forbiddenExplanation);
+        if (options.forbiddenMessage) sendError(res, 403, options.forbiddenMessage, options.forbiddenExplanation);
+        else sendTeacherOnly(res, options.forbiddenExplanation);
         return;
       }
-      await work({ uid: firebaseUser.uid, req, res });
+      await work({ uid: firebaseUser.uid, req, res, next });
     } catch (error) {
       if (options.mapError && options.mapError(error, res)) return;
       const { event, operation, message, explanation } = options.failure;

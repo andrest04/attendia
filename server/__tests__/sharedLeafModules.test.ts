@@ -4,7 +4,7 @@ import { ROOM_SID_PATTERN } from '../ids';
 import { createTicketSigner } from '../ticketSigner';
 import { deleteQuietly, withUploadCompensation } from '../fileStorageGuards';
 import { inboxGeneration, inboxUnreadCount, readInbox, readInboxItems, retractInboxItems } from '../notificationInbox';
-import { completeRoomVia, isTwilioNotFound, resolveCompositionMediaUrl, roomExistsVia } from '../twilioGateway';
+import { completeRoomVia, fetchRoomVia, isTwilioNotFound, resolveCompositionMediaUrl, roomExistsVia } from '../twilioGateway';
 
 describe('base64url', () => {
   it('round-trips arbitrary text, including characters that need escaping', () => {
@@ -209,6 +209,17 @@ describe('twilioGateway', () => {
     await expect(roomExistsVia(roomsClient({ fetch: jest.fn().mockRejectedValue(notFound) }), 'r')).resolves.toBe(false);
     await expect(
       roomExistsVia(roomsClient({ fetch: jest.fn().mockRejectedValue({ status: 500 }) }), 'r')
+    ).rejects.toEqual({ status: 500 });
+  });
+
+  it('fetchRoomVia returns the sid and unique name, null on 404, and rethrows anything else', async () => {
+    const client = roomsClient({ fetch: jest.fn().mockResolvedValue({ sid: 'RM1', uniqueName: 'clase-1', status: 'completed' }) });
+    await expect(fetchRoomVia(client, 'RM1')).resolves.toEqual({ sid: 'RM1', uniqueName: 'clase-1' });
+    expect(client.video.v1.rooms).toHaveBeenCalledWith('RM1');
+
+    await expect(fetchRoomVia(roomsClient({ fetch: jest.fn().mockRejectedValue(notFound) }), 'RM1')).resolves.toBeNull();
+    await expect(
+      fetchRoomVia(roomsClient({ fetch: jest.fn().mockRejectedValue({ status: 500 }) }), 'RM1')
     ).rejects.toEqual({ status: 500 });
   });
 

@@ -50,6 +50,16 @@ describe('teacherHandler', () => {
     expect(work).not.toHaveBeenCalled();
   });
 
+  it('uses forbiddenMessage for the 403 message when the endpoint supplies one', async () => {
+    const { db } = makeDb({ exists: true, data: () => ({ role: 'student' }) });
+    const res = makeRes();
+
+    await teacherHandler(db, { ...options, forbiddenMessage: 'not allowed' }, jest.fn())({} as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: { message: 'not allowed', explanation: 'solo profes' } });
+  });
+
   it('answers 403 when the profile does not exist', async () => {
     const { db } = makeDb({ exists: false, data: () => undefined });
     const res = makeRes();
@@ -64,10 +74,11 @@ describe('teacherHandler', () => {
     const work = jest.fn().mockResolvedValue(undefined);
     const req: any = { params: { id: 'x' } };
     const res = makeRes({ uid: 'teacher-1' });
+    const next = jest.fn();
 
-    await teacherHandler(db, options, work)(req, res, jest.fn());
+    await teacherHandler(db, options, work)(req, res, next);
 
-    expect(work).toHaveBeenCalledWith({ uid: 'teacher-1', req, res });
+    expect(work).toHaveBeenCalledWith({ uid: 'teacher-1', req, res, next });
     expect(res.status).not.toHaveBeenCalled();
   });
 
