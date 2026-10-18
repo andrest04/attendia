@@ -45,6 +45,59 @@ export async function roomExistsVia(client: RoomFetchingClient, roomName: string
   }
 }
 
+export interface RoomDetails {
+  sid: string;
+  uniqueName: string;
+  /** When Twilio created the room (twilio-node parses it into a Date). */
+  dateCreated?: Date;
+}
+
+export interface RoomDetailsClient {
+  video: { v1: { rooms(roomSid: string): { fetch(): Promise<RoomDetails> } } };
+}
+
+/**
+ * Looks a room up by SID — unlike a unique-name lookup, this still finds a COMPLETED
+ * room, so it can answer "which room name did this SID belong to?" after the class ends.
+ * A 404 (unknown SID) resolves null; any other error is rethrown so callers fail closed.
+ */
+export async function fetchRoomVia(client: RoomDetailsClient, roomSid: string): Promise<RoomDetails | null> {
+  try {
+    const room = await client.video.v1.rooms(roomSid).fetch();
+    return { sid: room.sid, uniqueName: room.uniqueName, dateCreated: room.dateCreated };
+  } catch (error) {
+    if (isTwilioNotFound(error)) return null;
+    throw error;
+  }
+}
+
+export interface ParticipantFetchingClient {
+  video: {
+    v1: { rooms(roomName: string): { participants(identity: string): { fetch(): Promise<{ status?: string }> } } };
+  };
+}
+
+/**
+ * Whether a participant with this identity is connected to the in-progress room right now.
+ * Twilio accepts the identity in place of the participant SID; a 404 (no such room or
+ * participant) is "not connected", any other error is rethrown so callers fail closed.
+ * twilio-node interpolates the path segment verbatim (and rejects `/`, `?`, `#`), so the
+ * identity is URI-encoded here.
+ */
+export async function isParticipantConnectedVia(
+  client: ParticipantFetchingClient,
+  roomName: string,
+  identity: string
+): Promise<boolean> {
+  try {
+    const participant = await client.video.v1.rooms(roomName).participants(encodeURIComponent(identity)).fetch();
+    return participant.status === 'connected';
+  } catch (error) {
+    if (isTwilioNotFound(error)) return false;
+    throw error;
+  }
+}
+
 /**
  * Completes the room (disconnecting everyone and freeing its unique name). Idempotent:
  * a 404 means it was already completed or never existed — the class is closed either way.

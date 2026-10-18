@@ -71,7 +71,8 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
   const connectSequence = async (session: RejoinSession) => {
     if (disposedRef.current) return;
     const connectors = connectorsRef.current;
-    const { token } = await connectors.getToken(session.identity, session.roomName);
+    // A session saved before the server refused padded identities may still carry spaces.
+    const { token } = await connectors.getToken(session.identity.trim(), session.roomName);
     if (disposedRef.current) return;
     await connectors.videoConnect(token);
     if (!featureFlags.isConversationsDisabled()) {

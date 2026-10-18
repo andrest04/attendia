@@ -10,6 +10,7 @@ import {
 } from '../../components/AttentionReport/pendingAttentionReports';
 import { saveScheduledClassSession } from '../../classSession/classSessionContext';
 import { MAX_REPORT_TIMELINE_POINTS } from '../../components/AttentionReport/reportMath';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
 
 jest.mock('../../state');
 jest.mock('../useVideoContext/useVideoContext');
@@ -229,6 +230,44 @@ describe('useAttentionReportSaver', () => {
       expect.objectContaining({ roomSid: 'RM00000000000000000000000000000abc' }),
     ]);
     consoleError.mockRestore();
+  });
+
+  it.each([400, 403, 404, 413])(
+    'does not queue (and drops a queued entry) when the server permanently rejects the report with %i',
+    async status => {
+      window.localStorage.clear();
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      mockSave.mockRejectedValue(new ClientApiError(status, 'room session not owned', 'No está a tu cargo.'));
+      mockUseAppState.mockImplementation(() => ({ saveAttentionReport: mockSave, user: { uid: 'teacher-1' } }));
+      savePendingAttentionReport('teacher-1', { roomSid: 'RM00000000000000000000000000000abc' } as any);
+      const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(baseAttention) });
+
+      await act(async () => {
+        await result.current.saveReport('ended-for-all');
+      });
+
+      expect(getPendingAttentionReports('teacher-1')).toEqual([]);
+      consoleError.mockRestore();
+      window.localStorage.clear();
+    }
+  );
+
+  it.each([401, 500, 503])('queues the report when the save fails with a retryable %i', async status => {
+    window.localStorage.clear();
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockSave.mockRejectedValue(new ClientApiError(status, 'unavailable', 'Intenta de nuevo.'));
+    mockUseAppState.mockImplementation(() => ({ saveAttentionReport: mockSave, user: { uid: 'teacher-1' } }));
+    const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(baseAttention) });
+
+    await act(async () => {
+      await result.current.saveReport('ended-for-all');
+    });
+
+    expect(getPendingAttentionReports('teacher-1')).toEqual([
+      expect.objectContaining({ roomSid: 'RM00000000000000000000000000000abc' }),
+    ]);
+    consoleError.mockRestore();
+    window.localStorage.clear();
   });
 
   it('removes a previously queued entry for the room after a successful save, leaving other rooms queued', async () => {

@@ -1,9 +1,17 @@
 import './bootstrap-globals';
 import { createExpressHandler } from './createExpressHandler';
 import { twilioClient } from './twilioClient';
-import { createRoomAccessGuard } from './roomAccessGuard';
+import { createProfileRoleResolver, createRoomAccessGuard } from './roomAccessGuard';
+import {
+  createRecordingRulesGuard,
+  createRoomClaimer,
+  createRoomDetailsFetcher,
+  createRoomSessionBinder,
+} from './roomOwnership';
 import { createRoomExists } from './roomExists';
+import { createIdentityReservationGuard, createParticipantConnectionChecker } from './identityReservation';
 import { createRoomOpenHandler } from './roomOpen';
+import { createRoomOpenRateLimiter } from './rateLimit';
 import { createCompleteRoomHandler } from './completeRoom';
 import express from 'express';
 import fs from 'fs';
@@ -17,7 +25,7 @@ import {
   createUploadAvatarHandler,
   createDeleteAvatarHandler,
   createAvatarUploadErrorHandler,
-  MAX_AVATAR_FILE_SIZE_BYTES,
+  AVATAR_UPLOAD_LIMITS,
 } from './userProfiles';
 import { createClientOperationalEventHandler } from './operationalEvents';
 import { createGetReportHandler, createGetReportsHandler, createPostReportHandler } from './attentionReports';
@@ -35,7 +43,8 @@ import {
   createPreviewResourceHandler,
   createDeleteResourceHandler,
   createResourceUploadErrorHandler,
-  MAX_FILE_SIZE_BYTES,
+  createResourceUploadTeacherGate,
+  RESOURCE_UPLOAD_LIMITS,
 } from './resources';
 import { createGotenbergDocumentConverter } from './gotenbergDocumentConverter';
 import { createAppwriteFileStorage } from './appwriteFileStorage';
@@ -71,6 +80,11 @@ try {
 const authMiddleware = createFirebaseAuthMiddleware(idToken => auth.verifyIdToken(idToken));
 
 const app = express();
+// Behind a reverse proxy (Azure Container Apps ingress) req.ip is the proxy unless the
+// hop count is configured; X-Forwarded-For is never trusted by default. See serverConfig.ts.
+if (config.trustProxyHops !== undefined) {
+  app.set('trust proxy', config.trustProxyHops);
+}
 const drainOneClearBatch = createDrainOneClearBatch(firestore, serverTimestamp);
 // Default 100kb JSON limit everywhere except POST /reports (long-class timelines), and a
 // body-parser 413 answered as JSON instead of an HTML page. See jsonBodyParser.ts.
@@ -88,7 +102,7 @@ const recordingRulesFunction: ServerlessFunction = require('@twilio-labs/plugin-
 const recordingRulesEndpoint = createExpressHandler(recordingRulesFunction);
 
 // Students may only join a room a teacher has already opened (see roomAccessGuard for
-// the threat-model caveats). A room counts as open when an in-progress Twilio room with
+// the remaining caveats). A room counts as open when an in-progress Twilio room with
 // that unique name exists.
 const roomExists = createRoomExists(twilioClient);
 
@@ -97,8 +111,27 @@ const roomExists = createRoomExists(twilioClient);
 // the authenticated server download route). See appwriteFileStorage.ts.
 const { avatars: avatarStorage, resources: resourceStorage } = createAppwriteBuckets(config.appwrite, createAppwriteFileStorage);
 
-app.all('/token', authMiddleware, createRoomAccessGuard(roomExists), tokenEndpoint);
-app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
+// A teacher-suffixed identity must be backed by a teacher profile, and a teacher's token
+// claims roomOwners/{room} for the verified uid (roomOwnership.ts) — the ownership record
+// /reports, recordings, /completeRoom and /recordingrules check. Then the identity is
+// reserved for the uid: an identity connected in the room under another uid gets 409
+// instead of a token that would kick that participant (identityReservation.ts).
+const roomClaimer = createRoomClaimer(firestore, { roomExists, timestamp: serverTimestamp });
+const identityReservationGuard = createIdentityReservationGuard(
+  firestore,
+  createParticipantConnectionChecker(twilioClient),
+  serverTimestamp
+);
+app.all(
+  '/token',
+  authMiddleware,
+  createRoomAccessGuard(roomExists, createProfileRoleResolver(firestore), roomClaimer),
+  identityReservationGuard,
+  tokenEndpoint
+);
+// Only the teacher who owns the room behind room_sid may change its recording rules.
+const fetchRoom = createRoomDetailsFetcher(twilioClient);
+app.all('/recordingrules', authMiddleware, createRecordingRulesGuard(firestore, fetchRoom), recordingRulesEndpoint);
 
 // Firestore-backed user profiles (users/{uid} → { displayName, email, role, createdAt }).
 // The role is always resolved server-side from the verified uid. Both sit behind the
@@ -106,7 +139,7 @@ app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 app.get('/profile', authMiddleware, createGetProfileHandler(firestore));
 app.post('/profile', authMiddleware, createPostProfileHandler(firestore, serverTimestamp));
 app.patch('/profile', authMiddleware, createPatchProfileHandler(firestore));
-const avatarUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_AVATAR_FILE_SIZE_BYTES } });
+const avatarUpload = multer({ storage: multer.memoryStorage(), limits: AVATAR_UPLOAD_LIMITS });
 app.post('/profile/avatar', authMiddleware, avatarUpload.single('file'), createAvatarUploadErrorHandler(), createUploadAvatarHandler(firestore, avatarStorage));
 app.delete('/profile/avatar', authMiddleware, createDeleteAvatarHandler(firestore, avatarStorage));
 app.post('/operational-events', authMiddleware, createClientOperationalEventHandler());
@@ -116,7 +149,13 @@ app.post('/operational-events', authMiddleware, createClientOperationalEventHand
 // Teacher-only: both handlers re-resolve the role from Firestore server-side.
 app.get('/reports', authMiddleware, createGetReportsHandler(firestore));
 app.get('/reports/:roomSid', authMiddleware, createGetReportHandler(firestore));
-app.post('/reports', authMiddleware, createPostReportHandler(firestore, serverTimestamp));
+// The first save binds roomSessions/{roomSid} to the teacher (Twilio unique name + roomOwners
+// verified); recording requests require that binding. See roomOwnership.ts.
+app.post(
+  '/reports',
+  authMiddleware,
+  createPostReportHandler(firestore, serverTimestamp, createRoomSessionBinder(firestore, fetchRoom, serverTimestamp))
+);
 
 // Teacher-requested Twilio recording (Composition) artifacts for a completed class,
 // stored on the same report doc as a `recording` field. Server-proxied end to end so
@@ -146,13 +185,15 @@ app.get(
 // Teacher-only "Recursos" tab: users/{uid}/resources/{fileId} metadata in Firestore,
 // file bytes in Appwrite Storage (private bucket — see resources.ts and
 // appwriteFileStorage.ts). Uploads are buffered in memory (multer) before being
-// forwarded to Appwrite. See resources.ts for the validation/role checks.
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE_BYTES } });
+// forwarded to Appwrite, so the teacher gate runs BEFORE multer: a student's upload is
+// refused with 403 without being buffered. See resources.ts for the validation/role checks.
+const upload = multer({ storage: multer.memoryStorage(), limits: RESOURCE_UPLOAD_LIMITS });
 
 app.get('/resources', authMiddleware, createGetResourcesHandler(firestore));
 app.post(
   '/resources',
   authMiddleware,
+  createResourceUploadTeacherGate(firestore),
   upload.single('file'),
   createResourceUploadErrorHandler(),
   createUploadResourceHandler(firestore, serverTimestamp, resourceStorage)
@@ -213,13 +254,14 @@ app.post(
 // Teacher-only "end the session for everyone": completes the Twilio room so all
 // participants are disconnected and the class can no longer be rejoined. The
 // teacher role is resolved server-side from the Firestore profile, not from the
-// request body. See completeRoom.ts.
+// request body, and only the uid in roomOwners/{room} may end it. See completeRoom.ts.
 app.post('/completeRoom', authMiddleware, createCompleteRoomHandler(twilioClient, firestore));
 
 // Read-only probe so the student prejoin can warn "the class isn't open yet" BEFORE the
 // device-selection waiting room, instead of only when POST /token blocks them. This never
 // creates a room and is deliberately unauthenticated — see roomOpen.ts for the rationale.
-app.get('/rooms/:roomName/open', createRoomOpenHandler(roomExists));
+// Rate-limited per IP: every hit is a Twilio REST call (see rateLimit.ts).
+app.get('/rooms/:roomName/open', createRoomOpenRateLimiter(), createRoomOpenHandler(roomExists));
 
 const buildDir = path.join(__dirname, '../build');
 const indexHtml = path.join(buildDir, 'index.html');

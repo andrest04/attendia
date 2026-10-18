@@ -3,6 +3,7 @@ import { HttpError, sendBadRequest, sendError } from './http';
 import { ROOM_SID_PATTERN } from './ids';
 import { canonicalNotificationId } from './notifications';
 import { readInbox, readInboxItems, retractInboxItems } from './notificationInbox';
+import { RoomSessionBinder } from './roomOwnership';
 import { teacherHandler } from './teacherHandler';
 
 /*
@@ -229,7 +230,21 @@ function sanitizeReportBody(body: {
   };
 }
 
-export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: () => unknown): RequestHandler {
+// Fail-closed default: without a wired binder (see server/index.ts) no report can be saved.
+const unconfiguredSessionBinder: RoomSessionBinder = () =>
+  Promise.reject(new Error('room session binder is not configured'));
+
+/**
+ * `bindSession` (roomOwnership.ts createRoomSessionBinder) ties the report's roomSid to
+ * the verified teacher before anything is written: the session must be theirs, its
+ * Twilio unique name must be the report's roomName, and they must have owned that room
+ * when Twilio created it (claims history; a later owner of the name cannot bind it).
+ */
+export function createPostReportHandler(
+  db: ReportsDatabase,
+  serverTimestamp: () => unknown,
+  bindSession: RoomSessionBinder = unconfiguredSessionBinder
+): RequestHandler {
   return teacherHandler(
     db,
     {
@@ -256,6 +271,16 @@ export function createPostReportHandler(db: ReportsDatabase, serverTimestamp: ()
       const failureEpisodeId = body.failureEpisodeId;
       if (failureEpisodeId !== undefined && !isValidFailureEpisodeId(failureEpisodeId)) {
         sendBadRequest(res, 'invalid failureEpisodeId', 'El identificador del episodio de error no es válido.');
+        return;
+      }
+
+      const verdict = await bindSession({ roomSid: report.roomSid, roomName: report.roomName, uid });
+      if (verdict === 'room-not-found') {
+        sendError(res, 404, 'room not found', 'No encontramos esa sesión de clase.');
+        return;
+      }
+      if (verdict !== 'bound') {
+        sendError(res, 403, 'room session not owned', 'Este reporte corresponde a una clase que no está a tu cargo.');
         return;
       }
 

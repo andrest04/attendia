@@ -22,6 +22,19 @@ const CLASS_ID = /^[A-Za-z0-9_-]{1,128}$/;
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 const CLASS_SWEEP_SIZE = 10;
 
+// Bounds on what one reconcile poll reads, so its cost does not grow with the teacher's
+// whole history. Each query is single-field (orderBy, or a range on the ordered field),
+// so no composite index is needed. Sources outside the bounds are simply not reconciled:
+// a recording requested for a report older than the newest MAX_RECONCILED_REPORTS, an
+// episode older than the newest MAX_RECONCILED_EPISODES, or a class scheduled before the
+// look-back window (its upcoming/not-started moments are long past by then).
+export const MAX_RECONCILED_REPORTS = 100;
+export const MAX_RECONCILED_EPISODES = 100;
+export const MAX_RECONCILED_CLASSES = 100;
+export const CLASS_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+// recordingRequests is a per-report subcollection: at most this many queries in flight.
+const RECORDING_QUERY_CONCURRENCY = 10;
+
 type TrustedTimestamp = { toMillis(): number };
 
 export interface RecordingNotificationSource {
@@ -213,16 +226,45 @@ function validClaims(value: unknown): value is ReportFailureEpisodeClaim[] {
   );
 }
 
-async function discoverSources(db: NotificationsDatabase, uid: string, includeAll: boolean): Promise<DiscoveredSources> {
+// Runs `work` over `items` with at most `limit` promises in flight, keeping input order.
+async function mapWithConcurrency<T, R>(items: T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const lanes = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await work(items[index]);
+    }
+  });
+  await Promise.all(lanes);
+  return results;
+}
+
+async function discoverSources(
+  db: NotificationsDatabase,
+  uid: string,
+  includeAll: boolean,
+  nowMs: number
+): Promise<DiscoveredSources> {
   const user = userDocument(db, uid);
-  const reports = await user.collection('reports').get();
-  const recordingRefs: Array<{ ref: Document; roomSid: string }> = [];
-  for (const report of reports.docs) {
+  const noDocs = { docs: [] as QueryDocumentSnapshot[] };
+  const reports = await user.collection('reports').orderBy('endedAt', 'desc').limit(MAX_RECONCILED_REPORTS).get();
+  const requestsPerReport = await mapWithConcurrency(reports.docs, RECORDING_QUERY_CONCURRENCY, async report => {
     const requests = await report.ref.collection('recordingRequests').get();
-    requests.docs.forEach(request => recordingRefs.push({ ref: request.ref, roomSid: report.id }));
-  }
-  const episodes = includeAll ? await user.collection('reportFailureEpisodes').get() : { docs: [] as QueryDocumentSnapshot[] };
-  const classes = includeAll ? await user.collection('classes').get() : { docs: [] as QueryDocumentSnapshot[] };
+    return requests.docs.map(request => ({ ref: request.ref, roomSid: report.id }));
+  });
+  const recordingRefs = requestsPerReport.reduce((all, refs) => all.concat(refs), [] as Array<{ ref: Document; roomSid: string }>);
+  const episodes = includeAll
+    ? await user.collection('reportFailureEpisodes').orderBy('observedAt', 'desc').limit(MAX_RECONCILED_EPISODES).get()
+    : noDocs;
+  const classes = includeAll
+    ? await user
+        .collection('classes')
+        .where('scheduledAt', '>=', new Date(nowMs - CLASS_LOOKBACK_MS))
+        .orderBy('scheduledAt', 'asc')
+        .limit(MAX_RECONCILED_CLASSES)
+        .get()
+    : noDocs;
   return {
     recordingRefs,
     episodeRefs: episodes.docs.map(doc => doc.ref),
@@ -437,10 +479,9 @@ async function reconcileSources(
   uid: string,
   includeAll: boolean,
   createdAt: () => unknown,
-  now: () => number
+  refs: DiscoveredSources,
+  nowMs: number
 ): Promise<{ unreadCount: number; changed: boolean }> {
-  const refs = await discoverSources(db, uid, includeAll);
-  const nowMs = now();
   return db.runTransaction(async transaction => {
     const user = userDocument(db, uid);
     const stateRef = user.collection('notificationState').doc('inbox');
@@ -508,9 +549,12 @@ export function createReconcileNotificationsHandler(
         // cleanup. Scoped intentionally to this one cross-module call.
         await ingestReportFailureEpisodes(db as any, uid, claims, serverTimestamp);
       }
-      const sources = await discoverSources(db, uid, body.scope === 'all');
+      // Discovered once per poll: the refresh below only updates existing request docs,
+      // and the transaction re-reads every discovered doc anyway.
+      const nowMs = now();
+      const sources = await discoverSources(db, uid, body.scope === 'all', nowMs);
       await refreshPendingRecordingSources(sources.recordingRefs, uid, refreshRecordingRequest);
-      const result = await reconcileSources(db, uid, body.scope === 'all', serverTimestamp, now);
+      const result = await reconcileSources(db, uid, body.scope === 'all', serverTimestamp, sources, nowMs);
       res.status(200).json(result);
       await boundedMaintenance(uid).catch(error => logOperationalFailure({
         event: 'notification_maintenance_failed', operation: 'POST /notifications/reconcile', uid, error,

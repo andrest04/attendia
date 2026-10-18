@@ -9,6 +9,7 @@ import {
   removePendingAttentionReport,
   savePendingAttentionReport,
 } from '../../components/AttentionReport/pendingAttentionReports';
+import { isPermanentClientError } from '../../state/useFirebaseAuth/apiClient';
 import { readScheduledClassSession } from '../../classSession/classSessionContext';
 
 /*
@@ -106,6 +107,16 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
         // handler before a refresh) so a later dashboard replay cannot overwrite it with stale data.
         removePendingAttentionReport(uid, report.roomSid);
       } catch (err) {
+        if (isPermanentClientError(err)) {
+          // The server will refuse this report on every retry (e.g. not this teacher's class):
+          // queuing it would only retry forever, so drop any queued copy as well.
+          removePendingAttentionReport(uid, report.roomSid);
+          console.error('attention-report-persistence: report permanently rejected, not queued', {
+            roomSid: report.roomSid,
+            error: err,
+          });
+          return;
+        }
         savePendingAttentionReport(uid, report);
         console.error('attention-report-persistence: report save failed and was queued for retry', {
           roomSid: report.roomSid,

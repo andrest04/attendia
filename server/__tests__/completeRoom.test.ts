@@ -1,4 +1,5 @@
 import { createCompleteRoomHandler, RoomCompletingClient, CompleteRoomDatabase } from '../completeRoom';
+import { roomOwnerKey } from '../roomOwnership';
 
 const makeRes = () => {
   const res: any = { locals: { firebaseUser: { uid: 'uid-1' } } };
@@ -16,13 +17,16 @@ const makeClient = (update: jest.Mock) => {
   return { client, rooms };
 };
 
-// Fake of the minimal Firestore surface the handler uses.
+// Fake of the minimal Firestore surface the handler uses: users/{uid} (profile, `get`)
+// and roomOwners/{key} (`ownerGet`, seeded so uid-1 owns the room by default).
 const makeDb = () => {
   const get = jest.fn();
+  const ownerGet = jest.fn().mockResolvedValue({ exists: true, data: () => ({ uid: 'uid-1', roomName: 'clase-1' }) });
   const doc = jest.fn(() => ({ get }));
-  const collection = jest.fn(() => ({ doc }));
+  const ownerDoc = jest.fn(() => ({ get: ownerGet }));
+  const collection = jest.fn((name: string) => (name === 'roomOwners' ? { doc: ownerDoc } : { doc }));
   const db = ({ collection } as unknown) as CompleteRoomDatabase;
-  return { db, collection, doc, get };
+  return { db, collection, doc, get, ownerDoc, ownerGet };
 };
 
 describe('createCompleteRoomHandler', () => {
@@ -62,6 +66,49 @@ describe('createCompleteRoomHandler', () => {
     expect(res.json).toHaveBeenCalledWith(
       expect.objectContaining({ error: expect.objectContaining({ message: 'not allowed' }) }),
     );
+  });
+
+  it('reads the ownership record of the requested room', async () => {
+    const { client } = makeClient(jest.fn().mockResolvedValue(undefined));
+    const { db, get, collection, ownerDoc } = makeDb();
+    get.mockResolvedValue({ exists: true, data: () => ({ role: 'teacher' }) });
+
+    await createCompleteRoomHandler(client, db)({ body: { room_name: 'clase-1' } } as any, makeRes(), undefined as any);
+
+    expect(collection).toHaveBeenCalledWith('roomOwners');
+    expect(ownerDoc).toHaveBeenCalledWith(roomOwnerKey('clase-1'));
+  });
+
+  it("rejects with 403 a teacher who does not own the room and never completes it", async () => {
+    const update = jest.fn();
+    const { client, rooms } = makeClient(update);
+    const { db, get, ownerGet } = makeDb();
+    get.mockResolvedValue({ exists: true, data: () => ({ role: 'teacher' }) });
+    ownerGet.mockResolvedValue({ exists: true, data: () => ({ uid: 'someone-else', roomName: 'clase-1' }) });
+    const res = makeRes();
+
+    await createCompleteRoomHandler(client, db)({ body: { room_name: 'clase-1' } } as any, res, undefined as any);
+
+    expect(rooms).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ message: 'room not owned' }) }),
+    );
+  });
+
+  it('rejects with 403 when nobody has claimed the room', async () => {
+    const update = jest.fn();
+    const { client } = makeClient(update);
+    const { db, get, ownerGet } = makeDb();
+    get.mockResolvedValue({ exists: true, data: () => ({ role: 'teacher' }) });
+    ownerGet.mockResolvedValue({ exists: false, data: () => undefined });
+    const res = makeRes();
+
+    await createCompleteRoomHandler(client, db)({ body: { room_name: 'clase-1' } } as any, res, undefined as any);
+
+    expect(update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(403);
   });
 
   it('responds 400 when room_name is missing', async () => {

@@ -24,6 +24,12 @@ export interface ServerConfig {
   recordingDownloadSecret: string;
   appwrite: AppwriteConfig;
   gotenbergUrl?: string;
+  /**
+   * How many reverse-proxy hops Express may trust for `req.ip` (X-Forwarded-For), from
+   * TRUST_PROXY_HOPS. Unset = trust none (Express default). Set it to 1 behind the Azure
+   * Container Apps ingress so the per-IP rate limit keys on the real client.
+   */
+  trustProxyHops?: number;
 }
 
 export class ServerConfigError extends Error {}
@@ -46,7 +52,18 @@ export function loadServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCo
       resourcesBucketId: env.APPWRITE_RESOURCES_BUCKET_ID,
     },
     gotenbergUrl: env.GOTENBERG_URL,
+    trustProxyHops: parseTrustProxyHops(env.TRUST_PROXY_HOPS),
   };
+}
+
+function parseTrustProxyHops(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (!/^[0-9]$/.test(value)) {
+    throw new ServerConfigError(
+      `Invalid TRUST_PROXY_HOPS "${value}": expected the number of reverse-proxy hops in front of the server (0-9, usually 1 behind the Azure ingress), or leave it unset to trust none.`
+    );
+  }
+  return Number(value);
 }
 
 /**

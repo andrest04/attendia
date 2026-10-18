@@ -4,7 +4,14 @@ import { ROOM_SID_PATTERN } from '../ids';
 import { createTicketSigner } from '../ticketSigner';
 import { deleteQuietly, withUploadCompensation } from '../fileStorageGuards';
 import { inboxGeneration, inboxUnreadCount, readInbox, readInboxItems, retractInboxItems } from '../notificationInbox';
-import { completeRoomVia, isTwilioNotFound, resolveCompositionMediaUrl, roomExistsVia } from '../twilioGateway';
+import {
+  completeRoomVia,
+  fetchRoomVia,
+  isParticipantConnectedVia,
+  isTwilioNotFound,
+  resolveCompositionMediaUrl,
+  roomExistsVia,
+} from '../twilioGateway';
 
 describe('base64url', () => {
   it('round-trips arbitrary text, including characters that need escaping', () => {
@@ -210,6 +217,42 @@ describe('twilioGateway', () => {
     await expect(
       roomExistsVia(roomsClient({ fetch: jest.fn().mockRejectedValue({ status: 500 }) }), 'r')
     ).rejects.toEqual({ status: 500 });
+  });
+
+  it('fetchRoomVia returns the sid, unique name and creation time, null on 404, and rethrows anything else', async () => {
+    const dateCreated = new Date('2026-10-18T10:00:00Z');
+    const client = roomsClient({
+      fetch: jest.fn().mockResolvedValue({ sid: 'RM1', uniqueName: 'clase-1', status: 'completed', dateCreated }),
+    });
+    await expect(fetchRoomVia(client, 'RM1')).resolves.toEqual({ sid: 'RM1', uniqueName: 'clase-1', dateCreated });
+    expect(client.video.v1.rooms).toHaveBeenCalledWith('RM1');
+
+    await expect(fetchRoomVia(roomsClient({ fetch: jest.fn().mockRejectedValue(notFound) }), 'RM1')).resolves.toBeNull();
+    await expect(
+      fetchRoomVia(roomsClient({ fetch: jest.fn().mockRejectedValue({ status: 500 }) }), 'RM1')
+    ).rejects.toEqual({ status: 500 });
+  });
+
+  it('isParticipantConnectedVia is true only for a connected participant, false on 404, and rethrows anything else', async () => {
+    const participantsClient = (fetch: jest.Mock): any => {
+      const participants = jest.fn(() => ({ fetch }));
+      return { client: { video: { v1: { rooms: jest.fn(() => ({ participants })) } } }, participants };
+    };
+
+    const connected = participantsClient(jest.fn().mockResolvedValue({ status: 'connected' }));
+    await expect(isParticipantConnectedVia(connected.client, 'clase-1', 'Ana [Profesor]')).resolves.toBe(true);
+    expect(connected.client.video.v1.rooms).toHaveBeenCalledWith('clase-1');
+    // twilio-node interpolates the path segment verbatim, so the identity is encoded here.
+    expect(connected.participants).toHaveBeenCalledWith(encodeURIComponent('Ana [Profesor]'));
+
+    const gone = participantsClient(jest.fn().mockResolvedValue({ status: 'disconnected' }));
+    await expect(isParticipantConnectedVia(gone.client, 'clase-1', 'Ana')).resolves.toBe(false);
+
+    const missing = participantsClient(jest.fn().mockRejectedValue(notFound));
+    await expect(isParticipantConnectedVia(missing.client, 'clase-1', 'Ana')).resolves.toBe(false);
+
+    const failing = participantsClient(jest.fn().mockRejectedValue({ status: 500 }));
+    await expect(isParticipantConnectedVia(failing.client, 'clase-1', 'Ana')).rejects.toEqual({ status: 500 });
   });
 
   it('completeRoomVia is idempotent on 404 and rethrows anything else', async () => {

@@ -1,4 +1,4 @@
-import { teacherHandler } from '../teacherHandler';
+import { createTeacherGate, teacherHandler } from '../teacherHandler';
 import { HttpError } from '../http';
 
 const makeRes = (firebaseUser: any = { uid: 'u1' }) => {
@@ -50,6 +50,16 @@ describe('teacherHandler', () => {
     expect(work).not.toHaveBeenCalled();
   });
 
+  it('uses forbiddenMessage for the 403 message when the endpoint supplies one', async () => {
+    const { db } = makeDb({ exists: true, data: () => ({ role: 'student' }) });
+    const res = makeRes();
+
+    await teacherHandler(db, { ...options, forbiddenMessage: 'not allowed' }, jest.fn())({} as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: { message: 'not allowed', explanation: 'solo profes' } });
+  });
+
   it('answers 403 when the profile does not exist', async () => {
     const { db } = makeDb({ exists: false, data: () => undefined });
     const res = makeRes();
@@ -64,10 +74,11 @@ describe('teacherHandler', () => {
     const work = jest.fn().mockResolvedValue(undefined);
     const req: any = { params: { id: 'x' } };
     const res = makeRes({ uid: 'teacher-1' });
+    const next = jest.fn();
 
-    await teacherHandler(db, options, work)(req, res, jest.fn());
+    await teacherHandler(db, options, work)(req, res, next);
 
-    expect(work).toHaveBeenCalledWith({ uid: 'teacher-1', req, res });
+    expect(work).toHaveBeenCalledWith({ uid: 'teacher-1', req, res, next });
     expect(res.status).not.toHaveBeenCalled();
   });
 
@@ -127,5 +138,60 @@ describe('teacherHandler', () => {
     expect(res.status).toHaveBeenCalledWith(409);
     expect(res.status).not.toHaveBeenCalledWith(503);
     expect(consoleError).not.toHaveBeenCalled();
+  });
+});
+
+describe('createTeacherGate', () => {
+  let consoleError: jest.SpyInstance;
+  beforeEach(() => {
+    consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+  afterEach(() => consoleError.mockRestore());
+
+  it('answers 401 without a verified user and never calls next', async () => {
+    const { db, get } = makeDb({ exists: true, data: () => ({ role: 'teacher' }) });
+    const next = jest.fn();
+    const res = makeRes(null);
+
+    await createTeacherGate(db, options)({} as any, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(get).not.toHaveBeenCalled();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('answers 403 with the endpoint copy for a non-teacher and never calls next', async () => {
+    const { db } = makeDb({ exists: true, data: () => ({ role: 'student' }) });
+    const next = jest.fn();
+    const res = makeRes();
+
+    await createTeacherGate(db, options)({} as any, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: { message: 'teacher role required', explanation: 'solo profes' } });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('passes a teacher on to the next middleware without responding', async () => {
+    const { db } = makeDb({ exists: true, data: () => ({ role: 'teacher' }) });
+    const next = jest.fn();
+    const res = makeRes();
+
+    await createTeacherGate(db, options)({} as any, res, next);
+
+    expect(next).toHaveBeenCalledWith();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('answers the endpoint 503 when the role lookup fails', async () => {
+    const { db } = makeDb(new Error('firestore down'));
+    const next = jest.fn();
+    const res = makeRes();
+
+    await createTeacherGate(db, options)({} as any, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.json).toHaveBeenCalledWith({ error: { message: 'thing failed', explanation: 'falló' } });
+    expect(next).not.toHaveBeenCalled();
   });
 });

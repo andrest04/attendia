@@ -5,6 +5,8 @@ import {
   createUploadAvatarHandler,
   createDeleteAvatarHandler,
   createAvatarUploadErrorHandler,
+  AVATAR_UPLOAD_LIMITS,
+  MAX_AVATAR_FILE_SIZE_BYTES,
   ProfileDatabase,
 } from '../userProfiles';
 import { createClientOperationalEventHandler } from '../operationalEvents';
@@ -672,5 +674,22 @@ describe('createAvatarUploadErrorHandler', () => {
     expect(next).toHaveBeenCalledWith(err);
     expect(res.status).not.toHaveBeenCalled();
     expect(res.json).not.toHaveBeenCalled();
+  });
+});
+
+describe('avatar upload hardening', () => {
+  it('caps multipart uploads at one file and ten fields', () => {
+    expect(AVATAR_UPLOAD_LIMITS).toEqual({ fileSize: MAX_AVATAR_FILE_SIZE_BYTES, files: 1, fields: 10 });
+  });
+
+  it('maps the other multer limit failures to a JSON 400', () => {
+    const res = makeRes();
+    const next = jest.fn();
+
+    createAvatarUploadErrorHandler()({ code: 'LIMIT_FIELD_COUNT' } as any, {} as any, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json.mock.calls[0][0].error.message).toBe('invalid upload');
+    expect(next).not.toHaveBeenCalled();
   });
 });

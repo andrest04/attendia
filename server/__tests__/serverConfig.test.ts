@@ -39,6 +39,25 @@ describe('loadServerConfig', () => {
   });
 });
 
+describe('loadServerConfig trust proxy', () => {
+  it('leaves trust proxy off unless TRUST_PROXY_HOPS is set', () => {
+    expect(loadServerConfig({ RECORDING_DOWNLOAD_SECRET: 'secret' }).trustProxyHops).toBeUndefined();
+  });
+
+  it('reads TRUST_PROXY_HOPS as a non-negative hop count', () => {
+    expect(loadServerConfig({ RECORDING_DOWNLOAD_SECRET: 'secret', TRUST_PROXY_HOPS: '1' }).trustProxyHops).toBe(1);
+    expect(loadServerConfig({ RECORDING_DOWNLOAD_SECRET: 'secret', TRUST_PROXY_HOPS: '0' }).trustProxyHops).toBe(0);
+  });
+
+  it('refuses a TRUST_PROXY_HOPS that is not a small non-negative integer', () => {
+    for (const value of ['true', '-1', '1.5', 'abc', '']) {
+      expect(() => loadServerConfig({ RECORDING_DOWNLOAD_SECRET: 'secret', TRUST_PROXY_HOPS: value })).toThrow(
+        /TRUST_PROXY_HOPS/
+      );
+    }
+  });
+});
+
 describe('createAppwriteBuckets', () => {
   it('builds a public-read avatars bucket and a private resources bucket from shared credentials', () => {
     const createStorage = jest.fn((options: any) => ({ options } as any));

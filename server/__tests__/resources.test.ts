@@ -5,10 +5,14 @@ import {
   createPreviewResourceHandler,
   createDeleteResourceHandler,
   createResourceUploadErrorHandler,
+  createResourceUploadTeacherGate,
+  MAX_FILE_SIZE_BYTES,
+  RESOURCE_UPLOAD_LIMITS,
   ResourcesDatabase,
 } from '../resources';
 import { FileStorage } from '../fileStorage';
 import { DocumentConverter } from '../documentConverter';
+import { readFileSync } from 'fs';
 
 const makeRes = () => {
   const res: any = { locals: { firebaseUser: { uid: 'uid-1', email: 'ana@example.com' } } };
@@ -670,5 +674,65 @@ describe('createResourceUploadErrorHandler', () => {
       error: { message: 'file too large', explanation: 'El archivo supera el tamaño máximo permitido (25 MB).' },
     });
     expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /resources upload hardening', () => {
+  it('maps the other multer limit failures (file/field count) to a JSON 400', () => {
+    for (const code of ['LIMIT_FILE_COUNT', 'LIMIT_FIELD_COUNT', 'LIMIT_UNEXPECTED_FILE']) {
+      const res = makeRes();
+      const next = jest.fn();
+
+      createResourceUploadErrorHandler()({ code } as any, {} as any, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json.mock.calls[0][0].error.message).toBe('invalid upload');
+      expect(next).not.toHaveBeenCalled();
+    }
+  });
+
+  it('passes non-multer errors through', () => {
+    const res = makeRes();
+    const next = jest.fn();
+    const err = new Error('boom');
+
+    createResourceUploadErrorHandler()(err as any, {} as any, res, next);
+
+    expect(next).toHaveBeenCalledWith(err);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('caps multipart uploads at one file and ten fields', () => {
+    expect(RESOURCE_UPLOAD_LIMITS).toEqual({ fileSize: MAX_FILE_SIZE_BYTES, files: 1, fields: 10 });
+  });
+
+  it('rejects a student with 403 before any multipart body is read', async () => {
+    const { db, userGet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => studentProfile });
+    const res = makeRes();
+    const next = jest.fn();
+
+    await createResourceUploadTeacherGate(db)({} as any, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('lets a teacher through to multer', async () => {
+    const { db, userGet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const res = makeRes();
+    const next = jest.fn();
+
+    await createResourceUploadTeacherGate(db)({} as any, res, next);
+
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('mounts the teacher gate before multer on POST /resources', () => {
+    const source = readFileSync(require.resolve('../index'), 'utf8').replace(/\r\n/g, '\n');
+    expect(source).toMatch(
+      /app\.post\(\s*'\/resources',\s*authMiddleware,\s*createResourceUploadTeacherGate\(firestore\),\s*upload\.single\('file'\)/
+    );
   });
 });

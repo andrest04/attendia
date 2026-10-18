@@ -46,6 +46,8 @@ const teacherProfile = { displayName: 'Ana García', email: 'ana@example.com', r
 const studentProfile = { displayName: 'Beto Díaz', email: 'beto@example.com', role: 'student' };
 
 const serverTimestamp = jest.fn(() => 'server-timestamp');
+// The room session is already bound to uid-1 (roomOwnership.ts owns that logic and its tests).
+const boundSession = jest.fn(async () => 'bound' as const);
 
 const VALID_ROOM_SID = 'RM00000000000000000000000000000abc';
 
@@ -74,7 +76,7 @@ describe('createPostReportHandler', () => {
   it('saves the sanitized report under users/{uid}/reports/{roomSid} with a server timestamp and returns 201', async () => {
     const { db, collection, userDoc, userGet, reportsCollection, reportDoc, transactionSet, runTransaction } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    const handler = createPostReportHandler(db, serverTimestamp);
+    const handler = createPostReportHandler(db, serverTimestamp, boundSession);
     const res = makeRes();
 
     await handler({ body: { ...validReport, extraneous: 'nope' } } as any, res, jest.fn());
@@ -101,7 +103,7 @@ describe('createPostReportHandler', () => {
     });
     const res = makeRes();
 
-    await createPostReportHandler(db, serverTimestamp)(
+    await createPostReportHandler(db, serverTimestamp, boundSession)(
       { body: { ...validReport, failureEpisodeId: 'episode_12345678', firstFailedAtMs: 999999999 } } as any,
       res,
       jest.fn()
@@ -136,7 +138,7 @@ describe('createPostReportHandler', () => {
       }) });
     const res = makeRes();
 
-    await createPostReportHandler(db, serverTimestamp)(
+    await createPostReportHandler(db, serverTimestamp, boundSession)(
       { body: { ...validReport, failureEpisodeId: 'episode_12345678' } } as any,
       res,
       jest.fn()
@@ -162,7 +164,7 @@ describe('createPostReportHandler', () => {
         createdAt: { toMillis: () => 100 }, readAt: null,
       }) });
 
-    await createPostReportHandler(db, serverTimestamp)(
+    await createPostReportHandler(db, serverTimestamp, boundSession)(
       { body: { ...validReport, failureEpisodeId: 'episode_12345678' } } as any,
       makeRes(),
       jest.fn()
@@ -178,7 +180,7 @@ describe('createPostReportHandler', () => {
     transactionGet.mockResolvedValue({ data: () => ({ status: 'resolved', observedAt: 'original-server-time' }) });
     const res = makeRes();
 
-    await createPostReportHandler(db, serverTimestamp)(
+    await createPostReportHandler(db, serverTimestamp, boundSession)(
       { body: { ...validReport, failureEpisodeId: 'episode_12345678' } } as any,
       res,
       jest.fn()
@@ -198,7 +200,7 @@ describe('createPostReportHandler', () => {
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
     const res = makeRes();
 
-    await createPostReportHandler(db, serverTimestamp)(
+    await createPostReportHandler(db, serverTimestamp, boundSession)(
       { body: { ...validReport, failureEpisodeId: '../invalid' } } as any,
       res,
       jest.fn()
@@ -214,7 +216,7 @@ describe('createPostReportHandler', () => {
     transactionGet.mockResolvedValue({ exists: true, data: () => ({ roomName: validReport.roomName }) });
     const res = makeRes();
 
-    await createPostReportHandler(db, serverTimestamp)(
+    await createPostReportHandler(db, serverTimestamp, boundSession)(
       { body: { ...validReport, classId: 'class-1' } } as any,
       res,
       jest.fn()
@@ -235,7 +237,7 @@ describe('createPostReportHandler', () => {
 
   it('returns 401 when the middleware did not attach a verified user', async () => {
     const { db, transactionSet, userGet } = makeDb();
-    const handler = createPostReportHandler(db, serverTimestamp);
+    const handler = createPostReportHandler(db, serverTimestamp, boundSession);
     const res = makeRes();
     res.locals = {};
 
@@ -249,7 +251,7 @@ describe('createPostReportHandler', () => {
   it('returns 403 without writing when the caller has no profile document', async () => {
     const { db, userGet, transactionSet } = makeDb();
     userGet.mockResolvedValue({ exists: false, data: () => undefined });
-    const handler = createPostReportHandler(db, serverTimestamp);
+    const handler = createPostReportHandler(db, serverTimestamp, boundSession);
     const res = makeRes();
 
     await handler({ body: validReport } as any, res, jest.fn());
@@ -264,7 +266,7 @@ describe('createPostReportHandler', () => {
   it('returns 403 without writing when the caller is a student', async () => {
     const { db, userGet, transactionSet } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => studentProfile });
-    const handler = createPostReportHandler(db, serverTimestamp);
+    const handler = createPostReportHandler(db, serverTimestamp, boundSession);
     const res = makeRes();
 
     await handler({ body: validReport } as any, res, jest.fn());
@@ -289,7 +291,7 @@ describe('createPostReportHandler', () => {
   ])('rejects %s with 400 and does not write', async (_label, override) => {
     const { db, userGet, transactionSet } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
-    const handler = createPostReportHandler(db, serverTimestamp);
+    const handler = createPostReportHandler(db, serverTimestamp, boundSession);
     const res = makeRes();
 
     await handler({ body: { ...validReport, ...override } } as any, res, jest.fn());
@@ -305,7 +307,7 @@ describe('createPostReportHandler', () => {
     transactionSet.mockImplementation(() => {
       throw new Error('firestore down');
     });
-    const handler = createPostReportHandler(db, serverTimestamp);
+    const handler = createPostReportHandler(db, serverTimestamp, boundSession);
     const res = makeRes();
 
     await handler({ body: validReport } as any, res, jest.fn());
@@ -382,6 +384,65 @@ describe('ingestReportFailureEpisodes', () => {
       ingestReportFailureEpisodes(db, 'uid-1', new Array(21).fill(claim), serverTimestamp)
     ).rejects.toThrow('too many report failure claims');
     expect(runTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('createPostReportHandler room-session binding', () => {
+  afterEach(jest.clearAllMocks);
+
+  const save = async (bindSession?: any) => {
+    const fake = makeDb();
+    fake.userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const res = makeRes();
+    await createPostReportHandler(fake.db, serverTimestamp, bindSession)({ body: validReport } as any, res, jest.fn());
+    return { ...fake, res };
+  };
+
+  it('binds the session for the verified uid and the report room before saving', async () => {
+    const bindSession = jest.fn(async () => 'bound' as const);
+    const { res, runTransaction } = await save(bindSession);
+
+    expect(bindSession).toHaveBeenCalledWith({ roomSid: VALID_ROOM_SID, roomName: 'matematicas-2a', uid: 'uid-1' });
+    expect(runTransaction).toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it.each(['foreign-session', 'not-room-owner', 'room-mismatch'])(
+    'answers 403 and saves nothing when the binder says %s',
+    async verdict => {
+      const { res, runTransaction } = await save(jest.fn(async () => verdict));
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error: { message: 'room session not owned', explanation: expect.any(String) },
+      });
+      expect(runTransaction).not.toHaveBeenCalled();
+    }
+  );
+
+  it('answers 404 and saves nothing when Twilio does not know the room SID', async () => {
+    const { res, runTransaction } = await save(jest.fn(async () => 'room-not-found' as const));
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  it('answers 503 when the binding lookup fails', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { res, runTransaction } = await save(jest.fn().mockRejectedValue(new Error('twilio down')));
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(runTransaction).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('fails closed (503) when no session binder is wired', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { res, runTransaction } = await save(undefined);
+
+    expect(res.status).toHaveBeenCalledWith(503);
+    expect(runTransaction).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });
 

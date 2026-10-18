@@ -1,7 +1,13 @@
-import { createRoomAccessGuard, identitySuffixRole, isTeacherIdentity, RoomExistenceChecker } from '../roomAccessGuard';
+import {
+  createProfileRoleResolver,
+  createRoomAccessGuard,
+  identitySuffixRole,
+  isTeacherIdentity,
+  RoomExistenceChecker,
+} from '../roomAccessGuard';
 
-const makeRes = () => {
-  const res: any = {};
+const makeRes = (uid: string | null = 'uid-1') => {
+  const res: any = { locals: uid ? { firebaseUser: { uid } } : {} };
   res.status = jest.fn(() => res);
   res.json = jest.fn(() => res);
   return res;
@@ -91,19 +97,56 @@ describe('createRoomAccessGuard', () => {
     consoleError.mockRestore();
   });
 
-  it('does not gate create_room:false requests (e.g. the passcode probe)', async () => {
-    const guard = createRoomAccessGuard(roomExists);
-    const res = makeRes();
+  describe('create_room:false (join-only) requests', () => {
+    it('lets a join-only request through when the room exists', async () => {
+      roomExists.mockResolvedValue(true);
+      const guard = createRoomAccessGuard(roomExists);
+      const res = makeRes();
 
-    await guard(
-      { body: { user_identity: 'temp-name', room_name: 'temp-room', create_room: false } } as any,
-      res,
-      next
-    );
+      await guard({ body: { user_identity: 'María', room_name: 'p', create_room: false } } as any, res, next);
 
-    expect(roomExists).not.toHaveBeenCalled();
-    expect(next).toHaveBeenCalledTimes(1);
-    expect(res.status).not.toHaveBeenCalled();
+      expect(roomExists).toHaveBeenCalledWith('p');
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it('rejects a join-only request with 403 when the room does not exist', async () => {
+      roomExists.mockResolvedValue(false);
+      const guard = createRoomAccessGuard(roomExists);
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'María', room_name: 'p', create_room: false } } as any, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: expect.objectContaining({ message: 'room not found' }) })
+      );
+    });
+
+    it('rejects a join-only request without room_name with 400', async () => {
+      const guard = createRoomAccessGuard(roomExists);
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'María', create_room: false } } as any, res, next);
+
+      expect(roomExists).not.toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('fails closed with 503 when the join-only existence check fails', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      roomExists.mockRejectedValue(new Error('twilio down'));
+      const guard = createRoomAccessGuard(roomExists);
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'María', room_name: 'p', create_room: false } } as any, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(next).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
   });
 
   it('defers to the token function when a student request has no room_name', async () => {
@@ -163,6 +206,162 @@ describe('createRoomAccessGuard', () => {
       const res = makeRes();
 
       await guard({ body: { user_identity: 'María', room_name: 'p' } } as any, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(next).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+  });
+
+  describe('profile-verified teachers (createProfileRoleResolver)', () => {
+    const makeProfileDb = (profile: any) => {
+      const get = jest.fn().mockImplementation(() =>
+        profile instanceof Error ? Promise.reject(profile) : Promise.resolve(profile)
+      );
+      const doc = jest.fn(() => ({ get }));
+      const collection = jest.fn(() => ({ doc }));
+      return { db: { collection } as any, collection, doc, get };
+    };
+    const teacherProfile = { exists: true, data: () => ({ role: 'teacher' }) };
+    const studentProfile = { exists: true, data: () => ({ role: 'student' }) };
+
+    it('treats a suffixed identity as teacher only when users/{uid}.role is teacher', async () => {
+      const { db, collection, doc } = makeProfileDb(teacherProfile);
+      const resolve = createProfileRoleResolver(db);
+
+      expect(await resolve({ body: { user_identity: 'Ana [Profesor]' } } as any, makeRes('uid-1'))).toBe('teacher');
+      expect(collection).toHaveBeenCalledWith('users');
+      expect(doc).toHaveBeenCalledWith('uid-1');
+    });
+
+    it('resolves a non-suffixed identity as student without a profile lookup', async () => {
+      const { db, get } = makeProfileDb(teacherProfile);
+      const resolve = createProfileRoleResolver(db);
+
+      expect(await resolve({ body: { user_identity: 'Ana' } } as any, makeRes())).toBe('student');
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    it('rejects a teacher suffix from a non-teacher profile with 403 before any room check', async () => {
+      const { db } = makeProfileDb(studentProfile);
+      const guard = createRoomAccessGuard(roomExists, createProfileRoleResolver(db));
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'Mallory [Profesor]', room_name: 'p' } } as any, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+      expect(roomExists).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error: { message: 'teacher role required', explanation: expect.any(String) },
+      });
+    });
+
+    it('rejects a teacher suffix when the profile does not exist', async () => {
+      const { db } = makeProfileDb({ exists: false, data: () => undefined });
+      const guard = createRoomAccessGuard(roomExists, createProfileRoleResolver(db));
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'Ana [Profesor]', room_name: 'p' } } as any, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('rejects a teacher suffix even on a join-only request into an open room', async () => {
+      roomExists.mockResolvedValue(true);
+      const { db } = makeProfileDb(studentProfile);
+      const guard = createRoomAccessGuard(roomExists, createProfileRoleResolver(db));
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'Mallory [Profesor]', room_name: 'p', create_room: false } } as any, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('fails closed with 503 when the profile lookup fails', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const { db } = makeProfileDb(new Error('firestore down'));
+      const guard = createRoomAccessGuard(roomExists, createProfileRoleResolver(db));
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'Ana [Profesor]', room_name: 'p' } } as any, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(next).not.toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+  });
+
+  describe('room ownership claim for teachers', () => {
+    it('claims the room for the verified uid and lets the teacher through', async () => {
+      const claimRoom = jest.fn().mockResolvedValue(true);
+      const guard = createRoomAccessGuard(roomExists, () => 'teacher', claimRoom);
+      const res = makeRes('teacher-1');
+
+      await guard({ body: { user_identity: 'Ana [Profesor]', room_name: 'p' } } as any, res, next);
+
+      expect(claimRoom).toHaveBeenCalledWith('p', 'teacher-1');
+      expect(next).toHaveBeenCalledTimes(1);
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it('answers 403 while another teacher holds an open class under that name', async () => {
+      const claimRoom = jest.fn().mockResolvedValue(false);
+      const guard = createRoomAccessGuard(roomExists, () => 'teacher', claimRoom);
+      const res = makeRes('teacher-1');
+
+      await guard({ body: { user_identity: 'Ana [Profesor]', room_name: 'p' } } as any, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error: { message: 'room owned by another teacher', explanation: expect.any(String) },
+      });
+    });
+
+    it('also claims on a join-only teacher request once the room is confirmed open', async () => {
+      roomExists.mockResolvedValue(true);
+      const claimRoom = jest.fn().mockResolvedValue(true);
+      const guard = createRoomAccessGuard(roomExists, () => 'teacher', claimRoom);
+
+      await guard({ body: { user_identity: 'Ana [Profesor]', room_name: 'p', create_room: false } } as any, makeRes(), next);
+
+      expect(claimRoom).toHaveBeenCalledWith('p', 'uid-1');
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it('never claims for a student', async () => {
+      roomExists.mockResolvedValue(true);
+      const claimRoom = jest.fn();
+      const guard = createRoomAccessGuard(roomExists, () => 'student', claimRoom);
+
+      await guard({ body: { user_identity: 'María', room_name: 'p' } } as any, makeRes(), next);
+
+      expect(claimRoom).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledTimes(1);
+    });
+
+    it('answers 403 when a teacher has no verified uid to claim with', async () => {
+      const claimRoom = jest.fn();
+      const guard = createRoomAccessGuard(roomExists, () => 'teacher', claimRoom);
+      const res = makeRes(null);
+
+      await guard({ body: { user_identity: 'Ana [Profesor]', room_name: 'p' } } as any, res, next);
+
+      expect(claimRoom).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('fails closed with 503 when the claim throws', async () => {
+      const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const claimRoom = jest.fn().mockRejectedValue(new Error('firestore down'));
+      const guard = createRoomAccessGuard(roomExists, () => 'teacher', claimRoom);
+      const res = makeRes();
+
+      await guard({ body: { user_identity: 'Ana [Profesor]', room_name: 'p' } } as any, res, next);
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(next).not.toHaveBeenCalled();

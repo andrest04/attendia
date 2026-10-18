@@ -20,6 +20,16 @@ export class ClientApiError extends ClientApiErrorBase {
   }
 }
 
+// Statuses the server answers the same way on every retry: malformed, forbidden (e.g. a
+// report for a class this teacher does not own), unknown, or too large. 401 is excluded on
+// purpose: the ID token may simply have expired and will refresh.
+const PERMANENT_CLIENT_ERROR_STATUSES = [400, 403, 404, 413];
+
+/** Whether retrying the same request can never succeed (network errors and 5xx can). */
+export function isPermanentClientError(error: unknown): boolean {
+  return error instanceof ClientApiError && PERMANENT_CLIENT_ERROR_STATUSES.indexOf(error.status) !== -1;
+}
+
 /** Turns a non-OK response into a ClientApiError carrying the server's Spanish explanation. */
 export async function throwOnErrorResponse(response: Response): Promise<void> {
   if (response.ok) return;
