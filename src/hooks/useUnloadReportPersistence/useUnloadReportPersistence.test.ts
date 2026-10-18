@@ -64,6 +64,32 @@ describe('useUnloadReportPersistence', () => {
     expect(mockSavePending).toHaveBeenCalledTimes(1);
   });
 
+  it('handles beforeunload followed by pagehide for the same unload only once', () => {
+    renderHook(() => useUnloadReportPersistence(true, () => report));
+
+    fireUnload('beforeunload');
+    fireUnload('pagehide');
+
+    expect(mockSavePending).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles two unloads that are further apart than the dedupe window', () => {
+    const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    try {
+      renderHook(() => useUnloadReportPersistence(true, () => report));
+
+      fireUnload('beforeunload');
+      nowSpy.mockReturnValue(1_000_000 + 5_000);
+      fireUnload('beforeunload');
+
+      expect(mockSavePending).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
   it('still queues the report locally when no token is cached yet, without posting', () => {
     const emptyRef = { current: null };
     mockUseCachedIdToken.mockImplementation(() => emptyRef);

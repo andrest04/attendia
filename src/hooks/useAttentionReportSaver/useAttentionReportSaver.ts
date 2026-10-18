@@ -5,7 +5,10 @@ import { buildAttentionReport } from '../../components/AttentionReport/buildAtte
 import { useAppState } from '../../state';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useLatest from '../useLatest/useLatest';
-import { savePendingAttentionReport } from '../../components/AttentionReport/pendingAttentionReports';
+import {
+  removePendingAttentionReport,
+  savePendingAttentionReport,
+} from '../../components/AttentionReport/pendingAttentionReports';
 import { readScheduledClassSession } from '../../classSession/classSessionContext';
 
 /*
@@ -17,7 +20,8 @@ import { readScheduledClassSession } from '../../classSession/classSessionContex
  * POST survives the disconnect because the SPA never unloads on leave.
  *
  * Saving must never block leaving the room. A failed write is retained in
- * durable browser storage for the signed-in teacher and surfaced on the dashboard.
+ * durable browser storage for the signed-in teacher and surfaced on the dashboard;
+ * a successful write clears any queued entry for the same room.
  */
 
 export interface AttentionReportSaverApi {
@@ -95,10 +99,14 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
         return;
       }
 
+      const uid = user && 'uid' in user ? user.uid : undefined;
       try {
         await save(report);
+        // The final report landed: drop any older snapshot queued for this room (e.g. by the unload
+        // handler before a refresh) so a later dashboard replay cannot overwrite it with stale data.
+        removePendingAttentionReport(uid, report.roomSid);
       } catch (err) {
-        savePendingAttentionReport(user && 'uid' in user ? user.uid : undefined, report);
+        savePendingAttentionReport(uid, report);
         console.error('attention-report-persistence: report save failed and was queued for retry', {
           roomSid: report.roomSid,
           error: err,

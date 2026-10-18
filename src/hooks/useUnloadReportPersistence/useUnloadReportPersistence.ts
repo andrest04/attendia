@@ -15,10 +15,18 @@ import useLatest from '../useLatest/useLatest';
  *  2. fires a best-effort keepalive POST with the id token cached by useCachedIdToken (a
  *     synchronous handler cannot await `user.getIdToken()`).
  *
+ * Browsers fire both `beforeunload` and `pagehide` for one unload, so a run within
+ * UNLOAD_DEDUPE_WINDOW_MS of the previous handled one is skipped: one unload means one queue write
+ * and one POST. The window is time-based, so the handler can never be disabled for good (e.g. when
+ * a `beforeunload` is cancelled and the page stays alive).
+ *
  * Latest-value refs keep the listener registered once while always reading fresh values. It is a
  * no-op for students. The request is deliberately NOT routed through the api client: it must be
  * synchronous, `keepalive`, and carry the already-cached token.
  */
+/** beforeunload and pagehide of the same unload land well inside this window. */
+export const UNLOAD_DEDUPE_WINDOW_MS = 1000;
+
 export default function useUnloadReportPersistence(
   isTeacher: boolean,
   buildReport: ReturnType<typeof useAttentionReportSaver>['buildReport']
@@ -37,14 +45,21 @@ export default function useUnloadReportPersistence(
   const userRef = useLatest(user);
 
   useEffect(() => {
+    let lastHandledAt: number | null = null;
+
     const handleUnload = () => {
       if (!isTeacherRef.current) {
+        return;
+      }
+      const now = Date.now();
+      if (lastHandledAt !== null && now - lastHandledAt < UNLOAD_DEDUPE_WINDOW_MS) {
         return;
       }
       const report = buildReportRef.current('left');
       if (!report) {
         return;
       }
+      lastHandledAt = now;
 
       const currentUser = userRef.current;
       savePendingAttentionReport(currentUser && 'uid' in currentUser ? currentUser.uid : undefined, report);
