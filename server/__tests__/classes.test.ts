@@ -104,21 +104,11 @@ const serverTimestamp = jest.fn(() => 'server-timestamp');
 describe('createGetClassesHandler', () => {
   afterEach(jest.clearAllMocks);
 
-  it('returns the scheduled classes soonest first, mapping the doc id and the timestamp', async () => {
+  it('returns the classes in ascending display order, mapping the doc id and the timestamp', async () => {
     const { db, userGet, orderBy, limit, classesGet } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
     classesGet.mockResolvedValue({
       docs: [
-        {
-          id: 'class-1',
-          data: () => ({
-            title: 'Matemáticas — Grupo A',
-            roomName: 'matematicas-grupo-a',
-            studentCount: 28,
-            status: 'scheduled',
-            scheduledAt: { toMillis: () => 1751554800000 },
-          }),
-        },
         {
           id: 'class-2',
           data: () => ({
@@ -129,6 +119,16 @@ describe('createGetClassesHandler', () => {
             scheduledAt: undefined,
           }),
         },
+        {
+          id: 'class-1',
+          data: () => ({
+            title: 'Matemáticas — Grupo A',
+            roomName: 'matematicas-grupo-a',
+            studentCount: 28,
+            status: 'scheduled',
+            scheduledAt: { toMillis: () => 1751554800000 },
+          }),
+        },
       ],
     });
     const handler = createGetClassesHandler(db);
@@ -136,7 +136,7 @@ describe('createGetClassesHandler', () => {
 
     await handler({} as any, res, jest.fn());
 
-    expect(orderBy).toHaveBeenCalledWith('scheduledAt', 'asc');
+    expect(orderBy).toHaveBeenCalledWith('scheduledAt', 'desc');
     expect(limit).toHaveBeenCalledWith(200);
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith([
@@ -159,6 +159,26 @@ describe('createGetClassesHandler', () => {
         status: 'scheduled',
       },
     ]);
+  });
+
+  it('keeps the NEWEST 200 classes (started/completed docs stay), shown oldest to newest', async () => {
+    const { db, userGet, orderBy, limit, classesGet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const doc = (id: string, ms: number, status: string) => ({
+      id,
+      data: () => ({ title: id, roomName: id, studentCount: 1, status, scheduledAt: { toMillis: () => ms } }),
+    });
+    // Firestore answers newest first because of orderBy('scheduledAt', 'desc').
+    classesGet.mockResolvedValue({
+      docs: [doc('next-week', 3000, 'scheduled'), doc('today', 2000, 'started'), doc('last-month', 1000, 'completed')],
+    });
+    const res = makeRes();
+
+    await createGetClassesHandler(db)({} as any, res, jest.fn());
+
+    expect(orderBy).toHaveBeenCalledWith('scheduledAt', 'desc');
+    expect(limit).toHaveBeenCalledWith(200);
+    expect(res.json.mock.calls[0][0].map((value: any) => value.id)).toEqual(['last-month', 'today', 'next-week']);
   });
 
   it('reads a persisted durationMinutes instead of the default', async () => {

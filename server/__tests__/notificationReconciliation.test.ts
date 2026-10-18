@@ -1,5 +1,9 @@
 import {
+  CLASS_LOOKBACK_MS,
   createReconcileNotificationsHandler,
+  MAX_RECONCILED_CLASSES,
+  MAX_RECONCILED_EPISODES,
+  MAX_RECONCILED_REPORTS,
   deriveClassNotification,
   deriveRecordingNotification,
   deriveReportNotification,
@@ -213,9 +217,25 @@ describe('POST /notifications/reconcile transaction', () => {
       let docs = Array.from(values.keys())
         .filter(key => key.startsWith(`${path}/`) && !key.slice(path.length + 1).includes('/'))
         .map(snapshot);
-      if (options.where) docs = docs.filter(doc => doc.data()![options.where[0]] === options.where[2]);
-      if (options.orderBy) docs.sort((left, right) => String(left.data()![options.orderBy])
-        .localeCompare(String(right.data()![options.orderBy])));
+      // Mirrors Firestore: timestamps compare by millis, `orderBy` drops docs missing the field.
+      const comparable = (value: any) =>
+        value && typeof value.toMillis === 'function' ? value.toMillis()
+          : value instanceof Date ? value.getTime() : value;
+      if (options.where) {
+        const [field, operator, expected] = options.where;
+        docs = docs.filter(doc => operator === '>='
+          ? comparable(doc.data()![field]) >= comparable(expected)
+          : doc.data()![field] === expected);
+      }
+      if (options.orderBy) {
+        docs = docs.filter(doc => doc.data()![options.orderBy] !== undefined);
+        docs.sort((left, right) => {
+          const a = comparable(left.data()![options.orderBy]);
+          const b = comparable(right.data()![options.orderBy]);
+          const order = typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b));
+          return options.direction === 'desc' ? -order : order;
+        });
+      }
       if (options.startAfter !== undefined) docs = docs.filter(doc =>
         String(doc.data()![options.orderBy]) > String(options.startAfter));
       if (options.limit !== undefined) docs = docs.slice(0, options.limit);
@@ -225,7 +245,8 @@ describe('POST /notifications/reconcile transaction', () => {
       _queryPath: path, _options: options,
       where: (field: string, operator: string, value: unknown) =>
         query(path, { ...options, where: [field, operator, value] }),
-      orderBy: (field: string) => query(path, { ...options, orderBy: field }),
+      orderBy: (field: string, direction: string = 'asc') =>
+        query(path, { ...options, orderBy: field, direction }),
       startAfter: (value: unknown) => query(path, { ...options, startAfter: value }),
       limit: (value: number) => query(path, { ...options, limit: value }),
       get: async () => querySnapshot(path, options),
@@ -275,7 +296,7 @@ describe('POST /notifications/reconcile transaction', () => {
       currentGeneration: 2, unreadCount: 1, readBefore: timestamp(150),
       clearBefore: clearBefore === null ? null : timestamp(clearBefore),
     });
-    f.values.set('users/teacher-1/reports/RM00000000000000000000000000000abc', {});
+    f.values.set('users/teacher-1/reports/RM00000000000000000000000000000abc', { endedAt: timestamp(100) });
     f.values.set(
       'users/teacher-1/reports/RM00000000000000000000000000000abc/recordingRequests/manual_request_1234',
       {
@@ -664,5 +685,169 @@ describe('POST /notifications/reconcile transaction', () => {
     await handler({ body: { scope: 'all' } } as any, student, jest.fn());
     expect(student.status).toHaveBeenCalledWith(403);
     expect(f.transaction.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /notifications/reconcile bounded discovery', () => {
+  const makeRes = () => {
+    const res: any = { locals: { firebaseUser: { uid: 'teacher-1' } } };
+    res.status = jest.fn(() => res);
+    res.json = jest.fn(() => res);
+    res.send = jest.fn(() => res);
+    return res;
+  };
+
+  // Minimal Firestore fake with real ordering/limit semantics; document reads are recorded.
+  const makeDb = () => {
+    const values = new Map<string, any>();
+    const reads: string[] = [];
+    const comparable = (value: any) =>
+      value && typeof value.toMillis === 'function' ? value.toMillis() : value instanceof Date ? value.getTime() : value;
+    const snapshot = (path: string) => ({
+      exists: values.has(path),
+      id: path.split('/').pop(),
+      ref: ref(path),
+      data: () => values.get(path),
+    });
+    const ref = (path: string): any => ({
+      path,
+      id: path.split('/').pop(),
+      get: async () => {
+        reads.push(path);
+        return snapshot(path);
+      },
+      collection: (name: string) => collection(`${path}/${name}`),
+    });
+    const run = (path: string, options: any) => {
+      let docs = Array.from(values.keys())
+        .filter(key => key.startsWith(`${path}/`) && !key.slice(path.length + 1).includes('/'))
+        .map(snapshot);
+      if (options.where) {
+        const [field, operator, expected] = options.where;
+        docs = docs.filter(doc =>
+          operator === '>=' ? comparable(doc.data()![field]) >= comparable(expected) : doc.data()![field] === expected
+        );
+      }
+      if (options.orderBy) {
+        docs = docs.filter(doc => doc.data()![options.orderBy] !== undefined);
+        docs.sort((l, r) => {
+          const order = comparable(l.data()![options.orderBy]) - comparable(r.data()![options.orderBy]);
+          return options.direction === 'desc' ? -order : order;
+        });
+      }
+      if (options.limit !== undefined) docs = docs.slice(0, options.limit);
+      return { docs };
+    };
+    const query = (path: string, options: any = {}): any => ({
+      _queryPath: path,
+      _options: options,
+      where: (field: string, operator: string, value: unknown) =>
+        query(path, { ...options, where: [field, operator, value] }),
+      orderBy: (field: string, direction = 'asc') => query(path, { ...options, orderBy: field, direction }),
+      startAfter: () => query(path, options),
+      limit: (value: number) => query(path, { ...options, limit: value }),
+      get: async () => run(path, options),
+    });
+    const collection = (path: string): any => ({ ...query(path), doc: (id: string) => ref(`${path}/${id}`) });
+    const transaction: any = {
+      get: jest.fn(async (document: any) => {
+        if (document._queryPath) return run(document._queryPath, document._options);
+        reads.push(document.path);
+        return snapshot(document.path);
+      }),
+      create: jest.fn((document: any, value: any) => values.set(document.path, value)),
+      update: jest.fn((document: any, value: any) =>
+        values.set(document.path, { ...values.get(document.path), ...value })
+      ),
+      delete: jest.fn((document: any) => values.delete(document.path)),
+    };
+    const db: any = { collection: (name: string) => collection(name), runTransaction: (work: any) => work(transaction) };
+    values.set('users/teacher-1', { role: 'teacher' });
+    return { db, values, reads };
+  };
+
+  const sid = (index: number) => `RM${String(index).padStart(32, '0')}`;
+
+  it('reads recording requests only for the newest reports', async () => {
+    const f = makeDb();
+    for (let index = 0; index < MAX_RECONCILED_REPORTS + 3; index++) {
+      f.values.set(`users/teacher-1/reports/${sid(index)}`, { endedAt: timestamp(index) });
+      f.values.set(`users/teacher-1/reports/${sid(index)}/recordingRequests/manual_request_${index}`, {
+        manualRequestId: `manual_request_${index}`,
+        status: 'enqueued',
+      });
+    }
+    const res = makeRes();
+
+    await createReconcileNotificationsHandler(f.db, () => timestamp(600))(
+      { body: { scope: 'recordings' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const touched = new Set(
+      f.reads.filter(path => path.includes('/recordingRequests/')).map(path => path.split('/')[3])
+    );
+    expect(touched.size).toBe(MAX_RECONCILED_REPORTS);
+    [0, 1, 2].forEach(index => expect(touched.has(sid(index))).toBe(false));
+    expect(touched.has(sid(MAX_RECONCILED_REPORTS + 2))).toBe(true);
+  });
+
+  it('reads only the newest report failure episodes', async () => {
+    const f = makeDb();
+    for (let index = 0; index < MAX_RECONCILED_EPISODES + 3; index++) {
+      const id = `episode_${String(index).padStart(8, '0')}`;
+      f.values.set(`users/teacher-1/reportFailureEpisodes/${id}`, {
+        reportId: sid(1),
+        failureEpisodeId: id,
+        status: 'resolved',
+        observedAt: timestamp(index),
+      });
+    }
+    const res = makeRes();
+
+    await createReconcileNotificationsHandler(f.db, () => timestamp(600))(
+      { body: { scope: 'all' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const episodes = f.reads.filter(path => path.startsWith('users/teacher-1/reportFailureEpisodes/'));
+    expect(new Set(episodes).size).toBe(MAX_RECONCILED_EPISODES);
+    expect(episodes).not.toContain('users/teacher-1/reportFailureEpisodes/episode_00000000');
+  });
+
+  it('reads only classes inside the look-back window, soonest first and capped', async () => {
+    const f = makeDb();
+    const nowMs = 10 * CLASS_LOOKBACK_MS;
+    f.values.set('users/teacher-1/classes/ancient_class', {
+      status: 'scheduled',
+      scheduledAt: timestamp(nowMs - CLASS_LOOKBACK_MS - 1),
+    });
+    for (let index = 0; index < MAX_RECONCILED_CLASSES + 3; index++) {
+      f.values.set(`users/teacher-1/classes/class_${String(index).padStart(4, '0')}`, {
+        status: 'scheduled',
+        scheduledAt: timestamp(nowMs + index * 60 * 60 * 1000),
+      });
+    }
+    const res = makeRes();
+
+    await createReconcileNotificationsHandler(
+      f.db,
+      () => timestamp(600),
+      async () => undefined,
+      () => nowMs
+    )({ body: { scope: 'all' } } as any, res, jest.fn());
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const classes = f.reads.filter(path => path.startsWith('users/teacher-1/classes/'));
+    expect(new Set(classes).size).toBe(MAX_RECONCILED_CLASSES);
+    expect(classes).not.toContain('users/teacher-1/classes/ancient_class');
+    expect(classes).toContain('users/teacher-1/classes/class_0000');
+    expect(classes).not.toContain(
+      `users/teacher-1/classes/class_${String(MAX_RECONCILED_CLASSES + 2).padStart(4, '0')}`
+    );
   });
 });

@@ -34,7 +34,7 @@ const MAX_DURATION_MINUTES = 480; // 8h — generous upper bound for a single se
 // client-side can land a few seconds in the past by the time this handler runs.
 const PAST_SCHEDULE_TOLERANCE_MS = 60 * 1000;
 
-// Max scheduled classes returned by GET /classes (soonest first).
+// Max classes returned by GET /classes: the newest ones, shown oldest to newest.
 const MAX_CLASSES_RETURNED = 200;
 
 const FALLBACK_ROOM_NAME = 'class-session';
@@ -155,18 +155,20 @@ export function createGetClassesHandler(db: ClassesDatabase): RequestHandler {
       },
     },
     async ({ uid, res }) => {
-      // Single-field orderBy on a subcollection — no composite index required. `status`
-      // is not filtered here on purpose: cancelling a class hard-deletes its doc (see
-      // createDeleteClassHandler), so every remaining doc is implicitly 'scheduled'.
+      // Single-field orderBy on a subcollection — no composite index required. Cancelling
+      // a class hard-deletes its doc (createDeleteClassHandler), but started and completed
+      // classes STAY, so the collection keeps growing with past sessions. Reading newest
+      // first and reversing in memory keeps the most recent MAX_CLASSES_RETURNED (upcoming
+      // and recent classes) instead of the oldest ones, still in ascending display order.
       const snapshot = await db
         .collection('users')
         .doc(uid)
         .collection('classes')
-        .orderBy('scheduledAt', 'asc')
+        .orderBy('scheduledAt', 'desc')
         .limit(MAX_CLASSES_RETURNED)
         .get();
 
-      const classes = snapshot.docs.map(doc => {
+      const classes = [...snapshot.docs].reverse().map(doc => {
         const data = doc.data() || {};
         const scheduledAtMs =
           data.scheduledAt && typeof data.scheduledAt.toMillis === 'function' ? data.scheduledAt.toMillis() : null;
