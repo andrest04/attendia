@@ -23,6 +23,7 @@
     "echarts": "^6.1.0",
     "echarts-for-react": "^3.0.6",
     "express": "^4.17.1",
+    "express-rate-limit": "8.7.0",
     "firebase": "^11.6.0",
     "firebase-admin": "^13.2.0",
     "husky": "^3.1.0",

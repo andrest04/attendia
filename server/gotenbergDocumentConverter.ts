@@ -10,10 +10,19 @@ import { DocumentConverter } from './documentConverter';
  * either way.
  */
 
+function createTimeoutError(timeoutMs: number): Error {
+  const error = new Error(`Gotenberg did not answer within ${timeoutMs} ms`);
+  error.name = 'TimeoutError';
+  return error;
+}
+
 /** Returns a converter that always rejects when Gotenberg isn't configured, so a missing env var fails one preview request instead of crashing the whole server at boot. */
 export function createGotenbergDocumentConverter(
   baseUrl: string | undefined,
-  retryDelayMs = 500
+  retryDelayMs = 500,
+  // Per attempt: a hung Gotenberg must not pin the preview request (and its buffer)
+  // forever. A timeout is retried like a connection failure.
+  attemptTimeoutMs = 60000
 ): DocumentConverter {
   return {
     async convertToPdf(buffer: Buffer, fileName: string): Promise<Buffer> {
@@ -25,10 +34,18 @@ export function createGotenbergDocumentConverter(
       const maxAttempts = 5;
 
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        // An AbortController + timer rather than AbortSignal.timeout(): it also covers
+        // reading the body, and it is available in every runtime the tests use (jsdom).
+        const controller = new AbortController();
+        let timedOut = false;
+        const timer = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, attemptTimeoutMs);
         try {
           const form = new FormData();
           form.append('files', new Blob([buffer]), fileName);
-          const response = await fetch(url, { method: 'POST', body: form });
+          const response = await fetch(url, { method: 'POST', body: form, signal: controller.signal });
 
           if (response.ok) {
             return Buffer.from(await response.arrayBuffer());
@@ -40,10 +57,13 @@ export function createGotenbergDocumentConverter(
             throw new Error(`Gotenberg conversion failed with status ${response.status}`);
           }
           console.warn(`Gotenberg is not ready (status ${response.status}); retrying preview (${attempt}/${maxAttempts})`);
-        } catch (error) {
+        } catch (caught) {
+          const error = timedOut ? createTimeoutError(attemptTimeoutMs) : caught;
           if (attempt === maxAttempts) throw error;
           if (error instanceof Error && /^Gotenberg conversion failed with status /.test(error.message)) throw error;
           console.warn(`Gotenberg connection failed; retrying preview (${attempt}/${maxAttempts})`, error);
+        } finally {
+          clearTimeout(timer);
         }
 
         await new Promise(resolve => setTimeout(resolve, retryDelayMs * 2 ** (attempt - 1)));

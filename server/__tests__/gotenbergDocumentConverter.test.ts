@@ -28,6 +28,7 @@ describe('createGotenbergDocumentConverter', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:3010/forms/libreoffice/convert', {
       method: 'POST',
       body: expect.any(FormData),
+      signal: expect.any(AbortSignal),
     });
     expect(result).toEqual(responseBytes);
   });
@@ -89,6 +90,42 @@ describe('createGotenbergDocumentConverter', () => {
       createGotenbergDocumentConverter('http://localhost:3000', 0).convertToPdf(Buffer.from('x'), 'guia.docx')
     ).rejects.toThrow('Gotenberg conversion failed with status 400');
     expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts a hung attempt after the per-attempt timeout and retries it like a connection failure', async () => {
+    const warnMock = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const hang = (_url: string, init: { signal: AbortSignal }) =>
+      new Promise((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+      });
+    const fetchMock = jest
+      .fn()
+      .mockImplementationOnce(hang)
+      .mockResolvedValueOnce({ ok: true, status: 200, arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)) });
+    global.fetch = fetchMock as any;
+
+    await expect(
+      createGotenbergDocumentConverter('http://localhost:3000', 0, 20).convertToPdf(Buffer.from('x'), 'guia.docx')
+    ).resolves.toEqual(Buffer.alloc(0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(warnMock).toHaveBeenCalledWith('Gotenberg connection failed; retrying preview (1/5)', expect.anything());
+  });
+
+  it('gives up with the timeout error once every attempt hangs', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const fetchMock = jest.fn(
+      (_url: string, init: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+        })
+    );
+    global.fetch = fetchMock as any;
+
+    await expect(
+      createGotenbergDocumentConverter('http://localhost:3000', 0, 10).convertToPdf(Buffer.from('x'), 'guia.docx')
+    ).rejects.toMatchObject({ name: 'TimeoutError' });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it('rejects without calling fetch when GOTENBERG_URL is not configured', async () => {

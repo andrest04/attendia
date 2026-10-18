@@ -10,6 +10,7 @@ import {
 } from './roomOwnership';
 import { createRoomExists } from './roomExists';
 import { createRoomOpenHandler } from './roomOpen';
+import { createRoomOpenRateLimiter } from './rateLimit';
 import { createCompleteRoomHandler } from './completeRoom';
 import express from 'express';
 import fs from 'fs';
@@ -78,6 +79,11 @@ try {
 const authMiddleware = createFirebaseAuthMiddleware(idToken => auth.verifyIdToken(idToken));
 
 const app = express();
+// Behind a reverse proxy (Azure Container Apps ingress) req.ip is the proxy unless the
+// hop count is configured; X-Forwarded-For is never trusted by default. See serverConfig.ts.
+if (config.trustProxyHops !== undefined) {
+  app.set('trust proxy', config.trustProxyHops);
+}
 const drainOneClearBatch = createDrainOneClearBatch(firestore, serverTimestamp);
 // Default 100kb JSON limit everywhere except POST /reports (long-class timelines), and a
 // body-parser 413 answered as JSON instead of an HTML page. See jsonBodyParser.ts.
@@ -245,7 +251,8 @@ app.post('/completeRoom', authMiddleware, createCompleteRoomHandler(twilioClient
 // Read-only probe so the student prejoin can warn "the class isn't open yet" BEFORE the
 // device-selection waiting room, instead of only when POST /token blocks them. This never
 // creates a room and is deliberately unauthenticated — see roomOpen.ts for the rationale.
-app.get('/rooms/:roomName/open', createRoomOpenHandler(roomExists));
+// Rate-limited per IP: every hit is a Twilio REST call (see rateLimit.ts).
+app.get('/rooms/:roomName/open', createRoomOpenRateLimiter(), createRoomOpenHandler(roomExists));
 
 const buildDir = path.join(__dirname, '../build');
 const indexHtml = path.join(buildDir, 'index.html');
