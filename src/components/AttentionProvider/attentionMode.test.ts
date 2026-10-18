@@ -1,4 +1,4 @@
-import { resolveAttentionMode } from './attentionMode';
+import { isLiveAttentionMode, resolveAttentionMode } from './attentionMode';
 
 describe('resolveAttentionMode', () => {
   it.each([
@@ -12,5 +12,15 @@ describe('resolveAttentionMode', () => {
     [false, false, false, 'mock'],
   ])('flag=%p room=%p desktop=%p → %s', (cvPipelineEnabled, hasRoom, isDesktop, expected) => {
     expect(resolveAttentionMode({ cvPipelineEnabled, hasRoom, isDesktop })).toBe(expected);
+  });
+});
+
+describe('isLiveAttentionMode', () => {
+  it.each([
+    ['live', true],
+    ['mobile-beacon', true],
+    ['mock', false],
+  ] as const)('%s → %p', (mode, expected) => {
+    expect(isLiveAttentionMode(mode)).toBe(expected);
   });
 });

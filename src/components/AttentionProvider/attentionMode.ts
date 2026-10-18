@@ -9,7 +9,8 @@
  * - `mobile-beacon`: the flag is on and a room is connected, but the device is a phone (user
  *   agent, not window width — a narrowed laptop window is still a desktop), where the CV
  *   pipeline cannot run. It still announces "this device cannot be measured", otherwise a mobile
- *   student would look identical to one who never joined. Consumers still get the mock data.
+ *   student would look identical to one who never joined. Local capture stays off, but consumers
+ *   get the real aggregate built from remote telemetry (a teacher on a phone sees real data).
  *
  * A pure function so every branch is testable without rendering the provider.
  */
@@ -22,4 +23,9 @@ export function resolveAttentionMode(input: {
 }): AttentionMode {
   if (!input.cvPipelineEnabled || !input.hasRoom) return 'mock';
   return input.isDesktop ? 'live' : 'mobile-beacon';
+}
+
+/** True for every mode that aggregates real telemetry; only `mock` hands out the mock data. */
+export function isLiveAttentionMode(mode: AttentionMode): boolean {
+  return mode !== 'mock';
 }

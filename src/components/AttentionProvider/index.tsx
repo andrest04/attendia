@@ -4,17 +4,20 @@
  * Layer 4a of the CV pipeline graduation.  The provider is the architectural
  * boundary between the UI and the computer-vision pipeline.
  *
- * ACTIVE (live) when:
- *   - A Twilio Room is connected, AND
- *   - The device is desktop (CV is desktop-only by product decision; MediaPipe
- *     is too heavy to run alongside a video call on mobile). "Desktop" is the
- *     device as told by the user agent (utils.isMobile), NOT the window width.
+ * REAL data (source 'live') when REACT_APP_ENABLE_ATTENTION_CV is on AND a Twilio Room is
+ * connected, in two flavours:
+ *   - `live`: the device is a desktop — local camera analysis + telemetry + real aggregates.
+ *   - `mobile-beacon`: the device is a phone (CV is desktop-only by product decision; MediaPipe
+ *     is too heavy to run alongside a video call on mobile). Local capture stays off and the
+ *     device broadcasts an "unsupported" beat, but the aggregates from remote telemetry are
+ *     still real — a teacher on a phone never sees mock data.
+ *   "Desktop"/"phone" is the device as told by the user agent (utils.isMobile), NOT the window
+ *   width: a narrowed laptop window is still a laptop.
  *
- * INACTIVE → falls back to mockAttentionData (deterministic, stable) when:
- *   - No room (e.g. prejoin, tests, Storybook), OR
- *   - the device is a phone (utils.isMobile).
+ * MOCK fallback (mockAttentionData, deterministic, stable) only when the flag is off or there is
+ * no room (e.g. prejoin, tests, Storybook).
  *
- * Which of the two (plus the mobile "beacon" case) applies is decided by the pure
+ * Which mode applies is decided by the pure
  * resolveAttentionMode (attentionMode.ts). The provider stays ONE component for every mode on
  * purpose: swapping the wrapper component per mode would remount the whole app tree below it
  * the moment a room connects. The rules behind the live data — who is measured, the group
@@ -56,7 +59,7 @@ import React, { createContext, useMemo } from 'react';
 import { AttentionContextValue, AttentionLevel } from './types';
 import { mockAttentionData } from './mockAttentionData';
 import { ATTENTION_RANGES, ATTENTION_THRESHOLD, attentionLevelFromScore } from './attentionFormula';
-import { resolveAttentionMode } from './attentionMode';
+import { isLiveAttentionMode, resolveAttentionMode } from './attentionMode';
 import { buildParticipants, summarizeGroup } from './liveAttention';
 import useAttendanceRoster from './useAttendanceRoster';
 import useGroupTimeline from './useGroupTimeline';
@@ -98,46 +101,49 @@ export const AttentionProvider: React.FC = ({ children }) => {
     // is still on a laptop, and flipping mode would wipe the timeline and proctoring history.
     isDesktop: !isMobile,
   });
-  const isActive = mode === 'live';
+  // Real aggregates (telemetry, roster, timeline, proctoring) run in both live modes; only the
+  // local camera analysis is desktop-only.
+  const isLive = isLiveAttentionMode(mode);
+  const capturesLocally = mode === 'live';
 
   // The local camera, extracted the same way VideoProvider does. `undefined` keeps
-  // useAttentionCapture inactive (no MediaPipe load).
-  const videoTrack = isActive ? selectCameraTrack(localTracks) : undefined;
+  // useAttentionCapture inactive (no MediaPipe load) — always the case on a phone.
+  const videoTrack = capturesLocally ? selectCameraTrack(localTracks) : undefined;
 
   // Layer 2: local camera analysis (inactive when videoTrack is undefined).
   const captureResult = useAttentionCapture(videoTrack);
 
-  // Local camera-off: the pipeline is active but there is no local camera video track (the student
-  // toggled their camera off → removeLocalVideoTrack). Broadcast this so the professor sees
-  // "Cámara apagada" instead of a frozen last value.
-  const localCameraOff = isActive && !videoTrack;
+  // Local camera-off: the desktop pipeline is active but there is no local camera video track (the
+  // student toggled their camera off → removeLocalVideoTrack). Broadcast this so the professor sees
+  // "Cámara apagada" instead of a frozen last value. Never on a phone: that one says "unsupported".
+  const localCameraOff = capturesLocally && !videoTrack;
 
   // Unsupported device: the pipeline is enabled and a room is connected, but this is mobile (CV is
-  // desktop-only). Capture/telemetry never run here, so we broadcast an explicit "unsupported"
-  // beat — otherwise a mobile student is just silently absent from the professor's view
+  // desktop-only). Capture never runs here, so we broadcast an explicit "unsupported" beat —
+  // otherwise a mobile student is just silently absent from the professor's view
   // (indistinguishable from "not joined").
   const isMobileUnsupported = mode === 'mobile-beacon';
 
   // Layer 3: DataTrack transport — broadcast local + aggregate remotes. The hook is always
   // called (React rules), but it is inert in `mock` mode: with the pipeline off nobody
   // publishes a telemetry track, receives it or runs its sweep.
-  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, mode !== 'mock');
+  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, isLive);
 
-  // Latest-value ref: the sampling intervals are created once (per isActive) and would otherwise
-  // close over the telemetry from the render where isActive flipped true — empty at that instant.
+  // Latest-value ref: the sampling intervals are created once (per isLive) and would otherwise
+  // close over the telemetry from the render where isLive flipped true — empty at that instant.
   const remoteAttentionRef = useLatest(remoteAttention);
 
   const attended = useAttendanceRoster(room);
-  const { timeline, fullTimeline, history } = useGroupTimeline(remoteAttentionRef, isActive);
-  const proctoringAlerts = useProctoringFeed(remoteAttentionRef, isActive);
+  const { timeline, fullTimeline, history } = useGroupTimeline(remoteAttentionRef, isLive);
+  const proctoringAlerts = useProctoringFeed(remoteAttentionRef, isLive);
 
   return (
     <AttentionContext.Provider
       value={useMemo<AttentionContextValue>(() => {
-        // Fallback: mock data (tests, mobile, no room, pipeline off).
-        if (!isActive) return MOCK_VALUE;
+        // Fallback: mock data only when the pipeline is off or there is no room.
+        if (!isLive) return MOCK_VALUE;
 
-        // Live path — pipeline is active.
+        // Live path — real aggregates from telemetry (desktop or phone).
         const participants = buildParticipants({
           attended,
           history: history.current,
@@ -177,7 +183,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
         };
         // `history` is a ref mutated in step with `timeline`/`fullTimeline`, which are therefore
         // the dependencies that carry its changes.
-      }, [isActive, attended, history, remoteAttention, captureResult, timeline, fullTimeline, proctoringAlerts])}
+      }, [isLive, attended, history, remoteAttention, captureResult, timeline, fullTimeline, proctoringAlerts])}
     >
       {children}
     </AttentionContext.Provider>

@@ -801,9 +801,59 @@ describe('useAttention inside AttentionProvider — mobile (room present, isMobi
     setMobileDevice(false);
   });
 
-  it('exposes source "mock" on mobile even when a room is present', () => {
+  it('exposes source "mock" on mobile when the CV pipeline flag is off', () => {
     const { result } = renderHook(useAttention, { wrapper });
     expect(result.current.source).toBe('mock');
+  });
+
+  it('hands out the live aggregate from remote telemetry when the pipeline is enabled (never the mock)', () => {
+    process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
+      { identity: 'student-c', index: 30, multiface: false, faces: 1, cameraOff: false },
+    ]);
+    mockUseAttentionTelemetry.mockClear();
+    try {
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      unmount(); // stop the 1 Hz sampling; the asserted value is the initial render's
+      expect(result.current.source).toBe('live');
+      expect(result.current.participants.map(p => p.identity).sort()).toEqual(['student-b', 'student-c']);
+      expect(result.current.groupAttention).toBe(55);
+      // The phone itself is not measured: capture inactive, same shape as live, posture sentinel.
+      expect(result.current.self.capture).toBe('inactive');
+      expect(result.current.self.components.posture).toBe(-1);
+      // Local capture never receives a track on a phone (no MediaPipe load).
+      mockUseAttentionCapture.mock.calls.forEach(call => expect(call[0]).toBeUndefined());
+      // Broadcasts "unsupported", never "camera-off".
+      mockUseAttentionTelemetry.mock.calls.forEach(call => {
+        expect(call[1]).toBe(false);
+        expect(call[2]).toBe(true);
+        expect(call[3]).toBe(true);
+      });
+    } finally {
+      delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    }
+  });
+
+  it('accumulates the group timeline from remote telemetry on a phone', () => {
+    process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 90, multiface: false, faces: 1, cameraOff: false },
+    ]);
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:00:00Z'));
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(result.current.timeline.length).toBeGreaterThanOrEqual(2);
+      expect(result.current.timeline[result.current.timeline.length - 1].value).toBe(90);
+      unmount();
+    } finally {
+      jest.useRealTimers();
+      delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    }
   });
 
   it('keeps the transport ON on mobile when the pipeline is enabled, to announce the device as unsupported', () => {
