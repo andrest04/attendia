@@ -3,7 +3,7 @@ import { StoredAttentionReport } from '../../components/AttentionProvider/report
 /**
  * Pure, deterministic transform from real StoredAttentionReport[] + an injected
  * clock into the "Clases" tab's real stat values. Never reads Date.now() itself —
- * same discipline as classSessionsView.ts/mockAttentionData.ts elsewhere in this
+ * same discipline as classSessionsView.ts elsewhere in this
  * repo: callers inject "now" so the transform stays unit-testable.
  */
 
