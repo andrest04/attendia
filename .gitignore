@@ -49,3 +49,6 @@ _reference/
 
 # CodeGraph local index
 .codegraph/
+
+# Local docs
+docs/
