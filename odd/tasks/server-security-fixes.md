@@ -22,9 +22,12 @@ Fix the server defects confirmed by the 2026-10-18 server audit: cross-teacher a
   - Done in `ba7f109`. RED observed (15 failing guard/ownership tests) → GREEN. `npm test -- server/__tests__`: 26 suites / 402 tests passed; `npm run typescript:server`: clean; `npx eslint server --ext .ts`: clean. Note: `roomOwners` doc id is `base64url(roomName)` (room names are client input; Firestore rejects `/`, `..`, `__x__` ids), plain name kept as a field.
 - [x] T2 — Ownership checks: `POST /reports` (roomSessions), recording request, `/completeRoom`, `/recordingrules`. Route: delegated writer (same). Checks: `npm test -- server/__tests__`, `npm run typescript:server`.
   - Done in `68d2e35`. RED observed (33 failing) → GREEN. `npm test -- server/__tests__`: 26 suites / 435 tests passed; `npm run typescript:server`: clean; `npx eslint server --ext .ts`: clean. The report binder is injected into `createPostReportHandler` as an optional 3rd arg with a fail-closed default; `teacherHandler` context gained `next` and an optional `forbiddenMessage` (keeps `/completeRoom`'s `not allowed` 403 message). Known edge: a late report retry for a room name another teacher has since reclaimed is refused (403), and the client retry queue retries any failure — follow-up candidate.
-- [ ] T3 — Teacher gate middleware before multer on `POST /resources`; multer `files:1, fields:10`. Route: delegated writer.
-- [ ] T4 — Rate limit on `/rooms/:roomName/open` (`express-rate-limit`); Gotenberg `fetch` timeout treated as retryable. Route: delegated writer.
-- [ ] T5 — `GET /classes` keeps newest classes; `/notifications/reconcile` bounded reads. Route: delegated writer.
+- [x] T3 — Teacher gate middleware before multer on `POST /resources`; multer `files:1, fields:10`. Route: delegated writer.
+  - Done in `d0ca4f8`. RED observed (6 failing + resources suite failing to compile) → GREEN. `createTeacherGate` (teacherHandler skeleton as pass-through middleware) → `createResourceUploadTeacherGate` mounted before `upload.single`; `RESOURCE_UPLOAD_LIMITS` / `AVATAR_UPLOAD_LIMITS` = `{fileSize, files:1, fields:10}`; both upload error handlers map every multer `LIMIT_*` to a JSON 400 (`invalid upload`). Handler role check kept (defense in depth). Checks: `npm test -- server/__tests__` 26 suites / 447 passed; typescript:server clean; eslint clean.
+- [x] T4 — Rate limit on `/rooms/:roomName/open` (`express-rate-limit`); Gotenberg `fetch` timeout treated as retryable. Route: delegated writer.
+  - Done in `a12f98b`. RED observed (missing module + 4 failing) → GREEN. `express-rate-limit@8.7.0` (exact; peer express >=4.11, node >=16), `rateLimit.ts` 30/min/IP, JSON 429 Spanish copy, in-memory store. New `TRUST_PROXY_HOPS` (0-9, validated in `serverConfig.ts`) → `app.set('trust proxy', n)` only when set. **Ops gap:** set `TRUST_PROXY_HOPS=1` on the Azure Container App, otherwise all clients share one bucket (the proxy IP). Gotenberg: per-attempt `AbortController` timer (`attemptTimeoutMs`, default 60000; `AbortSignal.timeout` is missing under jsdom), timeout surfaces as `TimeoutError` and is retried. npm also pruned extraneous jest 30 lock entries. Checks: 27 suites / 457 passed; typescript:server clean; eslint clean.
+- [x] T5 — `GET /classes` keeps newest classes; `/notifications/reconcile` bounded reads. Route: delegated writer.
+  - Done in `0d69f95`. RED observed (2 + 3 failing) → GREEN. `GET /classes`: `orderBy('scheduledAt','desc').limit(200)` + reverse. Reconcile: newest 100 reports by `endedAt` (recordingRequests queries 10 in flight), newest 100 episodes by `observedAt`, classes `scheduledAt >= now-7d` asc limit 100; single-field queries (no index change); sources discovered once per poll (was twice). Tradeoff: recordings on reports older than the newest 100 and classes older than 7 days are no longer reconciled. Checks: 27 suites / 461 passed; typescript:server clean; eslint clean.
 - [ ] T6 — Identity reservation per room: a token for an identity currently connected under another uid → 409. Route: delegated writer.
 
 ## Acceptance criteria
@@ -39,6 +42,7 @@ Single branch, local merge to main when the user asks (no PR). Forecast ~900 aut
 ## Progress
 - Branch created; audit mapped (explorer).
 - T1 (`ba7f109`) and T2 (`68d2e35`) committed by a delegated writer.
+- T3 (`d0ca4f8`), T4 (`a12f98b`), T5 (`0d69f95`) committed by a delegated writer.
 
 ## Next step
-T3.
+T6.
