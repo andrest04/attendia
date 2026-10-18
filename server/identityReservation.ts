@@ -1,6 +1,6 @@
 import { RequestHandler } from 'express';
 import { encodeBase64Url } from './base64url';
-import { getVerifiedUser, sendError } from './http';
+import { getVerifiedUser, sendBadRequest, sendError } from './http';
 import { logOperationalFailure } from './operationalEvents';
 import { isParticipantConnectedVia, ParticipantFetchingClient } from './twilioGateway';
 
@@ -19,8 +19,12 @@ import { isParticipantConnectedVia, ParticipantFetchingClient } from './twilioGa
  * answers 503 (fail-closed).
  *
  * The id joins the base64url of both parts with `.`, which is outside the base64url
- * alphabet (so the split is unambiguous) and Firestore-safe. Identities are trimmed like
- * the client trims display names before they become identities.
+ * alphabet (so the split is unambiguous) and Firestore-safe.
+ *
+ * The identity checked and reserved is the exact string plugin-rtc mints. An identity with
+ * leading/trailing whitespace is refused (400) instead of trimmed: honest clients already
+ * trim display names, and checking a trimmed copy would let " Ana" bypass the reservation
+ * of a participant connected as " Ana".
  */
 
 export const ROOM_IDENTITIES_COLLECTION = 'roomIdentities';
@@ -80,8 +84,8 @@ export async function reserveIdentity(
   });
 }
 
-const nonEmptyTrimmed = (value: unknown): string | undefined =>
-  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+const nonEmptyString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.length > 0 ? value : undefined;
 
 /**
  * Middleware mounted on /token right after the room access guard. Requests without a room
@@ -96,7 +100,11 @@ export function createIdentityReservationGuard(
     const body = req.body ?? {};
     // The room name is used as sent: it must match the room the token function joins.
     const roomName = typeof body.room_name === 'string' && body.room_name.length > 0 ? body.room_name : undefined;
-    const identity = nonEmptyTrimmed(body.user_identity);
+    const identity = nonEmptyString(body.user_identity);
+    if (identity !== undefined && identity !== identity.trim()) {
+      sendBadRequest(res, 'invalid identity', 'Tu nombre no puede empezar ni terminar con espacios.');
+      return;
+    }
     if (!roomName || !identity) {
       next();
       return;

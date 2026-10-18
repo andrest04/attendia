@@ -96,9 +96,9 @@ describe('createIdentityReservationGuard', () => {
     res.json = jest.fn(() => res);
     return res;
   };
-  const tokenRequest = (body: any = { room_name: 'clase-1', user_identity: '  Ana  ' }) => ({ body } as any);
+  const tokenRequest = (body: any = { room_name: 'clase-1', user_identity: 'Ana' }) => ({ body } as any);
 
-  it('reserves the trimmed identity and passes through', async () => {
+  it('reserves the identity and passes through', async () => {
     const { db, store } = makeDb();
     const next = jest.fn();
     const res = makeRes();
@@ -158,12 +158,54 @@ describe('createIdentityReservationGuard', () => {
 
     await createIdentityReservationGuard(db, jest.fn(), timestamp)(tokenRequest({ user_identity: 'Ana' }), makeRes(), next);
     await createIdentityReservationGuard(db, jest.fn(), timestamp)(
-      tokenRequest({ room_name: 'clase-1', user_identity: '   ' }),
+      tokenRequest({ room_name: 'clase-1', user_identity: '' }),
       makeRes(),
       next
     );
 
     expect(next).toHaveBeenCalledTimes(2);
     expect(runTransaction).not.toHaveBeenCalled();
+  });
+
+  // plugin-rtc mints user_identity exactly as sent, so the checked identity must be that
+  // exact string: " Ana" must not slip past a reservation held for " Ana" by checking "Ana".
+  it.each([' Ana', 'Ana ', '	Ana', '   '])(
+    'answers 400 for an identity with surrounding whitespace (%j) before reserving anything',
+    async identity => {
+      const { db, runTransaction } = makeDb();
+      const isConnected = jest.fn();
+      const next = jest.fn();
+      const res = makeRes();
+
+      await createIdentityReservationGuard(db, isConnected, timestamp)(
+        tokenRequest({ room_name: 'clase-1', user_identity: identity }),
+        res,
+        next
+      );
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: { message: 'invalid identity', explanation: expect.stringMatching(/espacios/i) },
+      });
+      expect(next).not.toHaveBeenCalled();
+      expect(runTransaction).not.toHaveBeenCalled();
+      expect(isConnected).not.toHaveBeenCalled();
+    }
+  );
+
+  it('checks Twilio and keys the reservation with the exact identity that will be minted', async () => {
+    const { db, store } = makeDb({ [reservationPath('clase-1', 'Ana Pérez [Profesor]')]: { uid: 'other' } });
+    const isConnected = jest.fn().mockResolvedValue(false);
+    const next = jest.fn();
+
+    await createIdentityReservationGuard(db, isConnected, timestamp)(
+      tokenRequest({ room_name: 'clase-1', user_identity: 'Ana Pérez [Profesor]' }),
+      makeRes(),
+      next
+    );
+
+    expect(isConnected).toHaveBeenCalledWith('clase-1', 'Ana Pérez [Profesor]');
+    expect(store[reservationPath('clase-1', 'Ana Pérez [Profesor]')].identity).toBe('Ana Pérez [Profesor]');
+    expect(next).toHaveBeenCalledWith();
   });
 });
