@@ -6,7 +6,8 @@
  *   deterministic mock data; nothing is captured and nothing needs to travel.
  * - `live`: the flag is on, a room is connected and this is a desktop — local camera analysis,
  *   telemetry in both directions, real aggregates.
- * - `mobile-beacon`: the flag is on and a room is connected, but this is a phone, where the CV
+ * - `mobile-beacon`: the flag is on and a room is connected, but the device is a phone (user
+ *   agent, not window width — a narrowed laptop window is still a desktop), where the CV
  *   pipeline cannot run. It still announces "this device cannot be measured", otherwise a mobile
  *   student would look identical to one who never joined. Consumers still get the mock data.
  *

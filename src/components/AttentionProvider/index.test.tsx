@@ -6,6 +6,14 @@ import { mockAttentionData } from './mockAttentionData';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import * as utils from '../../utils';
+
+// The device kind comes from the UA-based utils.isMobile (a module-level constant), which the
+// tests overwrite the same way the rest of the suite does (MenuBar, ChatInput, useRoom).
+function setMobileDevice(value: boolean) {
+  //@ts-ignore
+  utils.isMobile = value;
+}
 
 // ─── Mock the two CV pipeline hooks ──────────────────────────────────────────
 // These are mocked at the top level so tests control exactly when the provider
@@ -35,8 +43,8 @@ jest.mock('../../hooks/useVideoContext/useVideoContext', () =>
   }))
 );
 
-// useMediaQuery is called to detect desktop — default to desktop (false = not mobile)
-// so the desktop code-path is exercised.
+// The provider must NOT depend on the viewport width. useMediaQuery stays mocked so tests can
+// prove that a narrow window (true) on a desktop device does not change the mode.
 jest.mock('@material-ui/core', () => {
   const actual = jest.requireActual('@material-ui/core');
   return {
@@ -145,8 +153,9 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
   beforeEach(() => {
     // Live pipeline requires the production kill-switch flag to be ON.
     process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
-    // Simulate: we are on desktop (not mobile), room is present, capture is active.
-    mockUseMediaQuery.mockReturnValue(false); // false = not mobile = desktop
+    // Simulate: we are on a desktop device with a wide window, room is present, capture is active.
+    setMobileDevice(false);
+    mockUseMediaQuery.mockReturnValue(false);
     mockUseVideoContext.mockReturnValue({ room: fakeRoom, localTracks: [] });
     mockUseAttentionCapture.mockReturnValue({
       capture: 'active',
@@ -166,6 +175,14 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
   });
 
   it('exposes source "live" when room is present and capture is active', () => {
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.source).toBe('live');
+  });
+
+  it('stays live on a desktop device whose window is narrower than the md breakpoint', () => {
+    // A teacher who narrows the laptop window is still on a laptop: the mode must not flip to
+    // mobile-beacon (which would wipe the timeline/proctoring history).
+    mockUseMediaQuery.mockReturnValue(true);
     const { result } = renderHook(useAttention, { wrapper });
     expect(result.current.source).toBe('live');
   });
@@ -763,8 +780,9 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
 // ─── MOBILE: room present but mobile → falls back to mock ────────────────────
 describe('useAttention inside AttentionProvider — mobile (room present, isMobile)', () => {
   beforeEach(() => {
-    // Mobile = useMediaQuery returns true
-    mockUseMediaQuery.mockReturnValue(true);
+    // Mobile = the device is a phone (UA), regardless of the window width.
+    setMobileDevice(true);
+    mockUseMediaQuery.mockReturnValue(false);
     mockUseVideoContext.mockReturnValue({
       room: createFakeRoom(),
       localTracks: [],
@@ -777,6 +795,10 @@ describe('useAttention inside AttentionProvider — mobile (room present, isMobi
       multiface: false,
     });
     mockUseAttentionTelemetry.mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    setMobileDevice(false);
   });
 
   it('exposes source "mock" on mobile even when a room is present', () => {

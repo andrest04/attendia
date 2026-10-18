@@ -7,11 +7,12 @@
  * ACTIVE (live) when:
  *   - A Twilio Room is connected, AND
  *   - The device is desktop (CV is desktop-only by product decision; MediaPipe
- *     is too heavy to run alongside a video call on mobile).
+ *     is too heavy to run alongside a video call on mobile). "Desktop" is the
+ *     device as told by the user agent (utils.isMobile), NOT the window width.
  *
  * INACTIVE → falls back to mockAttentionData (deterministic, stable) when:
  *   - No room (e.g. prejoin, tests, Storybook), OR
- *   - isMobile is true.
+ *   - the device is a phone (utils.isMobile).
  *
  * Which of the two (plus the mobile "beacon" case) applies is decided by the pure
  * resolveAttentionMode (attentionMode.ts). The provider stays ONE component for every mode on
@@ -52,7 +53,6 @@
  */
 
 import React, { createContext, useMemo } from 'react';
-import { useMediaQuery, useTheme } from '@material-ui/core';
 import { AttentionContextValue, AttentionLevel } from './types';
 import { mockAttentionData } from './mockAttentionData';
 import { ATTENTION_RANGES, ATTENTION_THRESHOLD, attentionLevelFromScore } from './attentionFormula';
@@ -68,6 +68,7 @@ import useLatest from '../../hooks/useLatest/useLatest';
 import { featureFlags } from '../../utils/featureFlags';
 import useRequiredContext from '../../hooks/useRequiredContext/useRequiredContext';
 import { selectCameraTrack } from '../../utils/trackSelectors';
+import { isMobile } from '../../utils';
 
 // null! mirrors the pattern used in ChatProvider and ParticipantProvider.
 export const AttentionContext = createContext<AttentionContextValue>(null!);
@@ -84,9 +85,6 @@ const MOCK_VALUE: AttentionContextValue = {
 };
 
 export const AttentionProvider: React.FC = ({ children }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
   const { room, localTracks } = useVideoContext();
 
   // Production kill-switch (LEGAL GATE): the live CV pipeline performs real biometric analysis
@@ -96,6 +94,8 @@ export const AttentionProvider: React.FC = ({ children }) => {
   const mode = resolveAttentionMode({
     cvPipelineEnabled: featureFlags.isAttentionCvEnabled(),
     hasRoom: Boolean(room),
+    // The DEVICE (user agent), never the window width: a teacher who narrows the laptop window
+    // is still on a laptop, and flipping mode would wipe the timeline and proctoring history.
     isDesktop: !isMobile,
   });
   const isActive = mode === 'live';
