@@ -522,7 +522,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
 
   /** Executes the actual join sequence after all gates (consent, etc.) have passed. */
   const doJoin = () => {
-    getToken(name, roomName)
+    // The server refuses identities with leading/trailing whitespace (it would mint a
+    // different identity than the one it checks), so send the trimmed name.
+    const identity = name.trim();
+    getToken(identity, roomName)
       .then(async ({ token }) => {
         const scheduledClass = readScheduledClassSession(roomName);
         if (scheduledClass && startClass) {
@@ -530,7 +533,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         }
         // Persist enough to auto-rejoin after a refresh. The identity carries the role
         // (teacher/student), so reconnecting with it restores the correct room shell.
-        saveRejoinSession({ roomName, identity: name });
+        saveRejoinSession({ roomName, identity });
         videoConnect(token);
         !featureFlags.isConversationsDisabled() && chatConnect(token);
       })

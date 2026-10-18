@@ -210,6 +210,13 @@ describe('the DeviceSelectionScreen component', () => {
     });
   });
 
+  it('trims the name before requesting a token, since the server refuses padded identities', () => {
+    const wrapper = shallow(<DeviceSelectionScreen name=" Ana " roomName="manual-room-42" setStep={() => {}} />);
+    wrapper.find('[data-cy-join-now]').simulate('click');
+
+    expect(mockGetToken).toHaveBeenCalledWith('Ana', 'manual-room-42');
+  });
+
   it('should fetch a token and connect to the Video SDK only when the Join Now button is clicked when the REACT_APP_DISABLE_TWILIO_CONVERSATIONS variable is true', done => {
     process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS = 'true';
     const wrapper = shallow(<DeviceSelectionScreen name="test name" roomName="test room name" setStep={() => {}} />);

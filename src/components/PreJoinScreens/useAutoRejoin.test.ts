@@ -77,6 +77,15 @@ describe('the useAutoRejoin hook', () => {
     expect(chatConnect).toHaveBeenCalledWith('fresh-token');
   });
 
+  it('trims a padded saved identity, since the server refuses padded identities', async () => {
+    mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: ' Ana Lopez ' });
+
+    renderHook(() => useAutoRejoin('prueba'));
+    await flush();
+
+    expect(getToken).toHaveBeenCalledWith('Ana Lopez', 'prueba');
+  });
+
   it('skips chat connect when conversations are disabled', async () => {
     process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS = 'true';
     mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: 'Ana Lopez' });
