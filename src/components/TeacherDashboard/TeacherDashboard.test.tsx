@@ -18,6 +18,7 @@ import { checkRoomOpen } from '../../classSession/checkRoomOpen';
 import { mockDashboardData } from './mockDashboardData';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { UpcomingSession } from './types';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
 
 jest.mock('../../state');
 jest.mock('../../classSession/checkRoomOpen');
@@ -345,6 +346,60 @@ describe('TeacherDashboard', () => {
     }));
     expect(refresh).toHaveBeenCalledTimes(1);
     window.localStorage.clear();
+  });
+
+  describe('pending report replay', () => {
+    const PENDING_KEY = 'twilio-video-pending-attention-reports';
+    const seedQueue = () =>
+      window.localStorage.setItem(PENDING_KEY, JSON.stringify({
+        'teacher-1': [{
+          report: { roomSid: 'RM00000000000000000000000000000abc' },
+          failureEpisodeId: 'episode_12345678', firstFailedAtMs: 100,
+        }],
+      }));
+    const queuedSids = () =>
+      (JSON.parse(window.localStorage.getItem(PENDING_KEY) || '{}')['teacher-1'] || []).map(
+        (entry: any) => entry.report.roomSid
+      );
+    const replayWith = async (error: unknown) => {
+      const saveAttentionReport = jest.fn().mockRejectedValue(error);
+      mockUseTeacherNotifications.mockReturnValue(notificationState({ refresh: jest.fn().mockResolvedValue(undefined) }));
+      mockUseAppState.mockReturnValue({
+        signOut: mockSignOut,
+        user: { uid: 'teacher-1', displayName: 'Andrés Torres' },
+        saveAttentionReport,
+      });
+      const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
+      wrapper.find('[data-testid="dashboard-retry-pending-reports"]').simulate('click');
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(saveAttentionReport).toHaveBeenCalled();
+      return wrapper;
+    };
+    let consoleError: jest.SpyInstance;
+
+    beforeEach(() => {
+      consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+      seedQueue();
+    });
+    afterEach(() => {
+      consoleError.mockRestore();
+      window.localStorage.clear();
+    });
+
+    it.each([400, 403, 404, 413])('drops an entry the server permanently rejects with %i', async status => {
+      await replayWith(new ClientApiError(status, 'room session not owned', 'No está a tu cargo.'));
+      expect(queuedSids()).toEqual([]);
+    });
+
+    it.each([401, 500, 503])('keeps an entry that failed with a retryable %i', async status => {
+      await replayWith(new ClientApiError(status, 'unavailable', 'Intenta de nuevo.'));
+      expect(queuedSids()).toEqual(['RM00000000000000000000000000000abc']);
+    });
+
+    it('keeps an entry that failed with a network error', async () => {
+      await replayWith(new TypeError('Failed to fetch'));
+      expect(queuedSids()).toEqual(['RM00000000000000000000000000000abc']);
+    });
   });
 
   it('clears pending reports before delegating sign-out to app state', () => {

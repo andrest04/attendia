@@ -6,6 +6,7 @@ import { StoredAttentionReport } from '../../components/AttentionProvider/report
 import { PendingAttentionReport } from '../AttentionProvider/reportTypes';
 import { buildReportStats, computeTotalHoursTaught } from './reportStats';
 import { getPendingAttentionReports, removePendingAttentionReport } from '../AttentionReport/pendingAttentionReports';
+import { isPermanentClientError } from '../../state/useFirebaseAuth/apiClient';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
 
 export interface UseTeacherReportsParams {
@@ -58,6 +59,15 @@ export default function useTeacherReports({
             return true;
           })
           .catch(error => {
+            if (isPermanentClientError(error)) {
+              // 400/403/404/413: the server will never accept it, so stop retrying.
+              removePendingAttentionReport(userUid, report.roomSid);
+              console.error('attention-report-persistence: retry permanently rejected, dropped', {
+                roomSid: report.roomSid,
+                error,
+              });
+              return true;
+            }
             console.error('attention-report-persistence: retry failed', { roomSid: report.roomSid, error });
             return false;
           })
