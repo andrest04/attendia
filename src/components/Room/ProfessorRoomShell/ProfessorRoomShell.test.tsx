@@ -41,7 +41,7 @@ const attentionLevel = (score: number): 'high' | 'medium' | 'low' => {
 };
 
 const baseAttention = {
-  source: 'mock' as const,
+  source: 'live' as const,
   groupAttention: 64,
   groupDataAvailable: true,
   attentionThreshold: 70,

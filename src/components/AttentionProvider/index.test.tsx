@@ -2,7 +2,6 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useMediaQuery } from '@material-ui/core';
 import { AttentionProvider, useAttention } from './index';
-import { mockAttentionData } from './mockAttentionData';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
@@ -70,10 +69,10 @@ describe('useAttention outside a provider', () => {
   });
 });
 
-// ─── FALLBACK: no room → mock data ────────────────────────────────────────────
-describe('useAttention inside AttentionProvider — mock fallback (no room)', () => {
+// ─── OFF: no room → empty, honest value ──────────────────────────────────────
+describe('useAttention inside AttentionProvider — pipeline off (no room)', () => {
   beforeEach(() => {
-    // Default: no room, no capture, no remotes → must fall back to mockAttentionData
+    // Default: no room, no capture, no remotes → must hand out the empty value, never fake data
     mockUseVideoContext.mockReturnValue({ room: null, localTracks: [] });
     mockUseAttentionCapture.mockReturnValue({
       capture: 'inactive',
@@ -85,36 +84,34 @@ describe('useAttention inside AttentionProvider — mock fallback (no room)', ()
     mockUseAttentionTelemetry.mockReturnValue([]);
   });
 
-  it('exposes source "mock" when there is no room', () => {
+  it('hands out an empty value with no simulated data', () => {
     const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.source).toBe('mock');
+    const { attentionLevel, ...data } = result.current;
+    expect(data).toEqual({
+      source: 'live',
+      ranges: { lowMax: 40, mediumMax: 70 },
+      groupAttention: 0,
+      groupDataAvailable: false,
+      attentionThreshold: 60,
+      timeline: [],
+      fullTimeline: [],
+      self: {
+        index: 0,
+        components: { eyes: 0, head: 0, posture: -1 },
+        capture: 'inactive',
+        lighting: 'ok',
+      },
+      participants: [],
+      proctoringAlerts: [],
+    });
+    expect(typeof attentionLevel).toBe('function');
   });
 
-  it('exposes the correct groupAttention value from mock data', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.groupAttention).toBe(mockAttentionData.groupAttention);
-  });
-
-  it('exposes timeline with the expected length', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.timeline.length).toBe(mockAttentionData.timeline.length);
-    expect(result.current.timeline.length).toBeGreaterThanOrEqual(8);
-  });
-
-  it('exposes fullTimeline mirroring the mock timeline (no live/full distinction in mock mode)', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.fullTimeline).toEqual(mockAttentionData.timeline);
-  });
-
-  it('exposes participants array with the expected length', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.participants.length).toBe(mockAttentionData.participants.length);
-    expect(result.current.participants.length).toBeGreaterThanOrEqual(4);
-  });
-
-  it('has at least one proctoring alert', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.proctoringAlerts.length).toBeGreaterThanOrEqual(1);
+  it('keeps the same value identity across re-renders', () => {
+    const { result, rerender } = renderHook(useAttention, { wrapper });
+    const first = result.current;
+    rerender();
+    expect(result.current).toBe(first);
   });
 
   it('does not expose any analysis on/off control (no enabled/setEnabled)', () => {
@@ -758,12 +755,14 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     }
   });
 
-  it('KILL-SWITCH: falls back to mock when REACT_APP_ENABLE_ATTENTION_CV is off, even on desktop with a room', () => {
+  it('KILL-SWITCH: hands out the empty value when REACT_APP_ENABLE_ATTENTION_CV is off, even on desktop with a room', () => {
     // The legal gate: without the flag, real biometric analysis must NOT run,
     // regardless of desktop + room + active capture.
     delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
     const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.source).toBe('mock');
+    expect(result.current.participants).toEqual([]);
+    expect(result.current.groupDataAvailable).toBe(false);
+    expect(result.current.self.capture).toBe('inactive');
   });
 
   it('KILL-SWITCH: keeps the telemetry transport OFF too — nothing is published or received while the pipeline is off', () => {
@@ -777,7 +776,7 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
   });
 });
 
-// ─── MOBILE: room present but mobile → falls back to mock ────────────────────
+// ─── MOBILE: room present but mobile ──────────────────────────────────────────
 describe('useAttention inside AttentionProvider — mobile (room present, isMobile)', () => {
   beforeEach(() => {
     // Mobile = the device is a phone (UA), regardless of the window width.
@@ -801,12 +800,13 @@ describe('useAttention inside AttentionProvider — mobile (room present, isMobi
     setMobileDevice(false);
   });
 
-  it('exposes source "mock" on mobile when the CV pipeline flag is off', () => {
+  it('hands out the empty value on mobile when the CV pipeline flag is off', () => {
     const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.source).toBe('mock');
+    expect(result.current.participants).toEqual([]);
+    expect(result.current.groupDataAvailable).toBe(false);
   });
 
-  it('hands out the live aggregate from remote telemetry when the pipeline is enabled (never the mock)', () => {
+  it('hands out the live aggregate from remote telemetry when the pipeline is enabled (not the empty value)', () => {
     process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
     mockUseAttentionTelemetry.mockReturnValue([
       { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },

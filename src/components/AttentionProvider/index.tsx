@@ -1,6 +1,6 @@
 /**
- * AttentionProvider — real CV pipeline with mock fallback
- * ────────────────────────────────────────────────────────
+ * AttentionProvider — real CV pipeline, empty when off
+ * ─────────────────────────────────────────────────────
  * Layer 4a of the CV pipeline graduation.  The provider is the architectural
  * boundary between the UI and the computer-vision pipeline.
  *
@@ -14,8 +14,9 @@
  *   "Desktop"/"phone" is the device as told by the user agent (utils.isMobile), NOT the window
  *   width: a narrowed laptop window is still a laptop.
  *
- * MOCK fallback (mockAttentionData, deterministic, stable) only when the flag is off or there is
- * no room (e.g. prejoin, tests, Storybook).
+ * EMPTY value (`off` mode) when the flag is off or there is no room (e.g. prejoin, tests,
+ * Storybook): no participants, no timeline, no alerts, `groupDataAvailable: false`. There is no
+ * simulated data anywhere — the professor never sees numbers that were not measured.
  *
  * Which mode applies is decided by the pure
  * resolveAttentionMode (attentionMode.ts). The provider stays ONE component for every mode on
@@ -35,15 +36,12 @@
  * Formula:
  *   The live index comes directly from useAttentionCapture which calls
  *   computeLabAttentionIndex(eyes, head) — eyes+head only.
- *   computeAttentionIndex (the old formula with posture) is preserved in
- *   attentionFormula.ts for the mock fallback and remains unchanged.
  *   When posture becomes a measured signal, Layer 4b can replace -1 with the
- *   real value and computeLabAttentionIndex will incorporate it.
+ *   real value and the weighted index in attentionHeuristics.ts will incorporate it.
  *
  * Consumers (ProfessorRoomShell, GalleryView):
  *   All read exclusively through useAttention() and the AttentionContextValue
- *   shape.  The source === 'mock' "Datos simulados" disclosure tag disappears
- *   automatically when the pipeline is live.
+ *   shape. `source` is always 'live'; 'mock' survives only in legacy stored reports.
  *
  * Students:
  *   Students have NO attention UI and NO control over the analysis
@@ -57,7 +55,6 @@
 
 import React, { createContext, useMemo } from 'react';
 import { AttentionContextValue, AttentionLevel } from './types';
-import { mockAttentionData } from './mockAttentionData';
 import { ATTENTION_RANGES, ATTENTION_THRESHOLD, attentionLevelFromScore } from './attentionFormula';
 import { isLiveAttentionMode, resolveAttentionMode } from './attentionMode';
 import { buildParticipants, summarizeGroup } from './liveAttention';
@@ -79,13 +76,31 @@ export const AttentionContext = createContext<AttentionContextValue>(null!);
 // Fixed ranges: the level of a score never depends on where the data comes from.
 const attentionLevel = (score: number): AttentionLevel => attentionLevelFromScore(score, ATTENTION_RANGES);
 
-// What every consumer sees while the pipeline is off. Built once, so its identity is stable and
-// consumers are not re-rendered by a provider that has nothing new to say.
-const MOCK_VALUE: AttentionContextValue = {
-  ...mockAttentionData,
-  fullTimeline: mockAttentionData.timeline,
+// Posture is NOT measured by the CV pipeline — sentinel -1 keeps the shape valid without
+// misrepresenting the signal as "0% posture". Consumers drive progress bars from the aggregate
+// index (via attentionLevel), never from the raw posture component.
+const POSTURE_NOT_MEASURED = -1;
+
+// What every consumer sees while the pipeline is off: nothing measured, nothing invented. Built
+// once, so its identity is stable and consumers are not re-rendered by a provider that has
+// nothing new to say. Same shape the live path produces with zero participants.
+const EMPTY_VALUE: AttentionContextValue = Object.freeze({
+  source: 'live' as const,
+  ranges: ATTENTION_RANGES,
+  ...summarizeGroup([]),
+  attentionThreshold: ATTENTION_THRESHOLD,
+  timeline: [],
+  fullTimeline: [],
+  self: {
+    index: 0,
+    components: { eyes: 0, head: 0, posture: POSTURE_NOT_MEASURED },
+    capture: 'inactive' as const,
+    lighting: 'ok' as const,
+  },
+  participants: [],
+  proctoringAlerts: [],
   attentionLevel,
-};
+});
 
 export const AttentionProvider: React.FC = ({ children }) => {
   const { room, localTracks } = useVideoContext();
@@ -125,7 +140,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
   const isMobileUnsupported = mode === 'mobile-beacon';
 
   // Layer 3: DataTrack transport — broadcast local + aggregate remotes. The hook is always
-  // called (React rules), but it is inert in `mock` mode: with the pipeline off nobody
+  // called (React rules), but it is inert in `off` mode: with the pipeline off nobody
   // publishes a telemetry track, receives it or runs its sweep.
   const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, isLive);
 
@@ -140,8 +155,8 @@ export const AttentionProvider: React.FC = ({ children }) => {
   return (
     <AttentionContext.Provider
       value={useMemo<AttentionContextValue>(() => {
-        // Fallback: mock data only when the pipeline is off or there is no room.
-        if (!isLive) return MOCK_VALUE;
+        // Pipeline off or no room: the empty value, never simulated data.
+        if (!isLive) return EMPTY_VALUE;
 
         // Live path — real aggregates from telemetry (desktop or phone).
         const participants = buildParticipants({
@@ -153,15 +168,12 @@ export const AttentionProvider: React.FC = ({ children }) => {
         const { groupAttention, groupDataAvailable } = summarizeGroup(participants);
 
         // Self: index is already computeLabAttentionIndex(eyes, head) from the capture hook.
-        // Posture is NOT measured — sentinel -1 keeps the shape valid without misrepresenting the
-        // signal as "0% posture". Consumers drive progress bars from the aggregate index (via
-        // attentionLevel), never from the raw posture component.
         const self = {
           index: captureResult.index,
           components: {
             eyes: captureResult.components.eyes,
             head: captureResult.components.head,
-            posture: -1 as number, // NOT MEASURED — sentinel; replace when posture is a real signal
+            posture: POSTURE_NOT_MEASURED, // replace when posture is a real signal
           },
           capture: captureResult.capture,
           lighting: 'ok' as const, // lighting is a separate signal, out of scope for Layer 4a

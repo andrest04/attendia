@@ -13,7 +13,6 @@ import {
   stepFocusLostStateMachine,
   createFocusLostState,
   createWeightedIndex,
-  computeFullAttentionIndex,
   addToRollingWindow,
   computeWindowScore,
   computeEyesScore,
@@ -474,12 +473,9 @@ describe('createWeightedIndex', () => {
     expect(index({ a: -20, b: -20 })).toBe(0);
   });
 
-  it('derives the live (eyes + head) formula from the same table as the full one', () => {
+  it('derives the live (eyes + head) formula from the product weights table', () => {
     // eyes:posture:head is 40:30:30; dropping posture leaves eyes 4/7, head 3/7.
     expect(computeLabAttentionIndex(70, 0)).toBe(40);
     expect(computeLabAttentionIndex(0, 70)).toBe(30);
-    expect(computeFullAttentionIndex({ eyes: 100, posture: 0, head: 0 })).toBe(40);
-    expect(computeFullAttentionIndex({ eyes: 0, posture: 100, head: 0 })).toBe(30);
-    expect(computeFullAttentionIndex({ eyes: 80, posture: 75, head: 70 })).toBe(76);
   });
 });
