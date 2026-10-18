@@ -3,7 +3,7 @@ import { StoredAttentionReport } from '../../components/AttentionProvider/report
 /**
  * Pure, deterministic transform from real StoredAttentionReport[] + an injected
  * clock into the "Clases" tab's real stat values. Never reads Date.now() itself —
- * same discipline as classSessionsView.ts/mockAttentionData.ts elsewhere in this
+ * same discipline as classSessionsView.ts elsewhere in this
  * repo: callers inject "now" so the transform stays unit-testable.
  */
 
@@ -31,16 +31,21 @@ export function buildReportStats(
 
   const sessionsThisWeek = thisWeekReports.length;
 
+  // A mock-sourced report (CV pipeline off) is a real class, so it counts as a
+  // session, but its participants and averages are simulated: keep them out of
+  // the attention stats.
+  const liveReports = thisWeekReports.filter(report => report.source === 'live');
+
   const studentIdentities = new Set<string>();
-  thisWeekReports.forEach(report => {
+  liveReports.forEach(report => {
     report.participants.forEach(participant => studentIdentities.add(participant.identity));
   });
   const activeStudents = studentIdentities.size;
 
   const avgAttentionPercent =
-    thisWeekReports.length === 0
+    liveReports.length === 0
       ? 0
-      : Math.round(thisWeekReports.reduce((sum, report) => sum + report.groupAverage, 0) / thisWeekReports.length);
+      : Math.round(liveReports.reduce((sum, report) => sum + report.groupAverage, 0) / liveReports.length);
 
   return { sessionsThisWeek, activeStudents, avgAttentionPercent };
 }

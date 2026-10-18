@@ -3,7 +3,7 @@ import { DashboardData } from './types';
 /**
  * Deterministic mock data for the Teacher Dashboard ("Panel Docente").
  *
- * Rules (same convention as AttentionProvider/mockAttentionData.ts):
+ * Rules (deterministic: no Math.random / Date.now):
  * - NO Math.random(), NO Date.now() — every value is hard-coded so tests are stable.
  * - Replace this module with real /classes, /history and /calendar endpoints when
  *   a backend for the rest of the dashboard exists. "Recursos" is no longer mocked

@@ -350,13 +350,11 @@ export function createWeightedIndex<Signal extends string>(
 
 /**
  * THE weights of the product formula (research doc v0.1): eyes 40 : posture 30 : head 30.
- * This is the one place to change them — see attentionFormula.ts for the open product decision
- * about equal weights.
+ * This is the one place to change them. OPEN PRODUCT DECISION: the team proposed equal weights
+ * (0.33 each) as a counter-proposal (2026-05); the research document v0.1 uses the weights above.
+ * Posture is not measured today, so only the eyes + head subset below is live.
  */
 export const ATTENTION_WEIGHTS = { eyes: 4, posture: 3, head: 3 };
-
-/** The full formula: eyes + posture + head. Used by the mock fallback. */
-export const computeFullAttentionIndex = createWeightedIndex(ATTENTION_WEIGHTS);
 
 /**
  * The same formula over only the signals that are really measured today (eyes and head),

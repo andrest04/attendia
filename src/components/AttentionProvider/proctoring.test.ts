@@ -27,6 +27,10 @@ describe('classifyProctoring', () => {
     expect(classifyProctoring(sample({ faces: 3, index: 0 }))).toBe('multiface');
   });
 
+  it('never flags a student whose analysis has no reading yet (not an absence)', () => {
+    expect(classifyProctoring({ cameraOff: false, faces: 0, index: 0, pending: true })).toBeNull();
+  });
+
   it('never flags a device that cannot measure (mobile)', () => {
     expect(classifyProctoring(sample({ unsupported: true, cameraOff: true, faces: 0 }))).toBeNull();
   });

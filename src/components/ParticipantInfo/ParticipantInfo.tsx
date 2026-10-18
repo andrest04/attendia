@@ -25,8 +25,11 @@ const borderWidth = 2;
 export interface ParticipantTileAttention {
   level: AttentionLevel;
   multiface: boolean;
-  /** When true, the camera is off and the level is stale → suppress the badge. */
-  cameraOff?: boolean;
+  /**
+   * True only when the student has a real reading (classifyAttention === 'measured'). Otherwise
+   * (camera off, phone, no face, no reading yet) the level is a placeholder → suppress the badge.
+   */
+  measured: boolean;
 }
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -257,9 +260,9 @@ export default function ParticipantInfo({
                 Multi-rostro
               </span>
             )}
-            {/* Suppress the (stale) attention level badge while the camera is off.
-                The tile already shows the avatar placeholder natively. */}
-            {!attention.cameraOff && (
+            {/* Level badge only for a real reading: camera off, phone, no face or no reading
+                yet would otherwise show a placeholder level (e.g. "Bajo"). */}
+            {attention.measured && (
               <span
                 className={classes.attentionLevelBadge}
                 data-testid="participant-attention-overlay"

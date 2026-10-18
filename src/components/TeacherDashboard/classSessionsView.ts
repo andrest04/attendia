@@ -117,7 +117,7 @@ export function buildExpiredSessions(classes: ClassRecord[], nowMs: number): Upc
 /**
  * Pure transform from real ClassRecord[] + an injected clock into the
  * UpcomingSession[] shape ClassesTab renders. Never reads Date.now() itself —
- * same discipline as mockAttentionData.ts/attentionHeuristics.ts elsewhere in
+ * same discipline as attentionHeuristics.ts elsewhere in
  * this repo: callers inject "now" so the transform stays deterministic and
  * unit-testable.
  */

@@ -4,7 +4,10 @@ import useAttentionReportSaver from './useAttentionReportSaver';
 import { AttentionContext } from '../../components/AttentionProvider';
 import { useAppState } from '../../state';
 import useVideoContext from '../useVideoContext/useVideoContext';
-import { getPendingAttentionReports } from '../../components/AttentionReport/pendingAttentionReports';
+import {
+  getPendingAttentionReports,
+  savePendingAttentionReport,
+} from '../../components/AttentionReport/pendingAttentionReports';
 import { saveScheduledClassSession } from '../../classSession/classSessionContext';
 import { MAX_REPORT_TIMELINE_POINTS } from '../../components/AttentionReport/reportMath';
 
@@ -149,7 +152,13 @@ describe('useAttentionReportSaver', () => {
   });
 
   it('falls back to the live group snapshot when the timeline is empty but data is available', async () => {
-    const attention = { ...baseAttention, timeline: [], fullTimeline: [], groupAttention: 62, groupDataAvailable: true };
+    const attention = {
+      ...baseAttention,
+      timeline: [],
+      fullTimeline: [],
+      groupAttention: 62,
+      groupDataAvailable: true,
+    };
     const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(attention) });
 
     await act(async () => {
@@ -220,6 +229,24 @@ describe('useAttentionReportSaver', () => {
       expect.objectContaining({ roomSid: 'RM00000000000000000000000000000abc' }),
     ]);
     consoleError.mockRestore();
+  });
+
+  it('removes a previously queued entry for the room after a successful save, leaving other rooms queued', async () => {
+    window.localStorage.clear();
+    mockUseAppState.mockImplementation(() => ({ saveAttentionReport: mockSave, user: { uid: 'teacher-1' } }));
+    savePendingAttentionReport('teacher-1', { roomSid: 'RM00000000000000000000000000000abc' } as any);
+    savePendingAttentionReport('teacher-1', { roomSid: 'RM00000000000000000000000000000def' } as any);
+    const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(baseAttention) });
+
+    await act(async () => {
+      await result.current.saveReport('ended-for-all');
+    });
+
+    expect(mockSave).toHaveBeenCalledTimes(1);
+    expect(getPendingAttentionReports('teacher-1')).toEqual([
+      expect.objectContaining({ roomSid: 'RM00000000000000000000000000000def' }),
+    ]);
+    window.localStorage.clear();
   });
 
   it('is a no-op when no AttentionProvider is mounted', async () => {

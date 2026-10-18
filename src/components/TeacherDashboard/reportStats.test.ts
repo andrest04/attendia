@@ -99,6 +99,36 @@ describe('buildReportStats', () => {
     expect(result.activeStudents).toBe(3);
   });
 
+  it('counts mock-sourced reports as sessions but keeps them out of the attention stats', () => {
+    const live = makeReport({
+      roomSid: 'RM-live',
+      groupAverage: 80,
+      participants: [{ identity: 'real-student' } as any],
+    });
+    const mock = makeReport({
+      roomSid: 'RM-mock',
+      source: 'mock',
+      groupAverage: 20,
+      participants: [{ identity: 'student-alice' } as any, { identity: 'student-bob' } as any],
+    });
+
+    expect(buildReportStats([live, mock], NOW_MS)).toEqual({
+      sessionsThisWeek: 2,
+      activeStudents: 1,
+      avgAttentionPercent: 80,
+    });
+  });
+
+  it('reports zero attention stats when every report this week is mock-sourced', () => {
+    const mock = makeReport({ source: 'mock', participants: [{ identity: 'student-alice' } as any] });
+
+    expect(buildReportStats([mock], NOW_MS)).toEqual({
+      sessionsThisWeek: 1,
+      activeStudents: 0,
+      avgAttentionPercent: 0,
+    });
+  });
+
   it('computes avgAttentionPercent correctly, including rounding', () => {
     const reportA = makeReport({ groupAverage: 70 });
     const reportB = makeReport({ groupAverage: 71 });

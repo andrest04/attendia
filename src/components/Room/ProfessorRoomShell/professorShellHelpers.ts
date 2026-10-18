@@ -4,6 +4,7 @@ import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import SmartphoneIcon from '@material-ui/icons/Smartphone';
 import PersonOutlineIcon from '@material-ui/icons/PersonOutline';
+import HourglassEmptyIcon from '@material-ui/icons/HourglassEmpty';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { AttentionPresence } from '../../AttentionProvider/presence';
 
@@ -50,6 +51,15 @@ export const presenceView: Record<
     label: 'Cámara apagada',
     rosterTestId: 'professor-room-shell-cameraoff-flag',
     individualTestId: 'professor-room-shell-individual-cameraoff',
+  },
+  // Camera on, but the student's analysis has no reading yet (still loading, or it failed on
+  // their device), or nothing has arrived from them at all. Never "Cámara apagada": that is only
+  // shown when the student's device explicitly reports the camera off.
+  pending: {
+    Icon: HourglassEmptyIcon,
+    label: 'Analizando… (sin lectura aún)',
+    rosterTestId: 'professor-room-shell-pending-flag',
+    individualTestId: 'professor-room-shell-individual-pending',
   },
   // Face not detected (turned away / lighting / angle) → the index has decayed to a placeholder
   // 0. Show "sin medición", NOT "0% attention": we cannot claim someone is distracted if we

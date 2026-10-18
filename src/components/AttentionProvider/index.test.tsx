@@ -2,10 +2,17 @@ import React from 'react';
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useMediaQuery } from '@material-ui/core';
 import { AttentionProvider, useAttention } from './index';
-import { mockAttentionData } from './mockAttentionData';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import * as utils from '../../utils';
+
+// The device kind comes from the UA-based utils.isMobile (a module-level constant), which the
+// tests overwrite the same way the rest of the suite does (MenuBar, ChatInput, useRoom).
+function setMobileDevice(value: boolean) {
+  //@ts-ignore
+  utils.isMobile = value;
+}
 
 // ─── Mock the two CV pipeline hooks ──────────────────────────────────────────
 // These are mocked at the top level so tests control exactly when the provider
@@ -35,8 +42,8 @@ jest.mock('../../hooks/useVideoContext/useVideoContext', () =>
   }))
 );
 
-// useMediaQuery is called to detect desktop — default to desktop (false = not mobile)
-// so the desktop code-path is exercised.
+// The provider must NOT depend on the viewport width. useMediaQuery stays mocked so tests can
+// prove that a narrow window (true) on a desktop device does not change the mode.
 jest.mock('@material-ui/core', () => {
   const actual = jest.requireActual('@material-ui/core');
   return {
@@ -62,10 +69,10 @@ describe('useAttention outside a provider', () => {
   });
 });
 
-// ─── FALLBACK: no room → mock data ────────────────────────────────────────────
-describe('useAttention inside AttentionProvider — mock fallback (no room)', () => {
+// ─── OFF: no room → empty, honest value ──────────────────────────────────────
+describe('useAttention inside AttentionProvider — pipeline off (no room)', () => {
   beforeEach(() => {
-    // Default: no room, no capture, no remotes → must fall back to mockAttentionData
+    // Default: no room, no capture, no remotes → must hand out the empty value, never fake data
     mockUseVideoContext.mockReturnValue({ room: null, localTracks: [] });
     mockUseAttentionCapture.mockReturnValue({
       capture: 'inactive',
@@ -77,36 +84,34 @@ describe('useAttention inside AttentionProvider — mock fallback (no room)', ()
     mockUseAttentionTelemetry.mockReturnValue([]);
   });
 
-  it('exposes source "mock" when there is no room', () => {
+  it('hands out an empty value with no simulated data', () => {
     const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.source).toBe('mock');
+    const { attentionLevel, ...data } = result.current;
+    expect(data).toEqual({
+      source: 'live',
+      ranges: { lowMax: 40, mediumMax: 70 },
+      groupAttention: 0,
+      groupDataAvailable: false,
+      attentionThreshold: 60,
+      timeline: [],
+      fullTimeline: [],
+      self: {
+        index: 0,
+        components: { eyes: 0, head: 0, posture: -1 },
+        capture: 'inactive',
+        lighting: 'ok',
+      },
+      participants: [],
+      proctoringAlerts: [],
+    });
+    expect(typeof attentionLevel).toBe('function');
   });
 
-  it('exposes the correct groupAttention value from mock data', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.groupAttention).toBe(mockAttentionData.groupAttention);
-  });
-
-  it('exposes timeline with the expected length', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.timeline.length).toBe(mockAttentionData.timeline.length);
-    expect(result.current.timeline.length).toBeGreaterThanOrEqual(8);
-  });
-
-  it('exposes fullTimeline mirroring the mock timeline (no live/full distinction in mock mode)', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.fullTimeline).toEqual(mockAttentionData.timeline);
-  });
-
-  it('exposes participants array with the expected length', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.participants.length).toBe(mockAttentionData.participants.length);
-    expect(result.current.participants.length).toBeGreaterThanOrEqual(4);
-  });
-
-  it('has at least one proctoring alert', () => {
-    const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.proctoringAlerts.length).toBeGreaterThanOrEqual(1);
+  it('keeps the same value identity across re-renders', () => {
+    const { result, rerender } = renderHook(useAttention, { wrapper });
+    const first = result.current;
+    rerender();
+    expect(result.current).toBe(first);
   });
 
   it('does not expose any analysis on/off control (no enabled/setEnabled)', () => {
@@ -145,8 +150,9 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
   beforeEach(() => {
     // Live pipeline requires the production kill-switch flag to be ON.
     process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
-    // Simulate: we are on desktop (not mobile), room is present, capture is active.
-    mockUseMediaQuery.mockReturnValue(false); // false = not mobile = desktop
+    // Simulate: we are on a desktop device with a wide window, room is present, capture is active.
+    setMobileDevice(false);
+    mockUseMediaQuery.mockReturnValue(false);
     mockUseVideoContext.mockReturnValue({ room: fakeRoom, localTracks: [] });
     mockUseAttentionCapture.mockReturnValue({
       capture: 'active',
@@ -166,6 +172,14 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
   });
 
   it('exposes source "live" when room is present and capture is active', () => {
+    const { result } = renderHook(useAttention, { wrapper });
+    expect(result.current.source).toBe('live');
+  });
+
+  it('stays live on a desktop device whose window is narrower than the md breakpoint', () => {
+    // A teacher who narrows the laptop window is still on a laptop: the mode must not flip to
+    // mobile-beacon (which would wipe the timeline/proctoring history).
+    mockUseMediaQuery.mockReturnValue(true);
     const { result } = renderHook(useAttention, { wrapper });
     expect(result.current.source).toBe('live');
   });
@@ -611,6 +625,19 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     expect(result.current.participants.some(p => p.identity === 'student-already-there')).toBe(true);
   });
 
+  it('shows a connected student who has sent no telemetry yet as pending, not camera off', () => {
+    const room = createFakeRoom();
+    room.participants.set('SID456', { identity: 'student-loading' });
+    mockUseVideoContext.mockReturnValue({ room, localTracks: [] });
+    mockUseAttentionTelemetry.mockReturnValue([]);
+
+    const { result } = renderHook(useAttention, { wrapper });
+
+    const row = result.current.participants.find(p => p.identity === 'student-loading')!;
+    expect(row).toMatchObject({ pending: true, cameraOff: false });
+    expect(result.current.groupDataAvailable).toBe(false);
+  });
+
   it('labels live timeline points with second-level resolution (HH:MM:SS)', () => {
     // Fluidity #3: HH:MM labels collapse all points of the same minute onto one
     // tick, which reads as a flat step. Second-level labels let the axis advance.
@@ -741,12 +768,14 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
     }
   });
 
-  it('KILL-SWITCH: falls back to mock when REACT_APP_ENABLE_ATTENTION_CV is off, even on desktop with a room', () => {
+  it('KILL-SWITCH: hands out the empty value when REACT_APP_ENABLE_ATTENTION_CV is off, even on desktop with a room', () => {
     // The legal gate: without the flag, real biometric analysis must NOT run,
     // regardless of desktop + room + active capture.
     delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
     const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.source).toBe('mock');
+    expect(result.current.participants).toEqual([]);
+    expect(result.current.groupDataAvailable).toBe(false);
+    expect(result.current.self.capture).toBe('inactive');
   });
 
   it('KILL-SWITCH: keeps the telemetry transport OFF too — nothing is published or received while the pipeline is off', () => {
@@ -760,11 +789,12 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
   });
 });
 
-// ─── MOBILE: room present but mobile → falls back to mock ────────────────────
+// ─── MOBILE: room present but mobile ──────────────────────────────────────────
 describe('useAttention inside AttentionProvider — mobile (room present, isMobile)', () => {
   beforeEach(() => {
-    // Mobile = useMediaQuery returns true
-    mockUseMediaQuery.mockReturnValue(true);
+    // Mobile = the device is a phone (UA), regardless of the window width.
+    setMobileDevice(true);
+    mockUseMediaQuery.mockReturnValue(false);
     mockUseVideoContext.mockReturnValue({
       room: createFakeRoom(),
       localTracks: [],
@@ -779,9 +809,64 @@ describe('useAttention inside AttentionProvider — mobile (room present, isMobi
     mockUseAttentionTelemetry.mockReturnValue([]);
   });
 
-  it('exposes source "mock" on mobile even when a room is present', () => {
+  afterEach(() => {
+    setMobileDevice(false);
+  });
+
+  it('hands out the empty value on mobile when the CV pipeline flag is off', () => {
     const { result } = renderHook(useAttention, { wrapper });
-    expect(result.current.source).toBe('mock');
+    expect(result.current.participants).toEqual([]);
+    expect(result.current.groupDataAvailable).toBe(false);
+  });
+
+  it('hands out the live aggregate from remote telemetry when the pipeline is enabled (not the empty value)', () => {
+    process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
+      { identity: 'student-c', index: 30, multiface: false, faces: 1, cameraOff: false },
+    ]);
+    mockUseAttentionTelemetry.mockClear();
+    try {
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      unmount(); // stop the 1 Hz sampling; the asserted value is the initial render's
+      expect(result.current.source).toBe('live');
+      expect(result.current.participants.map(p => p.identity).sort()).toEqual(['student-b', 'student-c']);
+      expect(result.current.groupAttention).toBe(55);
+      // The phone itself is not measured: capture inactive, same shape as live, posture sentinel.
+      expect(result.current.self.capture).toBe('inactive');
+      expect(result.current.self.components.posture).toBe(-1);
+      // Local capture never receives a track on a phone (no MediaPipe load).
+      mockUseAttentionCapture.mock.calls.forEach(call => expect(call[0]).toBeUndefined());
+      // Broadcasts "unsupported", never "camera-off".
+      mockUseAttentionTelemetry.mock.calls.forEach(call => {
+        expect(call[1]).toBe(false);
+        expect(call[2]).toBe(true);
+        expect(call[3]).toBe(true);
+      });
+    } finally {
+      delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    }
+  });
+
+  it('accumulates the group timeline from remote telemetry on a phone', () => {
+    process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
+    mockUseAttentionTelemetry.mockReturnValue([
+      { identity: 'student-b', index: 90, multiface: false, faces: 1, cameraOff: false },
+    ]);
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:00:00Z'));
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(result.current.timeline.length).toBeGreaterThanOrEqual(2);
+      expect(result.current.timeline[result.current.timeline.length - 1].value).toBe(90);
+      unmount();
+    } finally {
+      jest.useRealTimers();
+      delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    }
   });
 
   it('keeps the transport ON on mobile when the pipeline is enabled, to announce the device as unsupported', () => {

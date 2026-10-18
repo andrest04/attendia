@@ -15,7 +15,12 @@ import { RemoteAttention } from '../../hooks/useAttentionTelemetry/useAttentionT
  * face was actually detected (faces 0 is a decayed placeholder, not a real reading). Anything
  * else must never drag the group number down.
  */
-export function isMeasured(sample: { cameraOff: boolean; unsupported?: boolean; faces?: number }): boolean {
+export function isMeasured(sample: {
+  cameraOff: boolean;
+  unsupported?: boolean;
+  pending?: boolean;
+  faces?: number;
+}): boolean {
   return classifyAttention(sample) === 'measured';
 }
 
@@ -82,17 +87,20 @@ export function recordHistory(history: ParticipantHistory, measured: RemoteAtten
 /**
  * The participant list: the union of every identity ever attended (roster), ever measured
  * (history) and currently live — so a student who already left still has a row, decorated with
- * whatever data survives them. Still-connected students keep their live values; departed
- * students fall back to their accumulated history (or, if never measured at all, an honest
- * "sin medición" row via faces: 0).
+ * whatever data survives them. Students with live telemetry keep their live values. A student
+ * still connected (`connected`) but with no telemetry at all is `pending` — camera on as far as
+ * we know, no reading yet — never "camera off". Departed students fall back to their accumulated
+ * history (or, if never measured at all, an honest "sin medición" row via faces: 0).
  */
 export function buildParticipants(input: {
   attended: ReadonlySet<string>;
+  /** Identities currently in the room; omitted → every non-live row is treated as departed. */
+  connected?: ReadonlySet<string>;
   history: ParticipantHistory;
   live: RemoteAttention[];
   attentionLevel: (score: number) => AttentionLevel;
 }): ParticipantAttention[] {
-  const { attended, history, live, attentionLevel } = input;
+  const { attended, connected, history, live, attentionLevel } = input;
   const liveByIdentity = new Map(live.map(sample => [sample.identity, sample]));
   const identities = new Set<string>([
     ...Array.from(attended),
@@ -112,13 +120,33 @@ export function buildParticipants(input: {
         cameraOff: sample.cameraOff,
         faces: sample.faces,
         unsupported: sample.unsupported,
+        pending: sample.pending === true,
         indexMin: entry ? entry.min : sample.index,
         indexMax: entry ? entry.max : sample.index,
         indexAvg: entry ? Math.round(entry.sum / entry.count) : sample.index,
       };
     }
-    // Disconnected before this snapshot was built: historical-only row.
     const average = entry ? Math.round(entry.sum / entry.count) : 0;
+    const accumulated = {
+      indexMin: entry ? entry.min : undefined,
+      indexMax: entry ? entry.max : undefined,
+      indexAvg: entry ? average : undefined,
+    };
+    if (connected && connected.has(identity)) {
+      // In the room but silent (analysis loading/failed, or an older client): no reading yet.
+      return {
+        identity,
+        index: average,
+        multiface: false,
+        level: attentionLevel(average),
+        cameraOff: false,
+        faces: 0,
+        unsupported: false,
+        pending: true,
+        ...accumulated,
+      };
+    }
+    // Disconnected before this snapshot was built: historical-only row.
     return {
       identity,
       index: average,
@@ -127,9 +155,8 @@ export function buildParticipants(input: {
       cameraOff: true, // honestly excluded from the live group gauge
       faces: entry ? 1 : 0, // 0 = never measured at all → UI renders "sin medición"
       unsupported: false,
-      indexMin: entry ? entry.min : undefined,
-      indexMax: entry ? entry.max : undefined,
-      indexAvg: entry ? average : undefined,
+      pending: false,
+      ...accumulated,
     };
   });
 }

@@ -15,7 +15,7 @@ export interface AttentionComponents {
 
 /** Attention data for the local user (self). */
 export interface SelfAttention {
-  /** Aggregate 0-100 index, computed via computeAttentionIndex(components). */
+  /** Aggregate 0-100 index over the measured signals (computeLabAttentionIndex: eyes + head). */
   index: number;
   components: AttentionComponents;
   /** Whether local camera analysis is currently running. */
@@ -50,8 +50,14 @@ export interface ParticipantAttention {
    */
   unsupported?: boolean;
   /**
+   * True when the camera is on but there is no reading yet: the student's analysis is still
+   * loading or failed (explicit heartbeat), or a connected student has sent no telemetry at all.
+   * UI shows "Analizando…", never "Cámara apagada". Optional: absent in ad-hoc fixtures.
+   */
+  pending?: boolean;
+  /**
    * Session history of the index, accumulated at the sampling cadence while the
-   * camera is on. Optional: present on live data and the mock; absent in ad-hoc
+   * camera is on. Optional: present on live data; absent in ad-hoc
    * fixtures, where consumers fall back to `index`.
    */
   indexMin?: number;
@@ -78,7 +84,9 @@ export interface ProctoringAlert {
 
 /** Full attention snapshot for the session. */
 export interface AttentionData {
-  /** 'mock' until the CV pipeline (EP04/05/06) is wired; 'live' thereafter. */
+  /**
+   * Always 'live' in the provider. 'mock' is kept only because legacy persisted reports carry it.
+   */
   source: 'mock' | 'live';
   ranges: AttentionRanges;
   /** Session-wide aggregate attention index 0-100. */
@@ -88,7 +96,7 @@ export interface AttentionData {
    * participants right now — i.e. `groupAttention` is a placeholder, not a real
    * reading (low connection, everyone camera-off, no students). Consumers must
    * render "sin datos" instead of "0" and must NOT raise the below-threshold
-   * alarm. Always true for the mock.
+   * alarm. False when the pipeline is off.
    */
   groupDataAvailable: boolean;
   /** Scores below this are flagged as "group below threshold". */

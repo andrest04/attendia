@@ -1,19 +1,24 @@
 /**
- * AttentionProvider — real CV pipeline with mock fallback
- * ────────────────────────────────────────────────────────
+ * AttentionProvider — real CV pipeline, empty when off
+ * ─────────────────────────────────────────────────────
  * Layer 4a of the CV pipeline graduation.  The provider is the architectural
  * boundary between the UI and the computer-vision pipeline.
  *
- * ACTIVE (live) when:
- *   - A Twilio Room is connected, AND
- *   - The device is desktop (CV is desktop-only by product decision; MediaPipe
- *     is too heavy to run alongside a video call on mobile).
+ * REAL data (source 'live') when REACT_APP_ENABLE_ATTENTION_CV is on AND a Twilio Room is
+ * connected, in two flavours:
+ *   - `live`: the device is a desktop — local camera analysis + telemetry + real aggregates.
+ *   - `mobile-beacon`: the device is a phone (CV is desktop-only by product decision; MediaPipe
+ *     is too heavy to run alongside a video call on mobile). Local capture stays off and the
+ *     device broadcasts an "unsupported" beat, but the aggregates from remote telemetry are
+ *     still real — a teacher on a phone never sees mock data.
+ *   "Desktop"/"phone" is the device as told by the user agent (utils.isMobile), NOT the window
+ *   width: a narrowed laptop window is still a laptop.
  *
- * INACTIVE → falls back to mockAttentionData (deterministic, stable) when:
- *   - No room (e.g. prejoin, tests, Storybook), OR
- *   - isMobile is true.
+ * EMPTY value (`off` mode) when the flag is off or there is no room (e.g. prejoin, tests,
+ * Storybook): no participants, no timeline, no alerts, `groupDataAvailable: false`. There is no
+ * simulated data anywhere — the professor never sees numbers that were not measured.
  *
- * Which of the two (plus the mobile "beacon" case) applies is decided by the pure
+ * Which mode applies is decided by the pure
  * resolveAttentionMode (attentionMode.ts). The provider stays ONE component for every mode on
  * purpose: swapping the wrapper component per mode would remount the whole app tree below it
  * the moment a room connects. The rules behind the live data — who is measured, the group
@@ -31,15 +36,12 @@
  * Formula:
  *   The live index comes directly from useAttentionCapture which calls
  *   computeLabAttentionIndex(eyes, head) — eyes+head only.
- *   computeAttentionIndex (the old formula with posture) is preserved in
- *   attentionFormula.ts for the mock fallback and remains unchanged.
  *   When posture becomes a measured signal, Layer 4b can replace -1 with the
- *   real value and computeLabAttentionIndex will incorporate it.
+ *   real value and the weighted index in attentionHeuristics.ts will incorporate it.
  *
  * Consumers (ProfessorRoomShell, GalleryView):
  *   All read exclusively through useAttention() and the AttentionContextValue
- *   shape.  The source === 'mock' "Datos simulados" disclosure tag disappears
- *   automatically when the pipeline is live.
+ *   shape. `source` is always 'live'; 'mock' survives only in legacy stored reports.
  *
  * Students:
  *   Students have NO attention UI and NO control over the analysis
@@ -52,22 +54,22 @@
  */
 
 import React, { createContext, useMemo } from 'react';
-import { useMediaQuery, useTheme } from '@material-ui/core';
 import { AttentionContextValue, AttentionLevel } from './types';
-import { mockAttentionData } from './mockAttentionData';
 import { ATTENTION_RANGES, ATTENTION_THRESHOLD, attentionLevelFromScore } from './attentionFormula';
-import { resolveAttentionMode } from './attentionMode';
+import { isLiveAttentionMode, resolveAttentionMode } from './attentionMode';
 import { buildParticipants, summarizeGroup } from './liveAttention';
 import useAttendanceRoster from './useAttendanceRoster';
 import useGroupTimeline from './useGroupTimeline';
 import useProctoringFeed from './useProctoringFeed';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import useLatest from '../../hooks/useLatest/useLatest';
 import { featureFlags } from '../../utils/featureFlags';
 import useRequiredContext from '../../hooks/useRequiredContext/useRequiredContext';
 import { selectCameraTrack } from '../../utils/trackSelectors';
+import { isMobile } from '../../utils';
 
 // null! mirrors the pattern used in ChatProvider and ParticipantProvider.
 export const AttentionContext = createContext<AttentionContextValue>(null!);
@@ -75,18 +77,33 @@ export const AttentionContext = createContext<AttentionContextValue>(null!);
 // Fixed ranges: the level of a score never depends on where the data comes from.
 const attentionLevel = (score: number): AttentionLevel => attentionLevelFromScore(score, ATTENTION_RANGES);
 
-// What every consumer sees while the pipeline is off. Built once, so its identity is stable and
-// consumers are not re-rendered by a provider that has nothing new to say.
-const MOCK_VALUE: AttentionContextValue = {
-  ...mockAttentionData,
-  fullTimeline: mockAttentionData.timeline,
+// Posture is NOT measured by the CV pipeline — sentinel -1 keeps the shape valid without
+// misrepresenting the signal as "0% posture". Consumers drive progress bars from the aggregate
+// index (via attentionLevel), never from the raw posture component.
+const POSTURE_NOT_MEASURED = -1;
+
+// What every consumer sees while the pipeline is off: nothing measured, nothing invented. Built
+// once, so its identity is stable and consumers are not re-rendered by a provider that has
+// nothing new to say. Same shape the live path produces with zero participants.
+const EMPTY_VALUE: AttentionContextValue = Object.freeze({
+  source: 'live' as const,
+  ranges: ATTENTION_RANGES,
+  ...summarizeGroup([]),
+  attentionThreshold: ATTENTION_THRESHOLD,
+  timeline: [],
+  fullTimeline: [],
+  self: {
+    index: 0,
+    components: { eyes: 0, head: 0, posture: POSTURE_NOT_MEASURED },
+    capture: 'inactive' as const,
+    lighting: 'ok' as const,
+  },
+  participants: [],
+  proctoringAlerts: [],
   attentionLevel,
-};
+});
 
 export const AttentionProvider: React.FC = ({ children }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
   const { room, localTracks } = useVideoContext();
 
   // Production kill-switch (LEGAL GATE): the live CV pipeline performs real biometric analysis
@@ -96,50 +113,62 @@ export const AttentionProvider: React.FC = ({ children }) => {
   const mode = resolveAttentionMode({
     cvPipelineEnabled: featureFlags.isAttentionCvEnabled(),
     hasRoom: Boolean(room),
+    // The DEVICE (user agent), never the window width: a teacher who narrows the laptop window
+    // is still on a laptop, and flipping mode would wipe the timeline and proctoring history.
     isDesktop: !isMobile,
   });
-  const isActive = mode === 'live';
+  // Real aggregates (telemetry, roster, timeline, proctoring) run in both live modes; only the
+  // local camera analysis is desktop-only.
+  const isLive = isLiveAttentionMode(mode);
+  const capturesLocally = mode === 'live';
 
   // The local camera, extracted the same way VideoProvider does. `undefined` keeps
-  // useAttentionCapture inactive (no MediaPipe load).
-  const videoTrack = isActive ? selectCameraTrack(localTracks) : undefined;
+  // useAttentionCapture inactive (no MediaPipe load) — always the case on a phone.
+  const videoTrack = capturesLocally ? selectCameraTrack(localTracks) : undefined;
 
   // Layer 2: local camera analysis (inactive when videoTrack is undefined).
   const captureResult = useAttentionCapture(videoTrack);
 
-  // Local camera-off: the pipeline is active but there is no local camera video track (the student
-  // toggled their camera off → removeLocalVideoTrack). Broadcast this so the professor sees
-  // "Cámara apagada" instead of a frozen last value.
-  const localCameraOff = isActive && !videoTrack;
+  // Local camera-off: the desktop pipeline is active but there is no local camera video track (the
+  // student toggled their camera off → removeLocalVideoTrack). Broadcast this so the professor sees
+  // "Cámara apagada" instead of a frozen last value. Never on a phone: that one says "unsupported".
+  const localCameraOff = capturesLocally && !videoTrack;
 
   // Unsupported device: the pipeline is enabled and a room is connected, but this is mobile (CV is
-  // desktop-only). Capture/telemetry never run here, so we broadcast an explicit "unsupported"
-  // beat — otherwise a mobile student is just silently absent from the professor's view
+  // desktop-only). Capture never runs here, so we broadcast an explicit "unsupported" beat —
+  // otherwise a mobile student is just silently absent from the professor's view
   // (indistinguishable from "not joined").
   const isMobileUnsupported = mode === 'mobile-beacon';
 
   // Layer 3: DataTrack transport — broadcast local + aggregate remotes. The hook is always
-  // called (React rules), but it is inert in `mock` mode: with the pipeline off nobody
+  // called (React rules), but it is inert in `off` mode: with the pipeline off nobody
   // publishes a telemetry track, receives it or runs its sweep.
-  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, mode !== 'mock');
+  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, isLive);
 
-  // Latest-value ref: the sampling intervals are created once (per isActive) and would otherwise
-  // close over the telemetry from the render where isActive flipped true — empty at that instant.
+  // Latest-value ref: the sampling intervals are created once (per isLive) and would otherwise
+  // close over the telemetry from the render where isLive flipped true — empty at that instant.
   const remoteAttentionRef = useLatest(remoteAttention);
 
   const attended = useAttendanceRoster(room);
-  const { timeline, fullTimeline, history } = useGroupTimeline(remoteAttentionRef, isActive);
-  const proctoringAlerts = useProctoringFeed(remoteAttentionRef, isActive);
+  // Who is in the room right now: a connected student with no telemetry is "no reading yet",
+  // not "camera off" (that is only ever the student's own explicit report).
+  const remoteParticipants = useParticipants();
+  const connected = useMemo<ReadonlySet<string>>(() => new Set(remoteParticipants.map(p => p.identity)), [
+    remoteParticipants,
+  ]);
+  const { timeline, fullTimeline, history } = useGroupTimeline(remoteAttentionRef, isLive);
+  const proctoringAlerts = useProctoringFeed(remoteAttentionRef, isLive);
 
   return (
     <AttentionContext.Provider
       value={useMemo<AttentionContextValue>(() => {
-        // Fallback: mock data (tests, mobile, no room, pipeline off).
-        if (!isActive) return MOCK_VALUE;
+        // Pipeline off or no room: the empty value, never simulated data.
+        if (!isLive) return EMPTY_VALUE;
 
-        // Live path — pipeline is active.
+        // Live path — real aggregates from telemetry (desktop or phone).
         const participants = buildParticipants({
           attended,
+          connected,
           history: history.current,
           live: remoteAttention,
           attentionLevel,
@@ -147,15 +176,12 @@ export const AttentionProvider: React.FC = ({ children }) => {
         const { groupAttention, groupDataAvailable } = summarizeGroup(participants);
 
         // Self: index is already computeLabAttentionIndex(eyes, head) from the capture hook.
-        // Posture is NOT measured — sentinel -1 keeps the shape valid without misrepresenting the
-        // signal as "0% posture". Consumers drive progress bars from the aggregate index (via
-        // attentionLevel), never from the raw posture component.
         const self = {
           index: captureResult.index,
           components: {
             eyes: captureResult.components.eyes,
             head: captureResult.components.head,
-            posture: -1 as number, // NOT MEASURED — sentinel; replace when posture is a real signal
+            posture: POSTURE_NOT_MEASURED, // replace when posture is a real signal
           },
           capture: captureResult.capture,
           lighting: 'ok' as const, // lighting is a separate signal, out of scope for Layer 4a
@@ -177,7 +203,17 @@ export const AttentionProvider: React.FC = ({ children }) => {
         };
         // `history` is a ref mutated in step with `timeline`/`fullTimeline`, which are therefore
         // the dependencies that carry its changes.
-      }, [isActive, attended, history, remoteAttention, captureResult, timeline, fullTimeline, proctoringAlerts])}
+      }, [
+        isLive,
+        attended,
+        connected,
+        history,
+        remoteAttention,
+        captureResult,
+        timeline,
+        fullTimeline,
+        proctoringAlerts,
+      ])}
     >
       {children}
     </AttentionContext.Provider>

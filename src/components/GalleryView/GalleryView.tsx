@@ -7,6 +7,7 @@ import { IconButton, makeStyles, createStyles, Theme } from '@material-ui/core';
 import { Pagination } from '@material-ui/lab';
 import Participant from '../Participant/Participant';
 import { ParticipantTileAttention } from '../ParticipantInfo/ParticipantInfo';
+import { toTileAttention } from './tileAttention';
 import useGalleryViewLayout from '../../hooks/useGalleryViewLayout/useGalleryViewLayout';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useParticipantsContext from '../../hooks/useParticipantsContext/useParticipantsContext';
@@ -127,9 +128,7 @@ export function GalleryView() {
   const attentionByIdentity = useMemo(() => {
     const byIdentity = new Map<string, ParticipantTileAttention>();
     if (isTeacher && attention) {
-      attention.participants.forEach(p =>
-        byIdentity.set(p.identity, { level: p.level, multiface: p.multiface, cameraOff: p.cameraOff })
-      );
+      attention.participants.forEach(p => byIdentity.set(p.identity, toTileAttention(p)));
     }
     return byIdentity;
   }, [isTeacher, attention]);

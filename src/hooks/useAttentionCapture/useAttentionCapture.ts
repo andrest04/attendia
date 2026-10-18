@@ -63,6 +63,8 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const landmarkerRef = useRef<any>(null);
   const analysisRef = useRef<AnalysisState>(freshAnalysisState());
+  // Whether the MediaPipe load-failure warning was already logged (once per hook instance).
+  const loadFailureWarnedRef = useRef(false);
 
   useEffect(() => {
     if (!videoTrack) {
@@ -167,8 +169,14 @@ export default function useAttentionCapture(videoTrack?: LocalVideoTrack): Atten
             multiface: frame.faces > 1,
           });
         }, SAMPLE_INTERVAL_MS);
-      } catch (_) {
-        // Model load failed — stay inactive. A retry mechanism is a future concern.
+      } catch (error) {
+        // Model load failed — stay inactive. A retry mechanism is a future concern. The student's
+        // telemetry then beats "no reading yet" (useAttentionTelemetry), and this warning, logged
+        // once per hook instance, makes the cause diagnosable from the student's console.
+        if (!loadFailureWarnedRef.current) {
+          loadFailureWarnedRef.current = true;
+          console.warn('[attention] MediaPipe FaceLandmarker failed to load; attention analysis is off.', error);
+        }
         if (!disposed) {
           setResult(INACTIVE_RESULT);
         }

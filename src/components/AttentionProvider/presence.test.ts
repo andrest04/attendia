@@ -23,6 +23,15 @@ describe('classifyAttention', () => {
     expect(classifyAttention({ cameraOff: false, unsupported: true })).toBe('unsupported');
   });
 
+  it('flags a camera that is on but has no reading yet (analysis loading or failed)', () => {
+    expect(classifyAttention({ cameraOff: false, pending: true, faces: 0 })).toBe('pending');
+  });
+
+  it('keeps unsupported and camera-off ahead of pending', () => {
+    expect(classifyAttention({ cameraOff: false, unsupported: true, pending: true })).toBe('unsupported');
+    expect(classifyAttention({ cameraOff: true, pending: true })).toBe('cameraOff');
+  });
+
   it('does not treat unsupported=false as unsupported', () => {
     expect(classifyAttention({ cameraOff: false, unsupported: false, faces: 1 })).toBe('measured');
   });

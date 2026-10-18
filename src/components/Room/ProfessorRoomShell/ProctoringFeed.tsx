@@ -45,19 +45,16 @@ const useStyles = makeStyles(() => ({
     color: '#64748b',
     fontFamily: 'Inter, sans-serif',
   },
-  mockTag: {
-    fontSize: 9,
-    color: '#94a3b8',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
 }));
 
 interface ProctoringFeedProps {
   /** Alerts not yet resolved by the professor (parent filters out dismissed ones). */
   visibleAlerts: ProctoringAlert[];
-  /** Attention data source — drives the "datos simulados" tag. */
-  source: 'mock' | 'live';
+  /**
+   * Unused: the in-room feed never shows simulated data any more. Kept only until the
+   * left rail stops passing it.
+   */
+  source?: 'mock' | 'live';
   /** Open the proctoring detail modal for the clicked alert. */
   onAlertClick: (alert: ProctoringAlert) => void;
 }
@@ -66,7 +63,7 @@ interface ProctoringFeedProps {
  * The left-rail proctoring alerts feed. The container renders it only when
  * proctoring is enabled; each card opens the detail modal via onAlertClick.
  */
-export default function ProctoringFeed({ visibleAlerts, source, onAlertClick }: ProctoringFeedProps) {
+export default function ProctoringFeed({ visibleAlerts, onAlertClick }: ProctoringFeedProps) {
   const classes = useStyles();
 
   return (
@@ -93,7 +90,6 @@ export default function ProctoringFeed({ visibleAlerts, source, onAlertClick }: 
           </div>
         );
       })}
-      {source === 'mock' && <span className={classes.mockTag}>Datos simulados — pipeline CV pendiente</span>}
     </div>
   );
 }

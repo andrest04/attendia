@@ -28,6 +28,7 @@ describe('isMeasured', () => {
     expect(isMeasured(sample('a', { cameraOff: true }))).toBe(false);
     expect(isMeasured(sample('a', { unsupported: true }))).toBe(false);
     expect(isMeasured(sample('a', { faces: 0 }))).toBe(false);
+    expect(isMeasured(sample('a', { faces: 0, pending: true }))).toBe(false);
   });
 
   it('treats a row without a face count as measured (ad-hoc fixtures)', () => {
@@ -72,6 +73,7 @@ describe('buildParticipants', () => {
         cameraOff: false,
         faces: 1,
         unsupported: false,
+        pending: false,
         indexMin: 40,
         indexMax: 95,
         indexAvg: 68,
@@ -110,6 +112,42 @@ describe('buildParticipants', () => {
     expect(rows[0].indexAvg).toBeUndefined();
   });
 
+  it('carries a live "no reading yet" heartbeat as pending, not camera-off', () => {
+    const rows = buildParticipants({
+      attended: new Set(['a']),
+      history: new Map(),
+      live: [sample('a', { index: 0, faces: 0, pending: true }) as any],
+      attentionLevel: level,
+    });
+
+    expect(rows[0]).toMatchObject({ identity: 'a', pending: true, cameraOff: false });
+  });
+
+  it('shows a connected student with no telemetry at all as pending, never camera-off', () => {
+    const rows = buildParticipants({
+      attended: new Set(['quiet']),
+      connected: new Set(['quiet']),
+      history: new Map(),
+      live: [],
+      attentionLevel: level,
+    });
+
+    expect(rows[0]).toMatchObject({ identity: 'quiet', pending: true, cameraOff: false, faces: 0 });
+    expect(isMeasured(rows[0])).toBe(false);
+  });
+
+  it('keeps the accumulated history of a connected student whose reading is pending', () => {
+    const rows = buildParticipants({
+      attended: new Set(['a']),
+      connected: new Set(['a']),
+      history: new Map([['a', { min: 60, max: 80, sum: 140, count: 2 }]]),
+      live: [],
+      attentionLevel: level,
+    });
+
+    expect(rows[0]).toMatchObject({ pending: true, cameraOff: false, indexMin: 60, indexAvg: 70 });
+  });
+
   it('unions attendees, history and live identities without duplicates', () => {
     const rows = buildParticipants({
       attended: new Set(['a', 'b']),
@@ -130,6 +168,7 @@ describe('summarizeGroup', () => {
       sample('c', { index: 5, cameraOff: true }),
       sample('d', { index: 5, faces: 0 }),
       sample('e', { index: 5, unsupported: true }),
+      sample('f', { index: 5, faces: 0, pending: true }),
     ] as any;
 
     expect(summarizeGroup(rows)).toEqual({ groupAttention: 70, groupDataAvailable: true });
