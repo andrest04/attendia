@@ -235,7 +235,7 @@ describe('the ParticipantInfo component', () => {
         onClick={() => {}}
         isSelected={false}
         participant={{ identity: 'mockIdentity' } as any}
-        attention={{ level: 'low', multiface: false }}
+        attention={{ level: 'low', multiface: false, measured: true }}
       >
         mock children
       </ParticipantInfo>
@@ -253,7 +253,7 @@ describe('the ParticipantInfo component', () => {
         onClick={() => {}}
         isSelected={false}
         participant={{ identity: 'mockIdentity' } as any}
-        attention={{ level: 'high', multiface: true }}
+        attention={{ level: 'high', multiface: true, measured: true }}
       >
         mock children
       </ParticipantInfo>
@@ -263,19 +263,35 @@ describe('the ParticipantInfo component', () => {
     expect(flag.text()).toContain('Multi-rostro');
   });
 
-  it('should suppress the attention level badge when the camera is off', () => {
+  it('should suppress the attention level badge when the student is not measured', () => {
     mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
     const wrapper = shallow(
       <ParticipantInfo
         onClick={() => {}}
         isSelected={false}
         participant={{ identity: 'mockIdentity' } as any}
-        attention={{ level: 'high', multiface: false, cameraOff: true }}
+        attention={{ level: 'low', multiface: false, measured: false }}
       >
         mock children
       </ParticipantInfo>
     );
-    // The stale level badge must not render while the camera is off.
+    // Camera off, phone, no face or no reading yet: a level badge ("Bajo") would be a lie.
+    expect(wrapper.find('[data-testid="participant-attention-overlay"]').exists()).toBe(false);
+  });
+
+  it('still shows the multiface flag for a student who is not measured', () => {
+    mockUsePublications.mockImplementation(() => [{ trackName: '', kind: 'video' }]);
+    const wrapper = shallow(
+      <ParticipantInfo
+        onClick={() => {}}
+        isSelected={false}
+        participant={{ identity: 'mockIdentity' } as any}
+        attention={{ level: 'low', multiface: true, measured: false }}
+      >
+        mock children
+      </ParticipantInfo>
+    );
+    expect(wrapper.find('[data-testid="participant-multiface-flag"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="participant-attention-overlay"]').exists()).toBe(false);
   });
 
@@ -286,7 +302,7 @@ describe('the ParticipantInfo component', () => {
         onClick={() => {}}
         isSelected={false}
         participant={{ identity: 'mockIdentity' } as any}
-        attention={{ level: 'medium', multiface: false }}
+        attention={{ level: 'medium', multiface: false, measured: true }}
       >
         mock children
       </ParticipantInfo>
