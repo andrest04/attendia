@@ -35,15 +35,20 @@ Fix the server defects confirmed by the 2026-10-18 server audit: cross-teacher a
 - [x] T7 — Client retry queue drops permanently rejected reports. Route: delegated writer.
   - Done in `db50757`. RED observed (8 failing) → GREEN. `isPermanentClientError` (`apiClient.ts`: `ClientApiError` 400/403/404/413). The dashboard replay (`TeacherDashboard/useTeacherReports.ts` — the queue module itself lives in `src/components/AttentionReport/`, not `AttentionProvider/`, and needed no change) drops such entries; the in-room saver no longer queues them and removes a queued copy. Network errors, 5xx and 401 stay queued. Checks: `npm test -- src/hooks/useAttentionReportSaver src/components/TeacherDashboard src/components/AttentionProvider` 26 suites / 374 passed; `npx tsc --noEmit -p .` clean; `npx eslint server src --ext .ts,.tsx` clean.
 - [x] T2c — Bind report SIDs against the owner AT ROOM CREATION, not the current owner (verifier MEDIUM, data loss): with T7 dropping 403s, teacher A's queued report was lost forever once B took the name over, and in A→B→A A's own old report was `stale-owner`. Route: inline (one server module + its test; doc-comment touch in `attentionReports.ts`).
-  - Append-only claims history `roomOwners/{key}/claims/{autoId}` = `{uid, claimedAt}`, written in the claim transaction whenever a new `claimedAt` is set (first claim, takeover). Binder: latest entry with `claimedAt <= dateCreated + 5 s` (single-field `where`+`orderBy('claimedAt','desc')`+`limit(1)`, no composite index) must name the caller, else 403 (`not-room-owner`); entries exist but all after the room → `stale-owner`; no history at all → one-off legacy rule (T2b current-owner rule). Unknown `dateCreated` and lookup errors fail closed. Deviation (additive): `claimsHistory: true` on the owner doc; a same-uid re-claim of a pre-history doc backfills its current period once, shrinking the legacy window to never-reclaimed rooms. RED observed (7 failing) → GREEN; the backfill test was added with its implementation (no separate RED). Commit: see Progress.
+  - Append-only claims history `roomOwners/{key}/claims/{autoId}` = `{uid, claimedAt}`, written in the claim transaction whenever a new `claimedAt` is set (first claim, takeover). Binder: latest entry with `claimedAt <= dateCreated + 5 s` (single-field `where`+`orderBy('claimedAt','desc')`+`limit(1)`, no composite index) must name the caller, else 403 (`not-room-owner`); entries exist but all after the room → `stale-owner`; no history at all → one-off legacy rule (T2b current-owner rule). Unknown `dateCreated` and lookup errors fail closed. Deviation (additive): `claimsHistory: true` on the owner doc; a same-uid re-claim of a pre-history doc backfills its current period once, shrinking the legacy window to never-reclaimed rooms. RED observed (7 failing) → GREEN; the backfill test was added with its implementation (no separate RED). Done in `d14fe58`. Checks: `npm test -- server/__tests__` 29 suites / 502 passed; typescript:server clean; eslint server clean.
 - [x] T6b — The identity checked must be the identity minted (verifier LOW): plugin-rtc mints the raw `user_identity`, but the reservation checked a trimmed copy, so `" Ana"` bypassed the 409 against a victim connected as `" Ana"`. Route: inline (one server file + its test).
-  - An identity with leading/trailing whitespace (incl. whitespace-only) → 400 `invalid identity` (Spanish copy) before any reservation or Twilio lookup; the exact string is the reservation key and the Twilio lookup. RED observed (4 failing) → GREEN. Commit: see Progress.
+  - An identity with leading/trailing whitespace (incl. whitespace-only) → 400 `invalid identity` (Spanish copy) before any reservation or Twilio lookup; the exact string is the reservation key and the Twilio lookup. RED observed (4 failing) → GREEN. Done in `ea2fbd1`. Checks: `npm test -- server/__tests__` 29 suites / 502 passed; typescript:server clean; eslint server clean.
 
 ## Acceptance criteria
 - A teacher cannot save a report, request a recording, end a class or change recording rules for a room another uid owns.
 - A non-teacher profile cannot get a token with the teacher suffix.
 - Students get 403 before any upload is buffered.
 - All server tests pass; `npm run typescript:server` and `npm run lint` clean.
+
+## Ops notes
+- Set `TRUST_PROXY_HOPS=1` on the Azure Container App, otherwise every client shares the proxy IP's rate-limit bucket on `/rooms/:roomName/open`.
+- Disable **Client-side Room Creation** in the Twilio console (Video → Room settings): with it on, an old token (up to 4 h TTL) can recreate a closed room by connecting, bypassing the server-side `/token` guards and ownership claim.
+- One-off: `roomOwners` documents written before T2c have no claims history; until their owner re-claims (which backfills the period), report binding for them uses the legacy rule (current owner whose `claimedAt` predates the room).
 
 ## Delivery
 Single branch, local merge to main when the user asks (no PR). Forecast ~900 authored lines (exception-ok: one coherent security feature).
@@ -53,6 +58,7 @@ Single branch, local merge to main when the user asks (no PR). Forecast ~900 aut
 - T1 (`ba7f109`) and T2 (`68d2e35`) committed by a delegated writer.
 - T3 (`d0ca4f8`), T4 (`a12f98b`), T5 (`0d69f95`) committed by a delegated writer.
 - T2b (`b12c9a1`), T6 (`71c9262`), T7 (`db50757`) committed by a delegated writer.
+- Independent verification of T2b/T6/T7 found a MEDIUM (report loss after a name handover) and a LOW (padded identity bypass): T6b (`ea2fbd1`) and T2c (`d14fe58`) committed by a delegated writer.
 
 ## Next step
-Independent verification of T2b/T6/T7, then local merge to main when the user asks.
+Spot-check T2c/T6b, apply the Ops notes on deploy, then local merge to main when the user asks.
