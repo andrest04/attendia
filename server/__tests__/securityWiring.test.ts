@@ -12,9 +12,13 @@ describe('server/index.ts security wiring', () => {
     expect(indexSource()).toMatch(/const roomClaimer = createRoomClaimer\(firestore, \{ roomExists, timestamp: serverTimestamp \}\);/);
   });
 
-  it('guards /token with the profile-role resolver and the room claimer before the token function', () => {
-    expect(indexSource()).toMatch(
-      /app\.all\(\s*'\/token',\s*authMiddleware,\s*createRoomAccessGuard\(roomExists, createProfileRoleResolver\(firestore\), roomClaimer\),[\s\S]*?tokenEndpoint\s*\);/
+  it('guards /token with the profile-role resolver, the room claimer and the identity reservation', () => {
+    const source = indexSource();
+    expect(source).toMatch(
+      /app\.all\(\s*'\/token',\s*authMiddleware,\s*createRoomAccessGuard\(roomExists, createProfileRoleResolver\(firestore\), roomClaimer\),\s*identityReservationGuard,\s*tokenEndpoint\s*\);/
+    );
+    expect(source).toMatch(
+      /const identityReservationGuard = createIdentityReservationGuard\(\s*firestore,\s*createParticipantConnectionChecker\(twilioClient\),\s*serverTimestamp\s*\);/
     );
   });
 

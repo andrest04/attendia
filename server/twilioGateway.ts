@@ -71,6 +71,33 @@ export async function fetchRoomVia(client: RoomDetailsClient, roomSid: string): 
   }
 }
 
+export interface ParticipantFetchingClient {
+  video: {
+    v1: { rooms(roomName: string): { participants(identity: string): { fetch(): Promise<{ status?: string }> } } };
+  };
+}
+
+/**
+ * Whether a participant with this identity is connected to the in-progress room right now.
+ * Twilio accepts the identity in place of the participant SID; a 404 (no such room or
+ * participant) is "not connected", any other error is rethrown so callers fail closed.
+ * twilio-node interpolates the path segment verbatim (and rejects `/`, `?`, `#`), so the
+ * identity is URI-encoded here.
+ */
+export async function isParticipantConnectedVia(
+  client: ParticipantFetchingClient,
+  roomName: string,
+  identity: string
+): Promise<boolean> {
+  try {
+    const participant = await client.video.v1.rooms(roomName).participants(encodeURIComponent(identity)).fetch();
+    return participant.status === 'connected';
+  } catch (error) {
+    if (isTwilioNotFound(error)) return false;
+    throw error;
+  }
+}
+
 /**
  * Completes the room (disconnecting everyone and freeing its unique name). Idempotent:
  * a 404 means it was already completed or never existed — the class is closed either way.

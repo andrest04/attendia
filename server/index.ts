@@ -9,6 +9,7 @@ import {
   createRoomSessionBinder,
 } from './roomOwnership';
 import { createRoomExists } from './roomExists';
+import { createIdentityReservationGuard, createParticipantConnectionChecker } from './identityReservation';
 import { createRoomOpenHandler } from './roomOpen';
 import { createRoomOpenRateLimiter } from './rateLimit';
 import { createCompleteRoomHandler } from './completeRoom';
@@ -112,12 +113,20 @@ const { avatars: avatarStorage, resources: resourceStorage } = createAppwriteBuc
 
 // A teacher-suffixed identity must be backed by a teacher profile, and a teacher's token
 // claims roomOwners/{room} for the verified uid (roomOwnership.ts) — the ownership record
-// /reports, recordings, /completeRoom and /recordingrules check.
+// /reports, recordings, /completeRoom and /recordingrules check. Then the identity is
+// reserved for the uid: an identity connected in the room under another uid gets 409
+// instead of a token that would kick that participant (identityReservation.ts).
 const roomClaimer = createRoomClaimer(firestore, { roomExists, timestamp: serverTimestamp });
+const identityReservationGuard = createIdentityReservationGuard(
+  firestore,
+  createParticipantConnectionChecker(twilioClient),
+  serverTimestamp
+);
 app.all(
   '/token',
   authMiddleware,
   createRoomAccessGuard(roomExists, createProfileRoleResolver(firestore), roomClaimer),
+  identityReservationGuard,
   tokenEndpoint
 );
 // Only the teacher who owns the room behind room_sid may change its recording rules.
