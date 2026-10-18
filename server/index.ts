@@ -1,7 +1,8 @@
 import './bootstrap-globals';
 import { createExpressHandler } from './createExpressHandler';
 import { twilioClient } from './twilioClient';
-import { createRoomAccessGuard } from './roomAccessGuard';
+import { createProfileRoleResolver, createRoomAccessGuard } from './roomAccessGuard';
+import { createRoomClaimer } from './roomOwnership';
 import { createRoomExists } from './roomExists';
 import { createRoomOpenHandler } from './roomOpen';
 import { createCompleteRoomHandler } from './completeRoom';
@@ -88,7 +89,7 @@ const recordingRulesFunction: ServerlessFunction = require('@twilio-labs/plugin-
 const recordingRulesEndpoint = createExpressHandler(recordingRulesFunction);
 
 // Students may only join a room a teacher has already opened (see roomAccessGuard for
-// the threat-model caveats). A room counts as open when an in-progress Twilio room with
+// the remaining caveats). A room counts as open when an in-progress Twilio room with
 // that unique name exists.
 const roomExists = createRoomExists(twilioClient);
 
@@ -97,7 +98,16 @@ const roomExists = createRoomExists(twilioClient);
 // the authenticated server download route). See appwriteFileStorage.ts.
 const { avatars: avatarStorage, resources: resourceStorage } = createAppwriteBuckets(config.appwrite, createAppwriteFileStorage);
 
-app.all('/token', authMiddleware, createRoomAccessGuard(roomExists), tokenEndpoint);
+// A teacher-suffixed identity must be backed by a teacher profile, and a teacher's token
+// claims roomOwners/{room} for the verified uid (roomOwnership.ts) — the ownership record
+// /reports, recordings, /completeRoom and /recordingrules check.
+const roomClaimer = createRoomClaimer(firestore, { roomExists, timestamp: serverTimestamp });
+app.all(
+  '/token',
+  authMiddleware,
+  createRoomAccessGuard(roomExists, createProfileRoleResolver(firestore), roomClaimer),
+  tokenEndpoint
+);
 app.all('/recordingrules', authMiddleware, recordingRulesEndpoint);
 
 // Firestore-backed user profiles (users/{uid} → { displayName, email, role, createdAt }).

@@ -1,12 +1,14 @@
-import type { RequestHandler } from 'express';
-import { ExpressRequest, ExpressResponse, sendError } from './http';
+import { RequestHandler } from 'express';
+import { ExpressRequest, ExpressResponse, getVerifiedUser, sendError } from './http';
 import { logOperationalFailure } from './operationalEvents';
-import type { RoomExistenceChecker } from './roomExists';
+import { RoomExistenceChecker as RoomExistenceCheck } from './roomExists';
+import { RoomClaimer } from './roomOwnership';
+import { resolveIsTeacher, TeacherAuthorizationDatabase } from './teacherAuthorization';
 
-export type { RoomExistenceChecker };
+export type RoomExistenceChecker = RoomExistenceCheck;
 
 /*
- * Honest-flow access gate for the /token endpoint.
+ * Access gate for the /token endpoint.
  *
  * Twilio creates a room on demand: the plugin-rtc token function creates the room
  * when it issues a token (see node_modules/@twilio-labs/plugin-rtc/src/serverless/
@@ -15,20 +17,20 @@ export type { RoomExistenceChecker };
  * asks for a token first would CREATE and enter the room — so a student could
  * silently open a session the teacher never started.
  *
- * This guard stops that for the normal classroom flow: a student (no teacher suffix
- * in their identity, create_room defaulting to true) only gets a token for a room a
- * teacher has already opened. Teachers may create.
+ * The guard therefore:
+ *   - resolves the caller's role through a pluggable RoleResolver. Production wires
+ *     `createProfileRoleResolver`: an identity carrying the teacher suffix is a teacher
+ *     ONLY when the verified uid's Firestore profile says role=teacher; a suffix without
+ *     that profile is answered 403 (it would otherwise impersonate the professor);
+ *   - lets a student (no suffix) get a token only for a room that is already open;
+ *   - for a teacher, claims roomOwners/{room} for the verified uid (roomOwnership.ts) and
+ *     answers 403 while another teacher's class is open under that name;
+ *   - treats create_room:false (join-only) as "the room must already exist" instead of
+ *     a blind pass-through.
  *
- * IMPORTANT — this is a guardrail, NOT a security boundary. The role is derived from
- * the Twilio identity, which the client sets freely (the student UI just appends
- * `[Profesor]` for teachers), and Firebase authenticates the user, not their claimed
- * role. A determined caller can spoof the suffix, or send create_room:false and rely
- * on ad-hoc creation, to bypass it. To make this an actual control you need:
- *   1. an authenticated role (e.g. a Firebase custom claim) instead of the identity
- *      suffix, AND
- *   2. "Client-side Room Creation" DISABLED in the Twilio Console Room Settings, so a
- *      bare VideoGrant cannot materialise a room on connect (teachers still create
- *      via the server-side REST call in token.js).
+ * Remaining caveats: the teacher role itself is still self-declared at registration
+ * (product decision), and "Client-side Room Creation" should be DISABLED in the Twilio
+ * Console so a bare VideoGrant cannot materialise a room on connect.
  *
  * The suffix check below is intentionally kept in sync with `isTeacherIdentity` in
  * src/classSession/classSessionTypes.ts (the app's display-side role).
@@ -48,42 +50,92 @@ export function isTeacherIdentity(identity: unknown): boolean {
 
 export type ClassRole = 'teacher' | 'student';
 
+/** A teacher-suffixed identity whose verified profile is NOT a teacher. */
+export type ResolvedRole = ClassRole | 'unverified-teacher';
+
 /**
- * Strategy for "who is asking?". Today the role is read from the client-set identity
- * suffix (a guardrail, see the note above); making this an authenticated control only
- * means plugging in a resolver backed by something the client cannot forge (the
- * Firestore profile role, a custom claim) — the guard itself does not change.
+ * Strategy for "who is asking?". `identitySuffixRole` reads only the client-set identity
+ * suffix (kept for tests and as the documented default); `createProfileRoleResolver`
+ * backs the suffix with the Firestore profile role — the guard itself does not change.
  */
-export type RoleResolver = (req: ExpressRequest, res: ExpressResponse) => ClassRole | Promise<ClassRole>;
+export type RoleResolver = (req: ExpressRequest, res: ExpressResponse) => ResolvedRole | Promise<ResolvedRole>;
 
 export const identitySuffixRole: RoleResolver = req =>
   isTeacherIdentity((req.body ?? {}).user_identity) ? 'teacher' : 'student';
 
+export function createProfileRoleResolver(db: TeacherAuthorizationDatabase): RoleResolver {
+  return async (req, res) => {
+    if (!isTeacherIdentity((req.body ?? {}).user_identity)) return 'student';
+    const user = getVerifiedUser(res);
+    if (!user) return 'unverified-teacher';
+    return (await resolveIsTeacher(db, user.uid)) ? 'teacher' : 'unverified-teacher';
+  };
+}
+
+const sendRoomNotOpen = (res: ExpressResponse) =>
+  sendError(res, 403, 'room not found', 'La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.');
+
 export function createRoomAccessGuard(
   roomExists: RoomExistenceChecker,
-  resolveRole: RoleResolver = identitySuffixRole
+  resolveRole: RoleResolver = identitySuffixRole,
+  claimRoom?: RoomClaimer
 ): RequestHandler {
   return async (req, res, next) => {
     const body = req.body ?? {};
     const { room_name, create_room } = body;
-
-    // Only gate requests that would create the room. create_room defaults to true to
-    // match the token function; explicit create_room:false requests (e.g. the passcode
-    // verification probe) never create a room here, so they pass straight through.
-    const wouldCreateRoom = create_room !== false;
-
-    if (!wouldCreateRoom || !room_name) {
-      next();
-      return;
-    }
+    // create_room defaults to true to match the token function.
+    const joinOnly = create_room === false;
 
     try {
-      if ((await resolveRole(req, res)) === 'teacher' || (await roomExists(room_name))) {
+      const role = await resolveRole(req, res);
+      if (role === 'unverified-teacher') {
+        sendError(res, 403, 'teacher role required', 'Solo una cuenta de docente puede entrar a la sala como profesor.');
+        return;
+      }
+
+      if (!room_name) {
+        if (joinOnly) {
+          sendError(res, 400, 'room_name is required', 'Falta el nombre de la sala.');
+          return;
+        }
+        // A room-creating request without a name is rejected by the token function itself.
         next();
         return;
       }
 
-      sendError(res, 403, 'room not found', 'La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.');
+      // Join-only never creates the room, so it must already be open — for any role.
+      const knownOpen = joinOnly ? await roomExists(room_name) : undefined;
+      if (knownOpen === false) {
+        sendRoomNotOpen(res);
+        return;
+      }
+
+      if (role === 'teacher') {
+        if (claimRoom) {
+          const user = getVerifiedUser(res);
+          if (!user) {
+            sendError(res, 403, 'teacher role required', 'Solo una cuenta de docente puede entrar a la sala como profesor.');
+            return;
+          }
+          if (!(await claimRoom(room_name, user.uid))) {
+            sendError(
+              res,
+              403,
+              'room owned by another teacher',
+              'Ya hay una clase en curso con ese nombre a cargo de otro docente. Elegí otro nombre para tu sesión.'
+            );
+            return;
+          }
+        }
+        next();
+        return;
+      }
+
+      if (knownOpen || (await roomExists(room_name))) {
+        next();
+        return;
+      }
+      sendRoomNotOpen(res);
     } catch (err) {
       logOperationalFailure({ event: 'room_access_check_failed', operation: 'POST /token', error: err });
       sendError(res, 503, 'room verification failed', 'No pudimos verificar la sala. Intenta de nuevo en unos segundos.');
