@@ -690,6 +690,62 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     });
   });
 
+  it('joining an open room from quick start only enters it: no class record is created or started', async () => {
+    const onStartClass = jest.fn();
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
+
+    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
+    wrapper.update();
+    wrapper.find(QuickStartClassPanel).prop('onJoinOpen')({
+      roomName: 'fisica-101',
+      name: 'Andrés Torres [Profesor]',
+      title: 'Física 101',
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockCreateClass).not.toHaveBeenCalled();
+    expect(mockStartClass).not.toHaveBeenCalled();
+    expect(onStartClass).toHaveBeenCalledWith({ roomName: 'fisica-101', name: 'Andrés Torres [Profesor]' });
+    wrapper.update();
+    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
+  });
+
+  it('joining an open room that is the own started class of the teacher resumes that class record', async () => {
+    const onStartClass = jest.fn();
+    mockFetchClasses.mockResolvedValue([
+      {
+        id: 'class-own',
+        title: 'Física 101',
+        roomName: 'fisica-101',
+        scheduledAtMs: 1751554800000,
+        studentCount: 0,
+        durationMinutes: 60,
+        status: 'started' as const,
+      },
+    ]);
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} activeTab="calendario" />);
+    wrapper.find(CalendarTab).prop('onRetry')();
+    await Promise.resolve();
+    await Promise.resolve();
+    wrapper.update();
+
+    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
+    wrapper.update();
+    wrapper.find(QuickStartClassPanel).prop('onJoinOpen')({
+      roomName: 'fisica-101',
+      name: 'Andrés Torres [Profesor]',
+      title: 'Física 101',
+    });
+
+    expect(mockCreateClass).not.toHaveBeenCalled();
+    expect(onStartClass).toHaveBeenCalledWith({
+      roomName: 'fisica-101',
+      name: 'Andrés Torres [Profesor]',
+      classId: 'class-own',
+    });
+  });
+
   it('falls open to plain navigation (no classId) when persisting a quick-started class fails', async () => {
     const onStartClass = jest.fn();
     mockCreateClass.mockRejectedValue(new Error('firestore unavailable'));

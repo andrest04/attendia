@@ -55,10 +55,13 @@ const useStyles = makeStyles((theme: Theme) => ({
  */
 interface Props {
   professorName: string;
+  /** A NEW room was confirmed: the dashboard records the class and starts it. */
   onCreate: (session: { roomName: string; name: string; title: string }) => void;
+  /** The typed name is a room that is already open: only enter it, never record a second class. */
+  onJoinOpen: (session: { roomName: string; name: string; title: string }) => void;
 }
 
-export default function QuickStartClassPanel({ professorName, onCreate }: Props) {
+export default function QuickStartClassPanel({ professorName, onCreate, onJoinOpen }: Props) {
   const classes = useStyles();
   const [name, setName] = useState(professorName);
   const [classSessionDraft, setClassSessionDraft] = useState<ClassSessionDraft>(() => ({
@@ -93,7 +96,7 @@ export default function QuickStartClassPanel({ professorName, onCreate }: Props)
 
   const handleJoinOpenRoom = () => {
     if (!openRoomName) return;
-    onCreate({
+    onJoinOpen({
       roomName: openRoomName,
       name: toClassSessionDisplayName(classSessionDraft.displayName, 'teacher'),
       title: classSessionDraft.sessionName.trim(),
