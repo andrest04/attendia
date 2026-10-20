@@ -46,4 +46,4 @@ Each task: tests first (RED then GREEN), `npm test` for touched files, `npm run 
 ## Progress / evidence
 
 - T1 (85fde82): RED observed (2 failing claim tests), GREEN after `claimRoomOwnership` change. `npm test -- server/__tests__/roomOwnership.test.ts server/__tests__/roomAccessGuard.test.ts server/__tests__/securityWiring.test.ts`: 3 suites, 81 tests pass. `npm run typescript:server` and `npx eslint server --ext .ts` clean. Route: inline (2 prod files, small).
-- T2 (see commit below): code read, completeRoom/recordings/reports already refuse non-owners (no production gap). Pinned with a co-teacher scenario in roomOwnership.test.ts; 47 tests pass (tests-only, passes without code change by design).
+- T2 (45bf53b): code read, completeRoom/recordings/reports already refuse non-owners (no production gap). Pinned with a co-teacher scenario in roomOwnership.test.ts; 47 tests pass (tests-only, passes without code change by design).
