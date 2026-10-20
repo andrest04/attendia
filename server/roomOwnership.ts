@@ -161,6 +161,11 @@ async function readRoomOwner(db: OwnershipReadDatabase, roomName: string): Promi
   return (await db.collection(ROOM_OWNERS_COLLECTION).doc(roomOwnerKey(roomName)).get()).data();
 }
 
+/** The uid recorded as owner of the room, or undefined when no owner doc exists yet. */
+export async function readRoomOwnerUid(db: OwnershipReadDatabase, roomName: string): Promise<string | undefined> {
+  return readOwnerUid(db, ROOM_OWNERS_COLLECTION, roomOwnerKey(roomName));
+}
+
 export async function isRoomOwner(db: OwnershipReadDatabase, roomName: string, uid: string): Promise<boolean> {
   return (await readOwnerUid(db, ROOM_OWNERS_COLLECTION, roomOwnerKey(roomName))) === uid;
 }
