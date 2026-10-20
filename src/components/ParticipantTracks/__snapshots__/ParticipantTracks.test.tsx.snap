@@ -3,7 +3,7 @@
 exports[`the ParticipantTracks component should render an array of publications 1`] = `
 <Fragment>
   <Publication
-    key="video"
+    key="0"
     participant="mockParticipant"
     publication={
       {
@@ -14,7 +14,7 @@ exports[`the ParticipantTracks component should render an array of publications 
     }
   />
   <Publication
-    key="audio"
+    key="1"
     participant="mockParticipant"
     publication={
       {

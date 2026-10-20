@@ -38,4 +38,16 @@ describe('the ParticipantAudioTracks component', () => {
     const wrapper = mount(<ParticipantAudioTracks />);
     expect(wrapper.find(MockAudioTrack).length).toBe(2);
   });
+
+  it('should render every audio track of a participant, including the screen share audio', () => {
+    mockUseParticipants.mockImplementationOnce(() => [
+      new MockParticipant([
+        ['mic', { track: { kind: 'audio', name: 'mic', sid: 'MT1' } }],
+        ['screen-audio', { track: { kind: 'audio', name: 'screen-audio', sid: 'MT2' } }],
+        ['screen', { track: { kind: 'video', name: 'screen', sid: 'MT3' } }],
+      ]),
+    ]);
+    const wrapper = mount(<ParticipantAudioTracks />);
+    expect(wrapper.find(MockAudioTrack).length).toBe(2);
+  });
 });
