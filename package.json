@@ -105,6 +105,7 @@
     "start": "concurrently npm:server npm:dev",
     "dev": "react-scripts start",
     "build": "node ./scripts/build.js",
+    "deploy": "sh scripts/deploy.sh",
     "gcp-build": "",
     "test": "cross-env TZ=utc jest --config jest.config.js",
     "eject": "react-scripts eject",

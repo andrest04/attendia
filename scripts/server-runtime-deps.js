@@ -88,7 +88,8 @@ function copyPackages(appDir, packageDirs, outDir) {
     // packageDirs on its own and is copied to the same relative path.
     fs.cpSync(packageDir, path.join(outDir, path.relative(appDir, packageDir)), {
       recursive: true,
-      filter: source => source === packageDir || path.relative(packageDir, source).split(path.sep)[0] !== 'node_modules',
+      filter: source =>
+        source === packageDir || path.relative(packageDir, source).split(path.sep)[0] !== 'node_modules',
     });
   }
 }
