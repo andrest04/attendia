@@ -32,7 +32,7 @@ export interface RoomShellContext {
     Pick<ReturnType<typeof useProctoringWarnings>, 'sendWarning'>;
   proctoring: { enabled: boolean; setEnabled: (next: boolean) => void };
   notifications: ShellNotification[];
-  sessionEnd: Pick<ReturnType<typeof useSessionEnd>, 'endSessionForAll' | 'leaveWithoutEnding'>;
+  sessionEnd: Pick<ReturnType<typeof useSessionEnd>, 'endSessionForAll' | 'leaveWithoutEnding' | 'isEnding'>;
   connection: {
     isDegraded: boolean;
     /** Twilio network quality level (0–5) of the local participant; null/undefined = unknown. */
@@ -60,6 +60,7 @@ const professorShell = (ctx: RoomShellContext) => {
           onAttentionToggle={() => layout.toggleRight('attention')}
           onEndForAll={sessionEnd.endSessionForAll}
           onLeave={sessionEnd.leaveWithoutEnding}
+          isEnding={sessionEnd.isEnding}
         />
       }
       leftOpen={layout.leftOpen}

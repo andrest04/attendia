@@ -67,6 +67,8 @@ interface ProfessorToolbarProps {
   onEndForAll?: () => void;
   /** Teacher-only: leave without closing the class (snapshots the attention report first). */
   onLeave?: () => void;
+  /** True while "end for everyone" is in flight (disables the end-call dialog actions). */
+  isEnding?: boolean;
 }
 
 export default function ProfessorToolbar({
@@ -80,6 +82,7 @@ export default function ProfessorToolbar({
   onAttentionToggle,
   onEndForAll,
   onLeave,
+  isEnding,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
   const { classes: toolbar, chip, endCallChip } = useToolbarChipStyles();
@@ -192,6 +195,7 @@ export default function ProfessorToolbar({
         className={endCallChip}
         onEndForAll={onEndForAll}
         onLeave={onLeave}
+        isEnding={isEnding}
       />
     </div>
   );

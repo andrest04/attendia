@@ -1,6 +1,8 @@
 import { Grid, makeStyles, Theme, Typography } from '@material-ui/core';
 import React from 'react';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
+import { useSessionEndApi } from '../../hooks/useSessionEnd/sessionEndContext';
 import EndCallButton from '../Buttons/EndCallButton/EndCallButton';
 import Menu from '../MenuBar/Menu/Menu';
 
@@ -33,12 +35,23 @@ const useStyles = makeStyles((theme: Theme) => ({
 export default function MobileTopMenuBar() {
   const classes = useStyles();
   const { room } = useVideoContext();
+  const sessionEnd = useSessionEndApi();
+  const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
 
   return (
     <Grid container alignItems="center" justifyContent="space-between" className={classes.container}>
       <Typography variant="subtitle1">{room!.name}</Typography>
       <div>
-        <EndCallButton className={classes.endCallButton} />
+        <EndCallButton
+          className={classes.endCallButton}
+          {...(isTeacher && sessionEnd
+            ? {
+                onEndForAll: sessionEnd.endSessionForAll,
+                onLeave: sessionEnd.leaveWithoutEnding,
+                isEnding: sessionEnd.isEnding,
+              }
+            : {})}
+        />
         <Menu buttonClassName={classes.settingsButton} />
       </div>
     </Grid>
