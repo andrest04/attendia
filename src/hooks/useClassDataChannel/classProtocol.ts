@@ -1,4 +1,5 @@
 import { Room } from 'twilio-video';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import { ProctoringAlert } from '../../components/AttentionProvider/types';
 
 /**
@@ -66,4 +67,13 @@ export type ClassMessage =
 /** Whether a targeted message (one carrying an `identity`) is aimed at the local participant. */
 export function isAddressedToMe(message: { identity?: unknown }, room: Room | null | undefined): boolean {
   return typeof message.identity === 'string' && message.identity === room?.localParticipant?.identity;
+}
+
+/**
+ * Whether the participant a message arrived from is a teacher. Teacher-to-student commands
+ * (end session, mute, proctoring warning, grant turn) must only be obeyed when this holds;
+ * the sender is always the Twilio participant, never the payload.
+ */
+export function isFromTeacher(participant: { identity?: string } | null | undefined): boolean {
+  return isTeacherIdentity(participant?.identity);
 }

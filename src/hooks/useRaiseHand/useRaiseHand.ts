@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import useLatest from '../useLatest/useLatest';
-import { GrantTurnMessage, isAddressedToMe, RaiseHandMessage } from '../useClassDataChannel/classProtocol';
+import {
+  GrantTurnMessage,
+  isAddressedToMe,
+  isFromTeacher,
+  RaiseHandMessage,
+} from '../useClassDataChannel/classProtocol';
 
 /**
  * Classroom raise-hand / give-turn signaling over a Twilio LocalDataTrack.
@@ -63,7 +68,7 @@ export default function useRaiseHand(): RaiseHandApi {
           }
           return prev.filter(id => id !== identity);
         });
-      } else if (message.type === 'grant-turn' && isAddressedToMe(message, room)) {
+      } else if (message.type === 'grant-turn' && isFromTeacher(participant) && isAddressedToMe(message, room)) {
         setIsHandRaised(false);
         setTurnGrantedCount(count => count + 1);
         sendRef.current({ type: 'raise-hand', raised: false });

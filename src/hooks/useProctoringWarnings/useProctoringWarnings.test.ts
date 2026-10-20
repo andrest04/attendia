@@ -67,6 +67,19 @@ describe('useProctoringWarnings', () => {
     expect(result.current.lastWarningKind).toBe('multiface');
   });
 
+  it('ignores a warning sent by a student', () => {
+    const student = createParticipant('student-bob');
+    const studentData = createDataTrack();
+    const { result } = renderHook(() => useProctoringWarnings());
+    act(() => {
+      mockRoom.emit('participantConnected', student);
+      student.emit('trackSubscribed', studentData);
+      studentData.emit('message', warning('me', 'multiface'));
+    });
+    expect(result.current.warnedByProfessorCount).toBe(0);
+    expect(result.current.lastWarningKind).toBeNull();
+  });
+
   it('ignores a warning aimed at someone else', () => {
     const prof = createParticipant('Ana [Profesor]');
     const profData = createDataTrack();

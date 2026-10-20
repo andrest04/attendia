@@ -21,7 +21,9 @@ describe('useSessionEnd', () => {
   let mockSend: jest.Mock;
   let mockDisconnect: jest.Mock;
   let mockSetEnded: jest.Mock;
-  let capturedOnMessage: (message: any) => void;
+  let capturedOnMessage: (message: any, participant?: any) => void;
+  const teacher = { identity: 'Ana [Profesor]' };
+  const student = { identity: 'student-bob' };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -85,7 +87,7 @@ describe('useSessionEnd', () => {
   it('on receiving a session-ended message, clears rejoin, flags the app, and disconnects', () => {
     renderHook(() => useSessionEnd());
 
-    act(() => capturedOnMessage({ type: 'session-ended' }));
+    act(() => capturedOnMessage({ type: 'session-ended' }, teacher));
 
     expect(mockClearRejoin).toHaveBeenCalled();
     expect(mockSetEnded).toHaveBeenCalledWith(true);
@@ -95,10 +97,20 @@ describe('useSessionEnd', () => {
     expect((global as any).fetch).not.toHaveBeenCalled();
   });
 
+  it('ignores a session-ended message sent by a student', () => {
+    renderHook(() => useSessionEnd());
+
+    act(() => capturedOnMessage({ type: 'session-ended' }, student));
+
+    expect(mockDisconnect).not.toHaveBeenCalled();
+    expect(mockSetEnded).not.toHaveBeenCalled();
+    expect(mockClearRejoin).not.toHaveBeenCalled();
+  });
+
   it('ignores unrelated messages on the shared channel', () => {
     renderHook(() => useSessionEnd());
 
-    act(() => capturedOnMessage({ type: 'raise-hand', raised: true }));
+    act(() => capturedOnMessage({ type: 'raise-hand', raised: true }, student));
 
     expect(mockDisconnect).not.toHaveBeenCalled();
     expect(mockSetEnded).not.toHaveBeenCalled();
@@ -149,7 +161,7 @@ describe('useSessionEnd', () => {
       const onProfessorEnd = jest.fn(() => Promise.resolve());
       renderHook(() => useSessionEnd({ onProfessorEnd }));
 
-      act(() => capturedOnMessage({ type: 'session-ended' }));
+      act(() => capturedOnMessage({ type: 'session-ended' }, teacher));
 
       expect(onProfessorEnd).not.toHaveBeenCalled();
       expect(mockDisconnect).toHaveBeenCalled();
