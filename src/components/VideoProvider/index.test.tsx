@@ -9,6 +9,7 @@ import useRestartAudioTrackOnDeviceChange from './useRestartAudioTrackOnDeviceCh
 import useRoom from './useRoom/useRoom';
 import useHandleRoomDisconnection from './useHandleRoomDisconnection/useHandleRoomDisconnection';
 import useHandleTrackPublicationFailed from './useHandleTrackPublicationFailed/useHandleTrackPublicationFailed';
+import { clearRejoinSession } from '../../classSession/rejoinSession';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 
 const mockRoom = new EventEmitter() as Room;
@@ -26,6 +27,7 @@ jest.mock('./useLocalTracks/useLocalTracks', () =>
 );
 jest.mock('../../state');
 jest.mock('./useHandleRoomDisconnection/useHandleRoomDisconnection');
+jest.mock('../../classSession/rejoinSession', () => ({ clearRejoinSession: jest.fn() }));
 jest.mock('./useHandleTrackPublicationFailed/useHandleTrackPublicationFailed');
 jest.mock('./useRestartAudioTrackOnDeviceChange/useRestartAudioTrackOnDeviceChange');
 jest.mock('@twilio/video-processors', () => {
@@ -95,5 +97,49 @@ describe('the VideoProvider component', () => {
     const { result } = renderHook(useVideoContext, { wrapper });
     result.current.onError({} as TwilioError);
     expect(mockOnError).toHaveBeenCalledWith({});
+  });
+
+  describe('when the room is completed (TwilioError 53118)', () => {
+    const roomCompleted = { code: 53118, message: 'Room completed' } as TwilioError;
+    const setEnded = jest.fn();
+
+    function disconnectionOnError(identity: string, onError: jest.Mock) {
+      (mockRoom as any).localParticipant = { identity };
+      mockUseAppState.mockImplementation(() => ({ isGalleryViewActive: false, setSessionEndedByProfessor: setEnded }));
+      const wrapper: React.FC = ({ children }) => (
+        <VideoProvider onError={onError} options={{ dominantSpeaker: true }}>
+          {children}
+        </VideoProvider>
+      );
+      renderHook(useVideoContext, { wrapper });
+      const calls = (useHandleRoomDisconnection as jest.Mock).mock.calls;
+      return calls[calls.length - 1][1] as (error: TwilioError) => void;
+    }
+
+    beforeEach(() => jest.clearAllMocks());
+    afterAll(() => mockUseAppState.mockImplementation(() => ({ isGalleryViewActive: false })));
+
+    it('shows a student the ended screen instead of the error dialog', () => {
+      const onError = jest.fn();
+      disconnectionOnError('student-bob', onError)(roomCompleted);
+      expect(setEnded).toHaveBeenCalledWith(true);
+      expect(clearRejoinSession).toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+    });
+
+    it('does not treat it specially for a teacher', () => {
+      const onError = jest.fn();
+      disconnectionOnError('Ana [Profesor]', onError)(roomCompleted);
+      expect(setEnded).not.toHaveBeenCalled();
+      expect(onError).toHaveBeenCalledWith(roomCompleted);
+    });
+
+    it('still reports other disconnection errors to a student', () => {
+      const onError = jest.fn();
+      const other = { code: 53000, message: 'Signaling connection error' } as TwilioError;
+      disconnectionOnError('student-bob', onError)(other);
+      expect(setEnded).not.toHaveBeenCalled();
+      expect(onError).toHaveBeenCalledWith(other);
+    });
   });
 });

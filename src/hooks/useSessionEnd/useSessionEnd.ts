@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import useLatest from '../useLatest/useLatest';
+import { useSnackbar } from 'notistack';
 import { RemoteParticipant } from 'twilio-video';
 import { isFromTeacher, SessionEndedMessage } from '../useClassDataChannel/classProtocol';
 import { useAppState } from '../../state';
@@ -55,6 +56,7 @@ export interface SessionEndApi {
 export default function useSessionEnd(options: SessionEndOptions = {}): SessionEndApi {
   const { room } = useVideoContext();
   const { user, setSessionEndedByProfessor } = useAppState();
+  const { enqueueSnackbar } = useSnackbar();
   const [isEnding, setIsEnding] = useState(false);
   const sendRef = useRef<(message: SessionEndedMessage) => void>(() => undefined);
   const onProfessorEndRef = useLatest(options.onProfessorEnd);
@@ -101,12 +103,16 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       }
     } catch {
       // Even if completion fails (offline, transient), we still leave and show the
-      // ended screen locally — the broadcast already told the connected students.
+      // ended screen locally — the broadcast already told the connected students. The
+      // professor must know the room may still be open, so surface it.
+      enqueueSnackbar('No se pudo cerrar la sala en el servidor. Los estudiantes podrían seguir conectados.', {
+        variant: 'warning',
+      });
     } finally {
       setIsEnding(false);
       leaveAsEnded();
     }
-  }, [room, user, leaveAsEnded, onProfessorEndRef]);
+  }, [room, user, leaveAsEnded, onProfessorEndRef, enqueueSnackbar]);
 
   // "Salir sin cerrar": the professor leaves alone and the class stays open, so no
   // broadcast, no /completeRoom, and no session-ended screen. The report snapshot is

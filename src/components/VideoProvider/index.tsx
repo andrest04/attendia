@@ -12,6 +12,9 @@ import useLocalTracks from './useLocalTracks/useLocalTracks';
 import useRestartAudioTrackOnDeviceChange from './useRestartAudioTrackOnDeviceChange/useRestartAudioTrackOnDeviceChange';
 import useRoom from './useRoom/useRoom';
 import useScreenShareToggle from './useScreenShareToggle/useScreenShareToggle';
+import { useAppState } from '../../state';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
+import { clearRejoinSession } from '../../classSession/rejoinSession';
 import { selectCameraTrack } from '../../utils/trackSelectors';
 
 /*
@@ -20,6 +23,9 @@ import { selectCameraTrack } from '../../utils/trackSelectors';
  *  the hooks in the 'VideoProvider/' directory are intended to be used by the VideoProvider component only. Using these hooks
  *  elsewhere in the application may cause problems as these hooks should not be used more than once in an application.
  */
+
+/** twilio-video RoomCompletedError: the room was completed server-side. */
+const ROOM_COMPLETED_ERROR_CODE = 53118;
 
 interface VideoProviderProps {
   options?: ConnectOptions;
@@ -48,10 +54,26 @@ export function VideoProvider({ options, children, onError = () => {} }: VideoPr
 
   const [isSharingScreen, toggleScreenShare] = useScreenShareToggle(room, onError);
 
+  // A completed room (the teacher ended the class server-side) disconnects every student
+  // with RoomCompletedError. Treat it like a received `session-ended` — the ended screen,
+  // no auto-rejoin — instead of an error dialog, so a lost data message changes nothing.
+  const { setSessionEndedByProfessor } = useAppState();
+  const onDisconnectError: ErrorCallback = useCallback(
+    error => {
+      if (error.code === ROOM_COMPLETED_ERROR_CODE && !isTeacherIdentity(room?.localParticipant?.identity)) {
+        clearRejoinSession();
+        setSessionEndedByProfessor(true);
+        return;
+      }
+      onError(error);
+    },
+    [room, onError, setSessionEndedByProfessor]
+  );
+
   // Register callback functions to be called on room disconnect.
   useHandleRoomDisconnection(
     room,
-    onError,
+    onDisconnectError,
     removeLocalAudioTrack,
     removeLocalVideoTrack,
     isSharingScreen,

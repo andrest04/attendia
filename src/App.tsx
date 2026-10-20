@@ -18,6 +18,7 @@ import useInitialRole from './components/TeacherDashboard/useInitialRole';
 import { dashboardTabPath } from './components/TeacherDashboard/dashboardHelpers';
 import { DashboardTabId } from './components/TeacherDashboard/types';
 
+import { SessionEndProvider } from './hooks/useSessionEnd/sessionEndContext';
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
 import { useAppState } from './state';
@@ -109,13 +110,15 @@ export default function App() {
         />
       )}
       {screen === 'room' && (
-        <Main>
-          <ReconnectingNotification />
-          <RecordingNotifications />
-          <MobileTopMenuBar />
-          <Room />
-          {isMobile && <MenuBar />}
-        </Main>
+        <SessionEndProvider>
+          <Main>
+            <ReconnectingNotification />
+            <RecordingNotifications />
+            <MobileTopMenuBar />
+            <Room />
+            {isMobile && <MenuBar />}
+          </Main>
+        </SessionEndProvider>
       )}
     </Container>
   );

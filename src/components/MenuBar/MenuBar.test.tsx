@@ -11,10 +11,15 @@ import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useRoomState from '../../hooks/useRoomState/useRoomState';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import * as utils from '../../utils';
+import EndCallButton from '../Buttons/EndCallButton/EndCallButton';
+import { useSessionEndApi } from '../../hooks/useSessionEnd/sessionEndContext';
+
+const mockUseSessionEndApi = useSessionEndApi as jest.Mock<any>;
 
 jest.mock('../../hooks/useRoomState/useRoomState');
 jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../hooks/useParticipants/useParticipants');
+jest.mock('../../hooks/useSessionEnd/sessionEndContext');
 
 const mockUseRoomState = useRoomState as jest.Mock<any>;
 const mockUseParticipants = useParticipants as jest.Mock<any>;
@@ -143,5 +148,41 @@ describe('the MenuBar component', () => {
   it('should render the RaiseHandButton', () => {
     const wrapper = shallow(<MenuBar />);
     expect(wrapper.find(RaiseHandButton).exists()).toBe(true);
+  });
+
+  describe('teacher vs student', () => {
+    const sessionEnd = { endSessionForAll: jest.fn(), leaveWithoutEnding: jest.fn(), isEnding: false };
+    const withIdentity = (identity: string) =>
+      mockUseVideoContext.mockImplementation(() => ({
+        isSharingScreen: false,
+        toggleScreenShare: () => {},
+        room: { name: 'Test Room', localParticipant: { identity } },
+      }));
+
+    beforeEach(() => mockUseSessionEndApi.mockImplementation(() => sessionEnd));
+    afterEach(() =>
+      mockUseVideoContext.mockImplementation(() => ({
+        isSharingScreen: false,
+        toggleScreenShare: () => {},
+        room: { name: 'Test Room' },
+      }))
+    );
+
+    it('hides the RaiseHandButton and wires end-for-all into EndCallButton for a teacher', () => {
+      withIdentity('Ana [Profesor]');
+      const wrapper = shallow(<MenuBar />);
+      expect(wrapper.find(RaiseHandButton).exists()).toBe(false);
+      const end = wrapper.find(EndCallButton);
+      expect(end.prop('onEndForAll')).toBe(sessionEnd.endSessionForAll);
+      expect(end.prop('onLeave')).toBe(sessionEnd.leaveWithoutEnding);
+      expect(end.prop('isEnding')).toBe(false);
+    });
+
+    it('keeps the RaiseHandButton and a plain EndCallButton for a student', () => {
+      withIdentity('student-bob');
+      const wrapper = shallow(<MenuBar />);
+      expect(wrapper.find(RaiseHandButton).exists()).toBe(true);
+      expect(wrapper.find(EndCallButton).prop('onEndForAll')).toBeUndefined();
+    });
   });
 });

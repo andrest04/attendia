@@ -26,6 +26,7 @@ import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
 import useModeration from '../../hooks/useModeration/useModeration';
 import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctoringWarnings';
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
+import { usePublishSessionEnd } from '../../hooks/useSessionEnd/sessionEndContext';
 import useAttentionReportSaver from '../../hooks/useAttentionReportSaver/useAttentionReportSaver';
 import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
@@ -126,7 +127,10 @@ export default function Room() {
   const { saveReport, buildReport } = useAttentionReportSaver();
   // Singleton (one DataTrack) like useRaiseHand: drives the teacher's "end for everyone"
   // and the student-side "session ended" screen. Must be called once here.
-  const { endSessionForAll, leaveWithoutEnding } = useSessionEnd({ onProfessorEnd: saveReport });
+  const sessionEndApi = useSessionEnd({ onProfessorEnd: saveReport });
+  const { endSessionForAll, leaveWithoutEnding, isEnding } = sessionEndApi;
+  // The legacy mobile bars sit next to Room (see App.tsx): hand them this single instance.
+  usePublishSessionEnd(sessionEndApi);
   const isRecording = useIsRecording();
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
   // Re-open trigger for the onboarding tour: the professor's "Ayuda" button bumps this
@@ -200,7 +204,7 @@ export default function Room() {
     moderation: { muteParticipant, sendWarning },
     proctoring: { enabled: proctoringEnabled, setEnabled: setProctoringEnabled },
     notifications,
-    sessionEnd: { endSessionForAll, leaveWithoutEnding },
+    sessionEnd: { endSessionForAll, leaveWithoutEnding, isEnding },
     connection: { isDegraded: isConnectivityDegraded, networkQualityLevel: localParticipantNetworkQuality },
     activeSpeakerLabel,
   };

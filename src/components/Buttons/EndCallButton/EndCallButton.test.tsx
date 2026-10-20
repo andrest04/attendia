@@ -98,4 +98,34 @@ describe('End Call button', () => {
       expect(onEndForAll).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('dialog behavior', () => {
+    it('closes the dialog when "Salir sin cerrar" is clicked', () => {
+      const wrapper = shallow(<EndCallButton onEndForAll={jest.fn()} />);
+      mainButton(wrapper).simulate('click');
+      expect(wrapper.find('[data-testid="end-call-dialog"]').prop('open')).toBe(true);
+
+      wrapper.find('[data-testid="end-call-leave"]').simulate('click');
+
+      expect(wrapper.find('[data-testid="end-call-dialog"]').prop('open')).toBe(false);
+    });
+
+    it('disables every dialog action and shows a busy label while isEnding', () => {
+      const wrapper = shallow(<EndCallButton onEndForAll={jest.fn()} isEnding />);
+      expect(wrapper.find('[data-testid="end-call-cancel"]').prop('disabled')).toBe(true);
+      expect(wrapper.find('[data-testid="end-call-leave"]').prop('disabled')).toBe(true);
+      expect(wrapper.find('[data-testid="end-call-end-for-all"]').prop('disabled')).toBe(true);
+      expect(
+        wrapper
+          .find('[data-testid="end-call-end-for-all"]')
+          .children()
+          .text()
+      ).toBe('Terminando…');
+    });
+
+    it('keeps the dialog actions enabled when not ending', () => {
+      const wrapper = shallow(<EndCallButton onEndForAll={jest.fn()} />);
+      expect(wrapper.find('[data-testid="end-call-end-for-all"]').prop('disabled')).toBeFalsy();
+    });
+  });
 });

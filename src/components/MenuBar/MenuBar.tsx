@@ -14,6 +14,8 @@ import ToggleChatButton from '../Buttons/ToggleChatButton/ToggleChatButton';
 import ToggleVideoButton from '../Buttons/ToggleVideoButton/ToggleVideoButton';
 import ToggleScreenShareButton from '../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import RaiseHandButton from '../Buttons/RaiseHandButton/RaiseHandButton';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
+import { useSessionEndApi } from '../../hooks/useSessionEnd/sessionEndContext';
 import { featureFlags } from '../../utils/featureFlags';
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -72,6 +74,8 @@ export default function MenuBar() {
   const isReconnecting = roomState === 'reconnecting';
   const { room } = useVideoContext();
   const participants = useParticipants();
+  const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
+  const sessionEnd = useSessionEndApi();
 
   return (
     <>
@@ -96,7 +100,7 @@ export default function MenuBar() {
               <ToggleVideoButton disabled={isReconnecting} />
               {!isSharingScreen && !isMobile && <ToggleScreenShareButton disabled={isReconnecting} />}
               {!featureFlags.isConversationsDisabled() && <ToggleChatButton />}
-              <RaiseHandButton />
+              {!isTeacher && <RaiseHandButton />}
               <Hidden smDown>
                 <Menu />
               </Hidden>
@@ -105,7 +109,15 @@ export default function MenuBar() {
           <Hidden smDown>
             <Grid style={{ flex: 1 }}>
               <Grid container justifyContent="flex-end">
-                <EndCallButton />
+                <EndCallButton
+                  {...(isTeacher && sessionEnd
+                    ? {
+                        onEndForAll: sessionEnd.endSessionForAll,
+                        onLeave: sessionEnd.leaveWithoutEnding,
+                        isEnding: sessionEnd.isEnding,
+                      }
+                    : {})}
+                />
               </Grid>
             </Grid>
           </Hidden>

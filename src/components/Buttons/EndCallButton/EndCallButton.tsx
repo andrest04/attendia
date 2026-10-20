@@ -73,6 +73,8 @@ interface EndCallButtonProps {
    * default leave runs unchanged.
    */
   onLeave?: () => void;
+  /** Teacher-only. True while "end for everyone" is in flight: the dialog actions are disabled. */
+  isEnding?: boolean;
 }
 
 export default function EndCallButton(props: EndCallButtonProps = {}) {
@@ -96,6 +98,11 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
     }
   };
 
+  const handleLeaveFromDialog = () => {
+    setIsDialogOpen(false);
+    handleLeave();
+  };
+
   const handleEndForAll = () => {
     setIsDialogOpen(false);
     props.onEndForAll?.();
@@ -117,7 +124,11 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
         {props.iconOnly ? null : props.label ?? 'Salir'}
       </Button>
 
-      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)} data-testid="end-call-dialog">
+      <Dialog
+        open={isDialogOpen}
+        onClose={() => !props.isEnding && setIsDialogOpen(false)}
+        data-testid="end-call-dialog"
+      >
         <DialogTitle>¿Terminar la sesión?</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -126,14 +137,19 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsDialogOpen(false)} data-testid="end-call-cancel">
+          <Button onClick={() => setIsDialogOpen(false)} disabled={props.isEnding} data-testid="end-call-cancel">
             Cancelar
           </Button>
-          <Button onClick={handleLeave} data-testid="end-call-leave">
+          <Button onClick={handleLeaveFromDialog} disabled={props.isEnding} data-testid="end-call-leave">
             Salir sin cerrar
           </Button>
-          <Button onClick={handleEndForAll} className={classes.endForAll} data-testid="end-call-end-for-all">
-            Terminar para todos
+          <Button
+            onClick={handleEndForAll}
+            disabled={props.isEnding}
+            className={classes.endForAll}
+            data-testid="end-call-end-for-all"
+          >
+            {props.isEnding ? 'Terminando…' : 'Terminar para todos'}
           </Button>
         </DialogActions>
       </Dialog>

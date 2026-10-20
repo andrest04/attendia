@@ -5,6 +5,8 @@ import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import { useAppState } from '../../state';
 import { clearRejoinSession } from '../../classSession/rejoinSession';
 
+const mockEnqueue = jest.fn();
+jest.mock('notistack', () => ({ useSnackbar: () => ({ enqueueSnackbar: mockEnqueue }) }));
 jest.mock('../useVideoContext/useVideoContext');
 jest.mock('../useClassDataChannel/useClassDataChannel');
 jest.mock('../../state');
@@ -82,6 +84,30 @@ describe('useSessionEnd', () => {
     expect(mockClearRejoin).toHaveBeenCalled();
     expect(mockSetEnded).toHaveBeenCalledWith(true);
     expect(mockDisconnect).toHaveBeenCalled();
+  });
+
+  it('warns the professor with a toast when the room could not be closed on the server', async () => {
+    (global as any).fetch = jest.fn().mockRejectedValue(new Error('offline'));
+    const { result } = renderHook(() => useSessionEnd());
+
+    await act(async () => {
+      await result.current.endSessionForAll();
+    });
+
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      'No se pudo cerrar la sala en el servidor. Los estudiantes podrían seguir conectados.',
+      expect.objectContaining({ variant: 'warning' })
+    );
+  });
+
+  it('does not warn when the room was closed', async () => {
+    const { result } = renderHook(() => useSessionEnd());
+
+    await act(async () => {
+      await result.current.endSessionForAll();
+    });
+
+    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
   it('on receiving a session-ended message, clears rejoin, flags the app, and disconnects', () => {
