@@ -18,6 +18,10 @@
 # Also reconciles Gotenberg as a private sidecar in the same revision as Attendia.
 # It shares Attendia's scale-to-zero lifecycle and is reached through localhost — see
 # server/gotenbergDocumentConverter.ts.
+#
+# Refuses to run with uncommitted changes (ALLOW_DIRTY=1 overrides), retries a failed
+# push, and only reports success once the new revision is ready, runs the image just
+# pushed and the public URL answers 200 — a non-zero exit means it is NOT live.
 set -e
 
 CONFIG_FILE="scripts/deploy.config"
@@ -33,8 +37,17 @@ fi
 : "${AZURE_CONTAINERAPP_NAME:?missing in deploy.config}"
 : "${AZURE_ACR_NAME:?missing in deploy.config}"
 
+# The image is built from the working tree, so an uncommitted change would ship without
+# a commit to trace it back to (the About dialog shows the deployed commit).
+if [ -n "$(git status --porcelain)" ] && [ "${ALLOW_DIRTY:-0}" != "1" ]; then
+  echo "Uncommitted changes in the working tree — commit them, or rerun with ALLOW_DIRTY=1." >&2
+  exit 1
+fi
+GIT_COMMIT=$(git rev-parse HEAD)
+
 ACR_LOGIN_SERVER="${AZURE_ACR_NAME}.azurecr.io"
-TAG="v$(date -u +%Y%m%d%H%M%S)"
+# Timestamp first so tags still sort newest-first for the pruning below.
+TAG="v$(date -u +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
 IMAGE="${ACR_LOGIN_SERVER}/${AZURE_CONTAINERAPP_NAME}:${TAG}"
 
 echo "==> az acr login..."
@@ -55,18 +68,29 @@ docker build \
   --build-arg REACT_APP_ENABLE_ATTENTION_CV="$REACT_APP_ENABLE_ATTENTION_CV" \
   --build-arg REACT_APP_TOKEN_ENDPOINT="$REACT_APP_TOKEN_ENDPOINT" \
   --build-arg REACT_APP_COMPLETE_ROOM_ENDPOINT="$REACT_APP_COMPLETE_ROOM_ENDPOINT" \
+  --build-arg REACT_APP_GIT_TAG="$TAG" \
+  --build-arg REACT_APP_GIT_COMMIT="$GIT_COMMIT" \
   -t "$IMAGE" .
 
-echo "==> docker push..."
-docker push "$IMAGE"
+# Layers that already reached ACR are skipped on a retry, so a dropped upload costs only
+# the layer that failed.
+PUSH_ATTEMPTS=3
+attempt=1
+until docker push "$IMAGE"; do
+  if [ "$attempt" -ge "$PUSH_ATTEMPTS" ]; then
+    echo "docker push failed $PUSH_ATTEMPTS times — nothing was deployed." >&2
+    exit 1
+  fi
+  attempt=$((attempt + 1))
+  echo "==> docker push failed, retrying ($attempt/$PUSH_ATTEMPTS) in 15s..."
+  sleep 15
+done
 
 if az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
-  echo "==> Container app exists, updating image..."
-  az containerapp update \
-    --name "$AZURE_CONTAINERAPP_NAME" \
-    --resource-group "$AZURE_RESOURCE_GROUP" \
-    --container-name "$AZURE_CONTAINERAPP_NAME" \
-    --image "$IMAGE"
+  # The image is rolled out below together with the env vars, in ONE revision, after the
+  # secrets they reference are synced (a separate image update used to start a revision
+  # that ran the new image with the previous env).
+  echo "==> Container app exists, will update it in place..."
 else
   echo "==> Creating container app..."
   az containerapp create \
@@ -96,11 +120,12 @@ az containerapp secret set \
     recording-download-secret="$RECORDING_DOWNLOAD_SECRET" \
     appwrite-api-key="$APPWRITE_API_KEY"
 
-echo "==> Wiring env vars (min-replicas 0 = scale to zero)..."
+echo "==> Rolling out the image + env vars (min-replicas 0 = scale to zero)..."
 az containerapp update \
   --name "$AZURE_CONTAINERAPP_NAME" \
   --resource-group "$AZURE_RESOURCE_GROUP" \
   --container-name "$AZURE_CONTAINERAPP_NAME" \
+  --image "$IMAGE" \
   --min-replicas 0 \
   --max-replicas 3 \
   --set-env-vars \
@@ -149,6 +174,42 @@ az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_
 APP_ID=$(az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --query id -o tsv)
 az rest --method patch --uri "https://management.azure.com${APP_ID}?api-version=2024-03-01" --body "@$SIDECAR_PATCH" >/dev/null
 
+# Verified BEFORE pruning, so a failed rollout still has the previous images to go back to.
+echo "==> Waiting for the new revision to be ready..."
+# tr -d '\r': see the pruning note below (CRLF from the CLIs on Windows).
+app_query() {
+  az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --query "$1" -o tsv | tr -d '\r'
+}
+for _ in $(seq 1 30); do
+  LATEST=$(app_query properties.latestRevisionName)
+  READY=$(app_query properties.latestReadyRevisionName)
+  [ -n "$LATEST" ] && [ "$LATEST" = "$READY" ] && break
+  sleep 10
+done
+if [ "$LATEST" != "$READY" ]; then
+  echo "Revision $LATEST did not become ready (latest ready: $READY). Inspect it with:" >&2
+  echo "  az containerapp revision show -n $AZURE_CONTAINERAPP_NAME -g $AZURE_RESOURCE_GROUP --revision $LATEST" >&2
+  exit 1
+fi
+DEPLOYED_IMAGE=$(app_query "properties.template.containers[?name=='$AZURE_CONTAINERAPP_NAME'].image | [0]")
+if [ "$DEPLOYED_IMAGE" != "$IMAGE" ]; then
+  echo "The app runs $DEPLOYED_IMAGE, expected $IMAGE." >&2
+  exit 1
+fi
+
+FQDN=$(app_query properties.configuration.ingress.fqdn)
+echo "==> Waiting for https://$FQDN to answer (min-replicas 0, so the first request is a cold start)..."
+STATUS=000
+for _ in $(seq 1 18); do
+  STATUS=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "https://$FQDN/" || true)
+  [ "$STATUS" = "200" ] && break
+  sleep 10
+done
+if [ "$STATUS" != "200" ]; then
+  echo "https://$FQDN/ answered $STATUS instead of 200." >&2
+  exit 1
+fi
+
 # Every deploy pushes a new timestamped tag, so images pile up both locally
 # (~2GB each) and in ACR (billed storage). Keep only the newest KEEP_IMAGES of
 # each. Tags sort newest-first, so the image just deployed is always kept, and
@@ -162,6 +223,4 @@ az acr repository show-tags --name "$AZURE_ACR_NAME" --repository "$AZURE_CONTAI
   az acr repository delete --name "$AZURE_ACR_NAME" --image "$AZURE_CONTAINERAPP_NAME:$OLD_TAG" --yes >/dev/null || true
 done
 
-echo "==> Done."
-az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
-  --query "properties.configuration.ingress.fqdn" -o tsv
+echo "==> Done: $IMAGE ($LATEST) is live at https://$FQDN"

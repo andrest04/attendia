@@ -42,18 +42,29 @@ ENV CI=true \
 RUN npm run build \
  && npx tsc -p server/tsconfig.json
 
-# ---- runtime: production dependencies only, no source, no build tools ----
+# ---- server-deps: production dependencies, trimmed to what the compiled server loads ----
+# Installed fresh instead of copying the build stage's node_modules and pruning:
+# a prune in a later layer cannot shrink the layer that already holds the dev
+# dependencies. --ignore-scripts skips postinstall (patch-package/copyfiles are
+# devDependencies and only matter for the client build). `dependencies` is mostly
+# the React client (already compiled into build/), so the full install is ~1.1 GB;
+# server-runtime-deps.js keeps only the packages the server requires (~110 MB) —
+# a layer that big timed out on its final commit to ACR.
+FROM node:22-alpine AS server-deps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts
+COPY scripts/server-runtime-deps.js ./scripts/server-runtime-deps.js
+COPY --from=build /app/server-build ./server-build
+RUN node scripts/server-runtime-deps.js /app /app/server-build /out
+
+# ---- runtime: the server's dependencies only, no source, no build tools ----
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Installed fresh instead of copying the build stage's node_modules and pruning:
-# a prune in a later layer cannot shrink the layer that already holds the dev
-# dependencies. --ignore-scripts skips postinstall (patch-package/copyfiles are
-# devDependencies and only matter for the client build).
-COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts
-
+COPY package.json ./
+COPY --from=server-deps /out/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY --from=build /app/server-build ./server-build
 COPY docker-entrypoint.sh ./docker-entrypoint.sh

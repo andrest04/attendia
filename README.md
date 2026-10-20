@@ -103,6 +103,9 @@ This app authenticates every user through Firebase, which requires `firebase-adm
 The live deployment runs on **Azure Container Apps**, driven by a bespoke script (`scripts/deploy.sh`) rather than `azd`/Bicep/Terraform — it builds and pushes the Docker image locally and updates the Container App. See `scripts/deploy.config.example` for the config template.
 
     npm run build   # production build, served by the Express server
+    npm run deploy  # needs `az login`, Docker and scripts/deploy.config; deploys the committed HEAD
+
+The deploy refuses to run with uncommitted changes (`ALLOW_DIRTY=1` overrides), retries a failed push, and only finishes successfully once the new revision is ready, runs the image just pushed and the public URL answers 200. The runtime image carries only the packages the compiled server requires (`scripts/server-runtime-deps.js`), not the React client's dependencies, which are already compiled into `build/`.
 
 ## Application architecture
 
