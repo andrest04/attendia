@@ -18,7 +18,7 @@ describe('server-runtime-deps', () => {
   let app: string;
   let out: string;
   const nm = (...parts: string[]) => path.join(app, 'node_modules', ...parts);
-  const rel = (dirs: string[]) => dirs.map(dir => path.relative(app, dir));
+  const rel = (dirs: string[]) => dirs.map(dir => path.relative(app, dir).split(path.sep).join('/'));
 
   beforeEach(() => {
     app = fs.mkdtempSync(path.join(os.tmpdir(), 'server-deps-app-'));
@@ -79,7 +79,7 @@ describe('server-runtime-deps', () => {
   it('fails when a required dependency is not installed', () => {
     installPackage(nm('a'), { dependencies: { missing: '*' } });
 
-    expect(() => collectPackageDirs(app, ['a'])).toThrow('missing (required from node_modules/a)');
+    expect(() => collectPackageDirs(app, ['a'])).toThrow(`missing (required from ${path.join('node_modules', 'a')})`);
   });
 
   it('copies only the collected packages, skipping nested node_modules that were not collected', () => {
