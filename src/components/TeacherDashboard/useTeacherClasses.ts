@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { mockDashboardData } from './mockDashboardData';
 import { ClassRecord, CreateClassInput } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StateContextType } from '../../state';
 import { toClassSessionDisplayName } from '../../classSession/classSessionTypes';
 import { checkRoomOpen } from '../../classSession/checkRoomOpen';
+import { shouldReprobe } from './roomProbeThrottle';
 import { buildMockClassesView, buildRealClassesView } from './classSessionsView';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
 import { countOf } from '../../utils/pluralize';
@@ -40,33 +41,55 @@ export const ROOM_PROBE_INTERVAL_MS = 30000;
 /**
  * Latest `checkRoomOpen` result per room for the given rooms (the teacher's started classes):
  * probed once when the set of rooms appears and then every ROOM_PROBE_INTERVAL_MS while the tab
- * is visible. Keyed on the rooms' names, so a class list reload does not restart the probing.
+ * is visible. It also re-probes when the tab becomes visible / the window regains focus and on
+ * demand (`refresh`), but never twice within REPROBE_MIN_GAP_MS. Keyed on the rooms' names, so a
+ * class list reload does not restart the probing.
  */
-function useRoomOpenStatus(roomNames: string[]): Record<string, boolean | null> {
+function useRoomOpenStatus(roomNames: string[]) {
   const [status, setStatus] = useState<Record<string, boolean | null>>({});
   const key = roomNames.join('\n');
+  const lastProbeAtRef = useRef<number | null>(null);
+  const probeNowRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const rooms = key ? key.split('\n') : [];
-    if (rooms.length === 0) return undefined;
+    if (rooms.length === 0) {
+      probeNowRef.current = () => {};
+      return undefined;
+    }
     let cancelled = false;
-    const probe = () =>
+    const probe = () => {
+      lastProbeAtRef.current = Date.now();
       rooms.forEach(room =>
         checkRoomOpen(room).then(open => {
           if (!cancelled) setStatus(current => ({ ...current, [room]: open }));
         })
       );
+    };
+    const probeIfAllowed = () => {
+      if (shouldReprobe(Date.now(), lastProbeAtRef.current)) probe();
+    };
+    const onVisible = () => {
+      if (!document.hidden) probeIfAllowed();
+    };
+    probeNowRef.current = probeIfAllowed;
     probe();
     const timer = setInterval(() => {
       if (!document.hidden) probe();
     }, ROOM_PROBE_INTERVAL_MS);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
     return () => {
       cancelled = true;
+      probeNowRef.current = () => {};
       clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
     };
   }, [key]);
 
-  return status;
+  const refresh = useCallback(() => probeNowRef.current(), []);
+  return { status, refresh };
 }
 
 /**
@@ -111,7 +134,7 @@ export default function useTeacherClasses({
     ? buildRealClassesView(realClasses, Date.now())
     : buildMockClassesView(data);
   const expiredClassIds = new Set(expiredClasses.map(classRecord => classRecord.id));
-  const startedRoomStatus = useRoomOpenStatus(
+  const { status: startedRoomStatus, refresh: refreshStartedRooms } = useRoomOpenStatus(
     hasRealClasses ? realClasses.filter(c => c.status === 'started').map(c => c.roomName) : []
   );
 
@@ -235,6 +258,7 @@ export default function useTeacherClasses({
     startClassError,
     isStartingClass,
     startedRoomStatus,
+    refreshStartedRooms,
     cancelDialog,
     cancelExpiredDialog,
     hasRealClasses,

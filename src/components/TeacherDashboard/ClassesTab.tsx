@@ -471,6 +471,8 @@ interface Props {
   isStartingClass?: boolean;
   /** Latest "is this room open?" probe per room name, for the teacher's started classes. */
   startedRoomStatus?: Record<string, boolean | null>;
+  /** Re-checks the started rooms now (rate-limited upstream); the "Actualizar" control only shows with it. */
+  onRefreshRooms?: () => void;
 }
 
 export function createIdempotencyKey(): string {
@@ -505,6 +507,7 @@ export default function ClassesTab({
   startClassError,
   isStartingClass,
   startedRoomStatus = {},
+  onRefreshRooms,
 }: Props) {
   const classes = useStyles();
 
@@ -907,6 +910,16 @@ export default function ClassesTab({
       {inProgressSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-in-progress-section">
           <div className={classes.expiredSectionTitle}>Sesiones en curso</div>
+          {onRefreshRooms && (
+            <button
+              type="button"
+              className={classes.secondaryButton}
+              onClick={onRefreshRooms}
+              data-testid="dashboard-refresh-rooms-button"
+            >
+              Actualizar
+            </button>
+          )}
           <div className={classes.sessionsGrid}>
             {inProgressSessions.map(session => (
               <div

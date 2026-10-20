@@ -160,6 +160,7 @@ export default function TeacherDashboard({
     startClassError,
     isStartingClass,
     startedRoomStatus,
+    refreshStartedRooms,
     cancelDialog,
     cancelExpiredDialog,
     hasRealClasses,
@@ -285,6 +286,7 @@ export default function TeacherDashboard({
         startClassError={startClassError}
         isStartingClass={isStartingClass}
         startedRoomStatus={startedRoomStatus}
+        onRefreshRooms={refreshStartedRooms}
       />
     ),
     historial: () => (
