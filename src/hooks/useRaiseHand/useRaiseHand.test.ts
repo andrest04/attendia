@@ -120,6 +120,20 @@ describe('useRaiseHand', () => {
     expect(mockSend).toHaveBeenCalledWith(raiseHand(false));
   });
 
+  it('ignores a grant-turn sent by a student', () => {
+    const student = createParticipant('student-bob');
+    const studentData = createDataTrack();
+    const { result } = renderHook(() => useRaiseHand());
+    act(() => result.current.setHandRaised(true));
+    act(() => {
+      mockRoom.emit('participantConnected', student);
+      student.emit('trackSubscribed', studentData);
+      studentData.emit('message', grantTurn('me'));
+    });
+    expect(result.current.isHandRaised).toBe(true);
+    expect(result.current.turnGrantedCount).toBe(0);
+  });
+
   it('ignores a grant-turn aimed at someone else', () => {
     const prof = createParticipant('Ana [Profesor]');
     const profData = createDataTrack();

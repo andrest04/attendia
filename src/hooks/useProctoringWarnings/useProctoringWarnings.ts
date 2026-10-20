@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
-import { isAddressedToMe, ProctoringWarningMessage } from '../useClassDataChannel/classProtocol';
+import { isAddressedToMe, isFromTeacher, ProctoringWarningMessage } from '../useClassDataChannel/classProtocol';
 import { ProctoringAlert } from '../../components/AttentionProvider/types';
 
 /**
@@ -42,8 +42,13 @@ export default function useProctoringWarnings(): ProctoringWarningsApi {
   const [lastWarningKind, setLastWarningKind] = useState<ProctoringAlert['kind'] | null>(null);
 
   const { send } = useClassDataChannel<WarningMessage>({
-    onMessage: message => {
-      if (message.type === 'proctoring-warning' && typeof message.kind === 'string' && isAddressedToMe(message, room)) {
+    onMessage: (message, participant) => {
+      if (
+        message.type === 'proctoring-warning' &&
+        isFromTeacher(participant) &&
+        typeof message.kind === 'string' &&
+        isAddressedToMe(message, room)
+      ) {
         setLastWarningKind(message.kind);
         setWarnedByProfessorCount(count => count + 1);
       }

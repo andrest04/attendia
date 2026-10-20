@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import useLatest from '../useLatest/useLatest';
-import { SessionEndedMessage } from '../useClassDataChannel/classProtocol';
+import { RemoteParticipant } from 'twilio-video';
+import { isFromTeacher, SessionEndedMessage } from '../useClassDataChannel/classProtocol';
 import { useAppState } from '../../state';
 import { leaveClass } from '../../components/PreJoinScreens/leaveClass';
 import { ReportEndReason } from '../../components/AttentionProvider/reportTypes';
@@ -64,8 +65,9 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   }, [room, setSessionEndedByProfessor]);
 
   const onMessage = useCallback(
-    (message: SessionEndedMessage) => {
-      if (message.type === 'session-ended') {
+    (message: SessionEndedMessage, participant: RemoteParticipant) => {
+      // Only the teacher can end the class; a student's message is ignored.
+      if (message.type === 'session-ended' && isFromTeacher(participant)) {
         leaveAsEnded();
       }
     },

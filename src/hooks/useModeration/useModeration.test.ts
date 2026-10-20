@@ -70,6 +70,19 @@ describe('useModeration', () => {
     expect(result.current.mutedByProfessorCount).toBe(1);
   });
 
+  it('ignores a mute-audio sent by a student', () => {
+    const student = createParticipant('student-bob');
+    const studentData = createDataTrack();
+    const { result } = renderHook(() => useModeration());
+    act(() => {
+      mockRoom.emit('participantConnected', student);
+      student.emit('trackSubscribed', studentData);
+      studentData.emit('message', muteAudio('me'));
+    });
+    expect(localAudioDisable).not.toHaveBeenCalled();
+    expect(result.current.mutedByProfessorCount).toBe(0);
+  });
+
   it('does NOT bump the count when the audio was already muted (nothing to silence)', () => {
     // Mic already off → disable() is a no-op and the student should not be notified.
     mockRoom.localParticipant.audioTracks = new Map([

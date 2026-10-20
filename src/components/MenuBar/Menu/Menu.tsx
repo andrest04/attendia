@@ -17,6 +17,7 @@ import { isSupported } from '@twilio/video-processors';
 import { useAppState } from '../../../state';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
 import useRecordingToggle from '../../../hooks/useRecordingToggle/useRecordingToggle';
+import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import FlipCameraIcon from '../../../icons/FlipCameraIcon';
 import useFlipCameraToggle from '../../../hooks/useFlipCameraToggle/useFlipCameraToggle';
@@ -44,7 +45,9 @@ export default function Menu(props: { buttonClassName?: string }) {
     busy: isRecordingBusy,
     toggle: toggleRecording,
   } = useRecordingToggle();
-  const { setIsBackgroundSelectionOpen } = useVideoContext();
+  const { setIsBackgroundSelectionOpen, room } = useVideoContext();
+  // Recording rules are teacher-only on the server too; hide the item for everyone else.
+  const canRecord = supportsRecording && isTeacherIdentity(room?.localParticipant?.identity);
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const { flipCameraDisabled, toggleFacingMode, flipCameraSupported } = useFlipCameraToggle();
@@ -110,7 +113,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           </MenuItem>
         )}
 
-        {supportsRecording && (
+        {canRecord && (
           <MenuItem
             disabled={isRecordingBusy}
             onClick={() => {

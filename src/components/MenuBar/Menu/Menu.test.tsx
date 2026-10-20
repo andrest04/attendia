@@ -20,9 +20,10 @@ import useLocalVideoToggle from '../../../hooks/useLocalVideoToggle/useLocalVide
 jest.mock('../../../hooks/useFlipCameraToggle/useFlipCameraToggle');
 jest.mock('@material-ui/core/useMediaQuery');
 jest.mock('../../../state');
+let mockLocalIdentity = 'Ana [Profesor]';
 jest.mock('../../../hooks/useVideoContext/useVideoContext', () => () => ({
   localTracks: [],
-  room: { sid: 'mockRoomSid' },
+  room: { sid: 'mockRoomSid', localParticipant: { identity: mockLocalIdentity } },
 }));
 jest.mock('../../../hooks/useIsRecording/useIsRecording');
 jest.mock('../../../hooks/useChatContext/useChatContext');
@@ -43,7 +44,10 @@ describe('the Menu component', () => {
   let mockUpdateRecordingRules: jest.Mock<any>;
   let mockSetIsGalleryViewActive = jest.fn();
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockLocalIdentity = 'Ana [Profesor]';
+  });
 
   beforeAll(() => {
     mockUpdateRecordingRules = jest.fn(() => Promise.resolve());
@@ -80,6 +84,16 @@ describe('the Menu component', () => {
 
         expect(mockUpdateRecordingRules).toHaveBeenCalledWith('mockRoomSid', [{ all: true, type: 'exclude' }]);
         waitForElement(() => getByText('You can view the recording in the Twilio Console'));
+      });
+    });
+
+    describe('for a student', () => {
+      it('should not render the recording button', () => {
+        mockLocalIdentity = 'student-bob';
+        mockUseIsRecording.mockImplementation(() => false);
+        const { getByText, queryByText } = render(<Menu />);
+        fireEvent.click(getByText('Más'));
+        expect(queryByText('Iniciar grabación')).toBeNull();
       });
     });
 
