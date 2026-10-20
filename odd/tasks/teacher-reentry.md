@@ -28,9 +28,9 @@ Client: `RoomNameScreen`, `PreJoinScreens`, `createCollisionSafeClassSessionAcce
 
 - [x] T1 Server: second teacher joins an OPEN room as co-teacher instead of 403 (`claimRoom`); closed-room rules (60 s window, takeover) unchanged.
 - [x] T2 Server: `/completeRoom`, `POST /reports`, recording creation stay owner-only; tests pin it.
-- [ ] T3 Client: "Entrar a sala existente" box for teachers (code or link, `checkRoomOpen`, join without suffix).
-- [ ] T4 Client: room not open -> message + "Crear con este nombre" (confirm before creating; covers typos).
-- [ ] T5 Client: no random suffix when the open room is the teacher's own.
+- [x] T3 Client: "Entrar a sala existente" box for teachers (code or link, `checkRoomOpen`, join without suffix).
+- [x] T4 Client: room not open -> message + "Crear con este nombre" (confirm before creating; covers typos).
+- [x] T5 Client: no random suffix when the open room is the teacher's own.
 - [ ] T6 Dashboard: "Volver a entrar" on `started` classes whose room is still open; message when the room already closed.
 - [ ] T7 Room UI: co-teacher does not see end-for-all / recording; leaving does not trigger report save.
 
@@ -47,3 +47,6 @@ Each task: tests first (RED then GREEN), `npm test` for touched files, `npm run 
 
 - T1 (85fde82): RED observed (2 failing claim tests), GREEN after `claimRoomOwnership` change. `npm test -- server/__tests__/roomOwnership.test.ts server/__tests__/roomAccessGuard.test.ts server/__tests__/securityWiring.test.ts`: 3 suites, 81 tests pass. `npm run typescript:server` and `npx eslint server --ext .ts` clean. Route: inline (2 prod files, small).
 - T2 (45bf53b): code read, completeRoom/recordings/reports already refuse non-owners (no production gap). Pinned with a co-teacher scenario in roomOwnership.test.ts; 47 tests pass (tests-only, passes without code change by design).
+- T3 (4859df1): teacher card gets a join box (`#input-teacher-join-code`, "Entrar a la sala"); PreJoinScreens `joinExistingRoomAsTeacher` normalizes code/link, probes `checkRoomOpen`, proceeds only on `true` (exact room name, no suffix, URL replaced, teacher suffix on name). Tests written alongside the code (separate RED run not captured). `npm test -- src/components/PreJoinScreens src/classSession src/components/TeacherDashboard`: 441 pass; `npx tsc --noEmit -p tsconfig.json` and `npm run lint` clean. Route: delegated writer.
+- T4 (5ff15fc): `false` shows closed alert + "Crear con este nombre" with inline confirmation ("Sí, crear sala"/"Cancelar") then enters device selection with the exact name; `null` shows a retryable alert and never creates. Same commands: 450 tests pass, tsc and lint clean.
+- T5 (a6324a7): new `createClassSessionAccessUnlessOpen` returns `created` or `open`; the lobby create flow shows "Esa sala ya está abierta… ¿Quieres entrar?" with a join action instead of a suffixed room. `createCollisionSafeClassSessionAccess` (suffix) is kept ONLY because `TeacherDashboard/QuickStartClassPanel.tsx` (outside this task surface) still calls it; follow-up needed to apply the same steering there. Same commands: 459 tests pass, tsc and lint clean.
