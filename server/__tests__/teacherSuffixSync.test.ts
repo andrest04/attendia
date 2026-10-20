@@ -14,7 +14,7 @@ import path from 'path';
  * deploy:twilio-cli Twilio Serverless deploy path. That deploy path was removed
  * when this app moved to firebase-only auth — Twilio Serverless Functions can't
  * run firebase-admin — so the patch became dead code and was deleted; see
- * CLAUDE.md's "Server-side room-access guard" section.)
+ * AGENTS.md's "Server-side room-access guard" section.)
  *
  * If someone renames the suffix in one place but not the other, the role check
  * silently diverges across the local server and the client. This test reads both

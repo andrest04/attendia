@@ -119,7 +119,7 @@ MuiThemeProvider
                   └─ App
 ```
 
-For the full breakdown of the classroom layer (roles, room shells, the attention CV pipeline, raise-hand, auto-rejoin, the room-access guard, etc.), see [CLAUDE.md](CLAUDE.md) — it documents the codebase in depth for both contributors and AI coding assistants.
+For the full breakdown of the classroom layer (roles, room shells, the attention CV pipeline, raise-hand, auto-rejoin, the room-access guard, etc.), see [AGENTS.md](AGENTS.md) — it documents the codebase in depth for both contributors and AI coding assistants.
 
 ## Related
 
