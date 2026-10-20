@@ -24,7 +24,8 @@ export type RoomExistenceChecker = RoomExistenceCheck;
  *     that profile is answered 403 (it would otherwise impersonate the professor);
  *   - lets a student (no suffix) get a token only for a room that is already open;
  *   - for a teacher, claims roomOwners/{room} for the verified uid (roomOwnership.ts) and
- *     answers 403 while another teacher's class is open under that name;
+ *     lets a second teacher into an OPEN room as co-teacher (no ownership change) and answers
+ *     403 only while another teacher's fresh claim on that name has no open room yet;
  *   - treats create_room:false (join-only) as "the room must already exist" instead of
  *     a blind pass-through.
  *

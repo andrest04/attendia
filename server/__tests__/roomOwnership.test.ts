@@ -138,12 +138,28 @@ describe('claimRoomOwnership', () => {
     });
   });
 
-  it('refuses while another uid owns the room and it is currently open', async () => {
-    const { db, transactionSet, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1' } });
+  it('lets another uid join as co-teacher while the room is open, leaving the owner record untouched', async () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const ownerDoc = { uid: 'other', roomName: 'clase-1', claimedAt: new Date(now - 3600000), refreshedAt: new Date(now - 5000), claimsHistory: true };
+    const { db, transactionSet, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { ...ownerDoc } });
     const roomExists = jest.fn().mockResolvedValue(true);
 
-    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(false);
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp, now: () => now })).toBe(true);
     expect(roomExists).toHaveBeenCalledWith('clase-1');
+    expect(transactionSet).not.toHaveBeenCalled();
+    expect(owners[roomOwnerKey('clase-1')]).toEqual(ownerDoc);
+    expect(claimHistory(owners, 'clase-1')).toEqual([]);
+  });
+
+  it('lets another uid join as co-teacher even when the owner claim is still fresh but the room is already open', async () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const { db, transactionSet, owners } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1', claimedAt: new Date(now - 1000), refreshedAt: new Date(now - 1000) },
+    });
+
+    expect(
+      await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists: jest.fn().mockResolvedValue(true), timestamp, now: () => now })
+    ).toBe(true);
     expect(transactionSet).not.toHaveBeenCalled();
     expect(owners[roomOwnerKey('clase-1')].uid).toBe('other');
   });
@@ -193,10 +209,13 @@ describe('claimRoomOwnership', () => {
   });
 
   it('writes no history entry when the claim is refused', async () => {
-    const { db, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1' } });
-    const roomExists = jest.fn().mockResolvedValue(true);
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const { db, owners } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1', claimedAt: new Date(now - 1000) },
+    });
+    const roomExists = jest.fn().mockResolvedValue(false);
 
-    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(false);
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp, now: () => now })).toBe(false);
     expect(claimHistory(owners, 'clase-1')).toEqual([]);
   });
 
