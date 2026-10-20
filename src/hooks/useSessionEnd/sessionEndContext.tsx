@@ -22,11 +22,11 @@ export function SessionEndProvider({ children }: { children: ReactNode }) {
 }
 
 /** Room.tsx: publish the (single) useSessionEnd result for the sibling mobile bars. */
-export function usePublishSessionEnd({ endSessionForAll, leaveWithoutEnding, isEnding }: SessionEndApi) {
+export function usePublishSessionEnd({ endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher }: SessionEndApi) {
   const { publish } = useContext(SessionEndContext);
   useEffect(() => {
-    publish({ endSessionForAll, leaveWithoutEnding, isEnding });
-  }, [publish, endSessionForAll, leaveWithoutEnding, isEnding]);
+    publish({ endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher });
+  }, [publish, endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher]);
   useEffect(() => () => publish(null), [publish]);
 }
 

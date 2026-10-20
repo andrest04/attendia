@@ -16,6 +16,7 @@ import { isSupported } from '@twilio/video-processors';
 
 import { useAppState } from '../../../state';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
+import { useSessionEndApi } from '../../../hooks/useSessionEnd/sessionEndContext';
 import useRecordingToggle from '../../../hooks/useRecordingToggle/useRecordingToggle';
 import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
@@ -47,7 +48,9 @@ export default function Menu(props: { buttonClassName?: string }) {
   } = useRecordingToggle();
   const { setIsBackgroundSelectionOpen, room } = useVideoContext();
   // Recording rules are teacher-only on the server too; hide the item for everyone else.
-  const canRecord = supportsRecording && isTeacherIdentity(room?.localParticipant?.identity);
+  // Recording is owner-only: a confirmed co-teacher (published by Room) does not get it either.
+  const isCoTeacher = useSessionEndApi()?.isCoTeacher ?? false;
+  const canRecord = supportsRecording && isTeacherIdentity(room?.localParticipant?.identity) && !isCoTeacher;
 
   const anchorRef = useRef<HTMLButtonElement>(null);
   const { flipCameraDisabled, toggleFacingMode, flipCameraSupported } = useFlipCameraToggle();

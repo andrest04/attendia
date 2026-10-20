@@ -42,6 +42,13 @@ export interface SessionEndOptions {
    * identity never re-wires the hook.
    */
   onProfessorEnd?: (reason: ReportEndReason) => Promise<void>;
+  /**
+   * True once the server confirmed the local teacher is a co-teacher (not the room's owner).
+   * A co-teacher can only leave: no `session-ended` broadcast, no /completeRoom and no attention
+   * report (the server refuses all of them for a non-owner). Defaults to false: an unknown owner
+   * status behaves as the owner.
+   */
+  isCoTeacher?: boolean;
 }
 
 export interface SessionEndApi {
@@ -51,6 +58,8 @@ export interface SessionEndApi {
   leaveWithoutEnding: () => void;
   /** True while the /completeRoom request is in flight. */
   isEnding: boolean;
+  /** True for a confirmed co-teacher: owner-only controls must be hidden. */
+  isCoTeacher: boolean;
 }
 
 export default function useSessionEnd(options: SessionEndOptions = {}): SessionEndApi {
@@ -59,7 +68,8 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   const { enqueueSnackbar } = useSnackbar();
   const [isEnding, setIsEnding] = useState(false);
   const sendRef = useRef<(message: SessionEndedMessage) => void>(() => undefined);
-  const onProfessorEndRef = useLatest(options.onProfessorEnd);
+  const isCoTeacher = options.isCoTeacher ?? false;
+  const onProfessorEndRef = useLatest(isCoTeacher ? undefined : options.onProfessorEnd);
 
   const leaveAsEnded = useCallback(() => {
     setSessionEndedByProfessor(true);
@@ -82,7 +92,22 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
     sendRef.current = send;
   }, [send]);
 
+  // "Salir sin cerrar": the professor leaves alone and the class stays open, so no
+  // broadcast, no /completeRoom, and no session-ended screen. The report snapshot is
+  // fire-and-forget — the synchronous part of saveReport captures the data before
+  // disconnect() runs, and the in-flight POST survives it (the SPA never unloads).
+  // A co-teacher has no report callback (see onProfessorEndRef), so this is a plain leave.
+  const leaveWithoutEnding = useCallback(() => {
+    void onProfessorEndRef.current?.('left');
+    leaveClass(room);
+  }, [room, onProfessorEndRef]);
+
   const endSessionForAll = useCallback(async () => {
+    // Defense in depth: the UI hides this for a co-teacher and the server would refuse it anyway.
+    if (isCoTeacher) {
+      leaveWithoutEnding();
+      return;
+    }
     const identity = room?.localParticipant?.identity;
     const roomName = room?.name;
     setIsEnding(true);
@@ -112,16 +137,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       setIsEnding(false);
       leaveAsEnded();
     }
-  }, [room, user, leaveAsEnded, onProfessorEndRef, enqueueSnackbar]);
+  }, [room, user, leaveAsEnded, onProfessorEndRef, enqueueSnackbar, isCoTeacher, leaveWithoutEnding]);
 
-  // "Salir sin cerrar": the professor leaves alone and the class stays open, so no
-  // broadcast, no /completeRoom, and no session-ended screen. The report snapshot is
-  // fire-and-forget — the synchronous part of saveReport captures the data before
-  // disconnect() runs, and the in-flight POST survives it (the SPA never unloads).
-  const leaveWithoutEnding = useCallback(() => {
-    void onProfessorEndRef.current?.('left');
-    leaveClass(room);
-  }, [room, onProfessorEndRef]);
-
-  return { endSessionForAll, leaveWithoutEnding, isEnding };
+  return { endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher };
 }

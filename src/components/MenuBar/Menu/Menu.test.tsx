@@ -15,6 +15,7 @@ import useChatContext from '../../../hooks/useChatContext/useChatContext';
 import useFlipCameraToggle from '../../../hooks/useFlipCameraToggle/useFlipCameraToggle';
 import useMediaQuery from '@material-ui/core/useMediaQuery';
 import useIsRecording from '../../../hooks/useIsRecording/useIsRecording';
+import { useSessionEndApi } from '../../../hooks/useSessionEnd/sessionEndContext';
 import useLocalVideoToggle from '../../../hooks/useLocalVideoToggle/useLocalVideoToggle';
 
 jest.mock('../../../hooks/useFlipCameraToggle/useFlipCameraToggle');
@@ -27,6 +28,7 @@ jest.mock('../../../hooks/useVideoContext/useVideoContext', () => () => ({
 }));
 jest.mock('../../../hooks/useIsRecording/useIsRecording');
 jest.mock('../../../hooks/useChatContext/useChatContext');
+jest.mock('../../../hooks/useSessionEnd/sessionEndContext');
 jest.mock('../../../hooks/useLocalVideoToggle/useLocalVideoToggle');
 
 const mockUseFlipCameraToggle = useFlipCameraToggle as jest.Mock<any>;
@@ -36,6 +38,7 @@ const mockUseIsRecording = useIsRecording as jest.Mock<boolean>;
 const mockUseChatContext = useChatContext as jest.Mock<any>;
 const mockUseLocalVideoToggle = useLocalVideoToggle as jest.Mock<any>;
 
+const mockUseSessionEndApi = useSessionEndApi as jest.Mock<any>;
 const mockToggleChatWindow = jest.fn();
 mockUseChatContext.mockImplementation(() => ({ setIsChatWindowOpen: mockToggleChatWindow }));
 mockUseLocalVideoToggle.mockImplementation(() => [true, () => {}]);
@@ -84,6 +87,18 @@ describe('the Menu component', () => {
 
         expect(mockUpdateRecordingRules).toHaveBeenCalledWith('mockRoomSid', [{ all: true, type: 'exclude' }]);
         waitForElement(() => getByText('You can view the recording in the Twilio Console'));
+      });
+    });
+
+    describe('for a confirmed co-teacher', () => {
+      afterEach(() => mockUseSessionEndApi.mockReset());
+
+      it('should not render the recording button (recording is owner-only)', () => {
+        mockUseSessionEndApi.mockImplementation(() => ({ isCoTeacher: true }));
+        mockUseIsRecording.mockImplementation(() => false);
+        const { getByText, queryByText } = render(<Menu />);
+        fireEvent.click(getByText('Más'));
+        expect(queryByText('Iniciar grabación')).toBeNull();
       });
     });
 

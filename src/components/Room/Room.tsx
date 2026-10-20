@@ -28,6 +28,7 @@ import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctori
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
 import { usePublishSessionEnd } from '../../hooks/useSessionEnd/sessionEndContext';
 import useAttentionReportSaver from '../../hooks/useAttentionReportSaver/useAttentionReportSaver';
+import useIsRoomOwner from '../../hooks/useIsRoomOwner/useIsRoomOwner';
 import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
@@ -125,9 +126,12 @@ export default function Room() {
   // Snapshots the attention report to Firestore on both professor exit paths; a
   // silent no-op for students and in non-firebase modes.
   const { saveReport, buildReport } = useAttentionReportSaver();
+  const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
+  // Owner-only controls hide ONLY for a confirmed co-teacher; unknown/failed lookups act as owner.
+  const isCoTeacher = useIsRoomOwner(isTeacher) === 'co-teacher';
   // Singleton (one DataTrack) like useRaiseHand: drives the teacher's "end for everyone"
   // and the student-side "session ended" screen. Must be called once here.
-  const sessionEndApi = useSessionEnd({ onProfessorEnd: saveReport });
+  const sessionEndApi = useSessionEnd({ onProfessorEnd: saveReport, isCoTeacher });
   const { endSessionForAll, leaveWithoutEnding, isEnding } = sessionEndApi;
   // The legacy mobile bars sit next to Room (see App.tsx): hand them this single instance.
   usePublishSessionEnd(sessionEndApi);
@@ -138,7 +142,6 @@ export default function Room() {
   const [onboardingSignal, setOnboardingSignal] = useState(0);
   const openTour = useCallback(() => setOnboardingSignal(s => s + 1), []);
   const onboardingValue = useMemo(() => ({ openTour }), [openTour]);
-  const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
   const mainParticipant = useMainParticipant();
   const participants = useParticipants();
   const localParticipantNetworkQuality = useParticipantNetworkQualityLevel(room?.localParticipant ?? null);
@@ -174,8 +177,9 @@ export default function Room() {
   // the user is still free to switch back to gallery view.
   useSetSpeakerViewOnScreenShare(screenShareParticipant, room, setIsGalleryViewActive, isGalleryViewActive);
 
-  // Teacher-only: persist the attention report when the tab is closed or refreshed.
-  useUnloadReportPersistence(isTeacher, buildReport);
+  // Owner-only: persist the attention report when the tab is closed or refreshed. A co-teacher
+  // must not build, queue or POST one (the server refuses reports for rooms they do not own).
+  useUnloadReportPersistence(isTeacher && !isCoTeacher, buildReport);
 
   // Speaker-view stage: ParticipantStrip filmstrip on top + MainParticipant filling remaining space.
   // Used by both desktop shells; not rendered on mobile or in gallery view.
@@ -204,7 +208,7 @@ export default function Room() {
     moderation: { muteParticipant, sendWarning },
     proctoring: { enabled: proctoringEnabled, setEnabled: setProctoringEnabled },
     notifications,
-    sessionEnd: { endSessionForAll, leaveWithoutEnding, isEnding },
+    sessionEnd: { endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher },
     connection: { isDegraded: isConnectivityDegraded, networkQualityLevel: localParticipantNetworkQuality },
     activeSpeakerLabel,
   };
