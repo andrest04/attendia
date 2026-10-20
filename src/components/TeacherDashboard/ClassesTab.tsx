@@ -8,6 +8,7 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import DeleteIcon from '@material-ui/icons/Delete';
 import EventBusyIcon from '@material-ui/icons/EventBusy';
+import MeetingRoomIcon from '@material-ui/icons/MeetingRoom';
 import { MuiPickersUtilsProvider, KeyboardDatePicker, KeyboardTimePicker } from '@material-ui/pickers';
 import DateFnsUtils from '@date-io/date-fns';
 import esLocale from 'date-fns/locale/es';
@@ -15,6 +16,7 @@ import { DashboardStat, UpcomingSession } from './types';
 import { statCardIcon } from './dashboardHelpers';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../../classSession/classSessionTypes';
 import { validateNewClass } from './newClassValidation';
+import { resolveClassAction, ClassAction } from './classAction';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
@@ -467,6 +469,10 @@ interface Props {
   startClassError?: string | null;
   /** True while the pre-start collision check is in flight. */
   isStartingClass?: boolean;
+  /** Latest "is this room open?" probe per room name, for the teacher's started classes. */
+  startedRoomStatus?: Record<string, boolean | null>;
+  /** Re-checks the started rooms now (rate-limited upstream); the "Actualizar" control only shows with it. */
+  onRefreshRooms?: () => void;
 }
 
 export function createIdempotencyKey(): string {
@@ -500,6 +506,8 @@ export default function ClassesTab({
   sessionsAreMock = false,
   startClassError,
   isStartingClass,
+  startedRoomStatus = {},
+  onRefreshRooms,
 }: Props) {
   const classes = useStyles();
 
@@ -532,6 +540,76 @@ export default function ClassesTab({
       name: toClassSessionDisplayName(professorName, 'teacher'),
       classId: session.classId,
     });
+  };
+
+  const statusById = new Map(existingClasses.map(classRecord => [classRecord.id, classRecord.status]));
+  const actionFor = (session: UpcomingSession): ClassAction =>
+    resolveClassAction(statusById.get(session.id), startedRoomStatus[session.roomName || '']);
+  // Started classes whose card is not in the upcoming grid (their scheduled time is long past)
+  // still need their way back into the room.
+  const inProgressSessions: UpcomingSession[] = existingClasses
+    .filter(classRecord => classRecord.status === 'started' && !sessions.some(s => s.id === classRecord.id))
+    .map(classRecord => ({
+      id: classRecord.id,
+      title: classRecord.title,
+      code: classRecord.roomName,
+      roomName: classRecord.roomName,
+      classId: classRecord.id,
+      studentCount: classRecord.studentCount,
+      time: '',
+      dayLabel: 'En curso',
+      relativeLabel: '',
+      highlighted: false,
+    }));
+
+  /** Actions for a started class; null when the plain "Iniciar sesión" flow applies. */
+  const renderStartedAction = (session: UpcomingSession, action: ClassAction) => {
+    if (action === 'rejoin') {
+      return (
+        <button
+          type="button"
+          className={classes.primaryButton}
+          onClick={() => handleStartClass(session)}
+          disabled={isStartingClass}
+          data-testid="dashboard-rejoin-session-button"
+        >
+          <MeetingRoomIcon style={{ fontSize: 18 }} />
+          {isStartingClass ? 'Verificando…' : 'Volver a entrar'}
+        </button>
+      );
+    }
+    if (action === 'closed-restart') {
+      return (
+        <>
+          <div className={classes.newClassError} data-testid="dashboard-room-closed-note">
+            La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.
+          </div>
+          <button
+            type="button"
+            className={classes.secondaryButton}
+            onClick={() => handleStartClass(session)}
+            disabled={isStartingClass}
+            data-testid="dashboard-restart-session-button"
+          >
+            <PlayArrowIcon style={{ fontSize: 16 }} />
+            {isStartingClass ? 'Verificando…' : 'Iniciar de nuevo'}
+          </button>
+        </>
+      );
+    }
+    if (action === 'checking') {
+      return (
+        <button
+          type="button"
+          className={classes.secondaryButton}
+          disabled
+          data-testid="dashboard-checking-session-button"
+        >
+          Verificando sala…
+        </button>
+      );
+    }
+    return null;
   };
 
   const handleNewClassClick = () => {
@@ -796,37 +874,78 @@ export default function ClassesTab({
                 {session.studentCount}
               </span>
             </div>
-            {session.highlighted ? (
-              <button
-                type="button"
-                className={classes.primaryButton}
-                onClick={() => handleStartClass(session)}
-                disabled={isStartingClass}
-                data-testid="dashboard-start-session-button"
-              >
-                <PlayArrowIcon style={{ fontSize: 18 }} />
-                {isStartingClass ? 'Verificando…' : 'Iniciar sesión'}
-              </button>
-            ) : onCancelClass ? (
-              <button
-                type="button"
-                className={classes.secondaryButton}
-                onClick={() => onCancelClass(session)}
-                disabled={cancellingClassId === session.id}
-                data-testid="dashboard-cancel-session-button"
-              >
-                <DeleteIcon style={{ fontSize: 16 }} />
-                {cancellingClassId === session.id ? 'Cancelando…' : 'Cancelar'}
-              </button>
-            ) : (
-              <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">
-                <OpenInNewIcon style={{ fontSize: 16 }} />
-                Ver detalles
-              </button>
-            )}
+            {renderStartedAction(session, actionFor(session)) ||
+              (session.highlighted ? (
+                <button
+                  type="button"
+                  className={classes.primaryButton}
+                  onClick={() => handleStartClass(session)}
+                  disabled={isStartingClass}
+                  data-testid="dashboard-start-session-button"
+                >
+                  <PlayArrowIcon style={{ fontSize: 18 }} />
+                  {isStartingClass ? 'Verificando…' : 'Iniciar sesión'}
+                </button>
+              ) : onCancelClass ? (
+                <button
+                  type="button"
+                  className={classes.secondaryButton}
+                  onClick={() => onCancelClass(session)}
+                  disabled={cancellingClassId === session.id}
+                  data-testid="dashboard-cancel-session-button"
+                >
+                  <DeleteIcon style={{ fontSize: 16 }} />
+                  {cancellingClassId === session.id ? 'Cancelando…' : 'Cancelar'}
+                </button>
+              ) : (
+                <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">
+                  <OpenInNewIcon style={{ fontSize: 16 }} />
+                  Ver detalles
+                </button>
+              ))}
           </div>
         ))}
       </div>
+
+      {inProgressSessions.length > 0 && (
+        <div className={classes.expiredSection} data-testid="dashboard-in-progress-section">
+          <div className={classes.expiredSectionTitle}>Sesiones en curso</div>
+          {onRefreshRooms && (
+            <button
+              type="button"
+              className={classes.secondaryButton}
+              onClick={onRefreshRooms}
+              data-testid="dashboard-refresh-rooms-button"
+            >
+              Actualizar
+            </button>
+          )}
+          <div className={classes.sessionsGrid}>
+            {inProgressSessions.map(session => (
+              <div
+                key={session.id}
+                className={classes.sessionCard}
+                data-testid={`dashboard-in-progress-card-${session.id}`}
+              >
+                <div className={classes.sessionTitle}>{session.title}</div>
+                <div className={classes.sessionCode}>{session.code}</div>
+                {renderStartedAction(session, actionFor(session)) || (
+                  <button
+                    type="button"
+                    className={classes.primaryButton}
+                    onClick={() => handleStartClass(session)}
+                    disabled={isStartingClass}
+                    data-testid="dashboard-start-session-button"
+                  >
+                    <PlayArrowIcon style={{ fontSize: 18 }} />
+                    {isStartingClass ? 'Verificando…' : 'Iniciar sesión'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {expiredSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-expired-sessions-section">

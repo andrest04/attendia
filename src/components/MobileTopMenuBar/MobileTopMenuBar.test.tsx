@@ -26,6 +26,14 @@ describe('the MobileTopMenuBar component', () => {
     expect(end.prop('isEnding')).toBe(true);
   });
 
+  it('keeps the leave action but drops end-for-all for a confirmed co-teacher', () => {
+    withIdentity('Ana [Profesor]');
+    mockUseSessionEndApi.mockImplementation(() => ({ ...sessionEnd, isCoTeacher: true }));
+    const end = shallow(<MobileTopMenuBar />).find(EndCallButton);
+    expect(end.prop('onEndForAll')).toBeUndefined();
+    expect(end.prop('onLeave')).toBe(sessionEnd.leaveWithoutEnding);
+  });
+
   it('leaves the EndCallButton plain for a student', () => {
     withIdentity('student-bob');
     const end = shallow(<MobileTopMenuBar />).find(EndCallButton);

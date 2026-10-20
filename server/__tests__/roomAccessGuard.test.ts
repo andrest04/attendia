@@ -307,7 +307,7 @@ describe('createRoomAccessGuard', () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
-    it('answers 403 while another teacher holds an open class under that name', async () => {
+    it('answers 403 while another teacher\'s fresh claim on that name is not open yet', async () => {
       const claimRoom = jest.fn().mockResolvedValue(false);
       const guard = createRoomAccessGuard(roomExists, () => 'teacher', claimRoom);
       const res = makeRes('teacher-1');

@@ -11,6 +11,8 @@ import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
 import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipant';
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
+import useIsRoomOwner from '../../hooks/useIsRoomOwner/useIsRoomOwner';
+import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext } from '../../hooks/useRaiseHand/raisedHandsContext';
 
 jest.mock('swiper/react', () => ({
@@ -33,10 +35,15 @@ jest.mock('@material-ui/core', () => {
   const actual = jest.requireActual('@material-ui/core');
   return { ...actual, useMediaQuery: jest.fn() };
 });
+jest.mock('../../hooks/useIsRoomOwner/useIsRoomOwner');
+jest.mock('../../hooks/useUnloadReportPersistence/useUnloadReportPersistence');
 jest.mock('notistack', () => ({
   useSnackbar: () => ({ enqueueSnackbar: jest.fn(), closeSnackbar: jest.fn() }),
 }));
 
+const mockUseIsRoomOwner = useIsRoomOwner as jest.Mock<any>;
+const mockUseUnloadReportPersistence = useUnloadReportPersistence as jest.Mock<any>;
+mockUseIsRoomOwner.mockImplementation(() => 'unknown');
 const mockUseAppState = useAppState as jest.Mock<any>;
 const mockUseChatContext = useChatContext as jest.Mock<any>;
 const mockUseIsRecording = useIsRecording as jest.Mock<any>;
@@ -259,6 +266,43 @@ describe('the Room component', () => {
     expect((stage.type as Function).name).toBe('GalleryView');
     // No speaker-view-stage wrapper
     expect(stage.props['data-testid']).not.toBe('speaker-view-stage');
+  });
+
+  describe('for a teacher', () => {
+    const asTeacher = () =>
+      mockUseVideoContext.mockImplementationOnce(() => ({
+        setIsBackgroundSelectionOpen: jest.fn(),
+        isBackgroundSelectionOpen: false,
+        room: { localParticipant: { identity: 'Andres Torres [Profesor]' } },
+      }));
+    afterEach(() => mockUseIsRoomOwner.mockImplementation(() => 'unknown'));
+
+    it('keeps end-for-all, recording and the unload report for an unknown owner status (never hide on a failed lookup)', () => {
+      asTeacher();
+      const toolbar = shallow(<Room />)
+        .find('ProfessorRoomShell')
+        .prop('toolbarSlot') as React.ReactElement;
+      expect(toolbar.props.isCoTeacher).toBe(false);
+      expect(toolbar.props.onEndForAll).toEqual(expect.any(Function));
+      expect(mockUseUnloadReportPersistence).toHaveBeenLastCalledWith(true, expect.any(Function));
+    });
+
+    it('hides end-for-all and recording and skips the unload report for a confirmed co-teacher', () => {
+      mockUseIsRoomOwner.mockImplementation(() => 'co-teacher');
+      asTeacher();
+      const toolbar = shallow(<Room />)
+        .find('ProfessorRoomShell')
+        .prop('toolbarSlot') as React.ReactElement;
+      expect(toolbar.props.isCoTeacher).toBe(true);
+      expect(toolbar.props.onEndForAll).toBeUndefined();
+      expect(toolbar.props.onLeave).toEqual(expect.any(Function));
+      expect(mockUseUnloadReportPersistence).toHaveBeenLastCalledWith(false, expect.any(Function));
+    });
+
+    it('only looks up the owner status for a teacher', () => {
+      shallow(<Room />);
+      expect(mockUseIsRoomOwner).toHaveBeenLastCalledWith(false);
+    });
   });
 });
 

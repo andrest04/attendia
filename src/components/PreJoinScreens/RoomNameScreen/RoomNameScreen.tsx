@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useState } from 'react';
+import React, { ChangeEvent, useEffect, useState } from 'react';
 import { Typography, makeStyles, TextField, Button, InputLabel, Theme, Box, CircularProgress } from '@material-ui/core';
 import SecurityIcon from '@material-ui/icons/Security';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
@@ -9,6 +9,7 @@ import {
   ClassSessionDraft,
   ClassSessionRole,
   isClassSessionDraftReady,
+  normalizeStudentJoinInputToRoomName,
 } from '../../../classSession/classSessionTypes';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -248,6 +249,16 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#B71C1C',
   },
 
+  // ── Typed room name is already open ────────────────────────────────────────────
+  openRoomNotice: {
+    marginTop: theme.spacing(2),
+    padding: theme.spacing(1.5),
+    borderRadius: theme.spacing(1),
+    backgroundColor: '#FFF8E1',
+    border: '1px solid #FFE082',
+    color: '#5D4037',
+  },
+
   // ── Session created card ───────────────────────────────────────────────────────
   createdCard: {
     border: '1px solid #C8E6C9',
@@ -313,6 +324,35 @@ const useStyles = makeStyles((theme: Theme) => ({
     },
   },
 
+  // ── Teacher "join an existing room" box ────────────────────────────────────────
+  joinBox: {
+    marginTop: 'clamp(10px, 2vh, 20px)',
+    paddingTop: 'clamp(8px, 1.5vh, 16px)',
+    borderTop: '1px solid #e2ecf9',
+  },
+  joinBoxTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 13,
+    color: '#1d2f6f',
+    lineHeight: '19px',
+    margin: 0,
+  },
+  joinBoxRow: {
+    display: 'flex',
+    alignItems: 'stretch',
+    gap: 8,
+    marginTop: 8,
+  },
+  joinBoxButton: {
+    flexShrink: 0,
+    borderRadius: 10,
+    textTransform: 'none',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 13,
+  },
+
   // ── Spacing helpers ────────────────────────────────────────────────────────────
   fieldBlock: {
     marginTop: 'clamp(8px, 1.5vh, 16px)',
@@ -328,6 +368,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+export type TeacherJoinStatus = 'idle' | 'checking' | 'closed' | 'inconclusive';
+
 interface RoomNameScreenProps {
   name: string;
   roomName: string;
@@ -338,6 +380,17 @@ interface RoomNameScreenProps {
   isCheckingRoom?: boolean;
   isCreatingRoom?: boolean;
   roomClosedError?: boolean;
+  // Teacher "join an existing room" box. Optional: hosts that only create rooms (the dashboard
+  // quick-start panel) omit onJoinExistingRoom and the box is not rendered.
+  teacherJoinCode?: string;
+  teacherJoinStatus?: TeacherJoinStatus;
+  setTeacherJoinCode?: (joinCode: string) => void;
+  onJoinExistingRoom?: () => void;
+  // Called only after the teacher confirmed "create a room with the name I typed".
+  onCreateWithJoinName?: () => void;
+  // Set when "Crear sala" found the typed name already open: the teacher is offered to join it.
+  openRoomName?: string | null;
+  onJoinOpenRoom?: () => void;
   setName: (name: string) => void;
   setStudentJoinCode: (joinCode: string) => void;
   setClassSessionDraft: (updater: (draft: ClassSessionDraft) => ClassSessionDraft) => void;
@@ -359,6 +412,13 @@ export default function RoomNameScreen({
   isCheckingRoom = false,
   isCreatingRoom = false,
   roomClosedError = false,
+  teacherJoinCode = '',
+  teacherJoinStatus = 'idle',
+  setTeacherJoinCode,
+  onJoinExistingRoom,
+  onCreateWithJoinName,
+  openRoomName = null,
+  onJoinOpenRoom,
   setName,
   setStudentJoinCode,
   setClassSessionDraft,
@@ -370,6 +430,11 @@ export default function RoomNameScreen({
   const classes = useStyles();
   const { user, profile } = useAppState();
   const [copied, setCopied] = useState(false);
+  // "Crear con este nombre" asks for confirmation first (a closed room is often just a typo).
+  const [confirmingCreate, setConfirmingCreate] = useState(false);
+  useEffect(() => {
+    setConfirmingCreate(false);
+  }, [teacherJoinStatus, teacherJoinCode]);
 
   // Active role is tracked locally and seeded from the draft role supplied by the parent.
   // The role-switch link toggles between teacher and student views without needing a round-trip.
@@ -399,6 +464,8 @@ export default function RoomNameScreen({
   const hasUsername = !window.location.search.includes('customIdentity=true') && user?.displayName;
   const canCreateTeacherSession = isClassSessionDraftReady(classSessionDraft);
   const canContinueStudent = Boolean(name.trim() && studentJoinCode.trim());
+  const canJoinExistingRoom = Boolean(name.trim() && teacherJoinCode.trim()) && teacherJoinStatus !== 'checking';
+  const isCheckingTeacherJoin = teacherJoinStatus === 'checking';
   void roomName;
 
   return (
@@ -511,6 +578,25 @@ export default function RoomNameScreen({
             </Box>
           )}
 
+          {/* The typed name is a room that is open right now: offer to join, never a lookalike. */}
+          {openRoomName && onJoinOpenRoom && !classSessionAccess && (
+            <Box className={classes.openRoomNotice} role="alert" data-testid="open-room-notice">
+              <Typography variant="body2">
+                Esa sala ya está abierta (<strong>{openRoomName}</strong>). ¿Quieres entrar?
+              </Typography>
+              <Button
+                type="button"
+                size="small"
+                color="primary"
+                variant="contained"
+                onClick={onJoinOpenRoom}
+                style={{ marginTop: 8, textTransform: 'none' }}
+              >
+                Sí, entrar a la sala
+              </Button>
+            </Box>
+          )}
+
           {/* Primary button area */}
           <div className={classes.buttonArea}>
             {!classSessionAccess ? (
@@ -539,6 +625,100 @@ export default function RoomNameScreen({
               </Button>
             )}
           </div>
+
+          {/* Secondary option: enter a room that is already open (re-entry or co-teacher). */}
+          {onJoinExistingRoom && (
+            <div className={classes.joinBox}>
+              <p className={classes.joinBoxTitle}>¿Ya hay una sala abierta?</p>
+              <span className={classes.fieldHelper}>Ingresa el código o el enlace para entrar a ella.</span>
+              <div className={classes.joinBoxRow}>
+                <TextField
+                  id="input-teacher-join-code"
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  placeholder="Código o enlace de sala"
+                  value={teacherJoinCode}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => setTeacherJoinCode?.(event.target.value)}
+                  onKeyDown={(event: React.KeyboardEvent) => {
+                    if (event.key !== 'Enter') return;
+                    // Enter here must not fall through to the form's submit (= create a room).
+                    event.preventDefault();
+                    if (canJoinExistingRoom) onJoinExistingRoom();
+                  }}
+                  className={classes.textInput}
+                />
+                <Button
+                  type="button"
+                  variant="outlined"
+                  color="primary"
+                  disabled={!canJoinExistingRoom}
+                  onClick={onJoinExistingRoom}
+                  className={classes.joinBoxButton}
+                  startIcon={isCheckingTeacherJoin ? <CircularProgress size={16} color="inherit" /> : undefined}
+                >
+                  {isCheckingTeacherJoin ? 'Verificando sala…' : 'Entrar a la sala'}
+                </Button>
+              </div>
+
+              {teacherJoinStatus === 'inconclusive' && (
+                <Box className={classes.roomClosedAlert} role="alert" data-testid="teacher-join-inconclusive">
+                  <Typography variant="body2">
+                    No pudimos verificar si la sala está abierta. Revisa tu conexión e inténtalo de nuevo.
+                  </Typography>
+                </Box>
+              )}
+
+              {teacherJoinStatus === 'closed' && (
+                <Box className={classes.roomClosedAlert} role="alert" data-testid="teacher-join-closed">
+                  <Typography variant="body2">
+                    La sala <strong>{normalizeStudentJoinInputToRoomName(teacherJoinCode)}</strong> no está abierta.
+                    Revisa que el código esté bien escrito o crea una sala con ese nombre.
+                  </Typography>
+                  {onCreateWithJoinName && !confirmingCreate && (
+                    <Button
+                      type="button"
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      onClick={() => setConfirmingCreate(true)}
+                      style={{ marginTop: 8, textTransform: 'none' }}
+                    >
+                      Crear con este nombre
+                    </Button>
+                  )}
+                  {onCreateWithJoinName && confirmingCreate && (
+                    <div data-testid="teacher-join-confirm" style={{ marginTop: 8 }}>
+                      <Typography variant="body2">
+                        ¿Crear una sala nueva llamada{' '}
+                        <strong>{normalizeStudentJoinInputToRoomName(teacherJoinCode)}</strong>?
+                      </Typography>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <Button
+                          type="button"
+                          size="small"
+                          color="primary"
+                          variant="contained"
+                          onClick={onCreateWithJoinName}
+                          style={{ textTransform: 'none' }}
+                        >
+                          Sí, crear sala
+                        </Button>
+                        <Button
+                          type="button"
+                          size="small"
+                          onClick={() => setConfirmingCreate(false)}
+                          style={{ textTransform: 'none' }}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </Box>
+              )}
+            </div>
+          )}
         </form>
       ) : (
         /* ── Estudiante card ────────────────────────────────────────────────────── */

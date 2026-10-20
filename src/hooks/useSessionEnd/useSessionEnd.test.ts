@@ -193,4 +193,37 @@ describe('useSessionEnd', () => {
       expect(mockDisconnect).toHaveBeenCalled();
     });
   });
+
+  describe('as a confirmed co-teacher', () => {
+    it('exposes isCoTeacher', () => {
+      expect(renderHook(() => useSessionEnd({ isCoTeacher: true })).result.current.isCoTeacher).toBe(true);
+      expect(renderHook(() => useSessionEnd()).result.current.isCoTeacher).toBe(false);
+    });
+
+    it('endSessionForAll never completes the room, never broadcasts and never saves a report; it just leaves', async () => {
+      const onProfessorEnd = jest.fn(() => Promise.resolve());
+      const { result } = renderHook(() => useSessionEnd({ onProfessorEnd, isCoTeacher: true }));
+
+      await act(async () => {
+        await result.current.endSessionForAll();
+      });
+
+      expect((global as any).fetch).not.toHaveBeenCalled();
+      expect(mockSend).not.toHaveBeenCalled();
+      expect(onProfessorEnd).not.toHaveBeenCalled();
+      expect(mockSetEnded).not.toHaveBeenCalled();
+      expect(mockClearRejoin).toHaveBeenCalled();
+      expect(mockDisconnect).toHaveBeenCalled();
+    });
+
+    it('leaveWithoutEnding leaves without saving a report', () => {
+      const onProfessorEnd = jest.fn(() => Promise.resolve());
+      const { result } = renderHook(() => useSessionEnd({ onProfessorEnd, isCoTeacher: true }));
+
+      act(() => result.current.leaveWithoutEnding());
+
+      expect(onProfessorEnd).not.toHaveBeenCalled();
+      expect(mockDisconnect).toHaveBeenCalled();
+    });
+  });
 });

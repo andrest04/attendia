@@ -14,9 +14,10 @@ import { fetchRoomVia, RoomDetails, RoomDetailsClient } from './twilioGateway';
  *
  * Claimed when a PROFILE-VERIFIED teacher gets a token for the room (see the token guard
  * in roomAccessGuard.ts). A room name is reusable once its class is closed, so another
- * uid's claim only blocks while that room is currently open in Twilio, or while the claim
- * is fresh (FRESH_CLAIM_WINDOW_MS: plugin-rtc creates the room only AFTER the guard, so a
- * just-claimed room may not exist yet); otherwise the newcomer takes it over.
+ * uid's token request while that room is open in Twilio joins as co-teacher (the owner's
+ * record and history stay untouched); another uid's claim only blocks while it is fresh and
+ * the room does not exist yet (FRESH_CLAIM_WINDOW_MS: plugin-rtc creates the room only AFTER
+ * the guard, so a just-claimed room may not exist yet); otherwise the newcomer takes it over.
  *
  * `claimedAt` marks when THIS uid's ownership began: it is set on the first claim and on a
  * takeover, and kept on every same-uid re-claim (refresh, auto-rejoin, reopening the room
@@ -90,7 +91,7 @@ export const FRESH_CLAIM_WINDOW_MS = 60 * 1000;
 /** Tolerated drift between Firestore's claim timestamp and Twilio's room creation time. */
 export const ROOM_CLAIM_CLOCK_SKEW_MS = 5 * 1000;
 
-/** Resolves true once `uid` owns the room, false while another uid's class is open there. */
+/** Resolves true once `uid` may enter (owner, or co-teacher of an open room), false while another uid's fresh claim is not open yet. */
 export type RoomClaimer = (roomName: string, uid: string) => Promise<boolean>;
 
 export function roomOwnerKey(roomName: string): string {
@@ -105,9 +106,10 @@ function isFreshClaim(owner: { [key: string]: any }, now: number): boolean {
 }
 
 /**
- * Claims roomOwners for `uid` in one transaction. Refuses (false) only when another uid
- * owns the name AND (its claim is fresh OR that room is open right now); a Twilio/Firestore
- * failure propagates so the caller fails closed.
+ * Claims roomOwners for `uid` in one transaction. When another uid owns the name and that
+ * room is open right now, `uid` joins as co-teacher (true, nothing written). Refuses (false)
+ * only while another uid's claim is fresh and the room is not open yet; otherwise it takes
+ * the closed, stale name over. A Twilio/Firestore failure propagates so the caller fails closed.
  */
 export async function claimRoomOwnership(
   db: RoomClaimDatabase,
@@ -118,7 +120,14 @@ export async function claimRoomOwnership(
   const ownerRef = db.collection(ROOM_OWNERS_COLLECTION).doc(roomOwnerKey(roomName));
   return db.runTransaction(async transaction => {
     const owner = (await transaction.get(ownerRef)).data();
-    if (owner && owner.uid !== uid && (isFreshClaim(owner, now()) || (await roomExists(roomName)))) return false;
+    if (owner && owner.uid !== uid) {
+      // The room is open: join as co-teacher. Nothing is written, so the owner keeps
+      // claimedAt, refreshedAt and the claims history.
+      if (await roomExists(roomName)) return true;
+      // Not open yet but claimed a moment ago: plugin-rtc has not created it, so the
+      // other claim is still live (two simultaneous claims cannot both win).
+      if (isFreshClaim(owner, now())) return false;
+    }
     const keepClaimedAt = owner !== undefined && owner.uid === uid && owner.claimedAt !== undefined;
     const claimedAt = keepClaimedAt ? owner!.claimedAt : timestamp();
     transaction.set(ownerRef, { uid, roomName, claimedAt, refreshedAt: timestamp(), claimsHistory: true });
@@ -150,6 +159,11 @@ async function readOwnerUid(db: OwnershipReadDatabase, collection: string, id: s
 
 async function readRoomOwner(db: OwnershipReadDatabase, roomName: string): Promise<{ [key: string]: any } | undefined> {
   return (await db.collection(ROOM_OWNERS_COLLECTION).doc(roomOwnerKey(roomName)).get()).data();
+}
+
+/** The uid recorded as owner of the room, or undefined when no owner doc exists yet. */
+export async function readRoomOwnerUid(db: OwnershipReadDatabase, roomName: string): Promise<string | undefined> {
+  return readOwnerUid(db, ROOM_OWNERS_COLLECTION, roomOwnerKey(roomName));
 }
 
 export async function isRoomOwner(db: OwnershipReadDatabase, roomName: string, uid: string): Promise<boolean> {

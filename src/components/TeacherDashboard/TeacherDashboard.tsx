@@ -159,6 +159,8 @@ export default function TeacherDashboard({
     cancelExpiredError,
     startClassError,
     isStartingClass,
+    startedRoomStatus,
+    refreshStartedRooms,
     cancelDialog,
     cancelExpiredDialog,
     hasRealClasses,
@@ -243,6 +245,18 @@ export default function TeacherDashboard({
       });
   };
 
+  // Joining a room that is already open never records a second class: the teacher's own
+  // started class is resumed, anything else is a plain entry (co-teacher or untracked room).
+  const handleQuickStartJoinOpen = (session: { roomName: string; name: string }) => {
+    setIsQuickStartOpen(false);
+    const ownStarted = realClasses.find(c => c.roomName === session.roomName && c.status === 'started');
+    onStartClass(
+      ownStarted
+        ? { roomName: ownStarted.roomName, name: session.name, classId: ownStarted.id }
+        : { roomName: session.roomName, name: session.name }
+    );
+  };
+
   // What each tab shows. Looked up by the active tab, so adding a tab means adding its entry
   // here (and its icon/label/path in dashboardHelpers), not another conditional in the JSX.
   const tabViews: Record<DashboardTabId, () => React.ReactNode> = {
@@ -271,6 +285,8 @@ export default function TeacherDashboard({
         sessionsAreMock={!hasRealClasses}
         startClassError={startClassError}
         isStartingClass={isStartingClass}
+        startedRoomStatus={startedRoomStatus}
+        onRefreshRooms={refreshStartedRooms}
       />
     ),
     historial: () => (
@@ -310,7 +326,11 @@ export default function TeacherDashboard({
   };
 
   const content = isQuickStartOpen ? (
-    <QuickStartClassPanel professorName={professorName} onCreate={handleQuickStartCreate} />
+    <QuickStartClassPanel
+      professorName={professorName}
+      onCreate={handleQuickStartCreate}
+      onJoinOpen={handleQuickStartJoinOpen}
+    />
   ) : showProfile ? (
     <TeacherProfilePage />
   ) : (

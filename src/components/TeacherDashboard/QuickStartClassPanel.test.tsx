@@ -13,7 +13,9 @@ describe('QuickStartClassPanel', () => {
   });
 
   it('reuses the same RoomNameScreen teacher card the standalone prejoin lobby uses', () => {
-    const wrapper = shallow(<QuickStartClassPanel professorName="Andrés Torres" onCreate={jest.fn()} />);
+    const wrapper = shallow(
+      <QuickStartClassPanel professorName="Andrés Torres" onCreate={jest.fn()} onJoinOpen={jest.fn()} />
+    );
 
     expect(wrapper.find(RoomNameScreen).exists()).toBe(true);
     expect(wrapper.find(RoomNameScreen).prop('classSessionDraft').role).toBe('teacher');
@@ -24,10 +26,15 @@ describe('QuickStartClassPanel', () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ open: false }) }) as any;
 
     const onCreate = jest.fn();
-    const wrapper = shallow(<QuickStartClassPanel professorName="Andrés Torres" onCreate={onCreate} />);
+    const wrapper = shallow(
+      <QuickStartClassPanel professorName="Andrés Torres" onCreate={onCreate} onJoinOpen={jest.fn()} />
+    );
 
     // Type the session name, same way the field's onChange would.
-    wrapper.find(RoomNameScreen).prop('setClassSessionDraft')(draft => ({ ...draft, sessionName: 'Matemáticas — Grupo A' }));
+    wrapper.find(RoomNameScreen).prop('setClassSessionDraft')(draft => ({
+      ...draft,
+      sessionName: 'Matemáticas — Grupo A',
+    }));
     wrapper.update();
 
     // "Crear sala" — creates the access but must not navigate yet.
@@ -49,6 +56,34 @@ describe('QuickStartClassPanel', () => {
       roomName: 'matematicas-grupo-a',
       name: 'Andrés Torres [Profesor]',
       title: 'Matemáticas — Grupo A',
+    });
+  });
+
+  it('offers to join an open room instead of creating a suffixed one', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ open: true }) }) as any;
+
+    const onCreate = jest.fn();
+    const onJoinOpen = jest.fn();
+    const wrapper = shallow(
+      <QuickStartClassPanel professorName="Andrés Torres" onCreate={onCreate} onJoinOpen={onJoinOpen} />
+    );
+    wrapper.find(RoomNameScreen).prop('setClassSessionDraft')(draft => ({ ...draft, sessionName: 'Matemáticas' }));
+    wrapper.update();
+
+    await act(async () => {
+      await wrapper.find(RoomNameScreen).prop('onCreateClassSession')();
+    });
+    wrapper.update();
+
+    expect(wrapper.find(RoomNameScreen).prop('classSessionAccess')).toBeNull();
+    expect(wrapper.find(RoomNameScreen).prop('openRoomName')).toBe('matematicas');
+
+    wrapper.find(RoomNameScreen).prop('onJoinOpenRoom')!();
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(onJoinOpen).toHaveBeenCalledWith({
+      roomName: 'matematicas',
+      name: 'Andrés Torres [Profesor]',
+      title: 'Matemáticas',
     });
   });
 });

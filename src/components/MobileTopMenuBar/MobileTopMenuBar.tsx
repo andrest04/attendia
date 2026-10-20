@@ -46,7 +46,7 @@ export default function MobileTopMenuBar() {
           className={classes.endCallButton}
           {...(isTeacher && sessionEnd
             ? {
-                onEndForAll: sessionEnd.endSessionForAll,
+                onEndForAll: sessionEnd.isCoTeacher ? undefined : sessionEnd.endSessionForAll,
                 onLeave: sessionEnd.leaveWithoutEnding,
                 isEnding: sessionEnd.isEnding,
               }

@@ -217,7 +217,7 @@ describe('ClassesTab', () => {
     expect(onCancelClass).toHaveBeenCalledWith(expiredSessions[0]);
   });
 
-  it('disables an expired session\'s cancel button while it is the one cancelling', () => {
+  it("disables an expired session's cancel button while it is the one cancelling", () => {
     const expiredSessions = [
       {
         id: 'expired-1',
@@ -297,9 +297,7 @@ describe('ClassesTab', () => {
     wrapper
       .find('[data-testid="dashboard-new-class-student-count-input"]')
       .simulate('change', { target: { value: '15' } });
-    wrapper
-      .find('[data-testid="dashboard-new-class-duration-input"]')
-      .simulate('change', { target: { value: '90' } });
+    wrapper.find('[data-testid="dashboard-new-class-duration-input"]').simulate('change', { target: { value: '90' } });
 
     wrapper.find('form').simulate('submit', { preventDefault: jest.fn() });
 
@@ -339,9 +337,7 @@ describe('ClassesTab', () => {
     const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     wrapper.find('[data-testid="dashboard-new-class-date-input"]').simulate('change', futureDate);
     wrapper.find('[data-testid="dashboard-new-class-time-input"]').simulate('change', futureDate);
-    wrapper
-      .find('[data-testid="dashboard-new-class-duration-input"]')
-      .simulate('change', { target: { value: '0' } });
+    wrapper.find('[data-testid="dashboard-new-class-duration-input"]').simulate('change', { target: { value: '0' } });
 
     wrapper.find('form').simulate('submit', { preventDefault: jest.fn() });
 
@@ -470,5 +466,127 @@ describe('ClassesTab', () => {
     );
 
     expect(wrapperWithoutError.find('[data-testid="dashboard-start-error"]').exists()).toBe(false);
+  });
+
+  describe('started classes', () => {
+    const startedRecord = {
+      id: 'c1',
+      title: 'Álgebra',
+      roomName: 'algebra',
+      scheduledAtMs: 0,
+      studentCount: 3,
+      durationMinutes: 60,
+      status: 'started' as const,
+    };
+    const startedSession = {
+      id: 'c1',
+      title: 'Álgebra',
+      code: 'algebra',
+      roomName: 'algebra',
+      classId: 'c1',
+      time: '10:00 AM',
+      studentCount: 3,
+      dayLabel: 'Hoy',
+      relativeLabel: 'Ahora',
+      highlighted: true,
+    };
+    const render = (startedRoomStatus: Record<string, boolean | null>, onStartClass = jest.fn()) =>
+      shallow(
+        <ClassesTab
+          stats={mockDashboardData.stats}
+          dateLabel="Hoy"
+          sessions={[startedSession]}
+          existingClasses={[startedRecord]}
+          startedRoomStatus={startedRoomStatus}
+          professorName="Ana"
+          onStartClass={onStartClass}
+        />
+      );
+
+    it('offers "Volver a entrar" when the started class room is still open', () => {
+      const onStartClass = jest.fn();
+      const wrapper = render({ algebra: true }, onStartClass);
+
+      const button = wrapper.find('[data-testid="dashboard-rejoin-session-button"]');
+      expect(button.text()).toContain('Volver a entrar');
+      expect(wrapper.find('[data-testid="dashboard-start-session-button"]').exists()).toBe(false);
+
+      button.simulate('click');
+      expect(onStartClass).toHaveBeenCalledWith({
+        roomName: 'algebra',
+        name: 'Ana [Profesor]',
+        classId: 'c1',
+      });
+    });
+
+    it('explains the room closed and keeps an explicit restart', () => {
+      const onStartClass = jest.fn();
+      const wrapper = render({ algebra: false }, onStartClass);
+
+      expect(wrapper.find('[data-testid="dashboard-room-closed-note"]').text()).toContain('La sala ya se cerró');
+      wrapper.find('[data-testid="dashboard-restart-session-button"]').simulate('click');
+      expect(onStartClass).toHaveBeenCalledWith({ roomName: 'algebra', name: 'Ana [Profesor]', classId: 'c1' });
+    });
+
+    it('shows a disabled checking button until the room is probed', () => {
+      const wrapper = render({});
+
+      const button = wrapper.find('[data-testid="dashboard-checking-session-button"]');
+      expect(button.prop('disabled')).toBe(true);
+    });
+
+    it('lists a started class that is not among the sessions in an in-progress section', () => {
+      const wrapper = shallow(
+        <ClassesTab
+          stats={mockDashboardData.stats}
+          dateLabel="Hoy"
+          sessions={[]}
+          existingClasses={[startedRecord]}
+          startedRoomStatus={{ algebra: true }}
+          professorName="Ana"
+          onStartClass={jest.fn()}
+        />
+      );
+
+      expect(wrapper.find('[data-testid="dashboard-in-progress-section"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="dashboard-rejoin-session-button"]').length).toBe(1);
+    });
+
+    it('offers an "Actualizar" control in the in-progress section that re-checks the rooms now', () => {
+      const onRefreshRooms = jest.fn();
+      const wrapper = shallow(
+        <ClassesTab
+          stats={mockDashboardData.stats}
+          dateLabel="Hoy"
+          sessions={[]}
+          existingClasses={[startedRecord]}
+          startedRoomStatus={{ algebra: true }}
+          onRefreshRooms={onRefreshRooms}
+          professorName="Ana"
+          onStartClass={jest.fn()}
+        />
+      );
+
+      const button = wrapper.find('[data-testid="dashboard-refresh-rooms-button"]');
+      expect(button.text()).toContain('Actualizar');
+      button.simulate('click');
+      expect(onRefreshRooms).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not show "Actualizar" without a refresh handler', () => {
+      const wrapper = shallow(
+        <ClassesTab
+          stats={mockDashboardData.stats}
+          dateLabel="Hoy"
+          sessions={[]}
+          existingClasses={[startedRecord]}
+          startedRoomStatus={{ algebra: true }}
+          professorName="Ana"
+          onStartClass={jest.fn()}
+        />
+      );
+
+      expect(wrapper.find('[data-testid="dashboard-refresh-rooms-button"]').exists()).toBe(false);
+    });
   });
 });

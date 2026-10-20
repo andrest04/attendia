@@ -178,6 +178,14 @@ describe('the MenuBar component', () => {
       expect(end.prop('isEnding')).toBe(false);
     });
 
+    it('keeps the leave action but drops end-for-all for a confirmed co-teacher', () => {
+      withIdentity('Ana [Profesor]');
+      mockUseSessionEndApi.mockImplementation(() => ({ ...sessionEnd, isCoTeacher: true }));
+      const end = shallow(<MenuBar />).find(EndCallButton);
+      expect(end.prop('onEndForAll')).toBeUndefined();
+      expect(end.prop('onLeave')).toBe(sessionEnd.leaveWithoutEnding);
+    });
+
     it('keeps the RaiseHandButton and a plain EndCallButton for a student', () => {
       withIdentity('student-bob');
       const wrapper = shallow(<MenuBar />);

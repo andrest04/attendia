@@ -228,6 +228,13 @@ describe('ProfessorToolbar', () => {
       expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
     });
 
+    it('hides the record item for a co-teacher (recording is owner-only)', () => {
+      const wrapper = shallow(<ProfessorToolbar isCoTeacher />);
+      const menu = openMore(wrapper);
+      expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
+      expect(menu.find('[data-testid="professor-toolbar-attention"]').exists()).toBe(true);
+    });
+
     it('disables the record item while a recording request is in flight', () => {
       mockUseAppState.mockImplementation(() => ({
         updateRecordingRules: mockUpdateRecordingRules,

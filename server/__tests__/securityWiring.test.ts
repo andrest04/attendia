@@ -40,6 +40,10 @@ describe('server/index.ts security wiring', () => {
     );
   });
 
+  it('serves the owner status behind authMiddleware', () => {
+    expect(indexSource()).toMatch(/app\.get\('\/rooms\/:roomName\/ownership', authMiddleware, createRoomOwnerStatusHandler\(firestore\)\);/);
+  });
+
   it('checks room ownership on /completeRoom', () => {
     expect(indexSource()).toMatch(/app\.post\('\/completeRoom', authMiddleware, createCompleteRoomHandler\(twilioClient, firestore\)\);/);
   });

@@ -13,6 +13,7 @@ import { createIdentityReservationGuard, createParticipantConnectionChecker } fr
 import { createRoomOpenHandler } from './roomOpen';
 import { createRoomOpenRateLimiter } from './rateLimit';
 import { createCompleteRoomHandler } from './completeRoom';
+import { createRoomOwnerStatusHandler } from './roomOwnerStatus';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
@@ -256,6 +257,10 @@ app.post(
 // teacher role is resolved server-side from the Firestore profile, not from the
 // request body, and only the uid in roomOwners/{room} may end it. See completeRoom.ts.
 app.post('/completeRoom', authMiddleware, createCompleteRoomHandler(twilioClient, firestore));
+
+// Teacher-only: is the caller the owner of this room or a co-teacher? Drives the room UI only;
+// the owner-only endpoints enforce ownership themselves. See roomOwnerStatus.ts.
+app.get('/rooms/:roomName/ownership', authMiddleware, createRoomOwnerStatusHandler(firestore));
 
 // Read-only probe so the student prejoin can warn "the class isn't open yet" BEFORE the
 // device-selection waiting room, instead of only when POST /token blocks them. This never

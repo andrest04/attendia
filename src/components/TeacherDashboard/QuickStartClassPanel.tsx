@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import RoomNameScreen from '../PreJoinScreens/RoomNameScreen/RoomNameScreen';
-import { createCollisionSafeClassSessionAccess } from '../../classSession/createCollisionSafeClassSessionAccess';
+import { createClassSessionAccessUnlessOpen } from '../../classSession/createCollisionSafeClassSessionAccess';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
@@ -55,10 +55,13 @@ const useStyles = makeStyles((theme: Theme) => ({
  */
 interface Props {
   professorName: string;
+  /** A NEW room was confirmed: the dashboard records the class and starts it. */
   onCreate: (session: { roomName: string; name: string; title: string }) => void;
+  /** The typed name is a room that is already open: only enter it, never record a second class. */
+  onJoinOpen: (session: { roomName: string; name: string; title: string }) => void;
 }
 
-export default function QuickStartClassPanel({ professorName, onCreate }: Props) {
+export default function QuickStartClassPanel({ professorName, onCreate, onJoinOpen }: Props) {
   const classes = useStyles();
   const [name, setName] = useState(professorName);
   const [classSessionDraft, setClassSessionDraft] = useState<ClassSessionDraft>(() => ({
@@ -67,6 +70,8 @@ export default function QuickStartClassPanel({ professorName, onCreate }: Props)
   }));
   const [classSessionAccess, setClassSessionAccess] = useState<ClassSessionAccess | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  // Set when the typed name is a room that is open right now: offer to join it, never a lookalike.
+  const [openRoomName, setOpenRoomName] = useState<string | null>(null);
 
   const handleNameChange = (value: string) => {
     setName(value);
@@ -75,13 +80,27 @@ export default function QuickStartClassPanel({ professorName, onCreate }: Props)
 
   const handleCreateClassSession = async () => {
     setIsCreatingRoom(true);
-    const access = await createCollisionSafeClassSessionAccess(
+    const result = await createClassSessionAccessUnlessOpen(
       classSessionDraft,
       window.location.origin,
       window.location.search || ''
     );
     setIsCreatingRoom(false);
-    setClassSessionAccess(access);
+    if (result.status === 'open') {
+      setOpenRoomName(result.roomName);
+      return;
+    }
+    setOpenRoomName(null);
+    setClassSessionAccess(result.access);
+  };
+
+  const handleJoinOpenRoom = () => {
+    if (!openRoomName) return;
+    onJoinOpen({
+      roomName: openRoomName,
+      name: toClassSessionDisplayName(classSessionDraft.displayName, 'teacher'),
+      title: classSessionDraft.sessionName.trim(),
+    });
   };
 
   const handleContinueToDeviceSelection = () => {
@@ -110,6 +129,8 @@ export default function QuickStartClassPanel({ professorName, onCreate }: Props)
             setClassSessionDraft={setClassSessionDraft}
             onSelectRole={() => {}}
             onCreateClassSession={handleCreateClassSession}
+            openRoomName={openRoomName}
+            onJoinOpenRoom={handleJoinOpenRoom}
             onContinueToDeviceSelection={handleContinueToDeviceSelection}
           />
         </div>

@@ -320,6 +320,200 @@ describe('the RoomNameScreen component', () => {
     expect(onCreateClassSession).toHaveBeenCalledTimes(1);
   });
 
+  // ── Teacher joins an existing room ─────────────────────────────────────────────
+
+  describe('the teacher join-by-code box', () => {
+    const joinProps = {
+      ...baseProps,
+      teacherJoinCode: '',
+      setTeacherJoinCode: () => {},
+      onJoinExistingRoom: () => {},
+    };
+    const findJoinButton = (wrapper: any) =>
+      wrapper.findWhere((node: any) => node.type() === Button && /Entrar a la sala/.test(node.text())).first();
+
+    beforeEach(() => {
+      mockUseAppState.mockImplementation(() => ({ user: { displayName: 'Teacher Name' } }));
+    });
+    afterEach(() => {
+      mockUseAppState.mockReset();
+    });
+
+    it('is offered in the teacher card as a secondary option', () => {
+      const wrapper = shallow(<RoomNameScreen {...joinProps} />);
+
+      expect(wrapper.text()).toContain('¿Ya hay una sala abierta?');
+      expect(wrapper.find('#input-teacher-join-code').exists()).toBe(true);
+      expect(findJoinButton(wrapper).prop('type')).toBe('button');
+    });
+
+    it('is not rendered when the host provides no join handler', () => {
+      const wrapper = shallow(<RoomNameScreen {...baseProps} />);
+
+      expect(wrapper.find('#input-teacher-join-code').exists()).toBe(false);
+      expect(wrapper.text()).not.toContain('¿Ya hay una sala abierta?');
+    });
+
+    it('is not rendered in the student card', () => {
+      const wrapper = shallow(<RoomNameScreen {...joinProps} classSessionDraft={baseStudentDraft} />);
+
+      expect(wrapper.find('#input-teacher-join-code').exists()).toBe(false);
+    });
+
+    it('forwards the typed code and calls the join handler', () => {
+      const setTeacherJoinCode = jest.fn();
+      const onJoinExistingRoom = jest.fn();
+      const wrapper = shallow(
+        <RoomNameScreen
+          {...joinProps}
+          teacherJoinCode="aula-7"
+          setTeacherJoinCode={setTeacherJoinCode}
+          onJoinExistingRoom={onJoinExistingRoom}
+        />
+      );
+
+      wrapper.find('#input-teacher-join-code').simulate('change', { target: { value: 'aula-8' } });
+      findJoinButton(wrapper).simulate('click');
+
+      expect(setTeacherJoinCode).toHaveBeenCalledWith('aula-8');
+      expect(onJoinExistingRoom).toHaveBeenCalledTimes(1);
+    });
+
+    it('joins on Enter in the code field without submitting the create form', () => {
+      const onJoinExistingRoom = jest.fn();
+      const preventDefault = jest.fn();
+      const wrapper = shallow(
+        <RoomNameScreen {...joinProps} teacherJoinCode="aula-7" onJoinExistingRoom={onJoinExistingRoom} />
+      );
+
+      wrapper.find('#input-teacher-join-code').simulate('keyDown', { key: 'Enter', preventDefault });
+
+      expect(preventDefault).toHaveBeenCalled();
+      expect(onJoinExistingRoom).toHaveBeenCalledTimes(1);
+    });
+
+    it('is disabled without a code or without the teacher name', () => {
+      expect(findJoinButton(shallow(<RoomNameScreen {...joinProps} teacherJoinCode="" />)).prop('disabled')).toBe(true);
+      expect(
+        findJoinButton(shallow(<RoomNameScreen {...joinProps} teacherJoinCode="aula-7" name="  " />)).prop('disabled')
+      ).toBe(true);
+      expect(findJoinButton(shallow(<RoomNameScreen {...joinProps} teacherJoinCode="aula-7" />)).prop('disabled')).toBe(
+        false
+      );
+    });
+
+    it('shows a checking state and disables the button while the room is verified', () => {
+      const wrapper = shallow(<RoomNameScreen {...joinProps} teacherJoinCode="aula-7" teacherJoinStatus="checking" />);
+
+      const button = wrapper.findWhere((node: any) => node.type() === Button && node.text() === 'Verificando sala…');
+      expect(button.exists()).toBe(true);
+      expect(button.prop('disabled')).toBe(true);
+    });
+  });
+
+  describe('when the room being created is already open', () => {
+    beforeEach(() => {
+      mockUseAppState.mockImplementation(() => ({ user: { displayName: 'Teacher Name' } }));
+    });
+    afterEach(() => {
+      mockUseAppState.mockReset();
+    });
+
+    it('steers the teacher to join it instead of creating', () => {
+      const onJoinOpenRoom = jest.fn();
+      const wrapper = shallow(<RoomNameScreen {...baseProps} openRoomName="clase-1" onJoinOpenRoom={onJoinOpenRoom} />);
+
+      const notice = wrapper.find('[data-testid="open-room-notice"]');
+      expect(notice.prop('role')).toBe('alert');
+      expect(notice.html()).toContain('Esa sala ya está abierta');
+      expect(notice.html()).toContain('clase-1');
+
+      wrapper
+        .findWhere(node => node.type() === Button && node.text() === 'Sí, entrar a la sala')
+        .first()
+        .simulate('click');
+      expect(onJoinOpenRoom).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows no notice by default', () => {
+      const wrapper = shallow(<RoomNameScreen {...baseProps} />);
+
+      expect(wrapper.find('[data-testid="open-room-notice"]').exists()).toBe(false);
+    });
+  });
+
+  describe('when the room to join is not open', () => {
+    const closedProps = {
+      ...baseProps,
+      teacherJoinCode: 'https://x.org/room/Aula-7',
+      teacherJoinStatus: 'closed' as const,
+      setTeacherJoinCode: () => {},
+      onJoinExistingRoom: () => {},
+    };
+    const findByText = (wrapper: any, text: string) =>
+      wrapper.findWhere((node: any) => node.type() === Button && node.text() === text).first();
+
+    beforeEach(() => {
+      mockUseAppState.mockImplementation(() => ({ user: { displayName: 'Teacher Name' } }));
+    });
+    afterEach(() => {
+      mockUseAppState.mockReset();
+    });
+
+    it('shows a clear message and the create-with-this-name action', () => {
+      const wrapper = shallow(<RoomNameScreen {...closedProps} onCreateWithJoinName={() => {}} />);
+
+      const alert = wrapper.find('[data-testid="teacher-join-closed"]');
+      expect(alert.prop('role')).toBe('alert');
+      expect(alert.html()).toContain('aula-7');
+      expect(alert.html()).toContain('no está abierta');
+      expect(findByText(wrapper, 'Crear con este nombre').exists()).toBe(true);
+    });
+
+    it('asks for confirmation before creating and creates only after confirming', () => {
+      const onCreateWithJoinName = jest.fn();
+      const wrapper = shallow(<RoomNameScreen {...closedProps} onCreateWithJoinName={onCreateWithJoinName} />);
+
+      findByText(wrapper, 'Crear con este nombre').simulate('click');
+
+      expect(onCreateWithJoinName).not.toHaveBeenCalled();
+      expect(wrapper.find('[data-testid="teacher-join-confirm"]').html()).toContain('aula-7');
+
+      findByText(wrapper, 'Sí, crear sala').simulate('click');
+
+      expect(onCreateWithJoinName).toHaveBeenCalledTimes(1);
+    });
+
+    it('goes back from the confirmation without creating', () => {
+      const onCreateWithJoinName = jest.fn();
+      const wrapper = shallow(<RoomNameScreen {...closedProps} onCreateWithJoinName={onCreateWithJoinName} />);
+
+      findByText(wrapper, 'Crear con este nombre').simulate('click');
+      findByText(wrapper, 'Cancelar').simulate('click');
+
+      expect(wrapper.find('[data-testid="teacher-join-confirm"]').exists()).toBe(false);
+      expect(findByText(wrapper, 'Crear con este nombre').exists()).toBe(true);
+      expect(onCreateWithJoinName).not.toHaveBeenCalled();
+    });
+
+    it('shows a retryable error and no create action when the probe was inconclusive', () => {
+      const wrapper = shallow(<RoomNameScreen {...closedProps} teacherJoinStatus="inconclusive" />);
+
+      const alert = wrapper.find('[data-testid="teacher-join-inconclusive"]');
+      expect(alert.prop('role')).toBe('alert');
+      expect(alert.html()).toContain('No pudimos verificar');
+      expect(findByText(wrapper, 'Crear con este nombre').exists()).toBe(false);
+      expect(findByText(wrapper, 'Entrar a la sala').prop('disabled')).toBe(false);
+    });
+
+    it('shows neither message while idle', () => {
+      const wrapper = shallow(<RoomNameScreen {...closedProps} teacherJoinStatus="idle" />);
+
+      expect(wrapper.find('[data-testid="teacher-join-closed"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="teacher-join-inconclusive"]').exists()).toBe(false);
+    });
+  });
+
   // ── Student card actions ───────────────────────────────────────────────────────
 
   it('blocks student continue when required name or join code are missing', () => {
@@ -386,7 +580,11 @@ describe('the RoomNameScreen component', () => {
   it('shows a creating state and disables the create button while resolving a collision-safe room name', () => {
     mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
     const wrapper = shallow(
-      <RoomNameScreen {...baseProps} classSessionDraft={{ ...baseTeacherDraft, sessionName: 'Ready Session' }} isCreatingRoom />
+      <RoomNameScreen
+        {...baseProps}
+        classSessionDraft={{ ...baseTeacherDraft, sessionName: 'Ready Session' }}
+        isCreatingRoom
+      />
     );
 
     const createButton = wrapper.findWhere(node => node.type() === Button && node.text() === 'Creando sala…');

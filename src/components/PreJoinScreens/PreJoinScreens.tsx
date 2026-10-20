@@ -3,14 +3,14 @@ import { CircularProgress, Typography } from '@material-ui/core';
 import DeviceSelectionScreen from './DeviceSelectionScreen/DeviceSelectionScreen';
 import IntroContainer from '../IntroContainer/IntroContainer';
 import MediaErrorSnackbar from './MediaErrorSnackbar/MediaErrorSnackbar';
-import RoomNameScreen from './RoomNameScreen/RoomNameScreen';
+import RoomNameScreen, { TeacherJoinStatus } from './RoomNameScreen/RoomNameScreen';
 import { useAppState } from '../../state';
 import { useParams } from 'react-router-dom';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAutoRejoin from './useAutoRejoin';
 import useInitialRole from '../TeacherDashboard/useInitialRole';
 import { checkRoomOpen } from '../../classSession/checkRoomOpen';
-import { createCollisionSafeClassSessionAccess } from '../../classSession/createCollisionSafeClassSessionAccess';
+import { createClassSessionAccessUnlessOpen } from '../../classSession/createCollisionSafeClassSessionAccess';
 import { getResumableSession } from '../../classSession/rejoinSession';
 import { firstResolved } from '../../utils/firstResolved';
 import { replaceUrlWithoutNavigation } from '../../utils/replaceUrlWithoutNavigation';
@@ -84,6 +84,12 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   const [roomClosed, setRoomClosed] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
+  // Teacher "join an existing room" box: what they typed and the outcome of the open-room probe.
+  const [teacherJoinCode, setTeacherJoinCode] = useState<string>('');
+  const [teacherJoinStatus, setTeacherJoinStatus] = useState<TeacherJoinStatus>('idle');
+  // Set when "Crear sala" finds the typed session name already open (offer to join instead).
+  const [openRoomName, setOpenRoomName] = useState<string | null>(null);
+
   const [mediaError, setMediaError] = useState<Error>();
 
   useEffect(() => {
@@ -106,10 +112,16 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
     setRoomClosed(false);
   }, [studentJoinCode]);
 
+  // Editing the teacher's join code invalidates the previous probe verdict too.
+  useEffect(() => {
+    setTeacherJoinStatus('idle');
+  }, [teacherJoinCode]);
+
   // A created session's share code/link are derived from the session name; editing it
   // makes them stale, so drop the access and bring back the "Crear sesión" button.
   useEffect(() => {
     setClassSessionAccess(null);
+    setOpenRoomName(null);
   }, [classSessionDraft.sessionName]);
 
   useEffect(() => {
@@ -210,14 +222,54 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
     await continueAsStudent();
   };
 
+  // The teacher path to an already-open room (re-entry after leaving, or joining as co-teacher):
+  // same normalization and probe as the student path, but the role stays teacher and the exact
+  // room name is kept (no suffix — it is someone's live room). Unlike the student path, only a
+  // confirmed `true` proceeds: a closed room offers "create with this name" and an inconclusive
+  // probe is retryable, so a typo or a flaky probe never silently creates a different room.
+  const enterRoomAsTeacher = (targetRoomName: string) => {
+    setTeacherJoinStatus('idle');
+    setRoomName(targetRoomName);
+    setName(toClassSessionDisplayName(name, 'teacher'));
+    replaceRoomUrlWithoutNavigation(targetRoomName);
+    setStep(Steps.deviceSelectionStep);
+  };
+
+  const joinExistingRoomAsTeacher = async () => {
+    const targetRoomName = normalizeStudentJoinInputToRoomName(teacherJoinCode);
+    if (!targetRoomName) return;
+    setTeacherJoinStatus('checking');
+    const open = await checkRoomOpen(targetRoomName);
+    if (open !== true) {
+      setTeacherJoinStatus(open === false ? 'closed' : 'inconclusive');
+      return;
+    }
+    enterRoomAsTeacher(targetRoomName);
+  };
+
+  // The teacher confirmed (in RoomNameScreen) that the typed name is right even though no such
+  // room is open: the room is created on demand by the first teacher token, under exactly this
+  // name (it is free, so no collision suffix is needed).
+  const createRoomWithTypedName = () => {
+    const targetRoomName = normalizeStudentJoinInputToRoomName(teacherJoinCode);
+    if (!targetRoomName) return;
+    enterRoomAsTeacher(targetRoomName);
+  };
+
   const handleCreateClassSession = async () => {
     setIsCreatingRoom(true);
-    const access = await createCollisionSafeClassSessionAccess(
+    const result = await createClassSessionAccessUnlessOpen(
       classSessionDraft,
       window.location.origin,
       window.location.search || ''
     );
     setIsCreatingRoom(false);
+    if (result.status === 'open') {
+      setOpenRoomName(result.roomName);
+      return;
+    }
+    const { access } = result;
+    setOpenRoomName(null);
     setClassSessionAccess(access);
     setRoomName(access.roomName);
     setName(toClassSessionDisplayName(classSessionDraft.displayName, 'teacher'));
@@ -275,6 +327,13 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
             isCheckingRoom={isCheckingRoom}
             isCreatingRoom={isCreatingRoom}
             roomClosedError={roomClosed}
+            teacherJoinCode={teacherJoinCode}
+            teacherJoinStatus={teacherJoinStatus}
+            setTeacherJoinCode={setTeacherJoinCode}
+            onJoinExistingRoom={joinExistingRoomAsTeacher}
+            onCreateWithJoinName={createRoomWithTypedName}
+            openRoomName={openRoomName}
+            onJoinOpenRoom={() => openRoomName && enterRoomAsTeacher(openRoomName)}
             setName={setName}
             setStudentJoinCode={setStudentJoinCode}
             setClassSessionDraft={setClassSessionDraft}

@@ -138,12 +138,28 @@ describe('claimRoomOwnership', () => {
     });
   });
 
-  it('refuses while another uid owns the room and it is currently open', async () => {
-    const { db, transactionSet, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1' } });
+  it('lets another uid join as co-teacher while the room is open, leaving the owner record untouched', async () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const ownerDoc = { uid: 'other', roomName: 'clase-1', claimedAt: new Date(now - 3600000), refreshedAt: new Date(now - 5000), claimsHistory: true };
+    const { db, transactionSet, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { ...ownerDoc } });
     const roomExists = jest.fn().mockResolvedValue(true);
 
-    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(false);
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp, now: () => now })).toBe(true);
     expect(roomExists).toHaveBeenCalledWith('clase-1');
+    expect(transactionSet).not.toHaveBeenCalled();
+    expect(owners[roomOwnerKey('clase-1')]).toEqual(ownerDoc);
+    expect(claimHistory(owners, 'clase-1')).toEqual([]);
+  });
+
+  it('lets another uid join as co-teacher even when the owner claim is still fresh but the room is already open', async () => {
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const { db, transactionSet, owners } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1', claimedAt: new Date(now - 1000), refreshedAt: new Date(now - 1000) },
+    });
+
+    expect(
+      await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists: jest.fn().mockResolvedValue(true), timestamp, now: () => now })
+    ).toBe(true);
     expect(transactionSet).not.toHaveBeenCalled();
     expect(owners[roomOwnerKey('clase-1')].uid).toBe('other');
   });
@@ -193,10 +209,13 @@ describe('claimRoomOwnership', () => {
   });
 
   it('writes no history entry when the claim is refused', async () => {
-    const { db, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1' } });
-    const roomExists = jest.fn().mockResolvedValue(true);
+    const now = Date.parse('2026-10-18T12:00:00Z');
+    const { db, owners } = makeClaimDb({
+      [roomOwnerKey('clase-1')]: { uid: 'other', roomName: 'clase-1', claimedAt: new Date(now - 1000) },
+    });
+    const roomExists = jest.fn().mockResolvedValue(false);
 
-    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(false);
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp, now: () => now })).toBe(false);
     expect(claimHistory(owners, 'clase-1')).toEqual([]);
   });
 
@@ -580,5 +599,64 @@ describe('createRecordingRulesGuard', () => {
     expect(res.status).toHaveBeenCalledWith(503);
     expect(next).not.toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+});
+
+describe('co-teacher in an open room stays out of every owner-only surface', () => {
+  const classStart = new Date('2026-10-18T10:00:00Z');
+  const toStore = (owners: { [key: string]: any }) =>
+    Object.keys(owners).reduce((store: { [path: string]: any }, id) => ({ ...store, [`roomOwners/${id}`]: owners[id] }), {});
+
+  // A creates the class (owner claim), then B enters the same OPEN room as co-teacher.
+  const ownerThenCoTeacher = async () => {
+    const owners: { [key: string]: any } = {};
+    const { db } = makeClaimDb(owners);
+    const closed = jest.fn().mockResolvedValue(false);
+    const open = jest.fn().mockResolvedValue(true);
+    const claimedAtA = () => classStart;
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-a', { roomExists: closed, timestamp: claimedAtA })).toBe(true);
+    const ownerBefore = JSON.parse(JSON.stringify(owners));
+    expect(
+      await claimRoomOwnership(db, 'clase-1', 'uid-b', {
+        roomExists: open,
+        timestamp: () => new Date('2026-10-18T10:30:00Z'),
+        now: () => Date.parse('2026-10-18T10:30:00Z'),
+      })
+    ).toBe(true);
+    return { owners, ownerBefore };
+  };
+
+  it('leaves the owner document and claims history exactly as the owner wrote them', async () => {
+    const { owners, ownerBefore } = await ownerThenCoTeacher();
+
+    expect(JSON.parse(JSON.stringify(owners))).toEqual(ownerBefore);
+    expect(owners[roomOwnerKey('clase-1')].uid).toBe('uid-a');
+  });
+
+  it('is not the room owner (so /completeRoom and /recordingrules refuse them) while the owner still is', async () => {
+    const { owners } = await ownerThenCoTeacher();
+    const { db } = makeStoreDb(toStore(owners));
+
+    expect(await isRoomOwner(db, 'clase-1', 'uid-b')).toBe(false);
+    expect(await isRoomOwner(db, 'clase-1', 'uid-a')).toBe(true);
+  });
+
+  it('cannot bind the class session (POST /reports), so no roomSessions owner and no new recording request', async () => {
+    const { owners } = await ownerThenCoTeacher();
+    const { db, create, store } = makeStoreDb(toStore(owners));
+    const fetchRoom = jest.fn(async (roomSid: string) => ({
+      sid: roomSid,
+      uniqueName: 'clase-1',
+      dateCreated: new Date(classStart.getTime() + 1000),
+    }));
+    const bind = (uid: string) => createRoomSessionBinder(db, fetchRoom, timestamp)({ roomSid: SID, roomName: 'clase-1', uid });
+
+    expect(await bind('uid-b')).toBe('not-room-owner');
+    expect(create).not.toHaveBeenCalled();
+    expect(await isRoomSessionOwner(db, SID, 'uid-b')).toBe(false);
+
+    expect(await bind('uid-a')).toBe('bound');
+    expect(store[`roomSessions/${SID}`].uid).toBe('uid-a');
+    expect(await isRoomSessionOwner(db, SID, 'uid-b')).toBe(false);
   });
 });

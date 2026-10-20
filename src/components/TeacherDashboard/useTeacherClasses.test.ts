@@ -441,7 +441,7 @@ describe('useTeacherClasses', () => {
       });
 
       expect(result.current.startClassError).toBe(
-        'Ya hay una sesión activa con este nombre de sala. Espera a que termine o cambia el título de la clase.'
+        'Ya hay una sesión activa con este nombre de sala. Si es de otro profesor, entra con su código desde "Iniciar clase".'
       );
       expect(result.current.isStartingClass).toBe(false);
       expect(params.startClass).not.toHaveBeenCalled();
@@ -513,6 +513,156 @@ describe('useTeacherClasses', () => {
 
       expect(params.onStartClass).toHaveBeenCalledWith(session);
       expect(params.startClass).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('started room status', () => {
+    const started2: ClassRecord = { ...started, id: 'c-started-2', title: 'Otra', roomName: 'otra' };
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('probes only the started classes, once, and exposes the result by room name', async () => {
+      mockCheckRoomOpen.mockImplementation((room: string) => Promise.resolve(room === 'abierta'));
+      const { result } = setup({}, [upcoming, started, started2]);
+      await flush();
+      await flush();
+
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
+      expect(mockCheckRoomOpen).not.toHaveBeenCalledWith('algebra');
+      expect(result.current.startedRoomStatus).toEqual({ abierta: true, otra: false });
+    });
+
+    it('does not probe anything when no class is started', async () => {
+      setup({}, [upcoming, expired]);
+      await flush();
+
+      expect(mockCheckRoomOpen).not.toHaveBeenCalled();
+    });
+
+    it('re-probes no faster than every 30 seconds', async () => {
+      jest.useFakeTimers();
+      mockCheckRoomOpen.mockResolvedValue(true);
+      setup({}, [started]);
+      await flush();
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(29000);
+      });
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
+    });
+
+    describe('on demand', () => {
+      let now: number;
+      beforeEach(() => {
+        now = NOW;
+        (Date.now as jest.Mock).mockImplementation(() => now);
+      });
+
+      const setVisible = (hidden: boolean) =>
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+
+      afterEach(() => setVisible(false));
+
+      it('re-probes right away when the tab becomes visible again', async () => {
+        mockCheckRoomOpen.mockResolvedValue(true);
+        setup({}, [started]);
+        await flush();
+        expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+
+        now += 10000;
+        await act(async () => {
+          document.dispatchEvent(new Event('visibilitychange'));
+        });
+        expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
+      });
+
+      it('does not probe on visibilitychange while the tab is hidden', async () => {
+        mockCheckRoomOpen.mockResolvedValue(true);
+        setup({}, [started]);
+        await flush();
+
+        now += 10000;
+        setVisible(true);
+        await act(async () => {
+          document.dispatchEvent(new Event('visibilitychange'));
+        });
+        expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+      });
+
+      it('re-probes when the window regains focus', async () => {
+        mockCheckRoomOpen.mockResolvedValue(true);
+        setup({}, [started]);
+        await flush();
+
+        now += 10000;
+        await act(async () => {
+          window.dispatchEvent(new Event('focus'));
+        });
+        expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
+      });
+
+      it('ignores a focus or refresh within 3 seconds of the last probe (no burst)', async () => {
+        mockCheckRoomOpen.mockResolvedValue(true);
+        const { result } = setup({}, [started]);
+        await flush();
+
+        now += 1000;
+        await act(async () => {
+          window.dispatchEvent(new Event('focus'));
+          document.dispatchEvent(new Event('visibilitychange'));
+          result.current.refreshStartedRooms();
+        });
+        expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+      });
+
+      it('refreshStartedRooms probes now once the gap has passed and updates the status', async () => {
+        mockCheckRoomOpen.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+        const { result } = setup({}, [started]);
+        await flush();
+        expect(result.current.startedRoomStatus).toEqual({ abierta: true });
+
+        now += 5000;
+        await act(async () => {
+          result.current.refreshStartedRooms();
+        });
+        expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
+        expect(result.current.startedRoomStatus).toEqual({ abierta: false });
+      });
+
+      it('removes the focus and visibility listeners on unmount', async () => {
+        mockCheckRoomOpen.mockResolvedValue(true);
+        const { unmount } = setup({}, [started]);
+        await flush();
+        unmount();
+
+        now += 10000;
+        await act(async () => {
+          window.dispatchEvent(new Event('focus'));
+          document.dispatchEvent(new Event('visibilitychange'));
+        });
+        expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('stops probing after unmount', async () => {
+      jest.useFakeTimers();
+      mockCheckRoomOpen.mockResolvedValue(true);
+      const { unmount } = setup({}, [started]);
+      await flush();
+      unmount();
+
+      await act(async () => {
+        jest.advanceTimersByTime(120000);
+      });
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
     });
   });
 });
