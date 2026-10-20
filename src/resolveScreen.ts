@@ -16,8 +16,8 @@ export interface ScreenInputs {
 /**
  * Which screen the room app shows. An ordered decision, first match wins: a session that was
  * ended for everyone trumps everything; the profile route renders for a student without the
- * dashboard around it; any teacher-dashboard condition comes next; otherwise it is the lobby
- * until the room is joined.
+ * dashboard around it; any teacher-dashboard condition comes next (teachers only — a student on a
+ * stale /dashboard/* URL gets the lobby); otherwise it is the lobby until the room is joined.
  */
 export function resolveScreen({
   sessionEndedByProfessor,
@@ -29,7 +29,7 @@ export function resolveScreen({
 }: ScreenInputs): Screen {
   if (sessionEndedByProfessor) return 'sessionEnded';
   if (isProfileRoute && initialRole === 'student') return 'studentProfile';
-  if (dashboardActive || isProfileRoute || isDashboardTabRoute) return 'dashboard';
+  if (initialRole === 'teacher' && (dashboardActive || isProfileRoute || isDashboardTabRoute)) return 'dashboard';
   if (roomState === 'disconnected') return 'prejoin';
   return 'room';
 }

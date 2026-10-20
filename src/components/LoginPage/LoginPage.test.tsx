@@ -49,6 +49,18 @@ describe('the LoginPage component', () => {
       expect(mockReplace).toHaveBeenCalledWith({ pathname: '/room/test' });
     });
 
+    // Signing out leaves the previous session's screen in `from` (PrivateRoute's redirect); a
+    // student signing in next must not be sent to the teacher's dashboard or to a profile page.
+    it.each(['/dashboard/clases', '/dashboard/historial', '/profile', '/'])(
+      'should land on "/" instead of the role-dependent screen %s left by a previous session',
+      pathname => {
+        mockUseLocation.mockImplementation(() => ({ pathname: '/login', state: { from: { pathname } } }));
+        mockUseAppState.mockImplementation(() => ({ user: {}, profile: mockProfile, isAuthReady: true }));
+        render(<LoginPage />);
+        expect(mockReplace).toHaveBeenCalledWith('/');
+      }
+    );
+
     it('should not render anything when isAuthReady is false', () => {
       mockUseAppState.mockImplementation(() => ({ user: null, profile: null, isAuthReady: false }));
       const { container } = render(<LoginPage />);

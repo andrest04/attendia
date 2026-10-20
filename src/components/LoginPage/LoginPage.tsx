@@ -6,7 +6,7 @@ import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
 import { ReactComponent as GoogleLogo } from './google-logo.svg';
 import { Theme } from '@material-ui/core';
 import IntroContainer from '../IntroContainer/IntroContainer';
-import { routes } from '../../routes';
+import { routes, videoAppPaths } from '../../routes';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 import MenuBookIcon from '@material-ui/icons/MenuBook';
@@ -479,10 +479,14 @@ export default function LoginPage() {
   // stay here to complete the role step first. The prejoin resolves the role
   // from the verified profile. Runs as an effect (not during render) so it
   // doesn't trigger a state update while LoginPage itself is still rendering.
+  // A role-dependent landing screen (lobby, dashboard tab, profile) in `from` is left over from
+  // the PREVIOUS session's sign-out, so it is not replayed: '/' resolves the right screen for
+  // whoever just signed in (a student must not land on the teacher's dashboard).
   useEffect(() => {
     if (user && profile) {
       const from = location?.state?.from;
-      history.replace(from ? from : routes.home);
+      const isLandingScreen = !from || videoAppPaths.indexOf(from.pathname) !== -1;
+      history.replace(isLandingScreen ? routes.home : from);
     }
   }, [user, profile, location, history]);
 
