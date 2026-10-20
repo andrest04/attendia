@@ -249,6 +249,16 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: '#B71C1C',
   },
 
+  // ── Typed room name is already open ────────────────────────────────────────────
+  openRoomNotice: {
+    marginTop: theme.spacing(2),
+    padding: theme.spacing(1.5),
+    borderRadius: theme.spacing(1),
+    backgroundColor: '#FFF8E1',
+    border: '1px solid #FFE082',
+    color: '#5D4037',
+  },
+
   // ── Session created card ───────────────────────────────────────────────────────
   createdCard: {
     border: '1px solid #C8E6C9',
@@ -378,6 +388,9 @@ interface RoomNameScreenProps {
   onJoinExistingRoom?: () => void;
   // Called only after the teacher confirmed "create a room with the name I typed".
   onCreateWithJoinName?: () => void;
+  // Set when "Crear sala" found the typed name already open: the teacher is offered to join it.
+  openRoomName?: string | null;
+  onJoinOpenRoom?: () => void;
   setName: (name: string) => void;
   setStudentJoinCode: (joinCode: string) => void;
   setClassSessionDraft: (updater: (draft: ClassSessionDraft) => ClassSessionDraft) => void;
@@ -404,6 +417,8 @@ export default function RoomNameScreen({
   setTeacherJoinCode,
   onJoinExistingRoom,
   onCreateWithJoinName,
+  openRoomName = null,
+  onJoinOpenRoom,
   setName,
   setStudentJoinCode,
   setClassSessionDraft,
@@ -560,6 +575,25 @@ export default function RoomNameScreen({
                   {copied ? 'Copiado' : 'Copiar'}
                 </Button>
               </div>
+            </Box>
+          )}
+
+          {/* The typed name is a room that is open right now: offer to join, never a lookalike. */}
+          {openRoomName && onJoinOpenRoom && !classSessionAccess && (
+            <Box className={classes.openRoomNotice} role="alert" data-testid="open-room-notice">
+              <Typography variant="body2">
+                Esa sala ya está abierta (<strong>{openRoomName}</strong>). ¿Quieres entrar?
+              </Typography>
+              <Button
+                type="button"
+                size="small"
+                color="primary"
+                variant="contained"
+                onClick={onJoinOpenRoom}
+                style={{ marginTop: 8, textTransform: 'none' }}
+              >
+                Sí, entrar a la sala
+              </Button>
             </Box>
           )}
 

@@ -10,7 +10,7 @@ import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAutoRejoin from './useAutoRejoin';
 import useInitialRole from '../TeacherDashboard/useInitialRole';
 import { checkRoomOpen } from '../../classSession/checkRoomOpen';
-import { createCollisionSafeClassSessionAccess } from '../../classSession/createCollisionSafeClassSessionAccess';
+import { createClassSessionAccessUnlessOpen } from '../../classSession/createCollisionSafeClassSessionAccess';
 import { getResumableSession } from '../../classSession/rejoinSession';
 import { firstResolved } from '../../utils/firstResolved';
 import { replaceUrlWithoutNavigation } from '../../utils/replaceUrlWithoutNavigation';
@@ -87,6 +87,8 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   // Teacher "join an existing room" box: what they typed and the outcome of the open-room probe.
   const [teacherJoinCode, setTeacherJoinCode] = useState<string>('');
   const [teacherJoinStatus, setTeacherJoinStatus] = useState<TeacherJoinStatus>('idle');
+  // Set when "Crear sala" finds the typed session name already open (offer to join instead).
+  const [openRoomName, setOpenRoomName] = useState<string | null>(null);
 
   const [mediaError, setMediaError] = useState<Error>();
 
@@ -119,6 +121,7 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   // makes them stale, so drop the access and bring back the "Crear sesión" button.
   useEffect(() => {
     setClassSessionAccess(null);
+    setOpenRoomName(null);
   }, [classSessionDraft.sessionName]);
 
   useEffect(() => {
@@ -255,12 +258,18 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
 
   const handleCreateClassSession = async () => {
     setIsCreatingRoom(true);
-    const access = await createCollisionSafeClassSessionAccess(
+    const result = await createClassSessionAccessUnlessOpen(
       classSessionDraft,
       window.location.origin,
       window.location.search || ''
     );
     setIsCreatingRoom(false);
+    if (result.status === 'open') {
+      setOpenRoomName(result.roomName);
+      return;
+    }
+    const { access } = result;
+    setOpenRoomName(null);
     setClassSessionAccess(access);
     setRoomName(access.roomName);
     setName(toClassSessionDisplayName(classSessionDraft.displayName, 'teacher'));
@@ -323,6 +332,8 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
             setTeacherJoinCode={setTeacherJoinCode}
             onJoinExistingRoom={joinExistingRoomAsTeacher}
             onCreateWithJoinName={createRoomWithTypedName}
+            openRoomName={openRoomName}
+            onJoinOpenRoom={() => openRoomName && enterRoomAsTeacher(openRoomName)}
             setName={setName}
             setStudentJoinCode={setStudentJoinCode}
             setClassSessionDraft={setClassSessionDraft}

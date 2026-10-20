@@ -411,6 +411,37 @@ describe('the RoomNameScreen component', () => {
     });
   });
 
+  describe('when the room being created is already open', () => {
+    beforeEach(() => {
+      mockUseAppState.mockImplementation(() => ({ user: { displayName: 'Teacher Name' } }));
+    });
+    afterEach(() => {
+      mockUseAppState.mockReset();
+    });
+
+    it('steers the teacher to join it instead of creating', () => {
+      const onJoinOpenRoom = jest.fn();
+      const wrapper = shallow(<RoomNameScreen {...baseProps} openRoomName="clase-1" onJoinOpenRoom={onJoinOpenRoom} />);
+
+      const notice = wrapper.find('[data-testid="open-room-notice"]');
+      expect(notice.prop('role')).toBe('alert');
+      expect(notice.html()).toContain('Esa sala ya está abierta');
+      expect(notice.html()).toContain('clase-1');
+
+      wrapper
+        .findWhere(node => node.type() === Button && node.text() === 'Sí, entrar a la sala')
+        .first()
+        .simulate('click');
+      expect(onJoinOpenRoom).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows no notice by default', () => {
+      const wrapper = shallow(<RoomNameScreen {...baseProps} />);
+
+      expect(wrapper.find('[data-testid="open-room-notice"]').exists()).toBe(false);
+    });
+  });
+
   describe('when the room to join is not open', () => {
     const closedProps = {
       ...baseProps,
