@@ -601,3 +601,62 @@ describe('createRecordingRulesGuard', () => {
     consoleError.mockRestore();
   });
 });
+
+describe('co-teacher in an open room stays out of every owner-only surface', () => {
+  const classStart = new Date('2026-10-18T10:00:00Z');
+  const toStore = (owners: { [key: string]: any }) =>
+    Object.keys(owners).reduce((store: { [path: string]: any }, id) => ({ ...store, [`roomOwners/${id}`]: owners[id] }), {});
+
+  // A creates the class (owner claim), then B enters the same OPEN room as co-teacher.
+  const ownerThenCoTeacher = async () => {
+    const owners: { [key: string]: any } = {};
+    const { db } = makeClaimDb(owners);
+    const closed = jest.fn().mockResolvedValue(false);
+    const open = jest.fn().mockResolvedValue(true);
+    const claimedAtA = () => classStart;
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-a', { roomExists: closed, timestamp: claimedAtA })).toBe(true);
+    const ownerBefore = JSON.parse(JSON.stringify(owners));
+    expect(
+      await claimRoomOwnership(db, 'clase-1', 'uid-b', {
+        roomExists: open,
+        timestamp: () => new Date('2026-10-18T10:30:00Z'),
+        now: () => Date.parse('2026-10-18T10:30:00Z'),
+      })
+    ).toBe(true);
+    return { owners, ownerBefore };
+  };
+
+  it('leaves the owner document and claims history exactly as the owner wrote them', async () => {
+    const { owners, ownerBefore } = await ownerThenCoTeacher();
+
+    expect(JSON.parse(JSON.stringify(owners))).toEqual(ownerBefore);
+    expect(owners[roomOwnerKey('clase-1')].uid).toBe('uid-a');
+  });
+
+  it('is not the room owner (so /completeRoom and /recordingrules refuse them) while the owner still is', async () => {
+    const { owners } = await ownerThenCoTeacher();
+    const { db } = makeStoreDb(toStore(owners));
+
+    expect(await isRoomOwner(db, 'clase-1', 'uid-b')).toBe(false);
+    expect(await isRoomOwner(db, 'clase-1', 'uid-a')).toBe(true);
+  });
+
+  it('cannot bind the class session (POST /reports), so no roomSessions owner and no new recording request', async () => {
+    const { owners } = await ownerThenCoTeacher();
+    const { db, create, store } = makeStoreDb(toStore(owners));
+    const fetchRoom = jest.fn(async (roomSid: string) => ({
+      sid: roomSid,
+      uniqueName: 'clase-1',
+      dateCreated: new Date(classStart.getTime() + 1000),
+    }));
+    const bind = (uid: string) => createRoomSessionBinder(db, fetchRoom, timestamp)({ roomSid: SID, roomName: 'clase-1', uid });
+
+    expect(await bind('uid-b')).toBe('not-room-owner');
+    expect(create).not.toHaveBeenCalled();
+    expect(await isRoomSessionOwner(db, SID, 'uid-b')).toBe(false);
+
+    expect(await bind('uid-a')).toBe('bound');
+    expect(store[`roomSessions/${SID}`].uid).toBe('uid-a');
+    expect(await isRoomSessionOwner(db, SID, 'uid-b')).toBe(false);
+  });
+});
