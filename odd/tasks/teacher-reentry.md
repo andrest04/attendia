@@ -36,7 +36,9 @@ Client: `RoomNameScreen`, `PreJoinScreens`, `createCollisionSafeClassSessionAcce
 
 ## Open risk
 
-Twilio empty-room timeout (believed ~5 min default, repo sets none): unverified. Affects T6 copy.
+Resolved: Twilio closes a REST-created group room 5 min after the last participant leaves
+(configurable 1-60 min; repo sets none). Decision (user): keep the 5 min default, no change.
+Source: https://www.twilio.com/docs/video/api/rooms-resource
 
 ## Acceptance
 
