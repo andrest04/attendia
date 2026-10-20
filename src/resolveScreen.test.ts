@@ -22,10 +22,14 @@ describe('resolveScreen', () => {
 
   it.each([
     ['the dashboard is active', { dashboardActive: true }],
-    ['the profile route is open', { isProfileRoute: true, initialRole: 'teacher' as const }],
+    ['the profile route is open', { isProfileRoute: true }],
     ['a dashboard tab route is open', { isDashboardTabRoute: true }],
-  ])('shows the dashboard when %s', (_, overrides) => {
-    expect(resolveScreen(inputs(overrides))).toBe('dashboard');
+  ])('shows the dashboard to a teacher when %s', (_, overrides) => {
+    expect(resolveScreen(inputs({ initialRole: 'teacher', ...overrides }))).toBe('dashboard');
+  });
+
+  it('never shows the teacher dashboard to a student on a dashboard tab route', () => {
+    expect(resolveScreen(inputs({ initialRole: 'student', isDashboardTabRoute: true }))).toBe('prejoin');
   });
 
   it('shows the profile alone for a student on the profile route', () => {
@@ -45,7 +49,9 @@ describe('resolveScreen', () => {
   });
 
   it('keeps the dashboard over the room while the dashboard is the active screen', () => {
-    expect(resolveScreen(inputs({ dashboardActive: true, roomState: 'connected' }))).toBe('dashboard');
+    expect(resolveScreen(inputs({ initialRole: 'teacher', dashboardActive: true, roomState: 'connected' }))).toBe(
+      'dashboard'
+    );
   });
 
   it('keeps the lobby for a student whose profile route is not open', () => {

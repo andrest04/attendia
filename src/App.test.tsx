@@ -120,12 +120,22 @@ describe('the App component', () => {
     });
 
     it('derives the active tab from a /dashboard/* route, even without dashboardActive', () => {
+      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
       mockUseRoomState.mockImplementation(() => 'disconnected');
       mockUseLocation.mockImplementationOnce(() => ({ pathname: '/dashboard/historial' }));
       const wrapper = shallow(<App />);
 
       expect(wrapper.find(TeacherDashboard).prop('activeTab')).toBe('historial');
       expect(wrapper.find(TeacherDashboard).prop('showProfile')).toBe(false);
+    });
+
+    it('shows a student the lobby, not the teacher dashboard, on a /dashboard/* route', () => {
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      mockUseLocation.mockImplementationOnce(() => ({ pathname: '/dashboard/clases' }));
+      const wrapper = shallow(<App />);
+
+      expect(wrapper.find(TeacherDashboard).exists()).toBe(false);
+      expect(wrapper.find(PreJoinScreens).exists()).toBe(true);
     });
 
     it('pushes the matching /dashboard/* route when onTabChange fires', () => {
