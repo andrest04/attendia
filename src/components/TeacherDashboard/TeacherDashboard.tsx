@@ -159,6 +159,7 @@ export default function TeacherDashboard({
     cancelExpiredError,
     startClassError,
     isStartingClass,
+    startedRoomStatus,
     cancelDialog,
     cancelExpiredDialog,
     hasRealClasses,
@@ -271,6 +272,7 @@ export default function TeacherDashboard({
         sessionsAreMock={!hasRealClasses}
         startClassError={startClassError}
         isStartingClass={isStartingClass}
+        startedRoomStatus={startedRoomStatus}
       />
     ),
     historial: () => (

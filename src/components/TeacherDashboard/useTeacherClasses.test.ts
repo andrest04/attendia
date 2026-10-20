@@ -441,7 +441,7 @@ describe('useTeacherClasses', () => {
       });
 
       expect(result.current.startClassError).toBe(
-        'Ya hay una sesión activa con este nombre de sala. Espera a que termine o cambia el título de la clase.'
+        'Ya hay una sesión activa con este nombre de sala. Si es de otro profesor, entra con su código desde "Iniciar clase".'
       );
       expect(result.current.isStartingClass).toBe(false);
       expect(params.startClass).not.toHaveBeenCalled();
@@ -513,6 +513,63 @@ describe('useTeacherClasses', () => {
 
       expect(params.onStartClass).toHaveBeenCalledWith(session);
       expect(params.startClass).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('started room status', () => {
+    const started2: ClassRecord = { ...started, id: 'c-started-2', title: 'Otra', roomName: 'otra' };
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('probes only the started classes, once, and exposes the result by room name', async () => {
+      mockCheckRoomOpen.mockImplementation((room: string) => Promise.resolve(room === 'abierta'));
+      const { result } = setup({}, [upcoming, started, started2]);
+      await flush();
+      await flush();
+
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
+      expect(mockCheckRoomOpen).not.toHaveBeenCalledWith('algebra');
+      expect(result.current.startedRoomStatus).toEqual({ abierta: true, otra: false });
+    });
+
+    it('does not probe anything when no class is started', async () => {
+      setup({}, [upcoming, expired]);
+      await flush();
+
+      expect(mockCheckRoomOpen).not.toHaveBeenCalled();
+    });
+
+    it('re-probes no faster than every 30 seconds', async () => {
+      jest.useFakeTimers();
+      mockCheckRoomOpen.mockResolvedValue(true);
+      setup({}, [started]);
+      await flush();
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(29000);
+      });
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        jest.advanceTimersByTime(1500);
+      });
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
+    });
+
+    it('stops probing after unmount', async () => {
+      jest.useFakeTimers();
+      mockCheckRoomOpen.mockResolvedValue(true);
+      const { unmount } = setup({}, [started]);
+      await flush();
+      unmount();
+
+      await act(async () => {
+        jest.advanceTimersByTime(120000);
+      });
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
     });
   });
 });

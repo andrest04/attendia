@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { mockDashboardData } from './mockDashboardData';
 import { ClassRecord, CreateClassInput } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StateContextType } from '../../state';
@@ -33,6 +33,41 @@ interface ClassCommands {
 }
 
 const NO_CLASS_COMMANDS: ClassCommands = {};
+
+/** `/rooms/:name/open` is public and rate-limited, so started rooms are re-probed this slowly. */
+export const ROOM_PROBE_INTERVAL_MS = 30000;
+
+/**
+ * Latest `checkRoomOpen` result per room for the given rooms (the teacher's started classes):
+ * probed once when the set of rooms appears and then every ROOM_PROBE_INTERVAL_MS while the tab
+ * is visible. Keyed on the rooms' names, so a class list reload does not restart the probing.
+ */
+function useRoomOpenStatus(roomNames: string[]): Record<string, boolean | null> {
+  const [status, setStatus] = useState<Record<string, boolean | null>>({});
+  const key = roomNames.join('\n');
+
+  useEffect(() => {
+    const rooms = key ? key.split('\n') : [];
+    if (rooms.length === 0) return undefined;
+    let cancelled = false;
+    const probe = () =>
+      rooms.forEach(room =>
+        checkRoomOpen(room).then(open => {
+          if (!cancelled) setStatus(current => ({ ...current, [room]: open }));
+        })
+      );
+    probe();
+    const timer = setInterval(() => {
+      if (!document.hidden) probe();
+    }, ROOM_PROBE_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [key]);
+
+  return status;
+}
 
 /**
  * Owns the "Clases" concern of TeacherDashboard: fetching/creating/cancelling
@@ -76,6 +111,9 @@ export default function useTeacherClasses({
     ? buildRealClassesView(realClasses, Date.now())
     : buildMockClassesView(data);
   const expiredClassIds = new Set(expiredClasses.map(classRecord => classRecord.id));
+  const startedRoomStatus = useRoomOpenStatus(
+    hasRealClasses ? realClasses.filter(c => c.status === 'started').map(c => c.roomName) : []
+  );
 
   const cancelClass = (session: { id: string; title: string }) => {
     setCancellingClassId(session.id);
@@ -167,7 +205,7 @@ export default function useTeacherClasses({
         return;
       }
       setStartClassError(
-        'Ya hay una sesión activa con este nombre de sala. Espera a que termine o cambia el título de la clase.'
+        'Ya hay una sesión activa con este nombre de sala. Si es de otro profesor, entra con su código desde "Iniciar clase".'
       );
       return;
     }
@@ -196,6 +234,7 @@ export default function useTeacherClasses({
     cancelExpiredError,
     startClassError,
     isStartingClass,
+    startedRoomStatus,
     cancelDialog,
     cancelExpiredDialog,
     hasRealClasses,
