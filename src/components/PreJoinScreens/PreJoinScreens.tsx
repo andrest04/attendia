@@ -3,7 +3,7 @@ import { CircularProgress, Typography } from '@material-ui/core';
 import DeviceSelectionScreen from './DeviceSelectionScreen/DeviceSelectionScreen';
 import IntroContainer from '../IntroContainer/IntroContainer';
 import MediaErrorSnackbar from './MediaErrorSnackbar/MediaErrorSnackbar';
-import RoomNameScreen from './RoomNameScreen/RoomNameScreen';
+import RoomNameScreen, { TeacherJoinStatus } from './RoomNameScreen/RoomNameScreen';
 import { useAppState } from '../../state';
 import { useParams } from 'react-router-dom';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
@@ -84,6 +84,10 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   const [roomClosed, setRoomClosed] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
 
+  // Teacher "join an existing room" box: what they typed and the outcome of the open-room probe.
+  const [teacherJoinCode, setTeacherJoinCode] = useState<string>('');
+  const [teacherJoinStatus, setTeacherJoinStatus] = useState<TeacherJoinStatus>('idle');
+
   const [mediaError, setMediaError] = useState<Error>();
 
   useEffect(() => {
@@ -105,6 +109,11 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   useEffect(() => {
     setRoomClosed(false);
   }, [studentJoinCode]);
+
+  // Editing the teacher's join code invalidates the previous probe verdict too.
+  useEffect(() => {
+    setTeacherJoinStatus('idle');
+  }, [teacherJoinCode]);
 
   // A created session's share code/link are derived from the session name; editing it
   // makes them stale, so drop the access and bring back the "Crear sesión" button.
@@ -210,6 +219,27 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
     await continueAsStudent();
   };
 
+  // The teacher path to an already-open room (re-entry after leaving, or joining as co-teacher):
+  // same normalization and probe as the student path, but the role stays teacher and the exact
+  // room name is kept (no suffix — it is someone's live room). Unlike the student path, only a
+  // confirmed `true` proceeds: a closed room offers "create with this name" and an inconclusive
+  // probe is retryable, so a typo or a flaky probe never silently creates a different room.
+  const joinExistingRoomAsTeacher = async () => {
+    const targetRoomName = normalizeStudentJoinInputToRoomName(teacherJoinCode);
+    if (!targetRoomName) return;
+    setTeacherJoinStatus('checking');
+    const open = await checkRoomOpen(targetRoomName);
+    if (open !== true) {
+      setTeacherJoinStatus(open === false ? 'closed' : 'inconclusive');
+      return;
+    }
+    setTeacherJoinStatus('idle');
+    setRoomName(targetRoomName);
+    setName(toClassSessionDisplayName(name, 'teacher'));
+    replaceRoomUrlWithoutNavigation(targetRoomName);
+    setStep(Steps.deviceSelectionStep);
+  };
+
   const handleCreateClassSession = async () => {
     setIsCreatingRoom(true);
     const access = await createCollisionSafeClassSessionAccess(
@@ -275,6 +305,10 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
             isCheckingRoom={isCheckingRoom}
             isCreatingRoom={isCreatingRoom}
             roomClosedError={roomClosed}
+            teacherJoinCode={teacherJoinCode}
+            teacherJoinStatus={teacherJoinStatus}
+            setTeacherJoinCode={setTeacherJoinCode}
+            onJoinExistingRoom={joinExistingRoomAsTeacher}
             setName={setName}
             setStudentJoinCode={setStudentJoinCode}
             setClassSessionDraft={setClassSessionDraft}

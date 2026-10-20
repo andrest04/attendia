@@ -583,6 +583,68 @@ describe('the PreJoinScreens component', () => {
     expect(wrapper.find(RoomNameScreen).exists()).toBe(false);
   });
 
+  describe('teacher joining an existing room by code', () => {
+    const joinAsTeacher = async (wrapper: any, code: string) => {
+      act(() => {
+        wrapper.find(RoomNameScreen).prop('setName')('Ana Prof');
+        wrapper.find(RoomNameScreen).prop('setTeacherJoinCode')(code);
+      });
+      wrapper.update();
+      await act(async () => {
+        await (wrapper.find(RoomNameScreen).prop('onJoinExistingRoom') as any)();
+      });
+      wrapper.update();
+    };
+
+    beforeEach(() => {
+      mockUseParams.mockImplementation(() => ({ URLRoomName: undefined }));
+    });
+
+    it('goes to device selection with the exact room name and the teacher suffix when the room is open', async () => {
+      mockCheckRoomOpen.mockResolvedValue(true);
+      const wrapper = mount(<PreJoinScreens />);
+
+      await joinAsTeacher(wrapper, 'https://app.example.org/room/Aula-7?x=1');
+
+      expect(mockCheckRoomOpen).toHaveBeenCalledWith('aula-7');
+      expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '/room/aula-7');
+      expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('aula-7');
+      expect(wrapper.find(DeviceSelectionScreen).prop('name')).toBe('Ana Prof [Profesor]');
+    });
+
+    it('never creates a suffixed room: only one probe runs and the typed name is kept', async () => {
+      mockCheckRoomOpen.mockResolvedValue(true);
+      const wrapper = mount(<PreJoinScreens />);
+
+      await joinAsTeacher(wrapper, 'manual-room-42');
+
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
+      expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('manual-room-42');
+    });
+
+    it('reports a checking status while the probe is in flight', async () => {
+      let resolveProbe: (value: boolean) => void = () => {};
+      mockCheckRoomOpen.mockReturnValue(new Promise<boolean>(resolve => (resolveProbe = resolve)));
+      const wrapper = mount(<PreJoinScreens />);
+      act(() => {
+        (wrapper.find(RoomNameScreen).prop('setTeacherJoinCode') as any)('aula-7');
+      });
+      wrapper.update();
+
+      let pending: Promise<void> = Promise.resolve();
+      act(() => {
+        pending = (wrapper.find(RoomNameScreen).prop('onJoinExistingRoom') as any)();
+      });
+      wrapper.update();
+      expect(wrapper.find(RoomNameScreen).prop('teacherJoinStatus')).toBe('checking');
+
+      await act(async () => {
+        resolveProbe(true);
+        await pending;
+      });
+    });
+  });
+
   it('keeps the normal step-back behavior for a student, ignoring onReturnToDashboard', async () => {
     const onReturnToDashboard = jest.fn();
     const wrapper = mount(<PreJoinScreens onReturnToDashboard={onReturnToDashboard} />);

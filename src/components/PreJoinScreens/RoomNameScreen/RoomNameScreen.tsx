@@ -313,6 +313,35 @@ const useStyles = makeStyles((theme: Theme) => ({
     },
   },
 
+  // ── Teacher "join an existing room" box ────────────────────────────────────────
+  joinBox: {
+    marginTop: 'clamp(10px, 2vh, 20px)',
+    paddingTop: 'clamp(8px, 1.5vh, 16px)',
+    borderTop: '1px solid #e2ecf9',
+  },
+  joinBoxTitle: {
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 13,
+    color: '#1d2f6f',
+    lineHeight: '19px',
+    margin: 0,
+  },
+  joinBoxRow: {
+    display: 'flex',
+    alignItems: 'stretch',
+    gap: 8,
+    marginTop: 8,
+  },
+  joinBoxButton: {
+    flexShrink: 0,
+    borderRadius: 10,
+    textTransform: 'none',
+    fontFamily: 'Poppins, Inter, sans-serif',
+    fontWeight: 600,
+    fontSize: 13,
+  },
+
   // ── Spacing helpers ────────────────────────────────────────────────────────────
   fieldBlock: {
     marginTop: 'clamp(8px, 1.5vh, 16px)',
@@ -328,6 +357,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+export type TeacherJoinStatus = 'idle' | 'checking' | 'closed' | 'inconclusive';
+
 interface RoomNameScreenProps {
   name: string;
   roomName: string;
@@ -338,6 +369,12 @@ interface RoomNameScreenProps {
   isCheckingRoom?: boolean;
   isCreatingRoom?: boolean;
   roomClosedError?: boolean;
+  // Teacher "join an existing room" box. Optional: hosts that only create rooms (the dashboard
+  // quick-start panel) omit onJoinExistingRoom and the box is not rendered.
+  teacherJoinCode?: string;
+  teacherJoinStatus?: TeacherJoinStatus;
+  setTeacherJoinCode?: (joinCode: string) => void;
+  onJoinExistingRoom?: () => void;
   setName: (name: string) => void;
   setStudentJoinCode: (joinCode: string) => void;
   setClassSessionDraft: (updater: (draft: ClassSessionDraft) => ClassSessionDraft) => void;
@@ -359,6 +396,10 @@ export default function RoomNameScreen({
   isCheckingRoom = false,
   isCreatingRoom = false,
   roomClosedError = false,
+  teacherJoinCode = '',
+  teacherJoinStatus = 'idle',
+  setTeacherJoinCode,
+  onJoinExistingRoom,
   setName,
   setStudentJoinCode,
   setClassSessionDraft,
@@ -399,6 +440,8 @@ export default function RoomNameScreen({
   const hasUsername = !window.location.search.includes('customIdentity=true') && user?.displayName;
   const canCreateTeacherSession = isClassSessionDraftReady(classSessionDraft);
   const canContinueStudent = Boolean(name.trim() && studentJoinCode.trim());
+  const canJoinExistingRoom = Boolean(name.trim() && teacherJoinCode.trim()) && teacherJoinStatus !== 'checking';
+  const isCheckingTeacherJoin = teacherJoinStatus === 'checking';
   void roomName;
 
   return (
@@ -539,6 +582,43 @@ export default function RoomNameScreen({
               </Button>
             )}
           </div>
+
+          {/* Secondary option: enter a room that is already open (re-entry or co-teacher). */}
+          {onJoinExistingRoom && (
+            <div className={classes.joinBox}>
+              <p className={classes.joinBoxTitle}>¿Ya hay una sala abierta?</p>
+              <span className={classes.fieldHelper}>Ingresa el código o el enlace para entrar a ella.</span>
+              <div className={classes.joinBoxRow}>
+                <TextField
+                  id="input-teacher-join-code"
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  placeholder="Código o enlace de sala"
+                  value={teacherJoinCode}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => setTeacherJoinCode?.(event.target.value)}
+                  onKeyDown={(event: React.KeyboardEvent) => {
+                    if (event.key !== 'Enter') return;
+                    // Enter here must not fall through to the form's submit (= create a room).
+                    event.preventDefault();
+                    if (canJoinExistingRoom) onJoinExistingRoom();
+                  }}
+                  className={classes.textInput}
+                />
+                <Button
+                  type="button"
+                  variant="outlined"
+                  color="primary"
+                  disabled={!canJoinExistingRoom}
+                  onClick={onJoinExistingRoom}
+                  className={classes.joinBoxButton}
+                  startIcon={isCheckingTeacherJoin ? <CircularProgress size={16} color="inherit" /> : undefined}
+                >
+                  {isCheckingTeacherJoin ? 'Verificando sala…' : 'Entrar a la sala'}
+                </Button>
+              </div>
+            </div>
+          )}
         </form>
       ) : (
         /* ── Estudiante card ────────────────────────────────────────────────────── */
