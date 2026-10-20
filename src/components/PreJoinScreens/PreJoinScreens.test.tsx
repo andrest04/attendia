@@ -622,6 +622,65 @@ describe('the PreJoinScreens component', () => {
       expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('manual-room-42');
     });
 
+    it('stays on the room-name step and flags a closed room, without creating anything', async () => {
+      mockCheckRoomOpen.mockResolvedValue(false);
+      const wrapper = mount(<PreJoinScreens />);
+
+      await joinAsTeacher(wrapper, 'aula-7');
+
+      expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(false);
+      expect(wrapper.find(RoomNameScreen).prop('teacherJoinStatus')).toBe('closed');
+      expect(window.history.replaceState).not.toHaveBeenCalled();
+    });
+
+    it('does not proceed on an inconclusive probe, and a retry can then succeed', async () => {
+      mockCheckRoomOpen.mockResolvedValue(null);
+      const wrapper = mount(<PreJoinScreens />);
+
+      await joinAsTeacher(wrapper, 'aula-7');
+
+      expect(wrapper.find(DeviceSelectionScreen).exists()).toBe(false);
+      expect(wrapper.find(RoomNameScreen).prop('teacherJoinStatus')).toBe('inconclusive');
+
+      mockCheckRoomOpen.mockResolvedValue(true);
+      await act(async () => {
+        await (wrapper.find(RoomNameScreen).prop('onJoinExistingRoom') as any)();
+      });
+      wrapper.update();
+
+      expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('aula-7');
+    });
+
+    it('clears the closed verdict when the teacher edits the code', async () => {
+      mockCheckRoomOpen.mockResolvedValue(false);
+      const wrapper = mount(<PreJoinScreens />);
+      await joinAsTeacher(wrapper, 'aula-7');
+
+      act(() => {
+        (wrapper.find(RoomNameScreen).prop('setTeacherJoinCode') as any)('aula-8');
+      });
+      wrapper.update();
+
+      expect(wrapper.find(RoomNameScreen).prop('teacherJoinStatus')).toBe('idle');
+    });
+
+    it('creates the room with the exact typed name (no suffix, no extra probe) once the teacher confirms', async () => {
+      mockCheckRoomOpen.mockResolvedValue(false);
+      const wrapper = mount(<PreJoinScreens />);
+      await joinAsTeacher(wrapper, 'Aula 7');
+      mockCheckRoomOpen.mockClear();
+
+      act(() => {
+        (wrapper.find(RoomNameScreen).prop('onCreateWithJoinName') as any)();
+      });
+      wrapper.update();
+
+      expect(mockCheckRoomOpen).not.toHaveBeenCalled();
+      expect(window.history.replaceState).toHaveBeenCalledWith(null, '', '/room/aula-7');
+      expect(wrapper.find(DeviceSelectionScreen).prop('roomName')).toBe('aula-7');
+      expect(wrapper.find(DeviceSelectionScreen).prop('name')).toBe('Ana Prof [Profesor]');
+    });
+
     it('reports a checking status while the probe is in flight', async () => {
       let resolveProbe: (value: boolean) => void = () => {};
       mockCheckRoomOpen.mockReturnValue(new Promise<boolean>(resolve => (resolveProbe = resolve)));

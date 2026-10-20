@@ -224,6 +224,14 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
   // room name is kept (no suffix — it is someone's live room). Unlike the student path, only a
   // confirmed `true` proceeds: a closed room offers "create with this name" and an inconclusive
   // probe is retryable, so a typo or a flaky probe never silently creates a different room.
+  const enterRoomAsTeacher = (targetRoomName: string) => {
+    setTeacherJoinStatus('idle');
+    setRoomName(targetRoomName);
+    setName(toClassSessionDisplayName(name, 'teacher'));
+    replaceRoomUrlWithoutNavigation(targetRoomName);
+    setStep(Steps.deviceSelectionStep);
+  };
+
   const joinExistingRoomAsTeacher = async () => {
     const targetRoomName = normalizeStudentJoinInputToRoomName(teacherJoinCode);
     if (!targetRoomName) return;
@@ -233,11 +241,16 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
       setTeacherJoinStatus(open === false ? 'closed' : 'inconclusive');
       return;
     }
-    setTeacherJoinStatus('idle');
-    setRoomName(targetRoomName);
-    setName(toClassSessionDisplayName(name, 'teacher'));
-    replaceRoomUrlWithoutNavigation(targetRoomName);
-    setStep(Steps.deviceSelectionStep);
+    enterRoomAsTeacher(targetRoomName);
+  };
+
+  // The teacher confirmed (in RoomNameScreen) that the typed name is right even though no such
+  // room is open: the room is created on demand by the first teacher token, under exactly this
+  // name (it is free, so no collision suffix is needed).
+  const createRoomWithTypedName = () => {
+    const targetRoomName = normalizeStudentJoinInputToRoomName(teacherJoinCode);
+    if (!targetRoomName) return;
+    enterRoomAsTeacher(targetRoomName);
   };
 
   const handleCreateClassSession = async () => {
@@ -309,6 +322,7 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
             teacherJoinStatus={teacherJoinStatus}
             setTeacherJoinCode={setTeacherJoinCode}
             onJoinExistingRoom={joinExistingRoomAsTeacher}
+            onCreateWithJoinName={createRoomWithTypedName}
             setName={setName}
             setStudentJoinCode={setStudentJoinCode}
             setClassSessionDraft={setClassSessionDraft}

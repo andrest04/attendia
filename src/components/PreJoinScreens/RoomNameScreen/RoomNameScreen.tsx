@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useState } from 'react';
+import React, { ChangeEvent, useEffect, useState } from 'react';
 import { Typography, makeStyles, TextField, Button, InputLabel, Theme, Box, CircularProgress } from '@material-ui/core';
 import SecurityIcon from '@material-ui/icons/Security';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
@@ -9,6 +9,7 @@ import {
   ClassSessionDraft,
   ClassSessionRole,
   isClassSessionDraftReady,
+  normalizeStudentJoinInputToRoomName,
 } from '../../../classSession/classSessionTypes';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -375,6 +376,8 @@ interface RoomNameScreenProps {
   teacherJoinStatus?: TeacherJoinStatus;
   setTeacherJoinCode?: (joinCode: string) => void;
   onJoinExistingRoom?: () => void;
+  // Called only after the teacher confirmed "create a room with the name I typed".
+  onCreateWithJoinName?: () => void;
   setName: (name: string) => void;
   setStudentJoinCode: (joinCode: string) => void;
   setClassSessionDraft: (updater: (draft: ClassSessionDraft) => ClassSessionDraft) => void;
@@ -400,6 +403,7 @@ export default function RoomNameScreen({
   teacherJoinStatus = 'idle',
   setTeacherJoinCode,
   onJoinExistingRoom,
+  onCreateWithJoinName,
   setName,
   setStudentJoinCode,
   setClassSessionDraft,
@@ -411,6 +415,11 @@ export default function RoomNameScreen({
   const classes = useStyles();
   const { user, profile } = useAppState();
   const [copied, setCopied] = useState(false);
+  // "Crear con este nombre" asks for confirmation first (a closed room is often just a typo).
+  const [confirmingCreate, setConfirmingCreate] = useState(false);
+  useEffect(() => {
+    setConfirmingCreate(false);
+  }, [teacherJoinStatus, teacherJoinCode]);
 
   // Active role is tracked locally and seeded from the draft role supplied by the parent.
   // The role-switch link toggles between teacher and student views without needing a round-trip.
@@ -617,6 +626,63 @@ export default function RoomNameScreen({
                   {isCheckingTeacherJoin ? 'Verificando sala…' : 'Entrar a la sala'}
                 </Button>
               </div>
+
+              {teacherJoinStatus === 'inconclusive' && (
+                <Box className={classes.roomClosedAlert} role="alert" data-testid="teacher-join-inconclusive">
+                  <Typography variant="body2">
+                    No pudimos verificar si la sala está abierta. Revisa tu conexión e inténtalo de nuevo.
+                  </Typography>
+                </Box>
+              )}
+
+              {teacherJoinStatus === 'closed' && (
+                <Box className={classes.roomClosedAlert} role="alert" data-testid="teacher-join-closed">
+                  <Typography variant="body2">
+                    La sala <strong>{normalizeStudentJoinInputToRoomName(teacherJoinCode)}</strong> no está abierta.
+                    Revisa que el código esté bien escrito o crea una sala con ese nombre.
+                  </Typography>
+                  {onCreateWithJoinName && !confirmingCreate && (
+                    <Button
+                      type="button"
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      onClick={() => setConfirmingCreate(true)}
+                      style={{ marginTop: 8, textTransform: 'none' }}
+                    >
+                      Crear con este nombre
+                    </Button>
+                  )}
+                  {onCreateWithJoinName && confirmingCreate && (
+                    <div data-testid="teacher-join-confirm" style={{ marginTop: 8 }}>
+                      <Typography variant="body2">
+                        ¿Crear una sala nueva llamada{' '}
+                        <strong>{normalizeStudentJoinInputToRoomName(teacherJoinCode)}</strong>?
+                      </Typography>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                        <Button
+                          type="button"
+                          size="small"
+                          color="primary"
+                          variant="contained"
+                          onClick={onCreateWithJoinName}
+                          style={{ textTransform: 'none' }}
+                        >
+                          Sí, crear sala
+                        </Button>
+                        <Button
+                          type="button"
+                          size="small"
+                          onClick={() => setConfirmingCreate(false)}
+                          style={{ textTransform: 'none' }}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </Box>
+              )}
             </div>
           )}
         </form>
