@@ -50,7 +50,7 @@ export default function ParticipantTracks({
     <>
       {filteredPublications.map(publication => (
         <Publication
-          key={publication.kind}
+          key={publication.trackSid ?? publication.trackName}
           publication={publication}
           participant={participant}
           isLocalParticipant={isLocalParticipant}

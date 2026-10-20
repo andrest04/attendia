@@ -21,6 +21,7 @@ const mockUseRaisedHand = useRaisedHand as jest.Mock<any>;
 const camera = { trackName: '', kind: 'video' };
 const screen = { trackName: 'screen-123', kind: 'video' };
 const audio = { trackName: 'mic', kind: 'audio' };
+const screenAudio = { trackName: 'screen-audio', kind: 'audio' };
 const participant = { identity: 'Ana' } as any;
 
 describe('useParticipantTile', () => {
@@ -57,6 +58,24 @@ describe('useParticipantTile', () => {
     const { result } = renderHook(() => useParticipantTile(participant, { preferScreenShare: true }));
 
     expect(result.current.videoTrack).toEqual({ from: screen });
+  });
+
+  it('keeps the microphone as the audio track while the screen audio is shared', () => {
+    mockUsePublications.mockImplementation(() => [camera, screenAudio, screen, audio]);
+
+    const { result } = renderHook(() => useParticipantTile(participant, { preferScreenShare: true }));
+
+    expect(result.current.audioTrack).toEqual({ from: audio });
+    expect(result.current.videoTrack).toEqual({ from: screen });
+  });
+
+  it('does not treat a lone screen audio track as a screen share', () => {
+    mockUsePublications.mockImplementation(() => [camera, screenAudio]);
+
+    const { result } = renderHook(() => useParticipantTile(participant));
+
+    expect(result.current.isSharingScreen).toBe(false);
+    expect(result.current.audioTrack).toBeUndefined();
   });
 
   it('falls back to the camera when the screen share is preferred but absent', () => {

@@ -13,15 +13,20 @@ const mockRoom = {
 
 const mockOnError: ErrorCallback = () => {};
 
-const mockTrack: any = { stop: jest.fn() };
+const mockTrack: any = { kind: 'video', stop: jest.fn() };
+const mockAudioTrack: any = { kind: 'audio', stop: jest.fn() };
+
+function mockStream(tracks: any[]) {
+  return {
+    getTracks: jest.fn(() => tracks),
+    getVideoTracks: jest.fn(() => tracks.filter(track => track.kind === 'video')),
+    getAudioTracks: jest.fn(() => tracks.filter(track => track.kind === 'audio')),
+  };
+}
 
 const mockMediaDevices = {
   value: {
-    getDisplayMedia: jest.fn(() =>
-      Promise.resolve({
-        getTracks: jest.fn(() => [mockTrack]),
-      })
-    ),
+    getDisplayMedia: jest.fn(() => Promise.resolve(mockStream([mockTrack]))),
   } as any,
 };
 
@@ -69,6 +74,68 @@ describe('the useScreenShareToggle hook', () => {
       expect(localParticipantSpy).toHaveBeenCalledWith('trackUnpublished', 'mockPublication');
       expect(mockTrack.stop).toHaveBeenCalled();
       expect(result.current[0]).toEqual(false);
+    });
+
+    it('should ask the browser for the audio of the shared screen or tab', async () => {
+      const { result, waitForNextUpdate } = renderHook(() => useScreenShareToggle(mockRoom, mockOnError));
+      result.current[1]();
+      await waitForNextUpdate();
+      expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledWith(
+        expect.objectContaining({ video: true, audio: true })
+      );
+    });
+
+    describe('when the shared screen includes audio', () => {
+      beforeEach(() => {
+        (navigator.mediaDevices.getDisplayMedia as jest.Mock).mockImplementationOnce(() =>
+          Promise.resolve(mockStream([mockTrack, mockAudioTrack]))
+        );
+        mockLocalParticipant.publishTrack.mockImplementation((track: any) =>
+          Promise.resolve(track === mockAudioTrack ? 'mockAudioPublication' : 'mockPublication')
+        );
+      });
+
+      afterEach(() => {
+        mockLocalParticipant.publishTrack.mockImplementation(() => Promise.resolve('mockPublication'));
+      });
+
+      it('should publish the video and the audio tracks', async () => {
+        const { result, waitForNextUpdate } = renderHook(() => useScreenShareToggle(mockRoom, mockOnError));
+        result.current[1]();
+        await waitForNextUpdate();
+        expect(mockLocalParticipant.publishTrack).toHaveBeenCalledWith(mockTrack, { name: 'screen', priority: 'low' });
+        expect(mockLocalParticipant.publishTrack).toHaveBeenCalledWith(mockAudioTrack, { name: 'screen-audio' });
+        expect(result.current[0]).toEqual(true);
+      });
+
+      it('should unpublish and stop both tracks when screen sharing stops', async () => {
+        const localParticipantSpy = jest.spyOn(mockLocalParticipant, 'emit');
+        const { result, waitForNextUpdate } = renderHook(() => useScreenShareToggle(mockRoom, mockOnError));
+        result.current[1]();
+        await waitForNextUpdate();
+        act(() => {
+          result.current[1]();
+        });
+        expect(mockLocalParticipant.unpublishTrack).toHaveBeenCalledWith(mockTrack);
+        expect(mockLocalParticipant.unpublishTrack).toHaveBeenCalledWith(mockAudioTrack);
+        expect(localParticipantSpy).toHaveBeenCalledWith('trackUnpublished', 'mockPublication');
+        expect(localParticipantSpy).toHaveBeenCalledWith('trackUnpublished', 'mockAudioPublication');
+        expect(mockTrack.stop).toHaveBeenCalled();
+        expect(mockAudioTrack.stop).toHaveBeenCalled();
+        expect(result.current[0]).toEqual(false);
+      });
+
+      it('should keep sharing the screen when the audio track cannot be published', async () => {
+        jest.spyOn(console, 'warn').mockImplementationOnce(() => {});
+        mockLocalParticipant.publishTrack.mockImplementation((track: any) =>
+          track === mockAudioTrack ? Promise.reject(new Error('audio failed')) : Promise.resolve('mockPublication')
+        );
+        const { result, waitForNextUpdate } = renderHook(() => useScreenShareToggle(mockRoom, mockOnError));
+        result.current[1]();
+        await waitForNextUpdate();
+        expect(result.current[0]).toEqual(true);
+        expect(mockAudioTrack.stop).toHaveBeenCalled();
+      });
     });
 
     describe('onended function', () => {

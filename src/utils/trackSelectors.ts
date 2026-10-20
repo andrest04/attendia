@@ -10,6 +10,8 @@ import { LocalAudioTrack, LocalVideoTrack } from 'twilio-video';
  * of tests mock `useVideoContext` with just `{ room }` or `{ localTracks }`.
  */
 export const SCREEN_SHARE_TRACK_NAME = 'screen';
+/** The audio of the shared screen or tab. Its name includes "screen", so it is never taken for the microphone. */
+export const SCREEN_SHARE_AUDIO_TRACK_NAME = 'screen-audio';
 
 export function isScreenShareName(name: string): boolean {
   return name.includes(SCREEN_SHARE_TRACK_NAME);

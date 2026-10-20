@@ -1,3 +1,4 @@
+import React from 'react';
 import { RemoteAudioTrack, RemoteParticipant } from 'twilio-video';
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useTracks from '../../hooks/useTracks/useTracks';
@@ -5,11 +6,16 @@ import AudioTrack from '../AudioTrack/AudioTrack';
 
 function Participant({ participant }: { participant: RemoteParticipant }) {
   const tracks = useTracks(participant);
-  const audioTrack = tracks.find(track => track.kind === 'audio') as RemoteAudioTrack | undefined;
+  // Every audio track plays: the microphone and, while sharing, the audio of the shared screen.
+  const audioTracks = tracks.filter(track => track.kind === 'audio') as RemoteAudioTrack[];
 
-  if (audioTrack?.kind === 'audio') return <AudioTrack track={audioTrack} />;
-
-  return null;
+  return (
+    <>
+      {audioTracks.map(audioTrack => (
+        <AudioTrack key={audioTrack.sid ?? audioTrack.name} track={audioTrack} />
+      ))}
+    </>
+  );
 }
 
 /*

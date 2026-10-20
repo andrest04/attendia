@@ -27,8 +27,9 @@ export default function useParticipantTile(
 ) {
   const publications = usePublications(participant);
   const videoPublication = publications.find(p => !isScreenShareName(p.trackName) && p.kind === 'video');
-  const screenSharePublication = publications.find(p => isScreenShareName(p.trackName));
-  const audioPublication = publications.find(p => p.kind === 'audio');
+  const screenSharePublication = publications.find(p => isScreenShareName(p.trackName) && p.kind === 'video');
+  // The microphone, not the audio of a shared screen.
+  const audioPublication = publications.find(p => !isScreenShareName(p.trackName) && p.kind === 'audio');
 
   const videoTrack = useTrack(preferScreenShare ? screenSharePublication || videoPublication : videoPublication);
   const audioTrack = useTrack(audioPublication) as LocalAudioTrack | RemoteAudioTrack | undefined;
