@@ -20,11 +20,18 @@ import { sendError } from './http';
 export const DEFAULT_JSON_LIMIT = '100kb';
 export const REPORTS_JSON_LIMIT = '2mb';
 
+// The final report save and the periodic live snapshot (same payload shape) share the larger limit.
+const LIVE_REPORT_PATH = /^\/reports\/[^/]+\/live$/;
+
+function isLargeReportRequest(method: string, path: string): boolean {
+  return (method === 'POST' && path === '/reports') || (method === 'PUT' && LIVE_REPORT_PATH.test(path));
+}
+
 export function createJsonBodyParser(): RequestHandler {
   const defaultParser = express.json({ limit: DEFAULT_JSON_LIMIT });
   const reportsParser = express.json({ limit: REPORTS_JSON_LIMIT });
   return (req, res, next) => {
-    const parser = req.method === 'POST' && req.path === '/reports' ? reportsParser : defaultParser;
+    const parser = isLargeReportRequest(req.method, req.path) ? reportsParser : defaultParser;
     parser(req, res, next);
   };
 }

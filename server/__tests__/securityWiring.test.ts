@@ -28,6 +28,14 @@ describe('server/index.ts security wiring', () => {
     );
   });
 
+  it('mounts the live report snapshot routes behind authMiddleware with the session binder on PUT', () => {
+    const source = indexSource();
+    expect(source).toMatch(
+      /app\.put\(\s*'\/reports\/:roomSid\/live',\s*authMiddleware,\s*createPutLiveReportHandler\(firestore, serverTimestamp, createRoomSessionBinder\(firestore, fetchRoom, serverTimestamp\)\)\s*\);/
+    );
+    expect(source).toMatch(/app\.get\('\/reports\/:roomSid\/live', authMiddleware, createGetLiveReportHandler\(firestore\)\);/);
+  });
+
   it('binds report sessions through the room session binder on POST /reports', () => {
     expect(indexSource()).toMatch(
       /app\.post\(\s*'\/reports',\s*authMiddleware,\s*createPostReportHandler\(firestore, serverTimestamp, createRoomSessionBinder\(firestore, fetchRoom, serverTimestamp\)\)\s*\);/
