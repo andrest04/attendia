@@ -126,6 +126,172 @@ describe('useModeration', () => {
     expect(result.current.mutedByProfessorCount).toBe(0);
   });
 
+  describe('unmute request (T3)', () => {
+    const requestUnmute = (identity: string) => JSON.stringify({ type: 'request-unmute', identity });
+    let localAudioEnable: jest.Mock;
+
+    function connectTeacher() {
+      const prof = createParticipant('Ana [Profesor]');
+      const profData = createDataTrack();
+      act(() => {
+        mockRoom.emit('participantConnected', prof);
+        prof.emit('trackSubscribed', profData);
+      });
+      return profData;
+    }
+
+    beforeEach(() => {
+      localAudioEnable = jest.fn();
+      mockRoom.localParticipant.audioTracks = new Map([
+        ['a1', { track: { isEnabled: false, enable: localAudioEnable, disable: localAudioDisable } }],
+      ]);
+    });
+
+    it('requestUnmute sends a request-unmute message targeted at the identity', () => {
+      const { result } = renderHook(() => useModeration());
+      act(() => result.current.requestUnmute('student-bob'));
+      expect(mockSend).toHaveBeenCalledWith(requestUnmute('student-bob'));
+    });
+
+    it('raises a pending request but does NOT enable the mic by itself', () => {
+      const { result } = renderHook(() => useModeration());
+      const profData = connectTeacher();
+      act(() => {
+        profData.emit('message', requestUnmute('me'));
+      });
+      expect(result.current.unmuteRequestPending).toBe(true);
+      expect(localAudioEnable).not.toHaveBeenCalled();
+    });
+
+    it('acceptUnmuteRequest enables the local mic and clears the request', () => {
+      const { result } = renderHook(() => useModeration());
+      const profData = connectTeacher();
+      act(() => {
+        profData.emit('message', requestUnmute('me'));
+      });
+      act(() => result.current.acceptUnmuteRequest());
+      expect(localAudioEnable).toHaveBeenCalledTimes(1);
+      expect(result.current.unmuteRequestPending).toBe(false);
+    });
+
+    it('dismissUnmuteRequest clears the request without enabling the mic', () => {
+      const { result } = renderHook(() => useModeration());
+      const profData = connectTeacher();
+      act(() => {
+        profData.emit('message', requestUnmute('me'));
+      });
+      act(() => result.current.dismissUnmuteRequest());
+      expect(localAudioEnable).not.toHaveBeenCalled();
+      expect(result.current.unmuteRequestPending).toBe(false);
+    });
+
+    it('ignores a request from a student, aimed at someone else, or when the mic is already on', () => {
+      const student = createParticipant('student-bob');
+      const studentData = createDataTrack();
+      const { result } = renderHook(() => useModeration());
+      act(() => {
+        mockRoom.emit('participantConnected', student);
+        student.emit('trackSubscribed', studentData);
+        studentData.emit('message', requestUnmute('me'));
+      });
+      expect(result.current.unmuteRequestPending).toBe(false);
+
+      const profData = connectTeacher();
+      act(() => {
+        profData.emit('message', requestUnmute('someone-else'));
+      });
+      expect(result.current.unmuteRequestPending).toBe(false);
+
+      mockRoom.localParticipant.audioTracks = new Map([
+        ['a1', { track: { isEnabled: true, enable: localAudioEnable, disable: localAudioDisable } }],
+      ]);
+      act(() => {
+        profData.emit('message', requestUnmute('me'));
+      });
+      expect(result.current.unmuteRequestPending).toBe(false);
+    });
+  });
+
+  describe('screen-share grants (T4)', () => {
+    const grant = (identity: string, allowed: boolean) =>
+      JSON.stringify({ type: 'grant-screenshare', identity, allowed });
+
+    function connectPeer(identity: string) {
+      const peer = createParticipant(identity);
+      const data = createDataTrack();
+      act(() => {
+        mockRoom.emit('participantConnected', peer);
+        peer.emit('trackSubscribed', data);
+      });
+      return { peer, data };
+    }
+
+    it('student: defaults to NOT allowed, stores the grant only from the teacher and addressed to me', () => {
+      const { result } = renderHook(() => useModeration());
+      expect(result.current.screenShareAllowed).toBe(false);
+
+      const student = connectPeer('student-bob');
+      act(() => {
+        student.data.emit('message', grant('me', true));
+      });
+      expect(result.current.screenShareAllowed).toBe(false);
+
+      const teacher = connectPeer('Ana [Profesor]');
+      act(() => {
+        teacher.data.emit('message', grant('someone-else', true));
+      });
+      expect(result.current.screenShareAllowed).toBe(false);
+
+      act(() => {
+        teacher.data.emit('message', grant('me', true));
+      });
+      expect(result.current.screenShareAllowed).toBe(true);
+
+      act(() => {
+        teacher.data.emit('message', grant('me', false));
+      });
+      expect(result.current.screenShareAllowed).toBe(false);
+    });
+
+    it('student: a revoke while sharing stops the share', () => {
+      const toggleScreenShare = jest.fn();
+      mockedVideoContext.mockImplementation(() => ({ room: mockRoom, isSharingScreen: true, toggleScreenShare }));
+      const { result } = renderHook(() => useModeration());
+      const teacher = connectPeer('Ana [Profesor]');
+      act(() => {
+        teacher.data.emit('message', grant('me', true));
+      });
+      expect(result.current.screenShareAllowed).toBe(true);
+      expect(toggleScreenShare).not.toHaveBeenCalled();
+      act(() => {
+        teacher.data.emit('message', grant('me', false));
+      });
+      expect(toggleScreenShare).toHaveBeenCalledTimes(1);
+    });
+
+    it('teacher: grantScreenShare sends the message and tracks the granted identities', () => {
+      mockRoom.localParticipant.identity = 'Ana [Profesor]';
+      const { result } = renderHook(() => useModeration());
+      act(() => result.current.grantScreenShare('student-bob', true));
+      expect(mockSend).toHaveBeenCalledWith(grant('student-bob', true));
+      expect(result.current.screenShareGrants).toEqual(['student-bob']);
+      act(() => result.current.grantScreenShare('student-bob', false));
+      expect(mockSend).toHaveBeenLastCalledWith(grant('student-bob', false));
+      expect(result.current.screenShareGrants).toEqual([]);
+    });
+
+    it('teacher: re-sends the current grant when a granted student (re)connects', () => {
+      mockRoom.localParticipant.identity = 'Ana [Profesor]';
+      const { result } = renderHook(() => useModeration());
+      act(() => result.current.grantScreenShare('student-bob', true));
+      mockSend.mockClear();
+      connectPeer('student-carol');
+      expect(mockSend).not.toHaveBeenCalled();
+      connectPeer('student-bob');
+      expect(mockSend).toHaveBeenCalledWith(grant('student-bob', true));
+    });
+  });
+
   it('cleans up room listeners on unmount', () => {
     const { unmount } = renderHook(() => useModeration());
     expect(mockRoom.listenerCount('participantConnected')).toBe(1);

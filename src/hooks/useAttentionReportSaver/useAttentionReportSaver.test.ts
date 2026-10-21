@@ -79,6 +79,21 @@ describe('useAttentionReportSaver', () => {
     }));
   });
 
+  it('adoptStartTime keeps an earlier restored start so the duration continues across re-entries', () => {
+    const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(baseAttention) });
+
+    act(() => result.current.adoptStartTime('2020-01-01T00:00:00.000Z'));
+    const report = result.current.buildReport('left')!;
+
+    expect(report.startedAtIso).toBe('2020-01-01T00:00:00.000Z');
+    expect(report.durationMs).toBeGreaterThan(24 * 60 * 60 * 1000);
+
+    // A later (or invalid) start never shortens the session.
+    act(() => result.current.adoptStartTime('2030-01-01T00:00:00.000Z'));
+    act(() => result.current.adoptStartTime('not a date'));
+    expect(result.current.buildReport('left')!.startedAtIso).toBe('2020-01-01T00:00:00.000Z');
+  });
+
   it('saves a report with the derived group metrics and per-student rows', async () => {
     const { result } = renderHook(() => useAttentionReportSaver(), { wrapper: wrapperWith(baseAttention) });
 

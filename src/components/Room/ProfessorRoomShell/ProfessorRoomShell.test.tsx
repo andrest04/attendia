@@ -330,6 +330,60 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-roster-menu"]').exists()).toBe(false);
   });
 
+  it('asks a student to turn the mic on from the roster kebab menu', () => {
+    const onRequestUnmute = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        onMuteParticipant={jest.fn()}
+        onRequestUnmute={onRequestUnmute}
+        participants={[{ identity: 'Ana García' }]}
+      />
+    );
+    wrapper
+      .find('button[data-testid="professor-room-shell-roster-menu-button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+    const item = wrapper.find('button[data-testid="professor-room-shell-roster-request-unmute"]');
+    expect(item.text()).toContain('Pedir activar micrófono');
+    item.simulate('click');
+    expect(onRequestUnmute).toHaveBeenCalledWith('Ana García');
+    wrapper.update();
+    expect(wrapper.find('[data-testid="professor-room-shell-roster-menu"]').exists()).toBe(false);
+  });
+
+  it('grants and revokes screen sharing from the roster kebab, reflecting the granted state', () => {
+    const onSetScreenShareGrant = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        onMuteParticipant={jest.fn()}
+        onSetScreenShareGrant={onSetScreenShareGrant}
+        screenShareGrants={['Carlos López']}
+        participants={[{ identity: 'Ana García' }, { identity: 'Carlos López' }]}
+      />
+    );
+    const open = (index: number) => {
+      wrapper
+        .find('button[data-testid="professor-room-shell-roster-menu-button"]')
+        .at(index)
+        .simulate('click');
+      wrapper.update();
+    };
+    open(0);
+    const allow = wrapper.find('button[data-testid="professor-room-shell-roster-screenshare"]');
+    expect(allow.text()).toContain('Permitir compartir pantalla');
+    allow.simulate('click');
+    expect(onSetScreenShareGrant).toHaveBeenCalledWith('Ana García', true);
+
+    open(1);
+    const revoke = wrapper.find('button[data-testid="professor-room-shell-roster-screenshare"]');
+    expect(revoke.text()).toContain('Quitar permiso de pantalla');
+    revoke.simulate('click');
+    expect(onSetScreenShareGrant).toHaveBeenCalledWith('Carlos López', false);
+  });
+
   it('shows the group-below-threshold banner when group attention is under the threshold', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
     expect(wrapper.find('[data-testid="professor-room-shell-group-banner"]').exists()).toBe(true);
@@ -602,6 +656,21 @@ describe('ProfessorRoomShell', () => {
       expect(wrapper.find('[data-testid="professor-live-report-modal"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="attention-report-summary"]').exists()).toBe(true);
       expect(wrapper.text()).toContain('Clase de Historia');
+    });
+
+    it('feeds the report from the FULL proctoring log, not the TTL-pruned live feed', () => {
+      mockUseAttention.mockImplementation(() => ({
+        ...baseAttention,
+        proctoringAlerts: [baseAttention.proctoringAlerts[0]],
+        proctoringLog: [
+          ...baseAttention.proctoringAlerts,
+          { id: 'alert-003', identity: 'Ana García', kind: 'away' as const, detectedAt: '10:40', confidence: 0.8 },
+        ],
+      }));
+      const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
+      wrapper.find('[data-testid="professor-room-shell-view-report"]').simulate('click');
+      wrapper.update();
+      expect(wrapper.find('AttentionReportView').prop('data')).toMatchObject({ totalAlerts: 3 });
     });
 
     it('closes the modal from its header close button', () => {

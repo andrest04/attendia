@@ -1,4 +1,5 @@
 import {
+  ALERT_TTL_MS,
   averageIndex,
   buildParticipants,
   initialProctoringState,
@@ -187,7 +188,7 @@ describe('stepProctoring', () => {
   const away = sample('ana', { index: 10 }) as any;
 
   it('does not log on the first sample of a condition (debounce)', () => {
-    const { state, changed } = stepProctoring(initialProctoringState(), [away], '10:00');
+    const { state, changed } = stepProctoring(initialProctoringState(), [away], '10:00', 0);
     expect(changed).toBe(false);
     expect(state.log).toEqual([]);
     expect(state.streak.get('ana::away')).toBe(1);
@@ -195,28 +196,28 @@ describe('stepProctoring', () => {
 
   it('logs once the condition holds for consecutive samples, with a unique id and the kind confidence', () => {
     let current = initialProctoringState();
-    current = stepProctoring(current, [away], '10:00').state;
-    const result = stepProctoring(current, [away], '10:01');
+    current = stepProctoring(current, [away], '10:00', 0).state;
+    const result = stepProctoring(current, [away], '10:01', 0);
 
     expect(result.changed).toBe(true);
     expect(result.state.log).toEqual([
-      { id: 'live-away-ana-1', identity: 'ana', kind: 'away', detectedAt: '10:01', confidence: 0.9 },
+      { id: 'live-away-ana-1', identity: 'ana', kind: 'away', detectedAt: '10:01', detectedAtMs: 0, confidence: 0.9 },
     ]);
   });
 
   it('does not log again while the same condition persists', () => {
     let current = initialProctoringState();
     [away, away, away, away].forEach(s => {
-      current = stepProctoring(current, [s], '10:00').state;
+      current = stepProctoring(current, [s], '10:00', 0).state;
     });
     expect(current.log).toHaveLength(1);
   });
 
   it('resets a flicker: a one-sample blip never reaches the feed', () => {
     let current = initialProctoringState();
-    current = stepProctoring(current, [away], '10:00').state;
-    current = stepProctoring(current, [sample('ana') as any], '10:01').state; // condition ended
-    current = stepProctoring(current, [away], '10:02').state;
+    current = stepProctoring(current, [away], '10:00', 0).state;
+    current = stepProctoring(current, [sample('ana') as any], '10:01', 0).state; // condition ended
+    current = stepProctoring(current, [away], '10:02', 0).state;
 
     expect(current.log).toEqual([]);
     expect(current.streak.get('ana::away')).toBe(1);
@@ -225,7 +226,7 @@ describe('stepProctoring', () => {
   it('logs a brand-new event when a cleared condition recurs, and keeps ids unique', () => {
     let current = initialProctoringState();
     [away, away, sample('ana') as any, away, away].forEach(s => {
-      current = stepProctoring(current, [s], '10:00').state;
+      current = stepProctoring(current, [s], '10:00', 0).state;
     });
 
     expect(current.log.map(alert => alert.id)).toEqual(['live-away-ana-1', 'live-away-ana-2']);
@@ -235,8 +236,8 @@ describe('stepProctoring', () => {
     let current = initialProctoringState();
     ['a', 'b', 'c', 'd'].forEach(identity => {
       const s = sample(identity, { faces: 0 }) as any;
-      current = stepProctoring(current, [s], '10:00').state;
-      current = stepProctoring(current, [s], '10:00').state;
+      current = stepProctoring(current, [s], '10:00', 0).state;
+      current = stepProctoring(current, [s], '10:00', 0).state;
     });
 
     expect(current.log).toHaveLength(PROCTORING_FEED_MAX);
@@ -245,7 +246,7 @@ describe('stepProctoring', () => {
 
   it('never mutates the previous state', () => {
     const before = initialProctoringState();
-    stepProctoring(before, [away], '10:00');
+    stepProctoring(before, [away], '10:00', 0);
     expect(before.streak.size).toBe(0);
     expect(before.log).toEqual([]);
   });
@@ -254,9 +255,56 @@ describe('stepProctoring', () => {
     const { state } = stepProctoring(
       initialProctoringState(),
       [sample('m', { unsupported: true, cameraOff: true }) as any],
-      '10:00'
+      '10:00',
+      0
     );
     expect(state.streak.size).toBe(0);
+  });
+
+  describe('alert expiry (live feed only)', () => {
+    const logAway = (now: number) => {
+      let current = stepProctoring(initialProctoringState(), [away], '10:00', now).state;
+      current = stepProctoring(current, [away], '10:00', now + 1000).state;
+      return current;
+    };
+
+    it('stamps the alert with the injected clock', () => {
+      expect(logAway(5000).log[0].detectedAtMs).toBe(6000);
+    });
+
+    it('shows the alert until the TTL elapses, then drops it from the visible list and flags changed', () => {
+      const logged = logAway(0); // detected at t=1000
+      expect(logged.visible).toHaveLength(1);
+
+      const before = stepProctoring(logged, [away], '10:05', 1000 + ALERT_TTL_MS - 1);
+      expect(before.state.visible).toHaveLength(1);
+      expect(before.changed).toBe(false);
+
+      const after = stepProctoring(logged, [away], '10:05', 1000 + ALERT_TTL_MS);
+      expect(after.state.visible).toEqual([]);
+      expect(after.changed).toBe(true);
+    });
+
+    it('keeps the full log after expiry so the persisted report is complete', () => {
+      const after = stepProctoring(logAway(0), [away], '10:05', 1000 + ALERT_TTL_MS);
+      expect(after.state.log).toHaveLength(1);
+    });
+
+    it('does not re-log an expired alert while the condition is still active', () => {
+      const first = stepProctoring(logAway(0), [away], '10:05', 1000 + ALERT_TTL_MS);
+      const second = stepProctoring(first.state, [away], '10:06', 2000 + ALERT_TTL_MS);
+      expect(second.state.log).toHaveLength(1);
+      expect(second.state.visible).toEqual([]);
+      expect(second.changed).toBe(false);
+    });
+
+    it('logs and shows a new alert after the condition cleared and recurred', () => {
+      let current = stepProctoring(logAway(0), [sample('ana') as any], '10:05', ALERT_TTL_MS).state;
+      current = stepProctoring(current, [away], '10:06', ALERT_TTL_MS + 1000).state;
+      const result = stepProctoring(current, [away], '10:06', ALERT_TTL_MS + 2000);
+      expect(result.state.log).toHaveLength(2);
+      expect(result.state.visible.map(a => a.id)).toEqual(['live-away-ana-2']);
+    });
   });
 });
 

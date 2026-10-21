@@ -542,4 +542,161 @@ describe('useAttentionTelemetry', () => {
       expect(mockRoom.localParticipant.publishTrack).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('attention backfill (no teacher in the room)', () => {
+    const backfillCalls = () =>
+      mockSend.mock.calls.map(([raw]) => JSON.parse(raw)).filter(m => m.type === 'attention-backfill');
+    let now: number;
+    let nowSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      now = 1_700_000_000_000;
+      nowSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    });
+    afterEach(() => {
+      nowSpy.mockRestore();
+      jest.useRealTimers();
+    });
+
+    const measure = (rerender: (p: any) => void, index: number, faces = 1) => {
+      act(() => rerender({ result: activeResult(index, faces) }));
+    };
+    const setup = (cameraOff = false, enabled = true) =>
+      renderHook(({ result }) => useAttentionTelemetry(result, cameraOff, false, enabled), {
+        initialProps: { result: activeResult(50) },
+      });
+    const connectTeacher = () =>
+      act(() => {
+        mockRoom.emit('participantConnected', createParticipant('Prof [Profesor]'));
+      });
+
+    it('buffers one sample per 10 s while no teacher is present and flushes them when one connects', () => {
+      const { rerender } = setup();
+      now += 4000;
+      measure(rerender, 60);
+      now += 6000;
+      measure(rerender, 70);
+      now += 10000;
+      measure(rerender, 80);
+      connectTeacher();
+
+      const sent = backfillCalls();
+      expect(sent).toHaveLength(1);
+      expect(sent[0].identity).toBe('me');
+      expect(sent[0].samples.map((s: any) => s.index)).toEqual([50, 70, 80]);
+    });
+
+    it('does not buffer unmeasured readings (no face)', () => {
+      const { rerender } = setup();
+      now += 10000;
+      measure(rerender, 0, 0);
+      connectTeacher();
+      expect(backfillCalls()[0].samples.map((s: any) => s.index)).toEqual([50]);
+    });
+
+    it('buffers nothing when a teacher is already in the room', () => {
+      mockRoom.participants.set('p', createParticipant('Prof [Profesor]'));
+      const { rerender } = setup();
+      now += 10000;
+      measure(rerender, 70);
+      connectTeacher();
+      expect(backfillCalls()).toHaveLength(0);
+    });
+
+    it('resends the same chunk (the teacher may subscribe late) and then clears the buffer', () => {
+      const { rerender } = setup();
+      now += 10000;
+      measure(rerender, 70);
+      connectTeacher();
+      expect(backfillCalls()).toHaveLength(1);
+      act(() => {
+        jest.advanceTimersByTime(3000);
+      });
+      expect(backfillCalls()).toHaveLength(2);
+      expect(backfillCalls()[1]).toEqual(backfillCalls()[0]);
+      act(() => {
+        jest.advanceTimersByTime(10000);
+      });
+      expect(backfillCalls()).toHaveLength(3);
+
+      // Teacher leaves and comes back: the buffer was already handed over.
+      const before = backfillCalls().length;
+      connectTeacher();
+      act(() => {
+        jest.advanceTimersByTime(20000);
+      });
+      expect(backfillCalls()).toHaveLength(before);
+    });
+
+    it('keeps the buffer when the teacher leaves before the hand-over completes', () => {
+      const teacher = createParticipant('Prof [Profesor]');
+      const { rerender } = setup();
+      now += 10000;
+      measure(rerender, 70);
+      act(() => {
+        mockRoom.emit('participantConnected', teacher);
+      });
+      act(() => {
+        mockRoom.emit('participantDisconnected', teacher);
+      });
+      act(() => {
+        jest.advanceTimersByTime(20000);
+      });
+      expect(backfillCalls()).toHaveLength(1);
+
+      act(() => {
+        mockRoom.emit('participantConnected', createParticipant('Prof [Profesor]'));
+      });
+      expect(backfillCalls()[1].samples.map((s: any) => s.index)).toEqual([50, 70]);
+    });
+
+    it('is inert when disabled: nothing buffered, nothing sent', () => {
+      const { rerender } = setup(false, false);
+      now += 10000;
+      measure(rerender, 70);
+      connectTeacher();
+      expect(backfillCalls()).toHaveLength(0);
+      expect(mockRoom.localParticipant.publishTrack).not.toHaveBeenCalled();
+    });
+
+    describe('receiving (teacher side)', () => {
+      const deliver = (sender: string, payload: any) => {
+        const from = createParticipant(sender);
+        const track = createDataTrack();
+        act(() => {
+          mockRoom.emit('participantConnected', from);
+          from.emit('trackSubscribed', track);
+          track.emit('message', JSON.stringify(payload));
+        });
+      };
+      const chunk = (identity: string) => ({
+        type: 'attention-backfill',
+        identity,
+        samples: [{ t: now - 20000, index: 42 }],
+      });
+
+      it('reports the samples under the SENDING participant identity, ignoring the payload one', () => {
+        mockRoom.localParticipant.identity = 'Prof [Profesor]';
+        const onBackfill = jest.fn();
+        renderHook(() => useAttentionTelemetry(undefined, false, false, true, onBackfill));
+        deliver('student-bob', chunk('student-eve'));
+        expect(onBackfill).toHaveBeenCalledWith('student-bob', [{ t: now - 20000, index: 42 }]);
+      });
+
+      it('ignores backfill sent by a teacher and backfill received by a student', () => {
+        const onBackfill = jest.fn();
+        mockRoom.localParticipant.identity = 'Prof [Profesor]';
+        renderHook(() => useAttentionTelemetry(undefined, false, false, true, onBackfill));
+        deliver('Other [Profesor]', chunk('Other [Profesor]'));
+        expect(onBackfill).not.toHaveBeenCalled();
+
+        mockRoom.localParticipant.identity = 'student-me';
+        const studentCb = jest.fn();
+        renderHook(() => useAttentionTelemetry(undefined, false, false, true, studentCb));
+        deliver('student-bob', chunk('student-bob'));
+        expect(studentCb).not.toHaveBeenCalled();
+      });
+    });
+  });
 });

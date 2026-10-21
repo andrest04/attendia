@@ -96,7 +96,7 @@ export interface ReportsDatabase {
   runTransaction<T>(updateFunction: (transaction: ReportTransaction) => Promise<T>): Promise<T>;
 }
 
-const TEACHER_ONLY_EXPLANATION = 'El historial de clases solo está disponible para profesores.';
+export const TEACHER_ONLY_EXPLANATION = 'El historial de clases solo está disponible para profesores.';
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -147,7 +147,7 @@ export async function ingestReportFailureEpisodes(
  * payload ready for Firestore, or an error message pair. Only known fields are
  * copied through — the client can never smuggle extra keys into the document.
  */
-function sanitizeReportBody(body: {
+export function sanitizeReportBody(body: {
   [key: string]: any;
 }): { report?: { [key: string]: any }; error?: { message: string; explanation: string } } {
   const roomSid = body.roomSid;

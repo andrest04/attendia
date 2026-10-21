@@ -36,7 +36,8 @@ export function buildAttentionReport({
 }: BuildAttentionReportInput): AttentionReport {
   // Fold proctoring alerts per identity for the per-student table.
   const alertCountByIdentity: Record<string, number> = {};
-  data.proctoringAlerts.forEach(alert => {
+  const alerts = data.proctoringLog ?? data.proctoringAlerts;
+  alerts.forEach(alert => {
     alertCountByIdentity[alert.identity] = (alertCountByIdentity[alert.identity] || 0) + 1;
   });
 
@@ -73,7 +74,7 @@ export function buildAttentionReport({
         alertCount: alertCountByIdentity[participant.identity] || 0,
       };
     }),
-    proctoringAlerts: data.proctoringAlerts.map(alert => ({
+    proctoringAlerts: alerts.map(alert => ({
       identity: alert.identity,
       kind: alert.kind,
       detectedAt: alert.detectedAt,

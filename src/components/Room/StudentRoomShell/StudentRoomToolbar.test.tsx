@@ -4,14 +4,18 @@ import StudentRoomToolbar from './StudentRoomToolbar';
 import useRoomState from '../../../hooks/useRoomState/useRoomState';
 import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
+import { useScreenShareGrant } from '../../../hooks/useScreenShareControl/screenShareGrantContext';
 
 jest.mock('../../../hooks/useRoomState/useRoomState');
 jest.mock('../../../hooks/useScreenShareParticipant/useScreenShareParticipant');
 jest.mock('../../../hooks/useVideoContext/useVideoContext');
+jest.mock('../../../hooks/useScreenShareControl/screenShareGrantContext');
 
 const mockUseRoomState = useRoomState as jest.Mock<any>;
 const mockUseScreenShareParticipant = useScreenShareParticipant as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
+
+const mockUseScreenShareGrant = useScreenShareGrant as jest.Mock<any>;
 
 const mockToggleScreenShare = jest.fn();
 
@@ -34,6 +38,7 @@ describe('StudentRoomToolbar', () => {
     jest.clearAllMocks();
     mockUseRoomState.mockImplementation(() => 'connected');
     mockUseScreenShareParticipant.mockImplementation(() => undefined);
+    mockUseScreenShareGrant.mockImplementation(() => null);
     mockUseVideoContext.mockImplementation(() => ({
       isSharingScreen: false,
       toggleScreenShare: mockToggleScreenShare,
@@ -131,6 +136,19 @@ describe('StudentRoomToolbar', () => {
       const wrapper = shallow(<StudentRoomToolbar />);
       const menu = openMore(wrapper);
       expect(menu.find('[data-testid="student-toolbar-screenshare"]').prop('disabled')).toBe(true);
+    });
+
+    it('disables the item with the "ask the teacher" label while the student has no grant', () => {
+      mockUseScreenShareGrant.mockImplementation(() => false);
+      mockUseVideoContext.mockImplementation(() => ({
+        isSharingScreen: false,
+        toggleScreenShare: mockToggleScreenShare,
+        room: { localParticipant: { identity: 'student-bob' } },
+      }));
+      const wrapper = shallow(<StudentRoomToolbar />);
+      const item = openMore(wrapper).find('[data-testid="student-toolbar-screenshare"]');
+      expect(item.prop('disabled')).toBe(true);
+      expect(item.text()).toContain('Pide permiso al profesor para compartir pantalla');
     });
 
     it('disables the item when the browser does not support screen sharing', () => {

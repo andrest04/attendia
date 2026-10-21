@@ -14,6 +14,8 @@ function startApp(): Promise<http.Server> {
   app.use(createJsonBodyParser());
   app.use(createJsonBodyErrorHandler());
   app.post('/reports', (req, res) => res.json({ points: req.body.timeline.length }));
+  app.put('/reports/:roomSid/live', (req, res) => res.json({ points: req.body.timeline.length }));
+  app.put('/profile', (req, res) => res.json({ keys: Object.keys(req.body).length }));
   app.post('/profile', (req, res) => res.json({ keys: Object.keys(req.body).length }));
   app.get('/boom', (_req, _res, next) => next(new Error('unrelated failure')));
   // Stands in for whatever error handling runs after the JSON one.
@@ -85,6 +87,24 @@ describe('jsonBodyParser', () => {
     const result = await request(server, 'POST', '/reports', JSON.stringify({ timeline: timelineOf(10800) }));
 
     expect(result.status).toBe(200);
+  });
+
+  it('accepts the large report body on PUT /reports/:roomSid/live (live snapshot)', async () => {
+    const result = await request(
+      server,
+      'PUT',
+      '/reports/RM00000000000000000000000000000abc/live',
+      JSON.stringify({ timeline: timelineOf(10800) })
+    );
+
+    expect(result.status).toBe(200);
+    expect(JSON.parse(result.body)).toEqual({ points: 10800 });
+  });
+
+  it('keeps the default limit on other PUT routes', async () => {
+    const result = await request(server, 'PUT', '/profile', JSON.stringify({ filler: 'x'.repeat(150 * 1024) }));
+
+    expect(result.status).toBe(413);
   });
 
   it('keeps the default 100kb limit on every other route and answers 413 as JSON', async () => {

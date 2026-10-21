@@ -28,6 +28,7 @@ import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctori
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
 import { usePublishSessionEnd } from '../../hooks/useSessionEnd/sessionEndContext';
 import useAttentionReportSaver from '../../hooks/useAttentionReportSaver/useAttentionReportSaver';
+import useLiveReportSync from '../../hooks/useAttentionReportSaver/useLiveReportSync';
 import useIsRoomOwner from '../../hooks/useIsRoomOwner/useIsRoomOwner';
 import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
@@ -35,6 +36,8 @@ import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
 import { OnboardingContext } from './OnboardingTutorial/onboardingContext';
 import ParticipantStrip from './ParticipantStrip/ParticipantStrip';
+import { usePublishScreenShareGrant } from '../../hooks/useScreenShareControl/screenShareGrantContext';
+import UnmuteRequestPrompt from './UnmuteRequestPrompt/UnmuteRequestPrompt';
 
 const useStyles = makeStyles((theme: Theme) => {
   const totalMobileSidebarHeight = `${theme.sidebarMobileHeight +
@@ -121,11 +124,23 @@ export default function Room() {
   // (Participantes / Chat / Panel de atención). The layout owns the rails' exclusion rule.
   const layout = useRoomLayout(isNarrowDesktop);
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
-  const { muteParticipant, mutedByProfessorCount } = useModeration();
+  const {
+    muteParticipant,
+    mutedByProfessorCount,
+    requestUnmute,
+    unmuteRequestPending,
+    acceptUnmuteRequest,
+    dismissUnmuteRequest,
+    grantScreenShare,
+    screenShareGrants,
+    screenShareAllowed,
+  } = useModeration();
+  // Hand the student's grant to the controls that live outside Room (legacy mobile MenuBar).
+  usePublishScreenShareGrant(screenShareAllowed);
   const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
   // Snapshots the attention report to Firestore on both professor exit paths; a
   // silent no-op for students and in non-firebase modes.
-  const { saveReport, buildReport } = useAttentionReportSaver();
+  const { saveReport, buildReport, adoptStartTime } = useAttentionReportSaver();
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
   // Owner-only controls hide ONLY for a confirmed co-teacher; unknown/failed lookups act as owner.
   const isCoTeacher = useIsRoomOwner(isTeacher) === 'co-teacher';
@@ -180,6 +195,9 @@ export default function Room() {
   // Owner-only: persist the attention report when the tab is closed or refreshed. A co-teacher
   // must not build, queue or POST one (the server refuses reports for rooms they do not own).
   useUnloadReportPersistence(isTeacher && !isCoTeacher, buildReport);
+  // Owner-only: restore the class report stored while the teacher was away and keep a live snapshot
+  // on the server, so leaving without ending (or a connectivity loss) never loses the report.
+  useLiveReportSync({ enabled: isTeacher && !isCoTeacher, buildReport, adoptStartTime });
 
   // Speaker-view stage: ParticipantStrip filmstrip on top + MainParticipant filling remaining space.
   // Used by both desktop shells; not rendered on mobile or in gallery view.
@@ -205,7 +223,7 @@ export default function Room() {
     localIdentity: room?.localParticipant?.identity || '',
     layout,
     hands: { raisedHands, isHandRaised, setHandRaised, grantTurn },
-    moderation: { muteParticipant, sendWarning },
+    moderation: { muteParticipant, requestUnmute, grantScreenShare, screenShareGrants, sendWarning },
     proctoring: { enabled: proctoringEnabled, setEnabled: setProctoringEnabled },
     notifications,
     sessionEnd: { endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher },
@@ -242,6 +260,14 @@ export default function Room() {
             roomShellFactory[role](shellContext)
           )}
 
+          {/* Students only: the professor's "turn your mic on" request; the click enables the mic. */}
+          {!isTeacher && (
+            <UnmuteRequestPrompt
+              open={unmuteRequestPending}
+              onAccept={acceptUnmuteRequest}
+              onDismiss={dismissUnmuteRequest}
+            />
+          )}
           {!isDesktopShell && <ChatWindow />}
           <BackgroundSelectionDialog />
           {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}

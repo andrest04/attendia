@@ -5,23 +5,29 @@ import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
 import ToggleScreenShareButton, {
   SHARE_IN_PROGRESS_TEXT,
+  SHARE_LOCKED_TEXT,
   SHARE_NOT_SUPPORTED_TEXT,
   STOP_SCREEN_SHARE_TEXT,
 } from './ToggleScreenShareButton';
+import { useScreenShareGrant } from '../../../hooks/useScreenShareControl/screenShareGrantContext';
 import ScreenShareIcon from '../../../icons/ScreenShareIcon';
 import { Button, Tooltip } from '@material-ui/core';
 
 jest.mock('../../../hooks/useScreenShareParticipant/useScreenShareParticipant');
 jest.mock('../../../hooks/useVideoContext/useVideoContext');
+jest.mock('../../../hooks/useScreenShareControl/screenShareGrantContext');
 
 const mockUseScreenShareParticipant = useScreenShareParticipant as jest.Mock<any>;
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
+
+const mockUseScreenShareGrant = useScreenShareGrant as jest.Mock<any>;
 
 const mockToggleScreenShare = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockUseScreenShareParticipant.mockImplementation(() => null);
+  mockUseScreenShareGrant.mockImplementation(() => null);
   mockUseVideoContext.mockImplementation(() => ({
     toggleScreenShare: mockToggleScreenShare,
     isSharingScreen: false,
@@ -34,6 +40,19 @@ beforeEach(() => {
 });
 
 describe('the ToggleScreenShareButton component', () => {
+  it('is disabled with the Spanish "ask the teacher" tooltip for a student without a grant', () => {
+    mockUseScreenShareGrant.mockImplementation(() => false);
+    mockUseVideoContext.mockImplementation(() => ({
+      toggleScreenShare: mockToggleScreenShare,
+      isSharingScreen: false,
+      room: { localParticipant: { identity: 'student-bob' } },
+    }));
+    const wrapper = mount(<ToggleScreenShareButton />);
+    expect(wrapper.find(Button).prop('disabled')).toBe(true);
+    expect(wrapper.find(Tooltip).prop('title')).toBe(SHARE_LOCKED_TEXT);
+    expect(SHARE_LOCKED_TEXT).toBe('Pide permiso al profesor para compartir pantalla');
+  });
+
   it('renders with "Compartir" label and enabled when nobody is sharing', () => {
     const wrapper = mount(<ToggleScreenShareButton />);
     expect(wrapper.find(ScreenShareIcon).exists()).toBe(true);

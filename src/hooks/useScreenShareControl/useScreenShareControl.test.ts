@@ -2,13 +2,18 @@ import { renderHook } from '@testing-library/react-hooks';
 import useScreenShareControl from './useScreenShareControl';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useScreenShareParticipant from '../useScreenShareParticipant/useScreenShareParticipant';
+import { useScreenShareGrant } from './screenShareGrantContext';
 
 jest.mock('../useVideoContext/useVideoContext');
 jest.mock('../useScreenShareParticipant/useScreenShareParticipant');
+jest.mock('./screenShareGrantContext');
 
 const mockUseVideoContext = useVideoContext as jest.Mock<any>;
 const mockUseScreenShareParticipant = useScreenShareParticipant as jest.Mock<any>;
+const mockUseScreenShareGrant = useScreenShareGrant as jest.Mock<any>;
 const toggleScreenShare = jest.fn();
+const teacherRoom = { localParticipant: { identity: 'Ana [Profesor]' } };
+const studentRoom = { localParticipant: { identity: 'student-bob' } };
 
 const setSupport = (supported: boolean) =>
   Object.defineProperty(navigator, 'mediaDevices', {
@@ -20,7 +25,45 @@ describe('the useScreenShareControl hook', () => {
   beforeEach(() => {
     setSupport(true);
     mockUseScreenShareParticipant.mockReturnValue(undefined);
+    mockUseScreenShareGrant.mockReturnValue(null);
     mockUseVideoContext.mockReturnValue({ toggleScreenShare, isSharingScreen: false });
+  });
+
+  describe('teacher authorization (grant-screenshare)', () => {
+    it('locks a student without a grant', () => {
+      mockUseScreenShareGrant.mockReturnValue(false);
+      mockUseVideoContext.mockReturnValue({ toggleScreenShare, isSharingScreen: false, room: studentRoom });
+      const { result } = renderHook(() => useScreenShareControl());
+      expect(result.current).toMatchObject({ lockedByTeacher: true, disabled: true });
+    });
+
+    it('unlocks a student that the teacher allowed', () => {
+      mockUseScreenShareGrant.mockReturnValue(true);
+      mockUseVideoContext.mockReturnValue({ toggleScreenShare, isSharingScreen: false, room: studentRoom });
+      const { result } = renderHook(() => useScreenShareControl());
+      expect(result.current).toMatchObject({ lockedByTeacher: false, disabled: false });
+    });
+
+    it('never gates a teacher, whatever the grant says', () => {
+      mockUseScreenShareGrant.mockReturnValue(false);
+      mockUseVideoContext.mockReturnValue({ toggleScreenShare, isSharingScreen: false, room: teacherRoom });
+      const { result } = renderHook(() => useScreenShareControl());
+      expect(result.current).toMatchObject({ lockedByTeacher: false, disabled: false });
+    });
+
+    it('does not gate when no grant source exists (tests, Storybook)', () => {
+      mockUseScreenShareGrant.mockReturnValue(null);
+      mockUseVideoContext.mockReturnValue({ toggleScreenShare, isSharingScreen: false, room: studentRoom });
+      const { result } = renderHook(() => useScreenShareControl());
+      expect(result.current).toMatchObject({ lockedByTeacher: false, disabled: false });
+    });
+
+    it('keeps the stop button usable while the student is sharing', () => {
+      mockUseScreenShareGrant.mockReturnValue(false);
+      mockUseVideoContext.mockReturnValue({ toggleScreenShare, isSharingScreen: true, room: studentRoom });
+      const { result } = renderHook(() => useScreenShareControl());
+      expect(result.current).toMatchObject({ lockedByTeacher: false, disabled: false });
+    });
   });
 
   it('is enabled when the browser supports it and nobody is sharing', () => {

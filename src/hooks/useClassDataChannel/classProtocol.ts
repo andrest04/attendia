@@ -33,6 +33,22 @@ export interface MuteAudioMessage {
   identity: string;
 }
 
+/**
+ * The professor asks `identity` to turn their microphone ON. Only a request: the target
+ * client never enables the track itself, the student does it from a prompt (their gesture).
+ */
+export interface UnmuteRequestMessage {
+  type: 'request-unmute';
+  identity: string;
+}
+
+/** The professor allows or revokes screen sharing for `identity`. Students default to NOT allowed. */
+export interface GrantScreenShareMessage {
+  type: 'grant-screenshare';
+  identity: string;
+  allowed: boolean;
+}
+
 /** The professor warns `identity` about a proctoring condition. */
 export interface ProctoringWarningMessage {
   type: 'proctoring-warning';
@@ -56,13 +72,33 @@ export interface AttentionTelemetryMessage {
   unsupported: boolean;
 }
 
+/** One buffered attention reading: epoch ms and the 0-100 index. */
+export interface AttentionBackfillSample {
+  t: number;
+  index: number;
+}
+
+/**
+ * A student's readings taken while no teacher was in the room, sent (reliably, in chunks) when
+ * a teacher connects. The sender is the Twilio participant; `identity` is informational and a
+ * receiver ignores a payload that names someone else.
+ */
+export interface AttentionBackfillMessage {
+  type: 'attention-backfill';
+  identity: string;
+  samples: AttentionBackfillSample[];
+}
+
 export type ClassMessage =
   | RaiseHandMessage
   | GrantTurnMessage
   | MuteAudioMessage
+  | UnmuteRequestMessage
+  | GrantScreenShareMessage
   | ProctoringWarningMessage
   | SessionEndedMessage
-  | AttentionTelemetryMessage;
+  | AttentionTelemetryMessage
+  | AttentionBackfillMessage;
 
 /** Whether a targeted message (one carrying an `identity`) is aimed at the local participant. */
 export function isAddressedToMe(message: { identity?: unknown }, room: Room | null | undefined): boolean {

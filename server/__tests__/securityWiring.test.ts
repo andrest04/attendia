@@ -15,7 +15,7 @@ describe('server/index.ts security wiring', () => {
   it('guards /token with the profile-role resolver, the room claimer and the identity reservation', () => {
     const source = indexSource();
     expect(source).toMatch(
-      /app\.all\(\s*'\/token',\s*authMiddleware,\s*createRoomAccessGuard\(roomExists, createProfileRoleResolver\(firestore\), roomClaimer\),\s*identityReservationGuard,\s*tokenEndpoint\s*\);/
+      /app\.all\(\s*'\/token',\s*authMiddleware,\s*createPhoneBlockGuard\(\),\s*createRoomAccessGuard\(roomExists, createProfileRoleResolver\(firestore\), roomClaimer\),\s*identityReservationGuard,\s*tokenEndpoint\s*\);/
     );
     expect(source).toMatch(
       /const identityReservationGuard = createIdentityReservationGuard\(\s*firestore,\s*createParticipantConnectionChecker\(twilioClient\),\s*serverTimestamp\s*\);/
@@ -26,6 +26,14 @@ describe('server/index.ts security wiring', () => {
     expect(indexSource()).toMatch(
       /app\.all\('\/recordingrules', authMiddleware, createRecordingRulesGuard\(firestore, fetchRoom\), recordingRulesEndpoint\);/
     );
+  });
+
+  it('mounts the live report snapshot routes behind authMiddleware with the session binder on PUT', () => {
+    const source = indexSource();
+    expect(source).toMatch(
+      /app\.put\(\s*'\/reports\/:roomSid\/live',\s*authMiddleware,\s*createPutLiveReportHandler\(firestore, serverTimestamp, createRoomSessionBinder\(firestore, fetchRoom, serverTimestamp\)\)\s*\);/
+    );
+    expect(source).toMatch(/app\.get\('\/reports\/:roomSid\/live', authMiddleware, createGetLiveReportHandler\(firestore\)\);/);
   });
 
   it('binds report sessions through the room session binder on POST /reports', () => {

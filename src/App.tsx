@@ -19,6 +19,7 @@ import { dashboardTabPath } from './components/TeacherDashboard/dashboardHelpers
 import { DashboardTabId } from './components/TeacherDashboard/types';
 
 import { SessionEndProvider } from './hooks/useSessionEnd/sessionEndContext';
+import { ScreenShareGrantProvider } from './hooks/useScreenShareControl/screenShareGrantContext';
 import useHeight from './hooks/useHeight/useHeight';
 import useRoomState from './hooks/useRoomState/useRoomState';
 import { useAppState } from './state';
@@ -111,13 +112,15 @@ export default function App() {
       )}
       {screen === 'room' && (
         <SessionEndProvider>
-          <Main>
-            <ReconnectingNotification />
-            <RecordingNotifications />
-            <MobileTopMenuBar />
-            <Room />
-            {isMobile && <MenuBar />}
-          </Main>
+          <ScreenShareGrantProvider>
+            <Main>
+              <ReconnectingNotification />
+              <RecordingNotifications />
+              <MobileTopMenuBar />
+              <Room />
+              {isMobile && <MenuBar />}
+            </Main>
+          </ScreenShareGrantProvider>
         </SessionEndProvider>
       )}
     </Container>

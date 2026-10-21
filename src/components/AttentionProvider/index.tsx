@@ -53,8 +53,10 @@
  *   dedicated SignalingProvider or equivalent — not here.
  */
 
-import React, { createContext, useMemo } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AttentionContextValue, AttentionLevel } from './types';
+import { AttentionReport } from './reportTypes';
+import { AttentionSeed, seedFromReport } from './liveSnapshot';
 import { ATTENTION_RANGES, ATTENTION_THRESHOLD, attentionLevelFromScore } from './attentionFormula';
 import { isLiveAttentionMode, resolveAttentionMode } from './attentionMode';
 import { buildParticipants, summarizeGroup } from './liveAttention';
@@ -73,6 +75,13 @@ import { isMobile } from '../../utils';
 
 // null! mirrors the pattern used in ChatProvider and ParticipantProvider.
 export const AttentionContext = createContext<AttentionContextValue>(null!);
+
+/**
+ * Lets the owner teacher's re-entry flow (useLiveReportSync) hand the provider the snapshot stored
+ * on the server, so the report continues instead of starting empty. The default is a Null Object:
+ * without a provider (tests, Storybook) restoring does nothing.
+ */
+export const AttentionRestoreContext = createContext<(report: AttentionReport) => void>(() => undefined);
 
 // Fixed ranges: the level of a score never depends on where the data comes from.
 const attentionLevel = (score: number): AttentionLevel => attentionLevelFromScore(score, ATTENTION_RANGES);
@@ -143,80 +152,111 @@ export const AttentionProvider: React.FC = ({ children }) => {
   // Layer 3: DataTrack transport — broadcast local + aggregate remotes. The hook is always
   // called (React rules), but it is inert in `off` mode: with the pipeline off nobody
   // publishes a telemetry track, receives it or runs its sweep.
-  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, isLive);
+  // Readings students buffered while no teacher was in the room arrive through `onBackfill` and
+  // are merged by useGroupTimeline (declared below, hence the ref).
+  const mergeBackfillRef = useRef<(identity: string, samples: unknown) => void>(() => undefined);
+  const onBackfill = useCallback(
+    (identity: string, samples: unknown) => mergeBackfillRef.current(identity, samples),
+    []
+  );
+  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, isLive, onBackfill);
 
   // Latest-value ref: the sampling intervals are created once (per isLive) and would otherwise
   // close over the telemetry from the render where isLive flipped true — empty at that instant.
   const remoteAttentionRef = useLatest(remoteAttention);
 
-  const attended = useAttendanceRoster(room);
+  // A snapshot restored once per live session (see AttentionRestoreContext). Dropped with the
+  // pipeline so a later room never inherits it.
+  const [seed, setSeed] = useState<AttentionSeed | null>(null);
+  const isLiveRef = useLatest(isLive);
+  const restoredRef = useRef(false);
+  const restore = useCallback(
+    (report: AttentionReport) => {
+      if (!isLiveRef.current || restoredRef.current) return;
+      restoredRef.current = true;
+      setSeed(seedFromReport(report));
+    },
+    [isLiveRef]
+  );
+  useEffect(() => {
+    if (isLive) return;
+    restoredRef.current = false;
+    setSeed(null);
+  }, [isLive]);
+
+  const attended = useAttendanceRoster(room, seed ? seed.attended : null);
   // Who is in the room right now: a connected student with no telemetry is "no reading yet",
   // not "camera off" (that is only ever the student's own explicit report).
   const remoteParticipants = useParticipants();
   const connected = useMemo<ReadonlySet<string>>(() => new Set(remoteParticipants.map(p => p.identity)), [
     remoteParticipants,
   ]);
-  const { timeline, fullTimeline, history } = useGroupTimeline(remoteAttentionRef, isLive);
-  const proctoringAlerts = useProctoringFeed(remoteAttentionRef, isLive);
+  const { timeline, fullTimeline, history, mergeBackfill } = useGroupTimeline(remoteAttentionRef, isLive, seed);
+  mergeBackfillRef.current = mergeBackfill;
+  const { alerts: proctoringAlerts, log: proctoringLog } = useProctoringFeed(remoteAttentionRef, isLive, seed);
 
   return (
-    <AttentionContext.Provider
-      value={useMemo<AttentionContextValue>(() => {
-        // Pipeline off or no room: the empty value, never simulated data.
-        if (!isLive) return EMPTY_VALUE;
+    <AttentionRestoreContext.Provider value={restore}>
+      <AttentionContext.Provider
+        value={useMemo<AttentionContextValue>(() => {
+          // Pipeline off or no room: the empty value, never simulated data.
+          if (!isLive) return EMPTY_VALUE;
 
-        // Live path — real aggregates from telemetry (desktop or phone).
-        const participants = buildParticipants({
+          // Live path — real aggregates from telemetry (desktop or phone).
+          const participants = buildParticipants({
+            attended,
+            connected,
+            history: history.current,
+            live: remoteAttention,
+            attentionLevel,
+          });
+          const { groupAttention, groupDataAvailable } = summarizeGroup(participants);
+
+          // Self: index is already computeLabAttentionIndex(eyes, head) from the capture hook.
+          const self = {
+            index: captureResult.index,
+            components: {
+              eyes: captureResult.components.eyes,
+              head: captureResult.components.head,
+              posture: POSTURE_NOT_MEASURED, // replace when posture is a real signal
+            },
+            capture: captureResult.capture,
+            lighting: 'ok' as const, // lighting is a separate signal, out of scope for Layer 4a
+          };
+
+          return {
+            source: 'live',
+            ranges: ATTENTION_RANGES,
+            groupAttention,
+            groupDataAvailable,
+            attentionThreshold: ATTENTION_THRESHOLD,
+            timeline,
+            fullTimeline,
+            self,
+            participants,
+            // From the live event log assembled by useProctoringFeed — NOT recomputed per render.
+            proctoringAlerts,
+            proctoringLog,
+            attentionLevel,
+          };
+          // `history` is a ref mutated in step with `timeline`/`fullTimeline`, which are therefore
+          // the dependencies that carry its changes.
+        }, [
+          isLive,
           attended,
           connected,
-          history: history.current,
-          live: remoteAttention,
-          attentionLevel,
-        });
-        const { groupAttention, groupDataAvailable } = summarizeGroup(participants);
-
-        // Self: index is already computeLabAttentionIndex(eyes, head) from the capture hook.
-        const self = {
-          index: captureResult.index,
-          components: {
-            eyes: captureResult.components.eyes,
-            head: captureResult.components.head,
-            posture: POSTURE_NOT_MEASURED, // replace when posture is a real signal
-          },
-          capture: captureResult.capture,
-          lighting: 'ok' as const, // lighting is a separate signal, out of scope for Layer 4a
-        };
-
-        return {
-          source: 'live',
-          ranges: ATTENTION_RANGES,
-          groupAttention,
-          groupDataAvailable,
-          attentionThreshold: ATTENTION_THRESHOLD,
+          history,
+          remoteAttention,
+          captureResult,
           timeline,
           fullTimeline,
-          self,
-          participants,
-          // From the live event log assembled by useProctoringFeed — NOT recomputed per render.
           proctoringAlerts,
-          attentionLevel,
-        };
-        // `history` is a ref mutated in step with `timeline`/`fullTimeline`, which are therefore
-        // the dependencies that carry its changes.
-      }, [
-        isLive,
-        attended,
-        connected,
-        history,
-        remoteAttention,
-        captureResult,
-        timeline,
-        fullTimeline,
-        proctoringAlerts,
-      ])}
-    >
-      {children}
-    </AttentionContext.Provider>
+          proctoringLog,
+        ])}
+      >
+        {children}
+      </AttentionContext.Provider>
+    </AttentionRestoreContext.Provider>
   );
 };
 

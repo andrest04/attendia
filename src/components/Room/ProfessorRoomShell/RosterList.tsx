@@ -3,6 +3,8 @@ import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import MicOffIcon from '@material-ui/icons/MicOff';
+import MicIcon from '@material-ui/icons/Mic';
+import ScreenShareIcon from '@material-ui/icons/ScreenShare';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import RoleBadge from '../../RoleBadge/RoleBadge';
 import { ParticipantAttention } from '../../AttentionProvider/types';
@@ -142,6 +144,12 @@ interface RosterListProps {
   attentionByIdentity: Map<string, ParticipantAttention>;
   /** When provided, students (never the professor) get a moderation kebab with "Silenciar". */
   onMuteParticipant?: (identity: string) => void;
+  /** When provided, the kebab also offers "Pedir activar micrófono". */
+  onRequestUnmute?: (identity: string) => void;
+  /** When provided, the kebab also offers to allow/revoke screen sharing for the student. */
+  onSetScreenShareGrant?: (identity: string, allowed: boolean) => void;
+  /** Identities currently allowed to share their screen (professor-side state). */
+  screenShareGrants?: string[];
 }
 
 /**
@@ -182,7 +190,14 @@ function AttentionDecoration({
  * camera-off / no-measure / unsupported flag) and a per-student moderation kebab.
  * Pins the teacher to the top and owns only the open-menu state.
  */
-export default function RosterList({ participants, attentionByIdentity, onMuteParticipant }: RosterListProps) {
+export default function RosterList({
+  participants,
+  attentionByIdentity,
+  onMuteParticipant,
+  onRequestUnmute,
+  onSetScreenShareGrant,
+  screenShareGrants = [],
+}: RosterListProps) {
   const classes = useStyles();
 
   // Identity whose roster moderation (kebab) menu is currently open, or null.
@@ -254,6 +269,40 @@ export default function RosterList({ participants, attentionByIdentity, onMutePa
                       >
                         <MicOffIcon style={{ fontSize: 16 }} /> Silenciar
                       </button>
+                      {onRequestUnmute && (
+                        <button
+                          type="button"
+                          className={classes.rosterMenuItem}
+                          data-testid="professor-room-shell-roster-request-unmute"
+                          role="menuitem"
+                          onClick={() => {
+                            onRequestUnmute(participant.identity);
+                            setOpenMenuIdentity(null);
+                          }}
+                        >
+                          <MicIcon style={{ fontSize: 16 }} /> Pedir activar micrófono
+                        </button>
+                      )}
+                      {onSetScreenShareGrant && (
+                        <button
+                          type="button"
+                          className={classes.rosterMenuItem}
+                          data-testid="professor-room-shell-roster-screenshare"
+                          role="menuitem"
+                          onClick={() => {
+                            onSetScreenShareGrant(
+                              participant.identity,
+                              !screenShareGrants.includes(participant.identity)
+                            );
+                            setOpenMenuIdentity(null);
+                          }}
+                        >
+                          <ScreenShareIcon style={{ fontSize: 16 }} />{' '}
+                          {screenShareGrants.includes(participant.identity)
+                            ? 'Quitar permiso de pantalla'
+                            : 'Permitir compartir pantalla'}
+                        </button>
+                      )}
                     </div>
                   </>
                 )}

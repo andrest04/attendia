@@ -28,7 +28,10 @@ export interface RoomShellContext {
   localIdentity: string;
   layout: ReturnType<typeof useRoomLayout>;
   hands: Pick<ReturnType<typeof useRaiseHand>, 'raisedHands' | 'isHandRaised' | 'setHandRaised' | 'grantTurn'>;
-  moderation: Pick<ReturnType<typeof useModeration>, 'muteParticipant'> &
+  moderation: Pick<
+    ReturnType<typeof useModeration>,
+    'muteParticipant' | 'requestUnmute' | 'grantScreenShare' | 'screenShareGrants'
+  > &
     Pick<ReturnType<typeof useProctoringWarnings>, 'sendWarning'>;
   proctoring: { enabled: boolean; setEnabled: (next: boolean) => void };
   notifications: ShellNotification[];
@@ -85,6 +88,9 @@ const professorShell = (ctx: RoomShellContext) => {
       handsRaised={hands.raisedHands}
       onGrantTurn={hands.grantTurn}
       onMuteParticipant={moderation.muteParticipant}
+      onRequestUnmute={moderation.requestUnmute}
+      onSetScreenShareGrant={moderation.grantScreenShare}
+      screenShareGrants={moderation.screenShareGrants}
       onSendWarning={moderation.sendWarning}
       proctoringEnabled={proctoring.enabled}
       notifications={ctx.notifications}

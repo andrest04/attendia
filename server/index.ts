@@ -8,6 +8,7 @@ import {
   createRoomDetailsFetcher,
   createRoomSessionBinder,
 } from './roomOwnership';
+import { createPhoneBlockGuard } from './phoneBlockGuard';
 import { createRoomExists } from './roomExists';
 import { createIdentityReservationGuard, createParticipantConnectionChecker } from './identityReservation';
 import { createRoomOpenHandler } from './roomOpen';
@@ -58,6 +59,7 @@ import {
 } from './classes';
 import multer from 'multer';
 import { createFirebaseAuthMiddleware } from './firebaseAuthMiddleware';
+import { createGetLiveReportHandler, createPutLiveReportHandler } from './liveReports';
 import { createJsonBodyErrorHandler, createJsonBodyParser } from './jsonBodyParser';
 import {
   createClearNotificationsHandler,
@@ -126,6 +128,7 @@ const identityReservationGuard = createIdentityReservationGuard(
 app.all(
   '/token',
   authMiddleware,
+  createPhoneBlockGuard(),
   createRoomAccessGuard(roomExists, createProfileRoleResolver(firestore), roomClaimer),
   identityReservationGuard,
   tokenEndpoint
@@ -150,6 +153,14 @@ app.post('/operational-events', authMiddleware, createClientOperationalEventHand
 // Teacher-only: both handlers re-resolve the role from Firestore server-side.
 app.get('/reports', authMiddleware, createGetReportsHandler(firestore));
 app.get('/reports/:roomSid', authMiddleware, createGetReportHandler(firestore));
+// In-progress snapshot of the owner's class (users/{uid}/liveReports/{roomSid}), pushed while the
+// class runs and restored when the teacher re-enters. Never touches the final report document.
+app.get('/reports/:roomSid/live', authMiddleware, createGetLiveReportHandler(firestore));
+app.put(
+  '/reports/:roomSid/live',
+  authMiddleware,
+  createPutLiveReportHandler(firestore, serverTimestamp, createRoomSessionBinder(firestore, fetchRoom, serverTimestamp))
+);
 // The first save binds roomSessions/{roomSid} to the teacher (Twilio unique name + roomOwners
 // verified); recording requests require that binding. See roomOwnership.ts.
 app.post(
