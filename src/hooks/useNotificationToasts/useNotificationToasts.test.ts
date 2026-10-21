@@ -76,6 +76,14 @@ describe('useNotificationToasts', () => {
       expect(messages()).toEqual(['El profesor silenció tu micrófono']);
     });
 
+    it('toasts when the professor turns this student camera off', () => {
+      const { rerender } = renderHook(props => useNotificationToasts(props), {
+        initialProps: { ...base, isTeacher: false, cameraOffByProfessorCount: 0 },
+      });
+      rerender({ ...base, isTeacher: false, cameraOffByProfessorCount: 1 });
+      expect(messages()).toEqual(['El profesor apagó tu cámara']);
+    });
+
     it('toasts a kind-specific message when the professor sends this student a warning', () => {
       const { rerender } = renderHook(props => useNotificationToasts(props), {
         initialProps: { ...base, isTeacher: false },

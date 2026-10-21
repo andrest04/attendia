@@ -131,6 +131,10 @@ export default function Room() {
     unmuteRequestPending,
     acceptUnmuteRequest,
     dismissUnmuteRequest,
+    cameraOffByProfessorCount,
+    cameraRequestPending,
+    acceptCameraRequest,
+    dismissCameraRequest,
     grantScreenShare,
     screenShareGrants,
     screenShareAllowed,
@@ -172,6 +176,7 @@ export default function Room() {
     isRecording,
     turnGrantedCount,
     mutedByProfessorCount,
+    cameraOffByProfessorCount,
     warnedByProfessorCount,
     lastWarningKind,
   });
@@ -266,6 +271,14 @@ export default function Room() {
               open={unmuteRequestPending}
               onAccept={acceptUnmuteRequest}
               onDismiss={dismissUnmuteRequest}
+            />
+          )}
+          {!isTeacher && (
+            <UnmuteRequestPrompt
+              kind="camera"
+              open={cameraRequestPending}
+              onAccept={acceptCameraRequest}
+              onDismiss={dismissCameraRequest}
             />
           )}
           {!isDesktopShell && <ChatWindow />}

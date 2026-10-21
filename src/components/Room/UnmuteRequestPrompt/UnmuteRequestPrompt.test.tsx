@@ -2,7 +2,7 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import Button from '@material-ui/core/Button';
 import Snackbar from '@material-ui/core/Snackbar';
-import UnmuteRequestPrompt, { UNMUTE_REQUEST_TEXT } from './UnmuteRequestPrompt';
+import UnmuteRequestPrompt, { UNMUTE_REQUEST_TEXT, CAMERA_REQUEST_TEXT } from './UnmuteRequestPrompt';
 
 describe('UnmuteRequestPrompt', () => {
   it('stays closed without a pending request', () => {
@@ -36,5 +36,31 @@ describe('UnmuteRequestPrompt', () => {
       .simulate('click');
     expect(onDismiss).toHaveBeenCalledTimes(1);
     expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  describe('camera kind', () => {
+    it('suggests turning the camera on and accepts only through the "Activar" click', () => {
+      const onAccept = jest.fn();
+      const onDismiss = jest.fn();
+      const wrapper = shallow(<UnmuteRequestPrompt kind="camera" open onAccept={onAccept} onDismiss={onDismiss} />);
+      const snackbar = wrapper.find(Snackbar);
+      expect(snackbar.prop('message')).toBe(CAMERA_REQUEST_TEXT);
+      expect(CAMERA_REQUEST_TEXT).toBe('El profesor te sugiere encender tu cámara');
+      expect(snackbar.prop('data-testid')).toBe('camera-request-prompt');
+
+      const action = shallow(<div>{snackbar.prop('action') as React.ReactNode}</div>);
+      expect(onAccept).not.toHaveBeenCalled();
+      action
+        .find(Button)
+        .filterWhere(b => b.children().text() === 'Ahora no')
+        .simulate('click');
+      expect(onDismiss).toHaveBeenCalledTimes(1);
+      expect(onAccept).not.toHaveBeenCalled();
+      action
+        .find(Button)
+        .filterWhere(b => b.children().text() === 'Activar')
+        .simulate('click');
+      expect(onAccept).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -42,6 +42,21 @@ export interface UnmuteRequestMessage {
   identity: string;
 }
 
+/** The professor asks `identity` to turn their own camera off (forced; the client obeys). */
+export interface MuteVideoMessage {
+  type: 'mute-video';
+  identity: string;
+}
+
+/**
+ * The professor suggests `identity` turn their camera ON. Only a request: the target client
+ * never publishes the camera itself, the student does it from a prompt (their gesture).
+ */
+export interface VideoRequestMessage {
+  type: 'request-video';
+  identity: string;
+}
+
 /** The professor allows or revokes screen sharing for `identity`. Students default to NOT allowed. */
 export interface GrantScreenShareMessage {
   type: 'grant-screenshare';
@@ -94,6 +109,8 @@ export type ClassMessage =
   | GrantTurnMessage
   | MuteAudioMessage
   | UnmuteRequestMessage
+  | MuteVideoMessage
+  | VideoRequestMessage
   | GrantScreenShareMessage
   | ProctoringWarningMessage
   | SessionEndedMessage

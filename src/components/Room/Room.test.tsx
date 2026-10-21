@@ -36,6 +36,10 @@ jest.mock('@material-ui/core', () => {
   return { ...actual, useMediaQuery: jest.fn() };
 });
 jest.mock('../../hooks/useIsRoomOwner/useIsRoomOwner');
+jest.mock('../../hooks/useLocalVideoToggle/useLocalVideoToggle', () => ({
+  __esModule: true,
+  default: () => [false, jest.fn()],
+}));
 jest.mock('../../hooks/useUnloadReportPersistence/useUnloadReportPersistence');
 jest.mock('notistack', () => ({
   useSnackbar: () => ({ enqueueSnackbar: jest.fn(), closeSnackbar: jest.fn() }),
@@ -79,7 +83,14 @@ describe('the Room component', () => {
 
   it('renders the unmute-request prompt (closed until the professor asks)', () => {
     const wrapper = shallow(<Room />);
-    const prompt = wrapper.find('UnmuteRequestPrompt');
+    const prompt = wrapper.find('UnmuteRequestPrompt').first();
+    expect(prompt.exists()).toBe(true);
+    expect(prompt.prop('open')).toBe(false);
+  });
+
+  it('renders the camera-request prompt (closed until the professor suggests it)', () => {
+    const wrapper = shallow(<Room />);
+    const prompt = wrapper.find('UnmuteRequestPrompt').filterWhere(n => n.prop('kind') === 'camera');
     expect(prompt.exists()).toBe(true);
     expect(prompt.prop('open')).toBe(false);
   });

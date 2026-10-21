@@ -19,6 +19,8 @@ interface UseNotificationToastsArgs {
   turnGrantedCount: number;
   /** Increments each time the professor mutes THIS participant's microphone. */
   mutedByProfessorCount: number;
+  /** Increments each time the professor turns THIS participant's camera off. */
+  cameraOffByProfessorCount?: number;
   /** Increments each time the professor sends THIS participant a proctoring warning. */
   warnedByProfessorCount: number;
   /** Kind of the most recent proctoring warning aimed at THIS participant (drives toast copy). */
@@ -44,6 +46,7 @@ interface ToastPolicy {
   recordingChanged?(isRecording: boolean): Toast | undefined;
   turnGranted?(): Toast | undefined;
   muted?(): Toast | undefined;
+  cameraTurnedOff?(): Toast | undefined;
   warned?(kind: ProctoringAlert['kind'] | null): Toast | undefined;
 }
 
@@ -72,6 +75,7 @@ const studentPolicy: ToastPolicy = {
     isRecording ? toast('La sesión se está grabando', 'warning') : toast('Se detuvo la grabación', 'default'),
   turnGranted: () => toast('Es tu turno · el profesor te dio la palabra', 'success'),
   muted: () => toast('El profesor silenció tu micrófono', 'warning'),
+  cameraTurnedOff: () => toast('El profesor apagó tu cámara', 'warning'),
   warned: kind => toast(warningMessage(kind), 'warning'),
 };
 
@@ -90,6 +94,7 @@ export default function useNotificationToasts({
   isRecording,
   turnGrantedCount,
   mutedByProfessorCount,
+  cameraOffByProfessorCount = 0,
   warnedByProfessorCount,
   lastWarningKind,
 }: UseNotificationToastsArgs) {
@@ -127,6 +132,9 @@ export default function useNotificationToasts({
 
   // ── Muted by professor ──────────────────────────────────────────────────────
   useOnIncrease(mutedByProfessorCount, () => show(policy.muted?.()));
+
+  // ── Camera turned off by professor ──────────────────────────────────────────
+  useOnIncrease(cameraOffByProfessorCount, () => show(policy.cameraTurnedOff?.()));
 
   // ── Proctoring warning ──────────────────────────────────────────────────────
   useOnIncrease(warnedByProfessorCount, () => show(policy.warned?.(lastWarningKind)));
