@@ -14,7 +14,7 @@ describe('the ParticipantConnectionIndicator component', () => {
 
     it('should render the correct toolip', () => {
       const wrapper = shallow(<ParticipantConnectionIndicator participant={{} as any} />);
-      expect(wrapper.find(Tooltip).prop('title')).toBe('Participant is reconnecting');
+      expect(wrapper.find(Tooltip).prop('title')).toBe('El participante se está reconectando');
     });
 
     it('should have isReconnecting css class', () => {
@@ -28,7 +28,7 @@ describe('the ParticipantConnectionIndicator component', () => {
 
     it('should render the correct tooltip', () => {
       const wrapper = shallow(<ParticipantConnectionIndicator participant={{} as any} />);
-      expect(wrapper.find(Tooltip).prop('title')).toBe('Participant is connected');
+      expect(wrapper.find(Tooltip).prop('title')).toBe('El participante está conectado');
     });
 
     it('should not have isReconnecting css class', () => {

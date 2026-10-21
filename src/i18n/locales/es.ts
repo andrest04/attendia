@@ -1,7 +1,9 @@
+import entryFlow from './entryFlow.es';
 import roomUi from './roomUi.es';
 
 const es = {
   ...roomUi,
+  ...entryFlow,
   common: {
     language: {
       label: 'Idioma',

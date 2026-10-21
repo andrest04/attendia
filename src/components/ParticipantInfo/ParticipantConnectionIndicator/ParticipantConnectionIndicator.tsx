@@ -4,6 +4,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import { Participant } from 'twilio-video';
 import useParticipantIsReconnecting from '../../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting';
 import { Tooltip } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles({
   indicator: {
@@ -22,8 +23,9 @@ const useStyles = makeStyles({
 export default function ParticipantConnectionIndicator({ participant }: { participant: Participant }) {
   const isReconnecting = useParticipantIsReconnecting(participant);
   const classes = useStyles();
+  const { t } = useTranslation('misc');
   return (
-    <Tooltip title={isReconnecting ? 'Participant is reconnecting' : 'Participant is connected'}>
+    <Tooltip title={isReconnecting ? t('tile.participantReconnecting') : t('tile.participantConnected')}>
       <span className={clsx(classes.indicator, { [classes.isReconnecting]: isReconnecting })}></span>
     </Tooltip>
   );

@@ -4,6 +4,8 @@ import { useAppState } from '../../state';
 import DashboardHeader from '../TeacherDashboard/DashboardHeader';
 import CreatePasswordDialog from './CreatePasswordDialog/CreatePasswordDialog';
 import { useHistory, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSelector from '../LanguageSelector/LanguageSelector';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import { routes } from '../../routes';
 import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
@@ -364,6 +366,7 @@ interface IntroContainerProps {
 
 const IntroContainer = (props: IntroContainerProps) => {
   const classes = useStyles();
+  const { t } = useTranslation('prejoin');
   const { user, profile, signOut } = useAppState();
   const location = useLocation();
   const history = useHistory();
@@ -431,7 +434,7 @@ const IntroContainer = (props: IntroContainerProps) => {
         centerLabel={
           props.headerRoomName ? (
             <>
-              Clase: <strong>{props.headerRoomName}</strong>
+              {t('intro.classLabel')} <strong>{props.headerRoomName}</strong>
             </>
           ) : (
             undefined
@@ -441,7 +444,7 @@ const IntroContainer = (props: IntroContainerProps) => {
           props.headerRoomName ? (
             <span className={classes.presessionPill}>
               <span className={classes.presessionDot} />
-              Pre-sesión
+              {t('intro.preSession')}
             </span>
           ) : (
             undefined
@@ -456,12 +459,12 @@ const IntroContainer = (props: IntroContainerProps) => {
                     setCreatePasswordOpen(true);
                   }}
                 >
-                  Crear contraseña
+                  {t('intro.createPassword')}
                 </MenuItem>
               )}
               {isStudent && (
                 <MenuItem onClick={() => signOut?.()} data-testid="student-header-sign-out">
-                  Cerrar sesión
+                  {t('intro.signOut')}
                 </MenuItem>
               )}
             </>
@@ -481,14 +484,12 @@ const IntroContainer = (props: IntroContainerProps) => {
             </div>
             <div className={classes.heroBadge}>
               <div className={classes.heroBadgeDot} />
-              <span className={classes.heroBadgeText}>Plataforma de Videoconferencia</span>
+              <span className={classes.heroBadgeText}>{t('intro.badge')}</span>
             </div>
             <Typography component="h1" className={classes.heroTitle}>
-              Bienvenido a <span className={classes.heroTitleAccent}>attendia</span>
+              {t('intro.welcome')} <span className={classes.heroTitleAccent}>attendia</span>
             </Typography>
-            <p className={classes.heroSubtitle}>
-              Videoconferencia síncrona para aulas híbridas con detección de atención en tiempo real.
-            </p>
+            <p className={classes.heroSubtitle}>{t('intro.tagline')}</p>
           </div>
         )}
 
@@ -500,7 +501,7 @@ const IntroContainer = (props: IntroContainerProps) => {
               onClick={props.onReturnToDashboard}
               data-testid="back-to-dashboard"
             >
-              ← Volver al panel
+              {t('intro.backToDashboard')}
             </button>
           )}
           <div className={classes.contentCard}>{props.children}</div>
@@ -512,12 +513,13 @@ const IntroContainer = (props: IntroContainerProps) => {
         <div className={classes.footerLeft}>
           <div className={classes.footerDot} />
           <span className={classes.footerText}>
-            Infraestructura: <strong className={classes.footerTextStrong}>Twilio Video WebRTC SFU</strong>
+            {t('intro.infrastructure')}: <strong className={classes.footerTextStrong}>Twilio Video WebRTC SFU</strong>
           </span>
         </div>
         <div className={classes.footerLinks}>
+          <LanguageSelector />
           <a href="/security" className={classes.footerLink}>
-            Seguridad y Privacidad
+            {t('intro.security')}
           </a>
         </div>
       </div>

@@ -6,6 +6,7 @@ import MediaErrorSnackbar from './MediaErrorSnackbar/MediaErrorSnackbar';
 import RoomNameScreen, { TeacherJoinStatus } from './RoomNameScreen/RoomNameScreen';
 import { useAppState } from '../../state';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import useAutoRejoin from './useAutoRejoin';
 import useInitialRole from '../TeacherDashboard/useInitialRole';
@@ -39,6 +40,7 @@ interface PreJoinScreensProps {
 }
 
 export default function PreJoinScreens({ initialClassSession, onReturnToDashboard }: PreJoinScreensProps = {}) {
+  const { t } = useTranslation('prejoin');
   const { user, profile } = useAppState();
   const { getAudioAndVideoTracks, removeLocalAudioTrack, removeLocalVideoTrack } = useVideoContext();
   const { URLRoomName } = useParams<{ URLRoomName?: string }>();
@@ -284,11 +286,11 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
         >
           <CircularProgress variant="indeterminate" />
           <Typography variant="body1" style={{ fontWeight: 'bold' }}>
-            Reconectando a la sala…
+            {t('reconnecting')}
           </Typography>
           {URLRoomName && (
             <Typography variant="body2" color="textSecondary">
-              Sala: <strong>{URLRoomName}</strong>
+              {t('roomLabel')} <strong>{URLRoomName}</strong>
             </Typography>
           )}
         </div>

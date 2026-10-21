@@ -5,6 +5,7 @@ import MenuItem from '@material-ui/core/MenuItem';
 import MoreIcon from '@material-ui/icons/MoreVert';
 import Typography from '@material-ui/core/Typography';
 import { Theme, useMediaQuery } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 
 import AboutDialog from '../../../AboutDialog/AboutDialog';
 import ConnectionOptionsDialog from '../../../ConnectionOptionsDialog/ConnectionOptionsDialog';
@@ -14,6 +15,7 @@ import { useAppState } from '../../../../state';
 
 export default function SettingsMenu({ mobileButtonClass }: { mobileButtonClass?: string }) {
   const { roomType } = useAppState();
+  const { t } = useTranslation('prejoin');
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
   const [menuOpen, setMenuOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -31,11 +33,11 @@ export default function SettingsMenu({ mobileButtonClass }: { mobileButtonClass?
           startIcon={<MoreIcon />}
           className={mobileButtonClass}
         >
-          Más
+          {t('device.settings.more')}
         </Button>
       ) : (
         <Button ref={anchorRef} onClick={() => setMenuOpen(true)} startIcon={<SettingsIcon />}>
-          Configuración
+          {t('device.settings.settings')}
         </Button>
       )}
       <MenuContainer
@@ -53,14 +55,14 @@ export default function SettingsMenu({ mobileButtonClass }: { mobileButtonClass?
         }}
       >
         <MenuItem onClick={() => setAboutOpen(true)}>
-          <Typography variant="body1">Acerca de</Typography>
+          <Typography variant="body1">{t('device.settings.about')}</Typography>
         </MenuItem>
         <MenuItem onClick={() => setDeviceSettingsOpen(true)}>
-          <Typography variant="body1">Configuración de audio y video</Typography>
+          <Typography variant="body1">{t('device.settings.audioVideo')}</Typography>
         </MenuItem>
         {roomType !== 'peer-to-peer' && roomType !== 'go' && (
           <MenuItem onClick={() => setConnectionSettingsOpen(true)}>
-            <Typography variant="body1">Configuración de conexión</Typography>
+            <Typography variant="body1">{t('device.settings.connection')}</Typography>
           </MenuItem>
         )}
       </MenuContainer>

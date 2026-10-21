@@ -166,7 +166,7 @@ describe('the ChatInput component', () => {
 
     setImmediate(() => {
       expect(wrapper.find(Snackbar).prop('open')).toBe(true);
-      expect(wrapper.find(Snackbar).prop('message')).toBe('There was a problem uploading the file. Please try again.');
+      expect(wrapper.find(Snackbar).prop('message')).toBe('Hubo un problema al subir el archivo. Inténtalo de nuevo.');
       done();
     });
   });
@@ -182,7 +182,9 @@ describe('the ChatInput component', () => {
 
     setImmediate(() => {
       expect(wrapper.find(Snackbar).prop('open')).toBe(true);
-      expect(wrapper.find(Snackbar).prop('message')).toBe('File size is too large. Maximum file size is 150MB.');
+      expect(wrapper.find(Snackbar).prop('message')).toBe(
+        'El archivo es demasiado grande. El tamaño máximo es 150 MB.'
+      );
       done();
     });
   });

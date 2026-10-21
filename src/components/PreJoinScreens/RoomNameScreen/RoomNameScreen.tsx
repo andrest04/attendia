@@ -3,7 +3,9 @@ import { Typography, makeStyles, TextField, Button, InputLabel, Theme, Box, Circ
 import SecurityIcon from '@material-ui/icons/Security';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import FileCopyOutlinedIcon from '@material-ui/icons/FileCopyOutlined';
+import { useTranslation } from 'react-i18next';
 import { useAppState } from '../../../state';
+import { EMPHASIS_MARK, emphasize } from '../../../i18n/richText';
 import {
   ClassSessionAccess,
   ClassSessionDraft,
@@ -428,6 +430,7 @@ export default function RoomNameScreen({
   onContinueAsStudent,
 }: RoomNameScreenProps) {
   const classes = useStyles();
+  const { t } = useTranslation('prejoin');
   const { user, profile } = useAppState();
   const [copied, setCopied] = useState(false);
   // "Crear con este nombre" asks for confirmation first (a closed room is often just a typo).
@@ -493,24 +496,24 @@ export default function RoomNameScreen({
               </svg>
             </div>
             <div className={classes.cardTitleBlock}>
-              <p className={classes.cardTitle}>Profesor</p>
-              <p className={classes.cardSubtitle}>Crear nueva sala de clase</p>
+              <p className={classes.cardTitle}>{t('roomName.teacher.title')}</p>
+              <p className={classes.cardSubtitle}>{t('roomName.teacher.subtitle')}</p>
             </div>
           </div>
 
-          <span className={classes.tagBadge}>Gestión de Sala</span>
+          <span className={classes.tagBadge}>{t('roomName.teacher.badge')}</span>
 
           {/* Session name field */}
           <div className={classes.fieldBlock}>
             <InputLabel shrink htmlFor="input-session-name" className={classes.fieldLabel}>
-              Nombre de la sala
+              {t('roomName.teacher.roomNameLabel')}
             </InputLabel>
             <TextField
               id="input-session-name"
               variant="outlined"
               fullWidth
               size="small"
-              placeholder="Ej: Matemáticas — Grupo A"
+              placeholder={t('roomName.teacher.roomNamePlaceholder')}
               value={classSessionDraft.sessionName}
               onChange={handleSessionNameChange}
               className={classes.textInput}
@@ -521,7 +524,7 @@ export default function RoomNameScreen({
           {!hasUsername && (
             <div className={classes.fieldBlockInner}>
               <InputLabel shrink htmlFor="input-user-name" className={classes.fieldLabel}>
-                Tu nombre
+                {t('roomName.teacher.yourName')}
               </InputLabel>
               <TextField
                 id="input-user-name"
@@ -541,17 +544,17 @@ export default function RoomNameScreen({
               <div className={classes.createdHeader}>
                 <CheckCircleIcon className={classes.createdHeaderIcon} fontSize="small" />
                 <Typography variant="subtitle1" className={classes.createdTitle}>
-                  Sesión creada
+                  {t('roomName.teacher.created')}
                 </Typography>
               </div>
               <Typography variant="body2" className={classes.createdHint}>
-                Comparte el código o el link con tus estudiantes.
+                {t('roomName.teacher.shareHint')}
               </Typography>
 
               <div className={classes.createdRow}>
                 <div className={classes.createdValueBlock}>
                   <Typography variant="caption" className={classes.createdLabel}>
-                    Identidad visible en sala
+                    {t('roomName.teacher.visibleIdentity')}
                   </Typography>
                   <Typography variant="body2">{teacherDisplayName}</Typography>
                 </div>
@@ -560,7 +563,7 @@ export default function RoomNameScreen({
               <div className={classes.createdRow}>
                 <div className={classes.createdValueBlock}>
                   <Typography variant="caption" className={classes.createdLabel}>
-                    Nombre de la sala
+                    {t('roomName.teacher.roomNameLabel')}
                   </Typography>
                   <Typography variant="body2" noWrap title={classSessionAccess.joinCode}>
                     {classSessionAccess.joinCode}
@@ -572,7 +575,7 @@ export default function RoomNameScreen({
                   startIcon={<FileCopyOutlinedIcon fontSize="small" />}
                   onClick={() => handleCopy(classSessionAccess.joinCode)}
                 >
-                  {copied ? 'Copiado' : 'Copiar'}
+                  {copied ? t('roomName.teacher.copied') : t('roomName.teacher.copy')}
                 </Button>
               </div>
             </Box>
@@ -582,7 +585,7 @@ export default function RoomNameScreen({
           {openRoomName && onJoinOpenRoom && !classSessionAccess && (
             <Box className={classes.openRoomNotice} role="alert" data-testid="open-room-notice">
               <Typography variant="body2">
-                Esa sala ya está abierta (<strong>{openRoomName}</strong>). ¿Quieres entrar?
+                {emphasize(t('roomName.teacher.openNotice', { name: EMPHASIS_MARK }), openRoomName)}
               </Typography>
               <Button
                 type="button"
@@ -592,7 +595,7 @@ export default function RoomNameScreen({
                 onClick={onJoinOpenRoom}
                 style={{ marginTop: 8, textTransform: 'none' }}
               >
-                Sí, entrar a la sala
+                {t('roomName.teacher.openNoticeJoin')}
               </Button>
             </Box>
           )}
@@ -610,7 +613,7 @@ export default function RoomNameScreen({
                 className={classes.teacherPrimaryButton}
                 startIcon={isCreatingRoom ? <CircularProgress size={16} color="inherit" /> : undefined}
               >
-                {isCreatingRoom ? 'Creando sala…' : 'Crear sala →'}
+                {isCreatingRoom ? t('roomName.teacher.creating') : t('roomName.teacher.create')}
               </Button>
             ) : (
               <Button
@@ -621,7 +624,7 @@ export default function RoomNameScreen({
                 onClick={onContinueToDeviceSelection}
                 className={classes.teacherPrimaryButton}
               >
-                Continuar a verificación
+                {t('roomName.teacher.continueToCheck')}
               </Button>
             )}
           </div>
@@ -629,15 +632,15 @@ export default function RoomNameScreen({
           {/* Secondary option: enter a room that is already open (re-entry or co-teacher). */}
           {onJoinExistingRoom && (
             <div className={classes.joinBox}>
-              <p className={classes.joinBoxTitle}>¿Ya hay una sala abierta?</p>
-              <span className={classes.fieldHelper}>Ingresa el código o el enlace para entrar a ella.</span>
+              <p className={classes.joinBoxTitle}>{t('roomName.joinBox.title')}</p>
+              <span className={classes.fieldHelper}>{t('roomName.joinBox.helper')}</span>
               <div className={classes.joinBoxRow}>
                 <TextField
                   id="input-teacher-join-code"
                   variant="outlined"
                   fullWidth
                   size="small"
-                  placeholder="Código o enlace de sala"
+                  placeholder={t('roomName.joinBox.placeholder')}
                   value={teacherJoinCode}
                   onChange={(event: ChangeEvent<HTMLInputElement>) => setTeacherJoinCode?.(event.target.value)}
                   onKeyDown={(event: React.KeyboardEvent) => {
@@ -657,23 +660,23 @@ export default function RoomNameScreen({
                   className={classes.joinBoxButton}
                   startIcon={isCheckingTeacherJoin ? <CircularProgress size={16} color="inherit" /> : undefined}
                 >
-                  {isCheckingTeacherJoin ? 'Verificando sala…' : 'Entrar a la sala'}
+                  {isCheckingTeacherJoin ? t('roomName.checking') : t('roomName.joinBox.enter')}
                 </Button>
               </div>
 
               {teacherJoinStatus === 'inconclusive' && (
                 <Box className={classes.roomClosedAlert} role="alert" data-testid="teacher-join-inconclusive">
-                  <Typography variant="body2">
-                    No pudimos verificar si la sala está abierta. Revisa tu conexión e inténtalo de nuevo.
-                  </Typography>
+                  <Typography variant="body2">{t('roomName.joinBox.inconclusive')}</Typography>
                 </Box>
               )}
 
               {teacherJoinStatus === 'closed' && (
                 <Box className={classes.roomClosedAlert} role="alert" data-testid="teacher-join-closed">
                   <Typography variant="body2">
-                    La sala <strong>{normalizeStudentJoinInputToRoomName(teacherJoinCode)}</strong> no está abierta.
-                    Revisa que el código esté bien escrito o crea una sala con ese nombre.
+                    {emphasize(
+                      t('roomName.joinBox.closed', { name: EMPHASIS_MARK }),
+                      normalizeStudentJoinInputToRoomName(teacherJoinCode)
+                    )}
                   </Typography>
                   {onCreateWithJoinName && !confirmingCreate && (
                     <Button
@@ -684,14 +687,16 @@ export default function RoomNameScreen({
                       onClick={() => setConfirmingCreate(true)}
                       style={{ marginTop: 8, textTransform: 'none' }}
                     >
-                      Crear con este nombre
+                      {t('roomName.joinBox.createWithName')}
                     </Button>
                   )}
                   {onCreateWithJoinName && confirmingCreate && (
                     <div data-testid="teacher-join-confirm" style={{ marginTop: 8 }}>
                       <Typography variant="body2">
-                        ¿Crear una sala nueva llamada{' '}
-                        <strong>{normalizeStudentJoinInputToRoomName(teacherJoinCode)}</strong>?
+                        {emphasize(
+                          t('roomName.joinBox.confirmCreate', { name: EMPHASIS_MARK }),
+                          normalizeStudentJoinInputToRoomName(teacherJoinCode)
+                        )}
                       </Typography>
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                         <Button
@@ -702,7 +707,7 @@ export default function RoomNameScreen({
                           onClick={onCreateWithJoinName}
                           style={{ textTransform: 'none' }}
                         >
-                          Sí, crear sala
+                          {t('roomName.joinBox.confirmYes')}
                         </Button>
                         <Button
                           type="button"
@@ -710,7 +715,7 @@ export default function RoomNameScreen({
                           onClick={() => setConfirmingCreate(false)}
                           style={{ textTransform: 'none' }}
                         >
-                          Cancelar
+                          {t('roomName.joinBox.cancel')}
                         </Button>
                       </div>
                     </div>
@@ -742,24 +747,24 @@ export default function RoomNameScreen({
               </svg>
             </div>
             <div className={classes.cardTitleBlock}>
-              <p className={classes.cardTitle}>Estudiante</p>
-              <p className={classes.cardSubtitle}>Unirme a sala existente</p>
+              <p className={classes.cardTitle}>{t('roomName.student.title')}</p>
+              <p className={classes.cardSubtitle}>{t('roomName.student.subtitle')}</p>
             </div>
           </div>
 
-          <span className={classes.tagBadge}>Acceso de Estudiante</span>
+          <span className={classes.tagBadge}>{t('roomName.student.badge')}</span>
 
           {/* Join code field */}
           <div className={classes.fieldBlock}>
             <InputLabel shrink htmlFor="input-join-code" className={classes.fieldLabel}>
-              Código o enlace de sala
+              {t('roomName.student.codeLabel')}
             </InputLabel>
             <TextField
               id="input-join-code"
               variant="outlined"
               fullWidth
               size="small"
-              placeholder="Ingresar código de sesión"
+              placeholder={t('roomName.student.codePlaceholder')}
               value={studentJoinCode}
               onChange={(event: ChangeEvent<HTMLInputElement>) => setStudentJoinCode(event.target.value)}
               className={classes.textInput}
@@ -769,19 +774,19 @@ export default function RoomNameScreen({
           {/* Student name field */}
           <div className={classes.fieldBlockInner}>
             <InputLabel shrink htmlFor="input-student-name" className={classes.fieldLabel}>
-              Tu nombre o alias
+              {t('roomName.student.nameLabel')}
             </InputLabel>
             <TextField
               id="input-student-name"
               variant="outlined"
               fullWidth
               size="small"
-              placeholder="Ej: Ana García"
+              placeholder={t('roomName.student.namePlaceholder')}
               value={name}
               onChange={handleNameChange}
               className={classes.textInput}
             />
-            <span className={classes.fieldHelper}>Te unirás con tu cuenta.</span>
+            <span className={classes.fieldHelper}>{t('roomName.student.nameHelper')}</span>
           </div>
 
           {/* Privacy notice */}
@@ -791,10 +796,12 @@ export default function RoomNameScreen({
                 <SecurityIcon fontSize="small" style={{ color: '#1d6eed', display: 'block' }} />
               </span>
               <div>
-                <p className={classes.privacyTitle}>Aviso de privacidad</p>
+                <p className={classes.privacyTitle}>{t('roomName.student.privacyTitle')}</p>
                 <p className={classes.privacyBody}>
-                  Al unirte aceptas el procesamiento <strong>local</strong> de imagen para análisis de atención. No se
-                  almacenan datos faciales.
+                  {emphasize(
+                    t('roomName.student.privacyBody', { local: EMPHASIS_MARK }),
+                    t('roomName.student.privacyLocal')
+                  )}
                 </p>
               </div>
             </div>
@@ -803,9 +810,7 @@ export default function RoomNameScreen({
           {/* Room closed error */}
           {roomClosedError && (
             <Box className={classes.roomClosedAlert} role="alert">
-              <Typography variant="body2">
-                La sala todavía no está abierta. Pedile al docente que inicie la sesión antes de entrar.
-              </Typography>
+              <Typography variant="body2">{t('roomName.student.roomClosed')}</Typography>
             </Box>
           )}
 
@@ -827,7 +832,7 @@ export default function RoomNameScreen({
               className={classes.studentPrimaryButton}
               startIcon={isCheckingRoom ? <CircularProgress size={16} color="inherit" /> : undefined}
             >
-              {isCheckingRoom ? 'Verificando sala…' : 'Unirme a la sala →'}
+              {isCheckingRoom ? t('roomName.checking') : t('roomName.student.join')}
             </Button>
           </div>
         </form>
@@ -845,7 +850,7 @@ export default function RoomNameScreen({
               onClick={() => handleSwitchRole('student')}
               data-testid="switch-to-student"
             >
-              Unirse como estudiante
+              {t('roomName.switchToStudent')}
             </button>
           ) : (
             <button
@@ -854,7 +859,7 @@ export default function RoomNameScreen({
               onClick={() => handleSwitchRole('teacher')}
               data-testid="switch-to-teacher"
             >
-              Volver a crear sesión
+              {t('roomName.switchToTeacher')}
             </button>
           )}
         </div>

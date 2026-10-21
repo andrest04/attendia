@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAppState } from '../../state';
 import { createApiClient } from '../../state/useFirebaseAuth/apiClient';
 import useAsyncResource from '../useAsyncResource/useAsyncResource';
@@ -17,6 +18,7 @@ export type RoomOwnerStatus = 'owner' | 'co-teacher' | 'unknown';
 export default function useIsRoomOwner(enabled: boolean): RoomOwnerStatus {
   const { room } = useVideoContext();
   const { user } = useAppState();
+  const { t } = useTranslation('errors');
   const roomName = room?.name;
   const firebaseUser = user && 'getIdToken' in user ? user : null;
 
@@ -29,7 +31,7 @@ export default function useIsRoomOwner(enabled: boolean): RoomOwnerStatus {
     [enabled, roomName, firebaseUser]
   );
 
-  const { data } = useAsyncResource(load, { failureMessage: 'No pudimos verificar tu rol en la sala.' });
+  const { data } = useAsyncResource(load, { failureMessage: t('roomOwnerLookupFailed') });
   if (!data || typeof data.isOwner !== 'boolean') return 'unknown';
   return data.isOwner ? 'owner' : 'co-teacher';
 }

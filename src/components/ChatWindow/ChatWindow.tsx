@@ -3,6 +3,7 @@ import { makeStyles, createStyles, Theme } from '@material-ui/core/styles';
 import ChatWindowHeader from './ChatWindowHeader/ChatWindowHeader';
 import ChatInput from './ChatInput/ChatInput';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import MessageList from './MessageList/MessageList';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
 import { featureFlags } from '../../utils/featureFlags';
@@ -65,6 +66,7 @@ export default function ChatWindow(props: ChatWindowProps = {}) {
 
 export function BaseChatWindow({ embedded = false, isVisible = true }: ChatWindowProps = {}) {
   const classes = useStyles();
+  const { t } = useTranslation('chat');
   const { isChatWindowOpen, setIsChatWindowOpen, messages, conversation } = useChatContext();
   const isConversationsDisabled = featureFlags.isConversationsDisabled();
   const isUnavailable = isConversationsDisabled || !conversation;
@@ -79,9 +81,7 @@ export function BaseChatWindow({ embedded = false, isVisible = true }: ChatWindo
     return () => setIsChatWindowOpen(false);
   }, [embedded, isVisible, setIsChatWindowOpen]);
 
-  const unavailableMessage = isConversationsDisabled
-    ? 'El chat no está disponible en esta sesión.'
-    : 'Conectando chat...';
+  const unavailableMessage = isConversationsDisabled ? t('unavailable') : t('connecting');
 
   return (
     <aside

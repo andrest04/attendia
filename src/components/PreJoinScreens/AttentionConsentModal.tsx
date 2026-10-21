@@ -10,6 +10,7 @@ import {
   Theme,
 } from '@material-ui/core';
 import SecurityIcon from '@material-ui/icons/Security';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles((theme: Theme) => ({
   title: {
@@ -104,6 +105,7 @@ interface AttentionConsentModalProps {
 
 export default function AttentionConsentModal({ open, onAccept, onDecline }: AttentionConsentModalProps) {
   const classes = useStyles();
+  const { t } = useTranslation('prejoin');
 
   // The consent modal is a hard gate: students must explicitly accept or go back.
   // Swallow backdrop clicks instead of using the deprecated `disableBackdropClick`
@@ -117,55 +119,51 @@ export default function AttentionConsentModal({ open, onAccept, onDecline }: Att
       <DialogTitle disableTypography>
         <span className={classes.title}>
           <SecurityIcon style={{ fontSize: 20, color: '#1d6eed', flexShrink: 0 }} />
-          Análisis de atención en clase
+          {t('consent.title')}
         </span>
       </DialogTitle>
 
       <DialogContent className={classes.content}>
-        <Typography className={classes.bodyText}>
-          Esta sesión utiliza análisis de atención basado en visión por computadora. Antes de unirte, necesitamos tu
-          consentimiento explícito.
-        </Typography>
+        <Typography className={classes.bodyText}>{t('consent.intro')}</Typography>
 
         <div className={classes.infoBox}>
-          <span className={classes.infoBoxTitle}>¿Qué analiza el sistema?</span>
+          <span className={classes.infoBoxTitle}>{t('consent.whatTitle')}</span>
           <ul className={classes.list}>
-            <li>Detección de mirada (ojos) y orientación de la cabeza</li>
-            <li>Generación de un índice numérico de atención (0–100)</li>
+            <li>{t('consent.whatGaze')}</li>
+            <li>{t('consent.whatIndex')}</li>
           </ul>
         </div>
 
         <div className={classes.infoBox}>
-          <span className={classes.infoBoxTitle}>¿Cómo se protegen tus datos?</span>
+          <span className={classes.infoBoxTitle}>{t('consent.protectTitle')}</span>
           <ul className={classes.list}>
             <li>
-              Todo el procesamiento ocurre <strong>en tu dispositivo</strong> (on-device)
+              {t('consent.protectBefore')}
+              <strong>{t('consent.protectStrong')}</strong>
+              {t('consent.protectAfter')}
             </li>
-            <li>Ninguna imagen ni video sale de tu equipo</li>
-            <li>Solo se transmiten índices numéricos de atención al docente</li>
-            <li>Los datos son para uso pedagógico exclusivamente</li>
+            <li>{t('consent.protectNoImages')}</li>
+            <li>{t('consent.protectOnlyIndices')}</li>
+            <li>{t('consent.protectPedagogical')}</li>
           </ul>
         </div>
 
         <Typography className={classes.bodyText}>
-          Puedes consultar nuestra{' '}
+          {t('consent.policyIntro')}{' '}
           <a href="/security" className={classes.privacyLink} target="_blank" rel="noopener noreferrer">
-            Política de privacidad →
+            {t('consent.policyLink')}
           </a>
         </Typography>
 
-        <Typography className={classes.alternativeNote}>
-          Si prefieres no participar en el análisis automatizado, existe una alternativa presencial. Consulta a tu
-          docente antes de unirte.
-        </Typography>
+        <Typography className={classes.alternativeNote}>{t('consent.alternative')}</Typography>
       </DialogContent>
 
       <DialogActions className={classes.actions}>
         <Button variant="outlined" color="primary" onClick={onDecline} data-cy-consent-decline>
-          Volver
+          {t('consent.back')}
         </Button>
         <Button className={classes.acceptButton} onClick={onAccept} data-cy-consent-accept>
-          Aceptar y unirme
+          {t('consent.accept')}
         </Button>
       </DialogActions>
     </Dialog>

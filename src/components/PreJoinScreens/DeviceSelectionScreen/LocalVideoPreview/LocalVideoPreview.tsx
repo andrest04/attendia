@@ -6,6 +6,7 @@ import VideoTrack from '../../../VideoTrack/VideoTrack';
 import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
 import { selectCameraTrack } from '../../../../utils/trackSelectors';
 import { stripTeacherSuffix } from '../../../../classSession/classSessionTypes';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // Outer card: browser-window chrome + video area
@@ -140,6 +141,7 @@ function getInitials(identity: string): string {
 
 export default function LocalVideoPreview({ identity, children }: { identity: string; children?: React.ReactNode }) {
   const classes = useStyles();
+  const { t } = useTranslation('prejoin');
   const { localTracks } = useVideoContext();
 
   const videoTrack = selectCameraTrack(localTracks) as LocalVideoTrack;
@@ -154,7 +156,7 @@ export default function LocalVideoPreview({ identity, children }: { identity: st
         <div className={classes.trafficDot} style={{ backgroundColor: '#ef4444' }} />
         <div className={classes.trafficDot} style={{ backgroundColor: '#ffb800' }} />
         <div className={classes.trafficDot} style={{ backgroundColor: '#10b981' }} />
-        <span className={classes.titleBarLabel}>Twilio Video · Vista previa</span>
+        <span className={classes.titleBarLabel}>{t('device.preview.title')}</span>
       </div>
 
       {/* Video / avatar area */}
@@ -169,7 +171,7 @@ export default function LocalVideoPreview({ identity, children }: { identity: st
               </div>
               <div className={classes.cameraChip}>
                 <div className={classes.cameraChipDot} />
-                <span className={classes.cameraChipLabel}>Cámara apagada</span>
+                <span className={classes.cameraChipLabel}>{t('device.preview.cameraOff')}</span>
               </div>
             </div>
           )}

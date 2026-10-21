@@ -136,7 +136,7 @@ describe('the MainParticipantInfo component', () => {
     expect(wrapper.text()).not.toContain('mockIdentity (Yo)');
   });
 
-  it('should add "- Screen" to the participants identity when they are screen sharing', () => {
+  it('should add "- Pantalla" to the participants identity when they are screen sharing', () => {
     mockUsePublications.mockImplementationOnce(() => [
       { trackName: 'screen', kind: 'video' },
       { trackName: '', kind: 'video' },
@@ -144,7 +144,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.text()).toContain('mockIdentity - Screen');
+    expect(wrapper.text()).toContain('mockIdentity - Pantalla');
   });
 
   it('should not render the recording indicator when isRecording is false', () => {
@@ -152,7 +152,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.text()).not.toContain('Recording');
+    expect(wrapper.text()).not.toContain('Grabando');
   });
 
   it('should render the recording indicator when isRecording is true', () => {
@@ -160,7 +160,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.text()).toContain('Recording');
+    expect(wrapper.text()).toContain('Grabando');
   });
 
   it('renders a raised-hand badge when the main participant is raising their hand', () => {

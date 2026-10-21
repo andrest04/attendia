@@ -6,6 +6,7 @@ import FileAttachmentIcon from '../../../icons/FileAttachmentIcon';
 import { isMobile } from '../../../utils';
 import Snackbar from '../../Snackbar/Snackbar';
 import TextareaAutosize from '@material-ui/core/TextareaAutosize';
+import { useTranslation } from 'react-i18next';
 
 // Send arrow icon (paper-plane style, matching Figma)
 function SendIcon() {
@@ -116,9 +117,10 @@ const ALLOWED_FILE_TYPES =
 
 export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputProps) {
   const classes = useStyles();
+  const { t } = useTranslation('chat');
   const [messageBody, setMessageBody] = useState('');
   const [isSendingFile, setIsSendingFile] = useState(false);
-  const [fileSendError, setFileSendError] = useState<string | null>(null);
+  const [fileSendError, setFileSendError] = useState<'tooLarge' | 'generic' | null>(null);
   const isValidMessage = /\S/.test(messageBody);
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -159,9 +161,9 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
         .sendMessage(formData)
         .catch((e: Error) => {
           if (e.code === 413) {
-            setFileSendError('File size is too large. Maximum file size is 150MB.');
+            setFileSendError('tooLarge');
           } else {
-            setFileSendError('There was a problem uploading the file. Please try again.');
+            setFileSendError('generic');
           }
           console.log('Problem sending file: ', e);
         })
@@ -175,8 +177,8 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
     <div className={classes.chatInputContainer}>
       <Snackbar
         open={Boolean(fileSendError)}
-        headline="Error"
-        message={fileSendError || ''}
+        headline={t('error')}
+        message={fileSendError ? t(`fileError.${fileSendError}`) : ''}
         variant="error"
         handleClose={() => setFileSendError(null)}
       />
@@ -191,8 +193,8 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
             minRows={1}
             maxRows={3}
             className={classes.textArea}
-            aria-label="chat input"
-            placeholder="Escribe un mensaje..."
+            aria-label={t('inputLabel')}
+            placeholder={t('placeholder')}
             onKeyPress={handleReturnKeyPress}
             onChange={handleChange}
             value={messageBody}

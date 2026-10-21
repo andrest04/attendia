@@ -2,6 +2,7 @@ import React from 'react';
 import Video from 'twilio-video';
 import { Container, Link, Typography, Paper, Grid } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles({
   container: {
@@ -17,6 +18,7 @@ const useStyles = makeStyles({
 
 export default function UnsupportedBrowserWarning({ children }: { children: React.ReactElement }) {
   const classes = useStyles();
+  const { t } = useTranslation('misc');
 
   if (!Video.isSupported) {
     return (
@@ -25,28 +27,28 @@ export default function UnsupportedBrowserWarning({ children }: { children: Reac
           <Grid item xs={12} sm={6}>
             <Paper className={classes.paper}>
               <Typography variant="h4" className={classes.heading}>
-                Browser or context not supported
+                {t('unsupportedBrowser.title')}
               </Typography>
               <Typography>
-                Please open this application in one of the{' '}
+                {t('unsupportedBrowser.openIn')}{' '}
                 <Link
                   href="https://www.twilio.com/docs/video/javascript#supported-browsers"
                   target="_blank"
                   rel="noopener"
                 >
-                  supported browsers
+                  {t('unsupportedBrowser.supportedBrowsers')}
                 </Link>
-                .
+                {t('unsupportedBrowser.afterLink')}
                 <br />
-                If you are using a supported browser, please ensure that this app is served over a{' '}
+                {t('unsupportedBrowser.secureIntro')}{' '}
                 <Link
                   href="https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts"
                   target="_blank"
                   rel="noopener"
                 >
-                  secure context
+                  {t('unsupportedBrowser.secureContext')}
                 </Link>{' '}
-                (e.g. https or localhost).
+                {t('unsupportedBrowser.secureExample')}
               </Typography>
             </Paper>
           </Grid>

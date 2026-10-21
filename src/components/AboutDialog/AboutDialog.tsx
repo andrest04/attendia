@@ -6,6 +6,7 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import Divider from '@material-ui/core/Divider';
+import { useTranslation } from 'react-i18next';
 import packageJSON from '../../../package.json';
 
 import Video from 'twilio-video';
@@ -18,17 +19,32 @@ interface AboutDialogProps {
 
 function AboutDialog({ open, onClose }: PropsWithChildren<AboutDialogProps>) {
   const { roomType } = useAppState();
+  const { t } = useTranslation('misc');
   return (
     <Dialog open={open} onClose={onClose} fullWidth={true} maxWidth="xs">
-      <DialogTitle>Acerca de</DialogTitle>
+      <DialogTitle>{t('about.title')}</DialogTitle>
       <Divider />
       <DialogContent>
-        <DialogContentText>Navegador compatible: {String(Video.isSupported)}</DialogContentText>
-        <DialogContentText>Versión del SDK: {Video.version}</DialogContentText>
-        <DialogContentText>Versión de la app: {packageJSON.version}</DialogContentText>
-        <DialogContentText>Tag desplegado: {process.env.REACT_APP_GIT_TAG || 'N/A'}</DialogContentText>
-        <DialogContentText>Hash del commit desplegado: {process.env.REACT_APP_GIT_COMMIT || 'N/A'}</DialogContentText>
-        {roomType && <DialogContentText>Tipo de sala: {roomType}</DialogContentText>}
+        <DialogContentText>
+          {t('about.supportedBrowser')}: {String(Video.isSupported)}
+        </DialogContentText>
+        <DialogContentText>
+          {t('about.sdkVersion')}: {Video.version}
+        </DialogContentText>
+        <DialogContentText>
+          {t('about.appVersion')}: {packageJSON.version}
+        </DialogContentText>
+        <DialogContentText>
+          {t('about.deployedTag')}: {process.env.REACT_APP_GIT_TAG || 'N/A'}
+        </DialogContentText>
+        <DialogContentText>
+          {t('about.deployedCommit')}: {process.env.REACT_APP_GIT_COMMIT || 'N/A'}
+        </DialogContentText>
+        {roomType && (
+          <DialogContentText>
+            {t('about.roomType')}: {roomType}
+          </DialogContentText>
+        )}
       </DialogContent>
       <Divider />
       <DialogActions>
