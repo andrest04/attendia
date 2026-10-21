@@ -17,7 +17,7 @@ Allowed: `src/hooks/useClassDataChannel/classProtocol.ts`, `src/hooks/useModerat
 
 ## Tasks
 - [x] T1 Camera protocol: `mute-video` (forced off, same path as `ToggleVideoButton`) + `request-video` (suggestion); generalize `UnmuteRequestPrompt` to mic|camera; student toast "El profesor apagó tu cámara".
-- [ ] T2 Kebab: add "Apagar cámara" / "Sugerir cámara" to the roster menu and put the same menu (items as data) on the student's video tile, teacher-only.
+- [x] T2 Kebab: add "Apagar cámara" / "Sugerir cámara" to the roster menu and put the same menu (items as data) on the student's video tile, teacher-only.
 - [ ] T3 Hierarchy: pure rule `canModerate(actorRole, targetIsTeacher)` in classProtocol; owner sees kebab on other teachers' rows; co-teacher only on students.
 - [ ] T4 (optional, later) mute-all, ordered hand queue, spotlight, persist screen-share grants.
 
@@ -26,6 +26,8 @@ Tests first (RED→GREEN) for each pure rule and hook; Spanish copy for in-room 
 
 ## Route log
 - T1: delegated writer (trigger: 2+ non-trivial files). Commit: 802df6f.
+- T2: delegated writer (trigger: 2+ non-trivial files, tile plumbing across 5 components).
 
 ## Progress / evidence
 - T1 done: RED (10 failing new tests) then GREEN; 6 suites / 102 tests pass; tsc --noEmit and npm run lint clean; prettier check clean. Camera-off reuses useLocalVideoToggle inside useModeration; accept enables the camera only from the prompt click.
+- T2 done: RED (new suites failed on missing modules) then GREEN; 27 suites / 287 tests pass in Room, GalleryView, ParticipantInfo, Participant; tsc, lint and prettier clean. Items are data (`buildStudentModerationItems`), shared by the roster row and the tile leaf `TileModerationMenu` (reuses `OverflowMenu`); Room provides `ModerationActionsContext` to teachers only and GalleryView passes it to remote non-teacher tiles.

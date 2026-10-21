@@ -4,6 +4,8 @@ import { shallow } from 'enzyme';
 import useGalleryViewLayout from '../../hooks/useGalleryViewLayout/useGalleryViewLayout';
 import { useAppState } from '../../state';
 import { usePagination } from './usePagination/usePagination';
+import { Participant } from '../Participant/Participant';
+import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 
 const mockLocalParticipant = { identity: 'test-local-participant', sid: 0 };
 const mockParticipants = [
@@ -45,11 +47,15 @@ jest.mock('./usePagination/usePagination', () => ({
 }));
 
 jest.mock('../../state');
+jest.mock('../Room/ModerationMenu/moderationActionsContext', () => ({
+  useModerationActions: jest.fn(() => null),
+}));
 
 const mockUsePagination = usePagination as jest.Mock<any>;
 const mockUseAppState = useAppState as jest.Mock<any>;
 
 mockUseAppState.mockImplementation(() => ({ maxGalleryViewParticipants: 9 }));
+const mockUseModerationActions = useModerationActions as jest.Mock<any>;
 
 describe('the GalleryView component', () => {
   it('should render correctly', () => {
@@ -122,5 +128,47 @@ describe('the GalleryView component', () => {
 
     const wrapper = shallow(<GalleryView />);
     expect(wrapper.find('.makeStyles-pagination-8').exists()).toBe(false);
+  });
+
+  describe('student tile moderation kebab', () => {
+    const handlers = { onMuteVideo: jest.fn() };
+    const originalIdentity = mockLocalParticipant.identity;
+    const moderationByIdentity = () => {
+      const wrapper = shallow(<GalleryView />);
+      const result: Record<string, any> = {};
+      wrapper.find(Participant).forEach(tile => {
+        result[(tile.prop('participant') as any).identity] = tile.prop('moderation');
+      });
+      return result;
+    };
+
+    afterEach(() => {
+      mockLocalParticipant.identity = originalIdentity;
+      mockUseModerationActions.mockReturnValue(null);
+    });
+
+    it('gives a teacher the handlers on remote student tiles only', () => {
+      mockLocalParticipant.identity = 'Profe [Profesor]';
+      mockUseModerationActions.mockReturnValue(handlers);
+      const result = moderationByIdentity();
+      expect(result['test-participant-1']).toBe(handlers);
+      expect(result['Profe [Profesor]']).toBeUndefined();
+    });
+
+    it('never offers the menu on another teacher tile', () => {
+      mockLocalParticipant.identity = 'Profe [Profesor]';
+      mockUseModerationActions.mockReturnValue(handlers);
+      mockParticipants[0].identity = 'Otra [Profesor]';
+      try {
+        expect(moderationByIdentity()['Otra [Profesor]']).toBeUndefined();
+      } finally {
+        mockParticipants[0].identity = 'test-participant-1';
+      }
+    });
+
+    it('never offers the menu to a student viewer', () => {
+      mockUseModerationActions.mockReturnValue(handlers);
+      expect(moderationByIdentity()['test-participant-1']).toBeUndefined();
+    });
   });
 });

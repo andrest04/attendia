@@ -23,6 +23,7 @@ import { useRoomLayout } from './roomLayout';
 import useShellNotifications from './StudentRoomShell/useShellNotifications';
 import useNotificationToasts from '../../hooks/useNotificationToasts/useNotificationToasts';
 import useRaiseHand from '../../hooks/useRaiseHand/useRaiseHand';
+import { ModerationActionsContext } from './ModerationMenu/moderationActionsContext';
 import useModeration from '../../hooks/useModeration/useModeration';
 import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctoringWarnings';
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
@@ -128,6 +129,8 @@ export default function Room() {
     muteParticipant,
     mutedByProfessorCount,
     requestUnmute,
+    muteVideo,
+    requestVideo,
     unmuteRequestPending,
     acceptUnmuteRequest,
     dismissUnmuteRequest,
@@ -215,6 +218,18 @@ export default function Room() {
     </div>
   );
 
+  // Only a teacher gets moderation actions; the gallery tiles read them to show the kebab.
+  const moderationActions = isTeacher
+    ? {
+        onMuteParticipant: muteParticipant,
+        onRequestUnmute: requestUnmute,
+        onMuteVideo: muteVideo,
+        onRequestVideo: requestVideo,
+        onSetScreenShareGrant: grantScreenShare,
+        screenShareGrants,
+      }
+    : null;
+
   const role: RoomShellRole = isTeacher ? 'teacher' : 'student';
   const shellContext: RoomShellContext = {
     stage: isGalleryViewActive ? <GalleryView /> : speakerViewStage,
@@ -228,7 +243,15 @@ export default function Room() {
     localIdentity: room?.localParticipant?.identity || '',
     layout,
     hands: { raisedHands, isHandRaised, setHandRaised, grantTurn },
-    moderation: { muteParticipant, requestUnmute, grantScreenShare, screenShareGrants, sendWarning },
+    moderation: {
+      muteParticipant,
+      requestUnmute,
+      muteVideo,
+      requestVideo,
+      grantScreenShare,
+      screenShareGrants,
+      sendWarning,
+    },
     proctoring: { enabled: proctoringEnabled, setEnabled: setProctoringEnabled },
     notifications,
     sessionEnd: { endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher },
@@ -244,49 +267,51 @@ export default function Room() {
       })}
     >
       <RaisedHandsContext.Provider value={raisedHandIdentities}>
-        <OnboardingContext.Provider value={onboardingValue}>
-          {/*
+        <ModerationActionsContext.Provider value={moderationActions}>
+          <OnboardingContext.Provider value={onboardingValue}>
+            {/*
         This ParticipantAudioTracks component will render the audio track for all participants in the room.
         It is in a separate component so that the audio tracks will always be rendered, and that they will never be
         unnecessarily unmounted/mounted as the user switches between Gallery View and speaker View.
       */}
-          <ParticipantAudioTracks />
+            <ParticipantAudioTracks />
 
-          {isMobile ? (
-            isGalleryViewActive ? (
-              <MobileGalleryView />
+            {isMobile ? (
+              isGalleryViewActive ? (
+                <MobileGalleryView />
+              ) : (
+                <>
+                  <MainParticipant />
+                  <ParticipantList />
+                </>
+              )
             ) : (
-              <>
-                <MainParticipant />
-                <ParticipantList />
-              </>
-            )
-          ) : (
-            roomShellFactory[role](shellContext)
-          )}
+              roomShellFactory[role](shellContext)
+            )}
 
-          {/* Students only: the professor's "turn your mic on" request; the click enables the mic. */}
-          {!isTeacher && (
-            <UnmuteRequestPrompt
-              open={unmuteRequestPending}
-              onAccept={acceptUnmuteRequest}
-              onDismiss={dismissUnmuteRequest}
-            />
-          )}
-          {!isTeacher && (
-            <UnmuteRequestPrompt
-              kind="camera"
-              open={cameraRequestPending}
-              onAccept={acceptCameraRequest}
-              onDismiss={dismissCameraRequest}
-            />
-          )}
-          {!isDesktopShell && <ChatWindow />}
-          <BackgroundSelectionDialog />
-          {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}
-          {isDesktopShell && <OnboardingTutorial openSignal={onboardingSignal} />}
-          <TranscriptionsOverlay />
-        </OnboardingContext.Provider>
+            {/* Students only: the professor's "turn your mic on" request; the click enables the mic. */}
+            {!isTeacher && (
+              <UnmuteRequestPrompt
+                open={unmuteRequestPending}
+                onAccept={acceptUnmuteRequest}
+                onDismiss={dismissUnmuteRequest}
+              />
+            )}
+            {!isTeacher && (
+              <UnmuteRequestPrompt
+                kind="camera"
+                open={cameraRequestPending}
+                onAccept={acceptCameraRequest}
+                onDismiss={dismissCameraRequest}
+              />
+            )}
+            {!isDesktopShell && <ChatWindow />}
+            <BackgroundSelectionDialog />
+            {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}
+            {isDesktopShell && <OnboardingTutorial openSignal={onboardingSignal} />}
+            <TranscriptionsOverlay />
+          </OnboardingContext.Provider>
+        </ModerationActionsContext.Provider>
       </RaisedHandsContext.Provider>
     </div>
   );

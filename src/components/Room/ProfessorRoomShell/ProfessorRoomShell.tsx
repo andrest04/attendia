@@ -52,6 +52,10 @@ interface Props {
   onMuteParticipant?: (identity: string) => void;
   /** Professor action: ask the named student to turn their microphone on (roster kebab). */
   onRequestUnmute?: (identity: string) => void;
+  /** Professor action: force the named student's camera off (roster kebab). */
+  onMuteVideo?: (identity: string) => void;
+  /** Professor action: suggest the named student turn their camera on (roster kebab). */
+  onRequestVideo?: (identity: string) => void;
   /** Professor action: allow/revoke screen sharing for the named student (roster kebab). */
   onSetScreenShareGrant?: (identity: string, allowed: boolean) => void;
   /** Identities currently allowed to share their screen. */
@@ -95,6 +99,8 @@ export default function ProfessorRoomShell({
   onGrantTurn,
   onMuteParticipant,
   onRequestUnmute,
+  onMuteVideo,
+  onRequestVideo,
   onSetScreenShareGrant,
   screenShareGrants,
   onSendWarning,
@@ -215,6 +221,8 @@ export default function ProfessorRoomShell({
           onGrantTurn={onGrantTurn}
           onMuteParticipant={onMuteParticipant}
           onRequestUnmute={onRequestUnmute}
+          onMuteVideo={onMuteVideo}
+          onRequestVideo={onRequestVideo}
           onSetScreenShareGrant={onSetScreenShareGrant}
           screenShareGrants={screenShareGrants}
           notifications={notifications}

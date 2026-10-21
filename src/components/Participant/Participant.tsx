@@ -1,5 +1,6 @@
 import React from 'react';
 import ParticipantInfo, { ParticipantTileAttention } from '../ParticipantInfo/ParticipantInfo';
+import { StudentModerationHandlers } from '../Room/ModerationMenu/studentModerationItems';
 import ParticipantTracks from '../ParticipantTracks/ParticipantTracks';
 import { Participant as IParticipant } from 'twilio-video';
 
@@ -13,6 +14,7 @@ interface ParticipantProps {
   hideParticipant?: boolean;
   isDominantSpeaker?: boolean;
   attention?: ParticipantTileAttention;
+  moderation?: StudentModerationHandlers;
 }
 
 export function Participant({
@@ -25,6 +27,7 @@ export function Participant({
   hideParticipant,
   isDominantSpeaker,
   attention,
+  moderation,
 }: ParticipantProps) {
   return (
     <ParticipantInfo
@@ -35,6 +38,7 @@ export function Participant({
       hideParticipant={hideParticipant}
       isDominantSpeaker={isDominantSpeaker}
       attention={attention}
+      moderation={moderation}
     >
       <ParticipantTracks
         participant={participant}

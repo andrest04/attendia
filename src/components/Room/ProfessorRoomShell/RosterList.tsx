@@ -2,14 +2,12 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
-import MicOffIcon from '@material-ui/icons/MicOff';
-import MicIcon from '@material-ui/icons/Mic';
-import ScreenShareIcon from '@material-ui/icons/ScreenShare';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import RoleBadge from '../../RoleBadge/RoleBadge';
 import { ParticipantAttention } from '../../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
 import { classifyAttention } from '../../AttentionProvider/presence';
+import { buildStudentModerationItems, StudentModerationHandlers } from '../ModerationMenu/studentModerationItems';
 import { getInitials, presenceView } from './professorShellHelpers';
 import { attentionStatusColors } from '../../../theme';
 
@@ -142,14 +140,8 @@ interface RosterListProps {
   participants: Array<{ identity: string; isLocal?: boolean }>;
   /** Attention decoration keyed by identity; identities absent from the map render no badge. */
   attentionByIdentity: Map<string, ParticipantAttention>;
-  /** When provided, students (never the professor) get a moderation kebab with "Silenciar". */
-  onMuteParticipant?: (identity: string) => void;
-  /** When provided, the kebab also offers "Pedir activar micrófono". */
-  onRequestUnmute?: (identity: string) => void;
-  /** When provided, the kebab also offers to allow/revoke screen sharing for the student. */
-  onSetScreenShareGrant?: (identity: string, allowed: boolean) => void;
-  /** Identities currently allowed to share their screen (professor-side state). */
-  screenShareGrants?: string[];
+  /** Students (never the professor) get a moderation kebab built from these handlers. */
+  moderation?: StudentModerationHandlers;
 }
 
 /**
@@ -190,14 +182,7 @@ function AttentionDecoration({
  * camera-off / no-measure / unsupported flag) and a per-student moderation kebab.
  * Pins the teacher to the top and owns only the open-menu state.
  */
-export default function RosterList({
-  participants,
-  attentionByIdentity,
-  onMuteParticipant,
-  onRequestUnmute,
-  onSetScreenShareGrant,
-  screenShareGrants = [],
-}: RosterListProps) {
+export default function RosterList({ participants, attentionByIdentity, moderation = {} }: RosterListProps) {
   const classes = useStyles();
 
   // Identity whose roster moderation (kebab) menu is currently open, or null.
@@ -212,6 +197,9 @@ export default function RosterList({
     <div data-testid="professor-room-shell-roster">
       {orderedParticipants.map(participant => {
         const attention = attentionByIdentity.get(participant.identity);
+        const menuItems = isTeacherIdentity(participant.identity)
+          ? []
+          : buildStudentModerationItems(participant.identity, moderation, 'professor-room-shell-roster');
         return (
           <div key={participant.identity} className={classes.rosterRow}>
             <div
@@ -238,7 +226,7 @@ export default function RosterList({
             )}
             {attention && <AttentionDecoration attention={attention} classes={classes} />}
             {/* Moderation kebab — students only (never the professor's own row). */}
-            {onMuteParticipant && !isTeacherIdentity(participant.identity) && (
+            {menuItems.length > 0 && (
               <div className={classes.rosterMenuWrap}>
                 <button
                   type="button"
@@ -257,52 +245,21 @@ export default function RosterList({
                   <>
                     <div className={classes.rosterMenuBackdrop} onClick={() => setOpenMenuIdentity(null)} />
                     <div className={classes.rosterMenu} data-testid="professor-room-shell-roster-menu" role="menu">
-                      <button
-                        type="button"
-                        className={classes.rosterMenuItem}
-                        data-testid="professor-room-shell-roster-mute"
-                        role="menuitem"
-                        onClick={() => {
-                          onMuteParticipant(participant.identity);
-                          setOpenMenuIdentity(null);
-                        }}
-                      >
-                        <MicOffIcon style={{ fontSize: 16 }} /> Silenciar
-                      </button>
-                      {onRequestUnmute && (
+                      {menuItems.map(item => (
                         <button
+                          key={item.testId}
                           type="button"
                           className={classes.rosterMenuItem}
-                          data-testid="professor-room-shell-roster-request-unmute"
+                          data-testid={item.testId}
                           role="menuitem"
                           onClick={() => {
-                            onRequestUnmute(participant.identity);
+                            item.onSelect();
                             setOpenMenuIdentity(null);
                           }}
                         >
-                          <MicIcon style={{ fontSize: 16 }} /> Pedir activar micrófono
+                          {item.icon} {item.label}
                         </button>
-                      )}
-                      {onSetScreenShareGrant && (
-                        <button
-                          type="button"
-                          className={classes.rosterMenuItem}
-                          data-testid="professor-room-shell-roster-screenshare"
-                          role="menuitem"
-                          onClick={() => {
-                            onSetScreenShareGrant(
-                              participant.identity,
-                              !screenShareGrants.includes(participant.identity)
-                            );
-                            setOpenMenuIdentity(null);
-                          }}
-                        >
-                          <ScreenShareIcon style={{ fontSize: 16 }} />{' '}
-                          {screenShareGrants.includes(participant.identity)
-                            ? 'Quitar permiso de pantalla'
-                            : 'Permitir compartir pantalla'}
-                        </button>
-                      )}
+                      ))}
                     </div>
                   </>
                 )}
