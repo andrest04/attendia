@@ -1,4 +1,7 @@
+import roomUi from './roomUi.es';
+
 const es = {
+  ...roomUi,
   common: {
     language: {
       label: 'Idioma',

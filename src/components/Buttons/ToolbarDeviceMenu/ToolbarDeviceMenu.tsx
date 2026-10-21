@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { Button, createStyles, makeStyles, Theme } from '@material-ui/core';
 import KeyboardArrowUpIcon from '@material-ui/icons/KeyboardArrowUp';
 import CheckIcon from '@material-ui/icons/Check';
@@ -127,7 +128,7 @@ interface DeviceOption {
 }
 
 interface DeviceGroup {
-  /** Section heading, e.g. "Micrófono". */
+  /** Section heading, e.g. "Microphone". */
   title: string;
   devices: DeviceOption[];
   activeDeviceId?: string;
@@ -144,6 +145,7 @@ interface ToolbarDeviceMenuProps {
 }
 
 export default function ToolbarDeviceMenu({ kind, disabled, ...rest }: ToolbarDeviceMenuProps) {
+  const { t } = useTranslation('toolbar');
   const classes = useStyles();
   const { localTracks } = useVideoContext();
   const { audioInputDevices, videoInputDevices, audioOutputDevices } = useDevices();
@@ -173,33 +175,33 @@ export default function ToolbarDeviceMenu({ kind, disabled, ...rest }: ToolbarDe
     kind === 'audio'
       ? [
           {
-            title: 'Micrófono',
+            title: t('deviceMenu.microphone'),
             devices: audioInputDevices,
             activeDeviceId:
               localAudioTrack?.noiseCancellation?.sourceTrack?.getSettings().deviceId ||
               audioStreamTrack?.getSettings().deviceId,
             onSelect: selectAudioInput,
-            fallbackLabel: 'Micrófono del sistema',
+            fallbackLabel: t('deviceMenu.systemMicrophone'),
           },
           {
-            title: 'Parlante',
+            title: t('deviceMenu.speaker'),
             devices: audioOutputDevices,
             activeDeviceId: activeSinkId,
             onSelect: setActiveSinkId,
-            fallbackLabel: 'Salida de audio del sistema',
+            fallbackLabel: t('deviceMenu.systemAudioOutput'),
           },
         ]
       : [
           {
-            title: 'Cámara',
+            title: t('deviceMenu.camera'),
             devices: videoInputDevices,
             activeDeviceId: videoStreamTrack?.getSettings().deviceId,
             onSelect: selectVideoInput,
-            fallbackLabel: 'Cámara del sistema',
+            fallbackLabel: t('deviceMenu.systemCamera'),
           },
         ];
 
-  const ariaLabel = kind === 'audio' ? 'Elegir micrófono o parlante' : 'Elegir cámara';
+  const ariaLabel = kind === 'audio' ? t('deviceMenu.chooseAudio') : t('deviceMenu.chooseCamera');
 
   return (
     <div className={classes.wrap}>

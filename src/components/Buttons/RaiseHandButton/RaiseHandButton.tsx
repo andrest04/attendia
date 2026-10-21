@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import PanToolIcon from '@material-ui/icons/PanTool';
 import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
@@ -26,6 +27,7 @@ export default function RaiseHandButton({
   iconOnly,
   plain,
 }: RaiseHandButtonProps = {}) {
+  const { t } = useTranslation('toolbar');
   const [uncontrolledHandRaised, setUncontrolledHandRaised] = useState(false);
   const handRaised = controlledHandRaised ?? uncontrolledHandRaised;
   const classes = useToolbarButtonStyles();
@@ -43,12 +45,12 @@ export default function RaiseHandButton({
     <Button
       onClick={toggle}
       startIcon={<PanToolIcon />}
-      aria-label={handRaised ? 'Bajar la mano' : 'Levantar la mano'}
+      aria-label={handRaised ? t('raiseHand.lowerAria') : t('raiseHand.raiseAria')}
       aria-pressed={handRaised}
       data-testid="raise-hand-button"
       className={toolbarButtonClass(classes, { active: handRaised, plain, className })}
     >
-      {iconOnly ? null : handRaised ? 'Bajar mano' : 'Levantar mano'}
+      {iconOnly ? null : handRaised ? t('raiseHand.lower') : t('raiseHand.raise')}
     </Button>
   );
 }

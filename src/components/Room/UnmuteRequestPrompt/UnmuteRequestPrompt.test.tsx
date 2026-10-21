@@ -1,8 +1,9 @@
 import React from 'react';
+import i18n from '../../../i18n/testInit';
 import { shallow } from 'enzyme';
 import Button from '@material-ui/core/Button';
 import Snackbar from '@material-ui/core/Snackbar';
-import UnmuteRequestPrompt, { UNMUTE_REQUEST_TEXT, CAMERA_REQUEST_TEXT } from './UnmuteRequestPrompt';
+import UnmuteRequestPrompt, { UNMUTE_REQUEST_KEY, CAMERA_REQUEST_KEY } from './UnmuteRequestPrompt';
 
 describe('UnmuteRequestPrompt', () => {
   it('stays closed without a pending request', () => {
@@ -15,8 +16,8 @@ describe('UnmuteRequestPrompt', () => {
     const wrapper = shallow(<UnmuteRequestPrompt open onAccept={onAccept} onDismiss={jest.fn()} />);
     const snackbar = wrapper.find(Snackbar);
     expect(snackbar.prop('open')).toBe(true);
-    expect(snackbar.prop('message')).toBe(UNMUTE_REQUEST_TEXT);
-    expect(UNMUTE_REQUEST_TEXT).toBe('El profesor te pide activar tu micrófono');
+    expect(snackbar.prop('message')).toBe(i18n.t(UNMUTE_REQUEST_KEY));
+    expect(i18n.t(UNMUTE_REQUEST_KEY)).toBe('El profesor te pide activar tu micrófono');
 
     const action = shallow(<div>{snackbar.prop('action') as React.ReactNode}</div>);
     const activate = action.find(Button).filterWhere(b => b.children().text() === 'Activar');
@@ -44,8 +45,8 @@ describe('UnmuteRequestPrompt', () => {
       const onDismiss = jest.fn();
       const wrapper = shallow(<UnmuteRequestPrompt kind="camera" open onAccept={onAccept} onDismiss={onDismiss} />);
       const snackbar = wrapper.find(Snackbar);
-      expect(snackbar.prop('message')).toBe(CAMERA_REQUEST_TEXT);
-      expect(CAMERA_REQUEST_TEXT).toBe('El profesor te sugiere encender tu cámara');
+      expect(snackbar.prop('message')).toBe(i18n.t(CAMERA_REQUEST_KEY));
+      expect(i18n.t(CAMERA_REQUEST_KEY)).toBe('El profesor te sugiere encender tu cámara');
       expect(snackbar.prop('data-testid')).toBe('camera-request-prompt');
 
       const action = shallow(<div>{snackbar.prop('action') as React.ReactNode}</div>);

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
@@ -157,11 +158,12 @@ function AttentionDecoration({
   attention: ParticipantAttention;
   classes: ReturnType<typeof useStyles>;
 }) {
+  const { t } = useTranslation('room');
   const presence = classifyAttention(attention);
   if (presence !== 'measured') {
-    const { Icon, label, rosterTestId } = presenceView[presence];
+    const { Icon, labelKey, rosterTestId } = presenceView[presence];
     return (
-      <span className={classes.cameraOffFlag} data-testid={rosterTestId} title={label}>
+      <span className={classes.cameraOffFlag} data-testid={rosterTestId} title={t(labelKey)}>
         <Icon fontSize="inherit" />
       </span>
     );
@@ -173,7 +175,7 @@ function AttentionDecoration({
       data-testid="professor-room-shell-attention-badge"
       style={{ backgroundColor: level.badgeBg, color: level.badgeText }}
     >
-      {level.label}
+      {t(`level.${attention.level}`)}
     </span>
   );
 }
@@ -184,6 +186,7 @@ function AttentionDecoration({
  * Pins the teacher to the top and owns only the open-menu state.
  */
 export default function RosterList({ participants, attentionByIdentity, moderation = {} }: RosterListProps) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
   // Room provides the actor's role (owner / co-teacher) through the moderation context.
   const actorRole = useModerationActions()?.actorRole;
@@ -204,7 +207,8 @@ export default function RosterList({ participants, attentionByIdentity, moderati
           { identity: participant.identity, isLocal: Boolean(participant.isLocal) },
           moderation,
           'professor-room-shell-roster',
-          actorRole
+          actorRole,
+          t
         );
         return (
           <div key={participant.identity} className={classes.rosterRow}>
@@ -225,7 +229,7 @@ export default function RosterList({ participants, attentionByIdentity, moderati
               <span
                 className={classes.multifaceWarning}
                 data-testid="professor-room-shell-multiface-flag"
-                title="Múltiples rostros detectados"
+                title={t('roster.multiface')}
               >
                 ⚠
               </span>
@@ -238,7 +242,7 @@ export default function RosterList({ participants, attentionByIdentity, moderati
                   type="button"
                   className={classes.rosterMenuButton}
                   data-testid="professor-room-shell-roster-menu-button"
-                  aria-label={`Acciones para ${participant.identity}`}
+                  aria-label={t('roster.actionsFor', { name: participant.identity })}
                   aria-haspopup="true"
                   aria-expanded={openMenuIdentity === participant.identity}
                   onClick={() =>

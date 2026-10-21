@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@material-ui/core';
 import ExitToAppIcon from '@material-ui/icons/ExitToApp';
@@ -53,7 +54,7 @@ const useStyles = makeStyles((theme: Theme) =>
 
 interface EndCallButtonProps {
   className?: string;
-  /** Defaults to "Salir". The professor shell uses "Terminar sesión" to match the wireframe. */
+  /** Defaults to the localized "Leave". The professor shell passes its own "End session" label. */
   label?: string;
   startIcon?: React.ReactNode;
   /** Use the neutral dark surface instead of the navy surface (toolbar chip style). */
@@ -78,6 +79,7 @@ interface EndCallButtonProps {
 }
 
 export default function EndCallButton(props: EndCallButtonProps = {}) {
+  const { t } = useTranslation('toolbar');
   const classes = useStyles();
   const { room } = useVideoContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -118,10 +120,10 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
           { [classes.iconOnly]: props.iconOnly },
           props.className
         )}
-        aria-label={props.iconOnly ? props.label ?? 'Salir' : undefined}
+        aria-label={props.iconOnly ? props.label ?? t('endCall.leave') : undefined}
         data-cy-disconnect
       >
-        {props.iconOnly ? null : props.label ?? 'Salir'}
+        {props.iconOnly ? null : props.label ?? t('endCall.leave')}
       </Button>
 
       <Dialog
@@ -129,19 +131,16 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
         onClose={() => !props.isEnding && setIsDialogOpen(false)}
         data-testid="end-call-dialog"
       >
-        <DialogTitle>¿Terminar la sesión?</DialogTitle>
+        <DialogTitle>{t('endCall.dialogTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Puedes salir tú solo y dejar la clase abierta para que los estudiantes continúen, o terminar la sesión para
-            todos y cerrar la sala.
-          </DialogContentText>
+          <DialogContentText>{t('endCall.dialogBody')}</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsDialogOpen(false)} disabled={props.isEnding} data-testid="end-call-cancel">
-            Cancelar
+            {t('endCall.cancel')}
           </Button>
           <Button onClick={handleLeaveFromDialog} disabled={props.isEnding} data-testid="end-call-leave">
-            Salir sin cerrar
+            {t('endCall.leaveOnly')}
           </Button>
           <Button
             onClick={handleEndForAll}
@@ -149,7 +148,7 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
             className={classes.endForAll}
             data-testid="end-call-end-for-all"
           >
-            {props.isEnding ? 'Terminando…' : 'Terminar para todos'}
+            {props.isEnding ? t('endCall.ending') : t('endCall.endForAll')}
           </Button>
         </DialogActions>
       </Dialog>

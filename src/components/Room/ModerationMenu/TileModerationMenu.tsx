@@ -1,5 +1,6 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 import OverflowMenu from '../ToolbarParts/OverflowMenu';
 import { buildModerationItemsForTarget, StudentModerationHandlers } from './studentModerationItems';
 
@@ -29,9 +30,16 @@ interface TileModerationMenuProps {
 
 /** The three-dots moderation menu on a remote tile (teacher viewers only; items follow `canModerate`). */
 export default function TileModerationMenu({ identity, handlers }: TileModerationMenuProps) {
+  const { t } = useTranslation();
   const classes = useStyles();
   const testIdPrefix = `participant-moderation-${identity}`;
-  const items = buildModerationItemsForTarget({ identity, isLocal: false }, handlers, testIdPrefix);
+  const items = buildModerationItemsForTarget(
+    { identity, isLocal: false },
+    handlers,
+    testIdPrefix,
+    handlers.actorRole,
+    t
+  );
   if (items.length === 0) return null;
   return (
     <div className={classes.wrap} onClick={event => event.stopPropagation()}>

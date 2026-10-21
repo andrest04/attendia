@@ -2,8 +2,8 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import WarningIcon from '@material-ui/icons/Warning';
+import { useTranslation } from 'react-i18next';
 import { ProctoringAlert } from '../../AttentionProvider/types';
-import { PROCTORING_KINDS } from '../../AttentionProvider/proctoring';
 import { attentionStatusColors } from '../../../theme';
 import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { getInitials, proctoringKindIcon, proctoringKindMessage } from './professorShellHelpers';
@@ -199,6 +199,7 @@ export default function ProctoringAlertModal({
   onMarkLegitimate,
   onSendWarning,
 }: ProctoringAlertModalProps) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
   const KindIcon = proctoringKindIcon[alert.kind];
 
@@ -211,14 +212,14 @@ export default function ProctoringAlertModal({
               <KindIcon style={{ fontSize: 20, color: '#b45309' }} />
             </div>
             <div>
-              <div className={classes.modalTitle}>{PROCTORING_KINDS[alert.kind].label}</div>
-              <div className={classes.modalCaption}>Proctoring</div>
+              <div className={classes.modalTitle}>{t(`proctoring.kind.${alert.kind}`)}</div>
+              <div className={classes.modalCaption}>{t('proctoring.caption')}</div>
             </div>
           </div>
           <button
             type="button"
             className={classes.modalClose}
-            aria-label="Cerrar"
+            aria-label={t('proctoring.close')}
             onClick={onClose}
             data-testid="professor-proctoring-modal-close"
           >
@@ -231,14 +232,14 @@ export default function ProctoringAlertModal({
             <div className={classes.studentCardAvatar}>{getInitials(alert.identity)}</div>
             <div className={classes.studentCardInfo}>
               <div className={classes.studentCardName}>{stripTeacherSuffix(alert.identity)}</div>
-              <div className={classes.studentCardRole}>Estudiante · Sesión activa</div>
+              <div className={classes.studentCardRole}>{t('proctoring.studentCaption')}</div>
               <div className={classes.alertBox}>
                 <WarningIcon
                   className={classes.alertBoxIcon}
                   style={{ fontSize: 14, color: attentionStatusColors.medium }}
                 />
                 <span className={classes.alertBoxText}>
-                  {proctoringKindMessage(alert.kind, stripTeacherSuffix(alert.identity), alert.detectedAt)}
+                  {proctoringKindMessage(alert.kind, stripTeacherSuffix(alert.identity), alert.detectedAt, t)}
                 </span>
               </div>
             </div>
@@ -253,7 +254,7 @@ export default function ProctoringAlertModal({
             data-testid="professor-proctoring-modal-legitimate"
           >
             <CheckCircleOutlineIcon style={{ fontSize: 16, color: attentionStatusColors.high }} />
-            Marcar como legítimo
+            {t('proctoring.markLegitimate')}
           </button>
           <button
             type="button"
@@ -261,7 +262,7 @@ export default function ProctoringAlertModal({
             onClick={onSendWarning}
             data-testid="professor-proctoring-modal-warning"
           >
-            ⚠ Enviar advertencia
+            ⚠ {t('proctoring.sendWarning')}
           </button>
         </div>
       </div>

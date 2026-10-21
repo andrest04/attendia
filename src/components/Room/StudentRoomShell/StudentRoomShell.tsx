@@ -1,5 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
+import { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { makeStyles, Theme } from '@material-ui/core';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { getInitials } from '../roomIdentity';
@@ -302,15 +304,15 @@ function ChatIcon({ className }: { className?: string }) {
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 // Maps a Twilio network quality level (0–5, 5 = best; null/undefined = no data
-// yet) to the connection pill's label and dot color. The <=2 "Débil" cut mirrors
+// yet) to the connection pill's label and dot color. The <=2 "weak" cut mirrors
 // the threshold that drives the degraded-connectivity banner, so the two never
 // contradict each other.
 type ConnectionQuality = { label: string; color: string };
-function connectionQuality(level: number | null | undefined): ConnectionQuality {
-  if (level == null) return { label: 'Sin datos', color: '#9ca3af' };
-  if (level <= 2) return { label: 'Débil', color: '#ef4444' };
-  if (level === 3) return { label: 'Media', color: '#f59e0b' };
-  return { label: 'Buena', color: '#10b981' };
+function connectionQuality(level: number | null | undefined, t: TFunction): ConnectionQuality {
+  if (level == null) return { label: t('room:connection.noData'), color: '#9ca3af' };
+  if (level <= 2) return { label: t('room:connection.weak'), color: '#ef4444' };
+  if (level === 3) return { label: t('room:connection.medium'), color: '#f59e0b' };
+  return { label: t('room:connection.good'), color: '#10b981' };
 }
 
 interface Props {
@@ -329,7 +331,7 @@ interface Props {
   networkQualityLevel?: number | null;
   /** Optional rich roster; when provided, renders avatar list instead of plain count */
   participants?: RosterParticipant[];
-  /** Whether the left (Participantes) rail is open. Collapses on entry, Meet-style. Defaults open for legacy callers/tests. */
+  /** Whether the left (participants) rail is open. Collapses on entry, Meet-style. Defaults open for legacy callers/tests. */
   leftOpen?: boolean;
   /** Whether the right (chat) rail is open. Collapses on entry. Defaults open for legacy callers/tests. */
   rightOpen?: boolean;
@@ -343,9 +345,7 @@ export default function StudentRoomShell({
   stage,
   toolbarSlot = null,
   rightPanel = null,
-  activeSpeakerLabel = 'Sin participante activo',
-  sessionLabel = 'Sesión Twilio en vivo',
-  sessionName = 'Sesión Twilio en vivo',
+  sessionName,
   participantCount = 0,
   recording = false,
   isConnectivityDegraded = false,
@@ -356,8 +356,9 @@ export default function StudentRoomShell({
   onCloseLeft,
   onCloseRight,
 }: Props) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
-  const connection = connectionQuality(networkQualityLevel);
+  const connection = connectionQuality(networkQualityLevel, t);
   const studentCount = Math.max(0, participantCount - 1);
 
   return (
@@ -366,7 +367,7 @@ export default function StudentRoomShell({
       testIdPrefix="student-room-shell"
       statusBar={
         <SessionStatusBar
-          sessionName={sessionName}
+          sessionName={sessionName ?? t('session.defaultName')}
           studentCount={studentCount}
           recording={recording}
           showHelpButton={false}
@@ -385,7 +386,7 @@ export default function StudentRoomShell({
           {/* Participants heading — logo now lives in the top SessionStatusBar */}
           <div className={classes.leftHeader}>
             <div className={classes.participantsRow}>
-              <span className={classes.participantsLabel}>Participantes</span>
+              <span className={classes.participantsLabel}>{t('participants.title')}</span>
               <div className={classes.participantsRow} style={{ gap: 8 }}>
                 <span className={classes.participantsBadge}>
                   {participants ? participants.length : participantCount}
@@ -393,7 +394,7 @@ export default function StudentRoomShell({
                 {onCloseLeft && (
                   <RailCloseButton
                     onClick={onCloseLeft}
-                    aria-label="Cerrar participantes"
+                    aria-label={t('participants.close')}
                     data-testid="student-room-shell-close-left"
                   />
                 )}
@@ -407,7 +408,7 @@ export default function StudentRoomShell({
               participants.map(p => <RosterItem key={p.identity} participant={p} classes={classes} />)
             ) : (
               <div className={classes.rosterItem} data-testid="student-room-shell-participant-count">
-                <span className={classes.countText}>{participantCount} en sala</span>
+                <span className={classes.countText}>{t('participants.inRoom', { count: participantCount })}</span>
               </div>
             )}
           </div>
@@ -433,7 +434,7 @@ export default function StudentRoomShell({
             {/* Connectivity banner */}
             {isConnectivityDegraded && (
               <div className={classes.connectivityBanner} data-testid="student-room-shell-connectivity-banner">
-                Resolución reducida por baja conectividad
+                {t('stage.degraded')}
               </div>
             )}
           </div>
@@ -449,12 +450,12 @@ export default function StudentRoomShell({
           <div className={classes.rightTabs} data-testid="student-room-shell-right-tabs">
             <span className={clsx(classes.tab, classes.tabActive)} data-testid="student-room-shell-tab-chat">
               <ChatIcon className={classes.tabIcon} />
-              Chat
+              {t('chat.tab')}
             </span>
             {onCloseRight && (
               <RailCloseButton
                 onClick={onCloseRight}
-                aria-label="Cerrar chat"
+                aria-label={t('chat.close')}
                 data-testid="student-room-shell-close-right"
               />
             )}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import { useAttention } from '../../AttentionProvider';
 import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { ProctoringAlert } from '../../AttentionProvider/types';
@@ -91,8 +92,7 @@ export default function ProfessorRoomShell({
   onRightTabChange,
   rightPanel = null,
   participants = [],
-  sessionLabel = 'Sesión Twilio en vivo',
-  sessionName = 'Sesión Twilio en vivo',
+  sessionName,
   participantCount = 0,
   recording = false,
   handsRaised = [],
@@ -111,6 +111,7 @@ export default function ProfessorRoomShell({
   onCloseLeft,
   onCloseRight,
 }: Props) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
   const {
@@ -136,6 +137,7 @@ export default function ProfessorRoomShell({
   // about simply render without a badge (same defensive approach as GalleryView).
   const attentionByIdentity = new Map(attentionParticipants.map(p => [p.identity, p]));
   const studentCount = Math.max(0, participantCount - 1);
+  const resolvedSessionName = sessionName ?? String(t('session.defaultName'));
 
   // Live report modal (Feature 3): reopens the full AttentionReportView in-room,
   // fed directly from useAttention() via buildReportViewData — no localStorage
@@ -152,7 +154,7 @@ export default function ProfessorRoomShell({
   // for the normalization work on every attention tick.
   const liveReportViewData = isLiveReportOpen
     ? buildReportViewData({
-        sessionName,
+        sessionName: resolvedSessionName,
         // The cumulative attendance roster, so the live "Ver reporte" overlay
         // agrees with the final persisted report even after students have left
         // — distinct from `studentCount` above, which is the "who's here right
@@ -185,7 +187,7 @@ export default function ProfessorRoomShell({
   const handleMarkLegitimate = () => {
     if (proctoringModalAlert) {
       setDismissedIds(prev => new Set(prev).add(proctoringModalAlert.id));
-      enqueueSnackbar(`Alerta de ${stripTeacherSuffix(proctoringModalAlert.identity)} marcada como legítima`, {
+      enqueueSnackbar(t('proctoring.markedLegitimate', { name: stripTeacherSuffix(proctoringModalAlert.identity) }), {
         variant: 'success',
       });
     }
@@ -195,7 +197,7 @@ export default function ProfessorRoomShell({
     if (proctoringModalAlert) {
       onSendWarning?.(proctoringModalAlert.identity, proctoringModalAlert.kind);
       setDismissedIds(prev => new Set(prev).add(proctoringModalAlert.id));
-      enqueueSnackbar(`Advertencia enviada a ${stripTeacherSuffix(proctoringModalAlert.identity)}`, {
+      enqueueSnackbar(t('proctoring.warningSent', { name: stripTeacherSuffix(proctoringModalAlert.identity) }), {
         variant: 'warning',
       });
     }
@@ -206,7 +208,9 @@ export default function ProfessorRoomShell({
     <RoomShellLayout
       variant="professor"
       testIdPrefix="professor-room-shell"
-      statusBar={<SessionStatusBar sessionName={sessionName} studentCount={studentCount} recording={recording} />}
+      statusBar={
+        <SessionStatusBar sessionName={resolvedSessionName} studentCount={studentCount} recording={recording} />
+      }
       leftOpen={leftOpen}
       rightOpen={rightOpen}
       /* Rails are always mounted so they can animate open/closed. */

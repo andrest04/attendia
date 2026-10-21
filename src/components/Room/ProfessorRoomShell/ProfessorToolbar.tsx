@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button, createStyles, makeStyles, Theme } from '@material-ui/core';
 import CallEndIcon from '@material-ui/icons/CallEnd';
 import DonutLargeIcon from '@material-ui/icons/DonutLarge';
@@ -17,10 +18,7 @@ import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
 import ToolbarDeviceMenu from '../../Buttons/ToolbarDeviceMenu/ToolbarDeviceMenu';
-import {
-  SCREEN_SHARE_TEXT,
-  STOP_SCREEN_SHARE_TEXT,
-} from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
+import { SCREEN_SHARE_KEY, STOP_SCREEN_SHARE_KEY } from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
 import OverflowMenu, { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
 import useToolbarChipStyles from '../ToolbarParts/useToolbarChipStyles';
@@ -57,7 +55,7 @@ interface ProfessorToolbarProps {
   /** Whether the chat tab is active in the right rail. Driven by Room.tsx. */
   chatOpen?: boolean;
   onChatToggle?: () => void;
-  /** Whether the left (Participantes) rail is open. Driven by Room.tsx. */
+  /** Whether the left (participants) rail is open. Driven by Room.tsx. */
   participantsOpen?: boolean;
   onParticipantsToggle?: () => void;
   /** Whether the right rail is open on an analytics tab (grupo/individual). Driven by Room.tsx. */
@@ -69,7 +67,7 @@ interface ProfessorToolbarProps {
   onLeave?: () => void;
   /** True while "end for everyone" is in flight (disables the end-call dialog actions). */
   isEnding?: boolean;
-  /** Confirmed co-teacher: recording is owner-only, so the "Grabar" item is hidden. */
+  /** Confirmed co-teacher: recording is owner-only, so the record item is hidden. */
   isCoTeacher?: boolean;
 }
 
@@ -87,6 +85,7 @@ export default function ProfessorToolbar({
   isEnding,
   isCoTeacher = false,
 }: ProfessorToolbarProps = {}) {
+  const { t } = useTranslation('toolbar');
   const classes = useStyles();
   const { classes: toolbar, chip, endCallChip } = useToolbarChipStyles();
   const { room } = useVideoContext();
@@ -107,7 +106,7 @@ export default function ProfessorToolbar({
     // Screen share moved out of the primary bar; the kebab is its only entry point.
     {
       testId: 'professor-toolbar-screenshare',
-      label: isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT,
+      label: t(isSharingScreen ? STOP_SCREEN_SHARE_KEY : SCREEN_SHARE_KEY),
       icon: isSharingScreen ? (
         <StopScreenShareIcon style={{ fontSize: 18 }} />
       ) : (
@@ -122,7 +121,7 @@ export default function ProfessorToolbar({
     // Opens the analytics rail (Grupo/Individual) — the attention cockpit.
     {
       testId: 'professor-toolbar-attention',
-      label: attentionOpen ? 'Ocultar atención' : 'Panel de atención',
+      label: attentionOpen ? t('professor.hideAttention') : t('professor.attentionPanel'),
       icon: <DonutLargeIcon style={{ fontSize: 18 }} />,
       checked: attentionOpen,
       tone: 'accent',
@@ -130,7 +129,7 @@ export default function ProfessorToolbar({
     },
     {
       testId: 'professor-toolbar-record',
-      label: isRecording ? 'Detener grabación' : 'Grabar',
+      label: isRecording ? t('menu.stopRecording') : t('professor.record'),
       icon: <FiberManualRecordIcon style={{ fontSize: 18 }} />,
       checked: isRecording,
       tone: 'recording',
@@ -140,7 +139,7 @@ export default function ProfessorToolbar({
     },
     {
       testId: 'professor-toolbar-proctoring',
-      label: proctoringEnabled ? 'Proctoring activo' : 'Proctoring',
+      label: proctoringEnabled ? t('professor.proctoringActive') : t('professor.proctoring'),
       icon: <VisibilityIcon style={{ fontSize: 18 }} />,
       checked: proctoringEnabled,
       tone: 'accent',
@@ -163,7 +162,7 @@ export default function ProfessorToolbar({
           onClick={() => onParticipantsToggle?.()}
           startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
           className={chip}
-          aria-label="Participantes"
+          aria-label={t('participants')}
           data-testid="professor-toolbar-participants"
           aria-pressed={participantsOpen}
         />
@@ -181,7 +180,7 @@ export default function ProfessorToolbar({
             </div>
           }
           className={chip}
-          aria-label="Chat"
+          aria-label={t('chat.label')}
           data-testid="professor-toolbar-chat"
           aria-pressed={chatOpen}
         />
@@ -193,7 +192,7 @@ export default function ProfessorToolbar({
       <EndCallButton
         dark
         startIcon={<CallEndIcon />}
-        label="Terminar sesión"
+        label={t('endCall.endSession')}
         iconOnly
         className={endCallChip}
         onEndForAll={onEndForAll}

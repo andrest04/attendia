@@ -1,5 +1,6 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 import { ShellNotification } from '../shellNotification';
 import { notificationEmoji } from './professorShellHelpers';
 
@@ -65,21 +66,22 @@ interface NotificationsFeedProps {
  * because its marginTop:auto is what pushes the bottom section down.
  */
 export default function NotificationsFeed({ notifications }: NotificationsFeedProps) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
 
   return (
     <div className={classes.notificationsSection} data-testid="professor-room-shell-notifications">
-      <div className={classes.notificationsLabel}>Notificaciones</div>
+      <div className={classes.notificationsLabel}>{t('notifications.title')}</div>
       {notifications.length === 0 ? (
         <div className={classes.notificationsEmpty} data-testid="professor-room-shell-notifications-empty">
-          Sin actividad por ahora.
+          {t('notifications.empty')}
         </div>
       ) : (
         <div className={classes.notificationItems}>
           {notifications.map(notification => (
             <div key={notification.id} className={classes.notificationPill}>
               <span className={classes.notificationEmoji} aria-hidden="true">
-                {notificationEmoji(notification.text)}
+                {notificationEmoji(notification.event)}
               </span>
               <span className={classes.notificationText}>{notification.text}</span>
             </div>

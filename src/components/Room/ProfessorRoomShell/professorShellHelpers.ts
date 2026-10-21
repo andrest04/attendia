@@ -5,8 +5,10 @@ import VisibilityOffIcon from '@material-ui/icons/VisibilityOff';
 import SmartphoneIcon from '@material-ui/icons/Smartphone';
 import PersonOutlineIcon from '@material-ui/icons/PersonOutline';
 import HourglassEmptyIcon from '@material-ui/icons/HourglassEmpty';
+import { TFunction } from 'i18next';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { AttentionPresence } from '../../AttentionProvider/presence';
+import { ShellNotificationEvent } from '../shellNotification';
 
 // Leaf module for the ProfessorRoomShell family: pure helpers, shared maps, and the
 // right-rail tab type. Kept dependency-light (only AttentionProvider types + MUI
@@ -35,20 +37,20 @@ export const proctoringKindIcon: Record<ProctoringKind, React.ComponentType<{ st
  */
 export const presenceView: Record<
   Exclude<AttentionPresence, 'measured'>,
-  { Icon: React.ElementType; label: string; rosterTestId: string; individualTestId: string }
+  { Icon: React.ElementType; labelKey: string; rosterTestId: string; individualTestId: string }
 > = {
   // Mobile device — the CV pipeline is desktop-only, so attention is simply not measurable
   // here. Distinct from "distracted" or "0%".
   unsupported: {
     Icon: SmartphoneIcon,
-    label: 'No medible (celular)',
+    labelKey: 'room:presence.unsupported',
     rosterTestId: 'professor-room-shell-unsupported-flag',
     individualTestId: 'professor-room-shell-individual-unsupported',
   },
   // Camera off → no live attention. Show a muted state, never the stale value.
   cameraOff: {
     Icon: VideocamOffIcon,
-    label: 'Cámara apagada',
+    labelKey: 'room:presence.cameraOff',
     rosterTestId: 'professor-room-shell-cameraoff-flag',
     individualTestId: 'professor-room-shell-individual-cameraoff',
   },
@@ -57,7 +59,7 @@ export const presenceView: Record<
   // shown when the student's device explicitly reports the camera off.
   pending: {
     Icon: HourglassEmptyIcon,
-    label: 'Analizando… (sin lectura aún)',
+    labelKey: 'room:presence.pending',
     rosterTestId: 'professor-room-shell-pending-flag',
     individualTestId: 'professor-room-shell-individual-pending',
   },
@@ -66,7 +68,7 @@ export const presenceView: Record<
   // cannot see their face.
   noFace: {
     Icon: VisibilityOffIcon,
-    label: 'Sin medición — rostro no detectado',
+    labelKey: 'room:presence.noFace',
     rosterTestId: 'professor-room-shell-nomeasure-flag',
     individualTestId: 'professor-room-shell-individual-nomeasure',
   },
@@ -74,25 +76,20 @@ export const presenceView: Record<
 
 // Honest, kind-specific copy. Note we do NOT claim an exact face count: the live
 // pipeline does not carry one in the alert and the number fluctuates per sample.
-export function proctoringKindMessage(kind: ProctoringKind, name: string, detectedAt: string): string {
-  switch (kind) {
-    case 'camera-off':
-      return `${name} apagó su cámara. No hay datos de atención mientras esté apagada · Detectado a las ${detectedAt}`;
-    case 'multiface':
-      return `Se detectaron varios rostros en la cámara de ${name} · Detectado a las ${detectedAt}`;
-    case 'away':
-      return `${name} apartó la mirada de la pantalla · Detectado a las ${detectedAt}`;
-    case 'absent':
-      return `No se detecta a ${name} frente a la cámara · Detectado a las ${detectedAt}`;
-  }
+export function proctoringKindMessage(kind: ProctoringKind, name: string, detectedAt: string, t: TFunction): string {
+  return t(`room:proctoring.message.${kind}`, { name, detectedAt });
 }
 
-/** Emoji cue for a notification pill, derived from the event copy. */
-export function notificationEmoji(text: string): string {
-  if (text.includes('levantó')) return '✋';
-  if (text.includes('unió')) return '🔔';
-  if (text.includes('salió')) return '👋';
-  return '🔔';
+/** Emoji cue per notification event: adding an event is adding a row. */
+const NOTIFICATION_EMOJI: Record<ShellNotificationEvent, string> = {
+  hand: '✋',
+  joined: '🔔',
+  left: '👋',
+};
+
+/** Emoji cue for a notification pill; unknown/legacy entries get the bell. */
+export function notificationEmoji(event?: ShellNotificationEvent): string {
+  return (event && NOTIFICATION_EMOJI[event]) || '🔔';
 }
 
 export { getInitials } from '../roomIdentity';
