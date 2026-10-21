@@ -353,6 +353,37 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-roster-menu"]').exists()).toBe(false);
   });
 
+  it('grants and revokes screen sharing from the roster kebab, reflecting the granted state', () => {
+    const onSetScreenShareGrant = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        onMuteParticipant={jest.fn()}
+        onSetScreenShareGrant={onSetScreenShareGrant}
+        screenShareGrants={['Carlos López']}
+        participants={[{ identity: 'Ana García' }, { identity: 'Carlos López' }]}
+      />
+    );
+    const open = (index: number) => {
+      wrapper
+        .find('button[data-testid="professor-room-shell-roster-menu-button"]')
+        .at(index)
+        .simulate('click');
+      wrapper.update();
+    };
+    open(0);
+    const allow = wrapper.find('button[data-testid="professor-room-shell-roster-screenshare"]');
+    expect(allow.text()).toContain('Permitir compartir pantalla');
+    allow.simulate('click');
+    expect(onSetScreenShareGrant).toHaveBeenCalledWith('Ana García', true);
+
+    open(1);
+    const revoke = wrapper.find('button[data-testid="professor-room-shell-roster-screenshare"]');
+    expect(revoke.text()).toContain('Quitar permiso de pantalla');
+    revoke.simulate('click');
+    expect(onSetScreenShareGrant).toHaveBeenCalledWith('Carlos López', false);
+  });
+
   it('shows the group-below-threshold banner when group attention is under the threshold', () => {
     const wrapper = mount(<ProfessorRoomShell stage={<div>stage</div>} />);
     expect(wrapper.find('[data-testid="professor-room-shell-group-banner"]').exists()).toBe(true);

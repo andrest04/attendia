@@ -35,6 +35,7 @@ import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
 import { OnboardingContext } from './OnboardingTutorial/onboardingContext';
 import ParticipantStrip from './ParticipantStrip/ParticipantStrip';
+import { usePublishScreenShareGrant } from '../../hooks/useScreenShareControl/screenShareGrantContext';
 import UnmuteRequestPrompt from './UnmuteRequestPrompt/UnmuteRequestPrompt';
 
 const useStyles = makeStyles((theme: Theme) => {
@@ -129,7 +130,12 @@ export default function Room() {
     unmuteRequestPending,
     acceptUnmuteRequest,
     dismissUnmuteRequest,
+    grantScreenShare,
+    screenShareGrants,
+    screenShareAllowed,
   } = useModeration();
+  // Hand the student's grant to the controls that live outside Room (legacy mobile MenuBar).
+  usePublishScreenShareGrant(screenShareAllowed);
   const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
   // Snapshots the attention report to Firestore on both professor exit paths; a
   // silent no-op for students and in non-firebase modes.
@@ -213,7 +219,7 @@ export default function Room() {
     localIdentity: room?.localParticipant?.identity || '',
     layout,
     hands: { raisedHands, isHandRaised, setHandRaised, grantTurn },
-    moderation: { muteParticipant, requestUnmute, sendWarning },
+    moderation: { muteParticipant, requestUnmute, grantScreenShare, screenShareGrants, sendWarning },
     proctoring: { enabled: proctoringEnabled, setEnabled: setProctoringEnabled },
     notifications,
     sessionEnd: { endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher },

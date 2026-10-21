@@ -212,6 +212,86 @@ describe('useModeration', () => {
     });
   });
 
+  describe('screen-share grants (T4)', () => {
+    const grant = (identity: string, allowed: boolean) =>
+      JSON.stringify({ type: 'grant-screenshare', identity, allowed });
+
+    function connectPeer(identity: string) {
+      const peer = createParticipant(identity);
+      const data = createDataTrack();
+      act(() => {
+        mockRoom.emit('participantConnected', peer);
+        peer.emit('trackSubscribed', data);
+      });
+      return { peer, data };
+    }
+
+    it('student: defaults to NOT allowed, stores the grant only from the teacher and addressed to me', () => {
+      const { result } = renderHook(() => useModeration());
+      expect(result.current.screenShareAllowed).toBe(false);
+
+      const student = connectPeer('student-bob');
+      act(() => {
+        student.data.emit('message', grant('me', true));
+      });
+      expect(result.current.screenShareAllowed).toBe(false);
+
+      const teacher = connectPeer('Ana [Profesor]');
+      act(() => {
+        teacher.data.emit('message', grant('someone-else', true));
+      });
+      expect(result.current.screenShareAllowed).toBe(false);
+
+      act(() => {
+        teacher.data.emit('message', grant('me', true));
+      });
+      expect(result.current.screenShareAllowed).toBe(true);
+
+      act(() => {
+        teacher.data.emit('message', grant('me', false));
+      });
+      expect(result.current.screenShareAllowed).toBe(false);
+    });
+
+    it('student: a revoke while sharing stops the share', () => {
+      const toggleScreenShare = jest.fn();
+      mockedVideoContext.mockImplementation(() => ({ room: mockRoom, isSharingScreen: true, toggleScreenShare }));
+      const { result } = renderHook(() => useModeration());
+      const teacher = connectPeer('Ana [Profesor]');
+      act(() => {
+        teacher.data.emit('message', grant('me', true));
+      });
+      expect(result.current.screenShareAllowed).toBe(true);
+      expect(toggleScreenShare).not.toHaveBeenCalled();
+      act(() => {
+        teacher.data.emit('message', grant('me', false));
+      });
+      expect(toggleScreenShare).toHaveBeenCalledTimes(1);
+    });
+
+    it('teacher: grantScreenShare sends the message and tracks the granted identities', () => {
+      mockRoom.localParticipant.identity = 'Ana [Profesor]';
+      const { result } = renderHook(() => useModeration());
+      act(() => result.current.grantScreenShare('student-bob', true));
+      expect(mockSend).toHaveBeenCalledWith(grant('student-bob', true));
+      expect(result.current.screenShareGrants).toEqual(['student-bob']);
+      act(() => result.current.grantScreenShare('student-bob', false));
+      expect(mockSend).toHaveBeenLastCalledWith(grant('student-bob', false));
+      expect(result.current.screenShareGrants).toEqual([]);
+    });
+
+    it('teacher: re-sends the current grant when a granted student (re)connects', () => {
+      mockRoom.localParticipant.identity = 'Ana [Profesor]';
+      const { result } = renderHook(() => useModeration());
+      act(() => result.current.grantScreenShare('student-bob', true));
+      mockSend.mockClear();
+      connectPeer('student-carol');
+      expect(mockSend).not.toHaveBeenCalled();
+      connectPeer('student-bob');
+      expect(mockSend).toHaveBeenCalledWith(grant('student-bob', true));
+    });
+  });
+
   it('cleans up room listeners on unmount', () => {
     const { unmount } = renderHook(() => useModeration());
     expect(mockRoom.listenerCount('participantConnected')).toBe(1);

@@ -1,8 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import {
   isAddressedToMe,
+  GrantScreenShareMessage,
   isFromTeacher,
   MuteAudioMessage,
   UnmuteRequestMessage,
@@ -31,11 +33,14 @@ import {
  * - { type: 'mute-audio', identity } — the professor asks `identity` to mute. Only
  *   the targeted client acts (disables its own audio); the sender identity is the
  *   Twilio participant, never the payload.
+ * - { type: 'grant-screenshare', identity, allowed } — the professor allows/revokes screen
+ *   sharing for `identity`. Students default to NOT allowed; a revoke stops an active share.
+ *   The professor tracks the granted identities and re-sends them when a student (re)connects.
  * - { type: 'request-unmute', identity } — the professor asks `identity` to turn the mic
  *   ON. The target only records a pending request; it never enables the track on its own.
  */
 
-type ModerationMessage = MuteAudioMessage | UnmuteRequestMessage;
+type ModerationMessage = MuteAudioMessage | UnmuteRequestMessage | GrantScreenShareMessage;
 
 export interface ModerationApi {
   /** Professor action: ask `identity` to mute their microphone. */
@@ -50,14 +55,32 @@ export interface ModerationApi {
   acceptUnmuteRequest: () => void;
   /** Student declined / closed the prompt: clear the request without touching the mic. */
   dismissUnmuteRequest: () => void;
+  /** Professor action: allow (or revoke) screen sharing for `identity`. */
+  grantScreenShare: (identity: string, allowed: boolean) => void;
+  /** Professor side: identities currently allowed to share their screen. */
+  screenShareGrants: string[];
+  /** Student side: whether the professor allowed THIS participant to share. Defaults to false. */
+  screenShareAllowed: boolean;
 }
 
 export default function useModeration(): ModerationApi {
-  const { room } = useVideoContext();
+  const { room, isSharingScreen, toggleScreenShare } = useVideoContext();
   const [mutedByProfessorCount, setMutedByProfessorCount] = useState(0);
   const [unmuteRequestPending, setUnmuteRequestPending] = useState(false);
+  const [screenShareAllowed, setScreenShareAllowed] = useState(false);
+  const [screenShareGrants, setScreenShareGrants] = useState<string[]>([]);
+  const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
+  // `send` only exists after the channel hook runs, but the connect handler is passed into it.
+  const sendRef = useRef<(payload: ModerationMessage) => void>(() => undefined);
 
   const { send } = useClassDataChannel<ModerationMessage>({
+    onParticipantConnected: participant => {
+      // DataTracks do not replay: a (re)connecting student would stay locked, so the professor
+      // re-sends the grant it holds for that identity.
+      if (isTeacher && screenShareGrants.includes(participant.identity)) {
+        sendRef.current({ type: 'grant-screenshare', identity: participant.identity, allowed: true });
+      }
+    },
     onMessage: (message, participant) => {
       const localParticipant = room?.localParticipant;
       if (!localParticipant) return;
@@ -87,8 +110,34 @@ export default function useModeration(): ModerationApi {
         });
         if (micIsOff) setUnmuteRequestPending(true);
       }
+      if (message.type === 'grant-screenshare' && isFromTeacher(participant) && isAddressedToMe(message, room)) {
+        setScreenShareAllowed(message.allowed === true);
+      }
     },
   });
+
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
+
+  // A revoke (allowed -> not allowed) while sharing must stop the share.
+  const wasAllowedRef = useRef(false);
+  useEffect(() => {
+    const revoked = wasAllowedRef.current && !screenShareAllowed;
+    wasAllowedRef.current = screenShareAllowed;
+    if (revoked && !isTeacher && isSharingScreen) toggleScreenShare?.();
+  }, [isTeacher, screenShareAllowed, isSharingScreen, toggleScreenShare]);
+
+  const grantScreenShare = useCallback(
+    (identity: string, allowed: boolean) => {
+      send({ type: 'grant-screenshare', identity, allowed });
+      setScreenShareGrants(prev => {
+        const without = prev.filter(id => id !== identity);
+        return allowed ? [...without, identity] : without;
+      });
+    },
+    [send]
+  );
 
   const muteParticipant = useCallback(
     (identity: string) => {
@@ -120,5 +169,8 @@ export default function useModeration(): ModerationApi {
     unmuteRequestPending,
     acceptUnmuteRequest,
     dismissUnmuteRequest,
+    grantScreenShare,
+    screenShareGrants,
+    screenShareAllowed,
   };
 }

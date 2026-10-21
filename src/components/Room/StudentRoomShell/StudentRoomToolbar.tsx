@@ -12,6 +12,7 @@ import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton
 import ToolbarDeviceMenu from '../../Buttons/ToolbarDeviceMenu/ToolbarDeviceMenu';
 import {
   SCREEN_SHARE_TEXT,
+  SHARE_LOCKED_TEXT,
   STOP_SCREEN_SHARE_TEXT,
 } from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import RaiseHandButton from '../../Buttons/RaiseHandButton/RaiseHandButton';
@@ -39,7 +40,12 @@ export default function StudentRoomToolbar({
   onChatToggle,
 }: StudentRoomToolbarProps = {}) {
   const { classes, chip, endCallChip } = useToolbarChipStyles();
-  const { toggleScreenShare, isSharingScreen, disabled: screenShareUnavailable } = useScreenShareControl();
+  const {
+    toggleScreenShare,
+    isSharingScreen,
+    lockedByTeacher,
+    disabled: screenShareUnavailable,
+  } = useScreenShareControl();
   const roomState = useRoomState();
   const isReconnecting = roomState === 'reconnecting';
 
@@ -48,7 +54,7 @@ export default function StudentRoomToolbar({
   const moreItems: OverflowMenuItem[] = [
     {
       testId: 'student-toolbar-screenshare',
-      label: isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT,
+      label: lockedByTeacher ? SHARE_LOCKED_TEXT : isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT,
       icon: isSharingScreen ? (
         <StopScreenShareIcon style={{ fontSize: 18 }} />
       ) : (

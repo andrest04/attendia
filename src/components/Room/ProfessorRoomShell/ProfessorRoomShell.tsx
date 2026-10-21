@@ -52,6 +52,10 @@ interface Props {
   onMuteParticipant?: (identity: string) => void;
   /** Professor action: ask the named student to turn their microphone on (roster kebab). */
   onRequestUnmute?: (identity: string) => void;
+  /** Professor action: allow/revoke screen sharing for the named student (roster kebab). */
+  onSetScreenShareGrant?: (identity: string, allowed: boolean) => void;
+  /** Identities currently allowed to share their screen. */
+  screenShareGrants?: string[];
   /** Professor action: warn the named student about a proctoring condition (from the alert modal). */
   onSendWarning?: (identity: string, kind: ProctoringAlert['kind']) => void;
   /** When true, surface the proctoring alerts feed (US30). Driven by the toolbar toggle. */
@@ -91,6 +95,8 @@ export default function ProfessorRoomShell({
   onGrantTurn,
   onMuteParticipant,
   onRequestUnmute,
+  onSetScreenShareGrant,
+  screenShareGrants,
   onSendWarning,
   proctoringEnabled = false,
   notifications = [],
@@ -209,6 +215,8 @@ export default function ProfessorRoomShell({
           onGrantTurn={onGrantTurn}
           onMuteParticipant={onMuteParticipant}
           onRequestUnmute={onRequestUnmute}
+          onSetScreenShareGrant={onSetScreenShareGrant}
+          screenShareGrants={screenShareGrants}
           notifications={notifications}
           proctoringEnabled={proctoringEnabled}
           visibleAlerts={visibleAlerts}
