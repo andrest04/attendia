@@ -1,3 +1,5 @@
+import { formatLongDateWithWeekday, formatShortDate, formatTime } from '../../i18n/format';
+import spanishTranslator from '../../i18n/spanishTranslator';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { DashboardData, UpcomingSession } from './types';
 
@@ -5,6 +7,14 @@ import { DashboardData, UpcomingSession } from './types';
 // "Próximas sesiones" grid, instead of vanishing the instant its scheduled time
 // passes (a professor running a couple minutes late shouldn't lose the card).
 const GRACE_PERIOD_MS = 15 * 60 * 1000;
+
+/** Translation function and language the labels are built with; defaults to Spanish. */
+export interface ViewLocale {
+  t: (key: string, options?: { [option: string]: unknown }) => string;
+  language: string;
+}
+
+const DEFAULT_LOCALE: ViewLocale = { t: spanishTranslator, language: 'es' };
 
 function isSameCalendarDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -19,31 +29,28 @@ function isNextCalendarDay(a: Date, b: Date): boolean {
   );
 }
 
-// Built manually (not toLocaleTimeString) so behavior doesn't depend on the
-// ICU/locale data available in the test environment.
-function formatTimeLabel(date: Date): string {
-  const hours24 = date.getHours();
-  const minutes = date.getMinutes();
-  const period = hours24 < 12 ? 'am' : 'pm';
-  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
-  const minutesLabel = minutes < 10 ? `0${minutes}` : `${minutes}`;
-  return `${hours12}:${minutesLabel} ${period}`;
+function formatDayLabel(sessionDate: Date, now: Date, locale: ViewLocale): string {
+  if (isSameCalendarDay(sessionDate, now)) return locale.t('classSessions:today');
+  if (isNextCalendarDay(sessionDate, now)) return locale.t('classSessions:tomorrow');
+  return formatShortDate(sessionDate, locale.language);
 }
 
-function formatDayLabel(sessionDate: Date, now: Date): string {
-  if (isSameCalendarDay(sessionDate, now)) return 'Hoy';
-  if (isNextCalendarDay(sessionDate, now)) return 'Mañana';
-  return sessionDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
-}
-
-function formatRelativeLabel(scheduledAtMs: number, nowMs: number, sessionDate: Date, now: Date): string {
+function formatRelativeLabel(
+  scheduledAtMs: number,
+  nowMs: number,
+  sessionDate: Date,
+  now: Date,
+  locale: ViewLocale
+): string {
   const diffMinutes = Math.round((scheduledAtMs - nowMs) / 60000);
 
-  if (diffMinutes <= 0) return 'Ahora';
-  if (diffMinutes < 60) return `En ${diffMinutes} min`;
-  if (isSameCalendarDay(sessionDate, now)) return `En ${Math.floor(diffMinutes / 60)}h`;
-  if (isNextCalendarDay(sessionDate, now)) return 'Mañana';
-  return formatDayLabel(sessionDate, now);
+  if (diffMinutes <= 0) return locale.t('classSessions:now');
+  if (diffMinutes < 60) return locale.t('classSessions:inMinutes', { count: diffMinutes });
+  if (isSameCalendarDay(sessionDate, now)) {
+    return locale.t('classSessions:inHours', { count: Math.floor(diffMinutes / 60) });
+  }
+  if (isNextCalendarDay(sessionDate, now)) return locale.t('classSessions:tomorrow');
+  return formatDayLabel(sessionDate, now, locale);
 }
 
 /**
@@ -70,6 +77,7 @@ type ScheduledClass = ClassRecord & { scheduledAtMs: number };
 function toUpcomingSession(
   classRecord: ScheduledClass,
   now: Date,
+  locale: ViewLocale,
   labels: { relativeLabel: string; highlighted: boolean }
 ): UpcomingSession {
   const sessionDate = new Date(classRecord.scheduledAtMs);
@@ -80,18 +88,18 @@ function toUpcomingSession(
     roomName: classRecord.roomName,
     classId: classRecord.id,
     studentCount: classRecord.studentCount,
-    time: formatTimeLabel(sessionDate),
-    dayLabel: formatDayLabel(sessionDate, now),
+    time: formatTime(sessionDate, locale.language),
+    dayLabel: formatDayLabel(sessionDate, now, locale),
     ...labels,
   };
 }
 
-function formatOverdueLabel(scheduledAtMs: number, nowMs: number): string {
+function formatOverdueLabel(scheduledAtMs: number, nowMs: number, locale: ViewLocale): string {
   const diffMinutes = Math.max(0, Math.round((nowMs - scheduledAtMs) / 60000));
-  if (diffMinutes < 60) return `Venció hace ${diffMinutes} min`;
+  if (diffMinutes < 60) return locale.t('classSessions:overdueMinutes', { count: diffMinutes });
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `Venció hace ${diffHours}h`;
-  return `Venció hace ${Math.floor(diffHours / 24)}d`;
+  if (diffHours < 24) return locale.t('classSessions:overdueHours', { count: diffHours });
+  return locale.t('classSessions:overdueDays', { count: Math.floor(diffHours / 24) });
 }
 
 /**
@@ -99,7 +107,11 @@ function formatOverdueLabel(scheduledAtMs: number, nowMs: number): string {
  * findExpiredClasses returns — lets ClassesTab render them with the same card,
  * grayed out, instead of only exposing them through the bulk-cancel count.
  */
-export function buildExpiredSessions(classes: ClassRecord[], nowMs: number): UpcomingSession[] {
+export function buildExpiredSessions(
+  classes: ClassRecord[],
+  nowMs: number,
+  locale: ViewLocale = DEFAULT_LOCALE
+): UpcomingSession[] {
   const now = new Date(nowMs);
 
   const expired = classes
@@ -107,8 +119,8 @@ export function buildExpiredSessions(classes: ClassRecord[], nowMs: number): Upc
     .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs);
 
   return expired.map(classRecord =>
-    toUpcomingSession(classRecord, now, {
-      relativeLabel: formatOverdueLabel(classRecord.scheduledAtMs, nowMs),
+    toUpcomingSession(classRecord, now, locale, {
+      relativeLabel: formatOverdueLabel(classRecord.scheduledAtMs, nowMs, locale),
       highlighted: false,
     })
   );
@@ -121,7 +133,11 @@ export function buildExpiredSessions(classes: ClassRecord[], nowMs: number): Upc
  * this repo: callers inject "now" so the transform stays deterministic and
  * unit-testable.
  */
-export function buildUpcomingSessions(classes: ClassRecord[], nowMs: number): UpcomingSession[] {
+export function buildUpcomingSessions(
+  classes: ClassRecord[],
+  nowMs: number,
+  locale: ViewLocale = DEFAULT_LOCALE
+): UpcomingSession[] {
   const now = new Date(nowMs);
 
   const visible = classes
@@ -134,8 +150,14 @@ export function buildUpcomingSessions(classes: ClassRecord[], nowMs: number): Up
     .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs);
 
   return visible.map((classRecord, index) =>
-    toUpcomingSession(classRecord, now, {
-      relativeLabel: formatRelativeLabel(classRecord.scheduledAtMs, nowMs, new Date(classRecord.scheduledAtMs), now),
+    toUpcomingSession(classRecord, now, locale, {
+      relativeLabel: formatRelativeLabel(
+        classRecord.scheduledAtMs,
+        nowMs,
+        new Date(classRecord.scheduledAtMs),
+        now,
+        locale
+      ),
       highlighted: index === 0,
     })
   );
@@ -151,21 +173,17 @@ export interface ClassesView {
   dateLabel: string;
 }
 
-// es-AR lowercases the weekday ("miércoles, 8 de julio de 2026"); the mock data's
-// label convention capitalizes it, so we match that by hand.
-function capitalizeFirst(value: string): string {
-  return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
-}
-
 /** The view over the teacher's real classes (firebase mode). */
-export function buildRealClassesView(classes: ClassRecord[], nowMs: number): ClassesView {
+export function buildRealClassesView(
+  classes: ClassRecord[],
+  nowMs: number,
+  locale: ViewLocale = DEFAULT_LOCALE
+): ClassesView {
   return {
-    sessions: buildUpcomingSessions(classes, nowMs),
-    expiredSessions: buildExpiredSessions(classes, nowMs),
+    sessions: buildUpcomingSessions(classes, nowMs, locale),
+    expiredSessions: buildExpiredSessions(classes, nowMs, locale),
     expiredClasses: findExpiredClasses(classes, nowMs),
-    dateLabel: capitalizeFirst(
-      new Date(nowMs).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    ),
+    dateLabel: formatLongDateWithWeekday(nowMs, locale.language),
   };
 }
 
