@@ -126,6 +126,92 @@ describe('useModeration', () => {
     expect(result.current.mutedByProfessorCount).toBe(0);
   });
 
+  describe('unmute request (T3)', () => {
+    const requestUnmute = (identity: string) => JSON.stringify({ type: 'request-unmute', identity });
+    let localAudioEnable: jest.Mock;
+
+    function connectTeacher() {
+      const prof = createParticipant('Ana [Profesor]');
+      const profData = createDataTrack();
+      act(() => {
+        mockRoom.emit('participantConnected', prof);
+        prof.emit('trackSubscribed', profData);
+      });
+      return profData;
+    }
+
+    beforeEach(() => {
+      localAudioEnable = jest.fn();
+      mockRoom.localParticipant.audioTracks = new Map([
+        ['a1', { track: { isEnabled: false, enable: localAudioEnable, disable: localAudioDisable } }],
+      ]);
+    });
+
+    it('requestUnmute sends a request-unmute message targeted at the identity', () => {
+      const { result } = renderHook(() => useModeration());
+      act(() => result.current.requestUnmute('student-bob'));
+      expect(mockSend).toHaveBeenCalledWith(requestUnmute('student-bob'));
+    });
+
+    it('raises a pending request but does NOT enable the mic by itself', () => {
+      const { result } = renderHook(() => useModeration());
+      const profData = connectTeacher();
+      act(() => {
+        profData.emit('message', requestUnmute('me'));
+      });
+      expect(result.current.unmuteRequestPending).toBe(true);
+      expect(localAudioEnable).not.toHaveBeenCalled();
+    });
+
+    it('acceptUnmuteRequest enables the local mic and clears the request', () => {
+      const { result } = renderHook(() => useModeration());
+      const profData = connectTeacher();
+      act(() => {
+        profData.emit('message', requestUnmute('me'));
+      });
+      act(() => result.current.acceptUnmuteRequest());
+      expect(localAudioEnable).toHaveBeenCalledTimes(1);
+      expect(result.current.unmuteRequestPending).toBe(false);
+    });
+
+    it('dismissUnmuteRequest clears the request without enabling the mic', () => {
+      const { result } = renderHook(() => useModeration());
+      const profData = connectTeacher();
+      act(() => {
+        profData.emit('message', requestUnmute('me'));
+      });
+      act(() => result.current.dismissUnmuteRequest());
+      expect(localAudioEnable).not.toHaveBeenCalled();
+      expect(result.current.unmuteRequestPending).toBe(false);
+    });
+
+    it('ignores a request from a student, aimed at someone else, or when the mic is already on', () => {
+      const student = createParticipant('student-bob');
+      const studentData = createDataTrack();
+      const { result } = renderHook(() => useModeration());
+      act(() => {
+        mockRoom.emit('participantConnected', student);
+        student.emit('trackSubscribed', studentData);
+        studentData.emit('message', requestUnmute('me'));
+      });
+      expect(result.current.unmuteRequestPending).toBe(false);
+
+      const profData = connectTeacher();
+      act(() => {
+        profData.emit('message', requestUnmute('someone-else'));
+      });
+      expect(result.current.unmuteRequestPending).toBe(false);
+
+      mockRoom.localParticipant.audioTracks = new Map([
+        ['a1', { track: { isEnabled: true, enable: localAudioEnable, disable: localAudioDisable } }],
+      ]);
+      act(() => {
+        profData.emit('message', requestUnmute('me'));
+      });
+      expect(result.current.unmuteRequestPending).toBe(false);
+    });
+  });
+
   it('cleans up room listeners on unmount', () => {
     const { unmount } = renderHook(() => useModeration());
     expect(mockRoom.listenerCount('participantConnected')).toBe(1);

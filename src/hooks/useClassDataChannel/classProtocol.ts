@@ -33,6 +33,22 @@ export interface MuteAudioMessage {
   identity: string;
 }
 
+/**
+ * The professor asks `identity` to turn their microphone ON. Only a request: the target
+ * client never enables the track itself, the student does it from a prompt (their gesture).
+ */
+export interface UnmuteRequestMessage {
+  type: 'request-unmute';
+  identity: string;
+}
+
+/** The professor allows or revokes screen sharing for `identity`. Students default to NOT allowed. */
+export interface GrantScreenShareMessage {
+  type: 'grant-screenshare';
+  identity: string;
+  allowed: boolean;
+}
+
 /** The professor warns `identity` about a proctoring condition. */
 export interface ProctoringWarningMessage {
   type: 'proctoring-warning';
@@ -60,6 +76,8 @@ export type ClassMessage =
   | RaiseHandMessage
   | GrantTurnMessage
   | MuteAudioMessage
+  | UnmuteRequestMessage
+  | GrantScreenShareMessage
   | ProctoringWarningMessage
   | SessionEndedMessage
   | AttentionTelemetryMessage;

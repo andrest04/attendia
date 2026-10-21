@@ -50,6 +50,8 @@ interface Props {
   onGrantTurn?: (identity: string) => void;
   /** Professor action: mute the named student's microphone (via the roster kebab menu). */
   onMuteParticipant?: (identity: string) => void;
+  /** Professor action: ask the named student to turn their microphone on (roster kebab). */
+  onRequestUnmute?: (identity: string) => void;
   /** Professor action: warn the named student about a proctoring condition (from the alert modal). */
   onSendWarning?: (identity: string, kind: ProctoringAlert['kind']) => void;
   /** When true, surface the proctoring alerts feed (US30). Driven by the toolbar toggle. */
@@ -88,6 +90,7 @@ export default function ProfessorRoomShell({
   handsRaised = [],
   onGrantTurn,
   onMuteParticipant,
+  onRequestUnmute,
   onSendWarning,
   proctoringEnabled = false,
   notifications = [],
@@ -106,6 +109,7 @@ export default function ProfessorRoomShell({
     fullTimeline,
     participants: attentionParticipants,
     proctoringAlerts,
+    proctoringLog,
     source,
     attentionLevel,
   } = useAttention();
@@ -148,7 +152,8 @@ export default function ProfessorRoomShell({
         attentionThreshold,
         timeline: fullTimeline,
         participants: attentionParticipants,
-        proctoringAlerts,
+        // The live feed is TTL-pruned; the report keeps the full log.
+        proctoringAlerts: proctoringLog ?? proctoringAlerts,
         attentionLevel,
         reportDate: new Date(),
       })
@@ -203,6 +208,7 @@ export default function ProfessorRoomShell({
           handsRaised={handsRaised}
           onGrantTurn={onGrantTurn}
           onMuteParticipant={onMuteParticipant}
+          onRequestUnmute={onRequestUnmute}
           notifications={notifications}
           proctoringEnabled={proctoringEnabled}
           visibleAlerts={visibleAlerts}

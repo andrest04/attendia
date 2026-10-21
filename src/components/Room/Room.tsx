@@ -35,6 +35,7 @@ import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import OnboardingTutorial from './OnboardingTutorial/OnboardingTutorial';
 import { OnboardingContext } from './OnboardingTutorial/onboardingContext';
 import ParticipantStrip from './ParticipantStrip/ParticipantStrip';
+import UnmuteRequestPrompt from './UnmuteRequestPrompt/UnmuteRequestPrompt';
 
 const useStyles = makeStyles((theme: Theme) => {
   const totalMobileSidebarHeight = `${theme.sidebarMobileHeight +
@@ -121,7 +122,14 @@ export default function Room() {
   // (Participantes / Chat / Panel de atención). The layout owns the rails' exclusion rule.
   const layout = useRoomLayout(isNarrowDesktop);
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
-  const { muteParticipant, mutedByProfessorCount } = useModeration();
+  const {
+    muteParticipant,
+    mutedByProfessorCount,
+    requestUnmute,
+    unmuteRequestPending,
+    acceptUnmuteRequest,
+    dismissUnmuteRequest,
+  } = useModeration();
   const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
   // Snapshots the attention report to Firestore on both professor exit paths; a
   // silent no-op for students and in non-firebase modes.
@@ -205,7 +213,7 @@ export default function Room() {
     localIdentity: room?.localParticipant?.identity || '',
     layout,
     hands: { raisedHands, isHandRaised, setHandRaised, grantTurn },
-    moderation: { muteParticipant, sendWarning },
+    moderation: { muteParticipant, requestUnmute, sendWarning },
     proctoring: { enabled: proctoringEnabled, setEnabled: setProctoringEnabled },
     notifications,
     sessionEnd: { endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher },
@@ -242,6 +250,14 @@ export default function Room() {
             roomShellFactory[role](shellContext)
           )}
 
+          {/* Students only: the professor's "turn your mic on" request; the click enables the mic. */}
+          {!isTeacher && (
+            <UnmuteRequestPrompt
+              open={unmuteRequestPending}
+              onAccept={acceptUnmuteRequest}
+              onDismiss={dismissUnmuteRequest}
+            />
+          )}
           {!isDesktopShell && <ChatWindow />}
           <BackgroundSelectionDialog />
           {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}

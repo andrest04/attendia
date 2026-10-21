@@ -77,6 +77,13 @@ describe('the Room component', () => {
     expect(wrapper.prop('className')).not.toContain('rightDrawerOpen');
   });
 
+  it('renders the unmute-request prompt (closed until the professor asks)', () => {
+    const wrapper = shallow(<Room />);
+    const prompt = wrapper.find('UnmuteRequestPrompt');
+    expect(prompt.exists()).toBe(true);
+    expect(prompt.prop('open')).toBe(false);
+  });
+
   it('should render correctly with chat window open', () => {
     mockUseChatContext.mockImplementationOnce(() => ({
       isChatWindowOpen: true,

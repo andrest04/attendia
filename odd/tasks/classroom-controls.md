@@ -19,7 +19,7 @@ Seven requested classroom behaviours, grouped into independent tasks.
 
 - [x] T1 "Salir" button turns red on hover (`EndCallButton.tsx`, both variants).
 - [x] T2 Distraction alerts expire from the live feed after TTL (`stepProctoring`, `detectedAtMs`).
-- [ ] T3 Teacher can request a student to enable the mic (`request-unmute`, roster action, student prompt).
+- [x] T3 Teacher can request a student to enable the mic (`request-unmute`, roster action, student prompt).
 - [ ] T4 Screen-share authorization (grant/revoke, gating in `useScreenShareControl`, roster actions).
 - [ ] T5 Block phones (client screen + `/token` guard + tests).
 - [ ] T6 Server: live report snapshot endpoint (owner-only, `status:'live'`, never overwrites a final report).
@@ -34,3 +34,4 @@ Repo files are CRLF in the working tree: targeted edits only. Prettier 1.19.1: n
 ## Log
 - T1 done: Salir hover turns red (#dc2626) in both variants; no hover test (JSS hover not asserted today). Commit 88e9a7e.
 - T2 done: ALERT_TTL_MS=2min; stepProctoring takes injected now, state.visible (expiring) vs state.log (full, feeds the report via AttentionData.proctoringLog). RED 5 failing -> GREEN. Commit (see git log: feat(attention) expire...).
+- T3 done: `request-unmute` (additive) + `requestUnmute`/pending/accept/dismiss in useModeration; receiver only prompts (`UnmuteRequestPrompt`, Spanish, mic enabled on the student's click). Roster kebab "Pedir activar micrófono". T2 follow-up: live report modal now reads `proctoringLog ?? proctoringAlerts`. RED (3 tests + prompt suite + 5 hook tests failing) -> GREEN. Commit: see git log (feat(moderation) request-unmute).

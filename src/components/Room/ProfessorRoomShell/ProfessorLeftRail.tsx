@@ -64,6 +64,7 @@ interface ProfessorLeftRailProps {
   handsRaised: string[];
   onGrantTurn?: (identity: string) => void;
   onMuteParticipant?: (identity: string) => void;
+  onRequestUnmute?: (identity: string) => void;
   notifications: ShellNotification[];
   /** When true, surface the proctoring alerts feed (US30). */
   proctoringEnabled: boolean;
@@ -90,6 +91,7 @@ export default function ProfessorLeftRail({
   handsRaised,
   onGrantTurn,
   onMuteParticipant,
+  onRequestUnmute,
   notifications,
   proctoringEnabled,
   visibleAlerts,
@@ -122,6 +124,7 @@ export default function ProfessorLeftRail({
         participants={participants}
         attentionByIdentity={attentionByIdentity}
         onMuteParticipant={onMuteParticipant}
+        onRequestUnmute={onRequestUnmute}
       />
 
       <NotificationsFeed notifications={notifications} />

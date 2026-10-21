@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import MicOffIcon from '@material-ui/icons/MicOff';
+import MicIcon from '@material-ui/icons/Mic';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import RoleBadge from '../../RoleBadge/RoleBadge';
 import { ParticipantAttention } from '../../AttentionProvider/types';
@@ -142,6 +143,8 @@ interface RosterListProps {
   attentionByIdentity: Map<string, ParticipantAttention>;
   /** When provided, students (never the professor) get a moderation kebab with "Silenciar". */
   onMuteParticipant?: (identity: string) => void;
+  /** When provided, the kebab also offers "Pedir activar micrófono". */
+  onRequestUnmute?: (identity: string) => void;
 }
 
 /**
@@ -182,7 +185,12 @@ function AttentionDecoration({
  * camera-off / no-measure / unsupported flag) and a per-student moderation kebab.
  * Pins the teacher to the top and owns only the open-menu state.
  */
-export default function RosterList({ participants, attentionByIdentity, onMuteParticipant }: RosterListProps) {
+export default function RosterList({
+  participants,
+  attentionByIdentity,
+  onMuteParticipant,
+  onRequestUnmute,
+}: RosterListProps) {
   const classes = useStyles();
 
   // Identity whose roster moderation (kebab) menu is currently open, or null.
@@ -254,6 +262,20 @@ export default function RosterList({ participants, attentionByIdentity, onMutePa
                       >
                         <MicOffIcon style={{ fontSize: 16 }} /> Silenciar
                       </button>
+                      {onRequestUnmute && (
+                        <button
+                          type="button"
+                          className={classes.rosterMenuItem}
+                          data-testid="professor-room-shell-roster-request-unmute"
+                          role="menuitem"
+                          onClick={() => {
+                            onRequestUnmute(participant.identity);
+                            setOpenMenuIdentity(null);
+                          }}
+                        >
+                          <MicIcon style={{ fontSize: 16 }} /> Pedir activar micrófono
+                        </button>
+                      )}
                     </div>
                   </>
                 )}
