@@ -25,7 +25,7 @@ Allowed: `src/hooks/useClassDataChannel/classProtocol.ts`, `src/hooks/useModerat
 Tests first (RED→GREEN) for each pure rule and hook; Spanish copy for in-room UI; prettier 1.19.1 safe syntax (no `import type`/`export type {}`); `npm test` for touched files and `npm run lint` clean.
 
 ## Route log
-- T1: delegated writer (trigger: 2+ non-trivial files). Commit: PENDING.
+- T1: delegated writer (trigger: 2+ non-trivial files). Commit: 802df6f.
 
 ## Progress / evidence
 - T1 done: RED (10 failing new tests) then GREEN; 6 suites / 102 tests pass; tsc --noEmit and npm run lint clean; prettier check clean. Camera-off reuses useLocalVideoToggle inside useModeration; accept enables the camera only from the prompt click.
