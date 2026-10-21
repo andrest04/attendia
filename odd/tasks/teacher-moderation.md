@@ -18,7 +18,7 @@ Allowed: `src/hooks/useClassDataChannel/classProtocol.ts`, `src/hooks/useModerat
 ## Tasks
 - [x] T1 Camera protocol: `mute-video` (forced off, same path as `ToggleVideoButton`) + `request-video` (suggestion); generalize `UnmuteRequestPrompt` to mic|camera; student toast "El profesor apagó tu cámara".
 - [x] T2 Kebab: add "Apagar cámara" / "Sugerir cámara" to the roster menu and put the same menu (items as data) on the student's video tile, teacher-only.
-- [ ] T3 Hierarchy: pure rule `canModerate(actorRole, targetIsTeacher)` in classProtocol; owner sees kebab on other teachers' rows; co-teacher only on students.
+- [x] T3 Hierarchy: pure rule `canModerate(actorRole, target)` in classProtocol; owner sees kebab on other teachers' rows (no screen-share grant); co-teacher only on students.
 - [ ] T4 (optional, later) mute-all, ordered hand queue, spotlight, persist screen-share grants.
 
 ## Acceptance
@@ -31,3 +31,6 @@ Tests first (RED→GREEN) for each pure rule and hook; Spanish copy for in-room 
 ## Progress / evidence
 - T1 done: RED (10 failing new tests) then GREEN; 6 suites / 102 tests pass; tsc --noEmit and npm run lint clean; prettier check clean. Camera-off reuses useLocalVideoToggle inside useModeration; accept enables the camera only from the prompt click.
 - T2 done: RED (new suites failed on missing modules) then GREEN; 27 suites / 287 tests pass in Room, GalleryView, ParticipantInfo, Participant; tsc, lint and prettier clean. Items are data (`buildStudentModerationItems`), shared by the roster row and the tile leaf `TileModerationMenu` (reuses `OverflowMenu`); Room provides `ModerationActionsContext` to teachers only and GalleryView passes it to remote non-teacher tiles.
+- T3: delegated writer (trigger: 2+ non-trivial files, rule + roster + tile + Room + toasts). Commit: see Progress.
+
+- T3 done: RED (classProtocol canModerate 6 failing tests, then buildModerationItemsForTarget) then GREEN; 91 suites / 797 tests pass in src/hooks, Room, GalleryView, ParticipantInfo, Participant; tsc, lint and prettier clean. `canModerate(actorRole, {isTeacher, isLocal})` fails closed on teachers for unknown/loading roles; `buildModerationItemsForTarget` (roster + tile) drops the screen-share grant on teacher targets; Room puts `actorRole` (from `useIsRoomOwner`) in `ModerationActionsContext`. Receiver side: `useModeration` already obeyed any teacher sender; Room now always mounts both request prompts and the teacher toast policy gained muted/camera-off ("El profesor ..."). Wire format untouched.

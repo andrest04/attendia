@@ -62,6 +62,9 @@ const teacherPolicy: ToastPolicy = {
   participantLeft: identity =>
     isTeacherIdentity(identity) ? undefined : toast(`${stripTeacherSuffix(identity)} salió de la sesión`),
   handRaised: identity => toast(`${stripTeacherSuffix(identity)} levantó la mano`),
+  // The owner may mute or turn off a co-teacher; both teachers read as "El profesor".
+  muted: () => toast('El profesor silenció tu micrófono', 'warning'),
+  cameraTurnedOff: () => toast('El profesor apagó tu cámara', 'warning'),
 };
 
 // Student: the professor joining/leaving, "es tu turno", recording on/off, being muted or

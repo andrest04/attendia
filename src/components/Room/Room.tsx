@@ -150,7 +150,8 @@ export default function Room() {
   const { saveReport, buildReport, adoptStartTime } = useAttentionReportSaver();
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
   // Owner-only controls hide ONLY for a confirmed co-teacher; unknown/failed lookups act as owner.
-  const isCoTeacher = useIsRoomOwner(isTeacher) === 'co-teacher';
+  const ownerStatus = useIsRoomOwner(isTeacher);
+  const isCoTeacher = ownerStatus === 'co-teacher';
   // Singleton (one DataTrack) like useRaiseHand: drives the teacher's "end for everyone"
   // and the student-side "session ended" screen. Must be called once here.
   const sessionEndApi = useSessionEnd({ onProfessorEnd: saveReport, isCoTeacher });
@@ -227,6 +228,7 @@ export default function Room() {
         onRequestVideo: requestVideo,
         onSetScreenShareGrant: grantScreenShare,
         screenShareGrants,
+        actorRole: ownerStatus,
       }
     : null;
 
@@ -289,22 +291,18 @@ export default function Room() {
               roomShellFactory[role](shellContext)
             )}
 
-            {/* Students only: the professor's "turn your mic on" request; the click enables the mic. */}
-            {!isTeacher && (
-              <UnmuteRequestPrompt
-                open={unmuteRequestPending}
-                onAccept={acceptUnmuteRequest}
-                onDismiss={dismissUnmuteRequest}
-              />
-            )}
-            {!isTeacher && (
-              <UnmuteRequestPrompt
-                kind="camera"
-                open={cameraRequestPending}
-                onAccept={acceptCameraRequest}
-                onDismiss={dismissCameraRequest}
-              />
-            )}
+            {/* A teacher's "turn your mic/camera on" suggestion (students, and co-teachers from the owner); the click enables it. */}
+            <UnmuteRequestPrompt
+              open={unmuteRequestPending}
+              onAccept={acceptUnmuteRequest}
+              onDismiss={dismissUnmuteRequest}
+            />
+            <UnmuteRequestPrompt
+              kind="camera"
+              open={cameraRequestPending}
+              onAccept={acceptCameraRequest}
+              onDismiss={dismissCameraRequest}
+            />
             {!isDesktopShell && <ChatWindow />}
             <BackgroundSelectionDialog />
             {/* Onboarding tutorial modal — desktop only; shown once per browser via localStorage */}

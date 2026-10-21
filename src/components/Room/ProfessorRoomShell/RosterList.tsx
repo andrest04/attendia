@@ -7,7 +7,8 @@ import RoleBadge from '../../RoleBadge/RoleBadge';
 import { ParticipantAttention } from '../../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
 import { classifyAttention } from '../../AttentionProvider/presence';
-import { buildStudentModerationItems, StudentModerationHandlers } from '../ModerationMenu/studentModerationItems';
+import { buildModerationItemsForTarget, StudentModerationHandlers } from '../ModerationMenu/studentModerationItems';
+import { useModerationActions } from '../ModerationMenu/moderationActionsContext';
 import { getInitials, presenceView } from './professorShellHelpers';
 import { attentionStatusColors } from '../../../theme';
 
@@ -140,7 +141,7 @@ interface RosterListProps {
   participants: Array<{ identity: string; isLocal?: boolean }>;
   /** Attention decoration keyed by identity; identities absent from the map render no badge. */
   attentionByIdentity: Map<string, ParticipantAttention>;
-  /** Students (never the professor) get a moderation kebab built from these handlers. */
+  /** Rows get a moderation kebab built from these handlers, filtered by `canModerate`. */
   moderation?: StudentModerationHandlers;
 }
 
@@ -184,6 +185,8 @@ function AttentionDecoration({
  */
 export default function RosterList({ participants, attentionByIdentity, moderation = {} }: RosterListProps) {
   const classes = useStyles();
+  // Room provides the actor's role (owner / co-teacher) through the moderation context.
+  const actorRole = useModerationActions()?.actorRole;
 
   // Identity whose roster moderation (kebab) menu is currently open, or null.
   const [openMenuIdentity, setOpenMenuIdentity] = React.useState<string | null>(null);
@@ -197,9 +200,12 @@ export default function RosterList({ participants, attentionByIdentity, moderati
     <div data-testid="professor-room-shell-roster">
       {orderedParticipants.map(participant => {
         const attention = attentionByIdentity.get(participant.identity);
-        const menuItems = isTeacherIdentity(participant.identity)
-          ? []
-          : buildStudentModerationItems(participant.identity, moderation, 'professor-room-shell-roster');
+        const menuItems = buildModerationItemsForTarget(
+          { identity: participant.identity, isLocal: Boolean(participant.isLocal) },
+          moderation,
+          'professor-room-shell-roster',
+          actorRole
+        );
         return (
           <div key={participant.identity} className={classes.rosterRow}>
             <div

@@ -1,7 +1,7 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import OverflowMenu from '../ToolbarParts/OverflowMenu';
-import { buildStudentModerationItems, StudentModerationHandlers } from './studentModerationItems';
+import { buildModerationItemsForTarget, StudentModerationHandlers } from './studentModerationItems';
 
 const useStyles = makeStyles(() => ({
   // Small translucent circle in the tile's top-left corner, above the video.
@@ -27,11 +27,11 @@ interface TileModerationMenuProps {
   handlers: StudentModerationHandlers;
 }
 
-/** The three-dots moderation menu on a student's video tile (teacher viewers only). */
+/** The three-dots moderation menu on a remote tile (teacher viewers only; items follow `canModerate`). */
 export default function TileModerationMenu({ identity, handlers }: TileModerationMenuProps) {
   const classes = useStyles();
   const testIdPrefix = `participant-moderation-${identity}`;
-  const items = buildStudentModerationItems(identity, handlers, testIdPrefix);
+  const items = buildModerationItemsForTarget({ identity, isLocal: false }, handlers, testIdPrefix);
   if (items.length === 0) return null;
   return (
     <div className={classes.wrap} onClick={event => event.stopPropagation()}>

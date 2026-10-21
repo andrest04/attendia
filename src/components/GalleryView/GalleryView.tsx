@@ -204,9 +204,7 @@ export function GalleryView() {
                 participant === room!.localParticipant ? undefined : attentionByIdentity.get(participant.identity)
               }
               moderation={
-                isTeacher && participant !== room!.localParticipant && !isTeacherIdentity(participant.identity)
-                  ? moderationActions || undefined
-                  : undefined
+                isTeacher && participant !== room!.localParticipant ? moderationActions || undefined : undefined
               }
             />
           </div>

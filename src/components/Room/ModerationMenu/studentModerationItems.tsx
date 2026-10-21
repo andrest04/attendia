@@ -5,6 +5,8 @@ import VideocamOffIcon from '@material-ui/icons/VideocamOff';
 import VideocamIcon from '@material-ui/icons/Videocam';
 import ScreenShareIcon from '@material-ui/icons/ScreenShare';
 import { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
+import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
+import { canModerate, ModerationActorRole } from '../../../hooks/useClassDataChannel/classProtocol';
 
 /** What a teacher can do to one student. A missing handler removes its menu item. */
 export interface StudentModerationHandlers {
@@ -15,6 +17,8 @@ export interface StudentModerationHandlers {
   onSetScreenShareGrant?: (identity: string, allowed: boolean) => void;
   /** Identities currently allowed to share their screen. */
   screenShareGrants?: string[];
+  /** The local teacher's standing in the room; gates moderating another teacher. */
+  actorRole?: ModerationActorRole;
 }
 
 const ICON_STYLE = { fontSize: 16 };
@@ -63,4 +67,20 @@ export function buildStudentModerationItems(
     },
   ];
   return items.filter((item): item is OverflowMenuItem => Boolean(item));
+}
+
+/**
+ * The moderation menu for any participant, honoring the owner/co-teacher rule (`canModerate`).
+ * A teacher target never gets the screen-share grant: only forced-off actions and suggestions.
+ */
+export function buildModerationItemsForTarget(
+  target: { identity: string; isLocal: boolean },
+  handlers: StudentModerationHandlers,
+  testIdPrefix: string,
+  actorRole: ModerationActorRole | undefined = handlers.actorRole
+): OverflowMenuItem[] {
+  const isTeacher = isTeacherIdentity(target.identity);
+  if (!canModerate(actorRole, { isTeacher, isLocal: target.isLocal })) return [];
+  const allowed = isTeacher ? { ...handlers, onSetScreenShareGrant: undefined } : handlers;
+  return buildStudentModerationItems(target.identity, allowed, testIdPrefix);
 }

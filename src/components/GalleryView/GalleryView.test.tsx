@@ -155,12 +155,12 @@ describe('the GalleryView component', () => {
       expect(result['Profe [Profesor]']).toBeUndefined();
     });
 
-    it('never offers the menu on another teacher tile', () => {
+    it('passes the handlers to another teacher tile too (the tile menu applies the owner-only rule)', () => {
       mockLocalParticipant.identity = 'Profe [Profesor]';
       mockUseModerationActions.mockReturnValue(handlers);
       mockParticipants[0].identity = 'Otra [Profesor]';
       try {
-        expect(moderationByIdentity()['Otra [Profesor]']).toBeUndefined();
+        expect(moderationByIdentity()['Otra [Profesor]']).toBe(handlers);
       } finally {
         mockParticipants[0].identity = 'test-participant-1';
       }

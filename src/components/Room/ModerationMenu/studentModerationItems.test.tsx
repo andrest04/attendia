@@ -1,4 +1,4 @@
-import { buildStudentModerationItems } from './studentModerationItems';
+import { buildModerationItemsForTarget, buildStudentModerationItems } from './studentModerationItems';
 
 const fullHandlers = () => ({
   onMuteParticipant: jest.fn(),
@@ -51,5 +51,42 @@ describe('buildStudentModerationItems', () => {
     const items = buildStudentModerationItems('Ana', { onMuteVideo: jest.fn() }, 'menu');
     expect(items.map(i => i.testId)).toEqual(['menu-mute-video']);
     expect(buildStudentModerationItems('Ana', {}, 'menu')).toEqual([]);
+  });
+});
+
+describe('buildModerationItemsForTarget', () => {
+  const ids = (items: Array<{ testId?: string }>) => items.map(i => i.testId);
+
+  it('offers students the full menu to an owner and to a co-teacher', () => {
+    const target = { identity: 'Ana', isLocal: false };
+    expect(buildModerationItemsForTarget(target, fullHandlers(), 'menu', 'owner')).toHaveLength(5);
+    expect(buildModerationItemsForTarget(target, fullHandlers(), 'menu', 'co-teacher')).toHaveLength(5);
+  });
+
+  it('offers a teacher target only forced-off actions and suggestions (no screen-share grant) to the owner', () => {
+    const items = buildModerationItemsForTarget(
+      { identity: 'Bea [Profesor]', isLocal: false },
+      fullHandlers(),
+      'menu',
+      'owner'
+    );
+    expect(ids(items)).toEqual(['menu-mute', 'menu-request-unmute', 'menu-mute-video', 'menu-request-video']);
+  });
+
+  it('reads the actor role from the handlers when none is passed', () => {
+    const handlers = { ...fullHandlers(), actorRole: 'owner' as const };
+    expect(
+      buildModerationItemsForTarget({ identity: 'Bea [Profesor]', isLocal: false }, handlers, 'menu')
+    ).toHaveLength(4);
+  });
+
+  it('offers nothing on a teacher to a co-teacher, an unknown role or when the target is oneself', () => {
+    const teacher = { identity: 'Bea [Profesor]', isLocal: false };
+    expect(buildModerationItemsForTarget(teacher, fullHandlers(), 'menu', 'co-teacher')).toEqual([]);
+    expect(buildModerationItemsForTarget(teacher, fullHandlers(), 'menu', 'unknown')).toEqual([]);
+    expect(buildModerationItemsForTarget(teacher, fullHandlers(), 'menu')).toEqual([]);
+    expect(
+      buildModerationItemsForTarget({ identity: 'Bea [Profesor]', isLocal: true }, fullHandlers(), 'menu', 'owner')
+    ).toEqual([]);
   });
 });

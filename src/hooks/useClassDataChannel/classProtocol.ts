@@ -130,3 +130,20 @@ export function isAddressedToMe(message: { identity?: unknown }, room: Room | nu
 export function isFromTeacher(participant: { identity?: string } | null | undefined): boolean {
   return isTeacherIdentity(participant?.identity);
 }
+
+/** The local user's standing in the room: the teacher who owns it, a co-teacher, or a student. */
+export type ModerationActorRole = 'owner' | 'co-teacher' | 'student' | 'unknown';
+
+/**
+ * Sender-side moderation rule (a client convention, not a security boundary). Owner and
+ * co-teacher moderate students; ONLY the owner moderates another teacher, so an unknown
+ * (loading/failed) role fails closed there; students and the local participant are never
+ * moderated or moderating.
+ */
+export function canModerate(
+  actorRole: ModerationActorRole | null | undefined,
+  target: { isTeacher: boolean; isLocal: boolean }
+): boolean {
+  if (target.isLocal || actorRole === 'student') return false;
+  return target.isTeacher ? actorRole === 'owner' : true;
+}

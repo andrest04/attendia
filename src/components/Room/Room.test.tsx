@@ -12,6 +12,7 @@ import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipan
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
 import useIsRoomOwner from '../../hooks/useIsRoomOwner/useIsRoomOwner';
+import { ModerationActionsContext } from './ModerationMenu/moderationActionsContext';
 import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext } from '../../hooks/useRaiseHand/raisedHandsContext';
 
@@ -315,6 +316,21 @@ describe('the Room component', () => {
       expect(toolbar.props.onEndForAll).toBeUndefined();
       expect(toolbar.props.onLeave).toEqual(expect.any(Function));
       expect(mockUseUnloadReportPersistence).toHaveBeenLastCalledWith(false, expect.any(Function));
+    });
+
+    it('still renders both request prompts for a teacher (a co-teacher can be asked by the owner)', () => {
+      asTeacher();
+      const wrapper = shallow(<Room />);
+      expect(wrapper.find('UnmuteRequestPrompt')).toHaveLength(2);
+    });
+
+    it('hands the moderation context the local owner status as the actor role', () => {
+      mockUseIsRoomOwner.mockImplementation(() => 'owner');
+      asTeacher();
+      const value = shallow(<Room />)
+        .find(ModerationActionsContext.Provider)
+        .prop('value') as any;
+      expect(value.actorRole).toBe('owner');
     });
 
     it('only looks up the owner status for a teacher', () => {
