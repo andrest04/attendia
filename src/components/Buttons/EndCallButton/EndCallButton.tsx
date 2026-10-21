@@ -20,8 +20,8 @@ const useStyles = makeStyles((theme: Theme) =>
       letterSpacing: '0.14px',
       boxShadow: '0px 4px 7px rgba(29, 47, 111, 0.3)',
       '&:hover': {
-        background: '#152356',
-        boxShadow: '0px 4px 10px rgba(29, 47, 111, 0.4)',
+        background: '#dc2626',
+        boxShadow: '0px 4px 10px rgba(220, 38, 38, 0.4)',
       },
       '& .MuiButton-startIcon': {
         marginRight: '6px',
@@ -40,7 +40,7 @@ const useStyles = makeStyles((theme: Theme) =>
       background: '#1B2126',
       color: '#ffffff',
       '&:hover': {
-        background: '#0E1316',
+        background: '#dc2626',
       },
     },
     // Dialog action buttons.
