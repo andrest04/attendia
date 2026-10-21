@@ -1,6 +1,7 @@
 import { configure } from 'enzyme';
 import Adapter from 'enzyme-adapter-react-16';
 import 'isomorphic-fetch';
+import './i18n/testInit';
 
 configure({ adapter: new Adapter() });
 
@@ -16,6 +17,10 @@ class LocalStorage {
 
   setItem(key: string, value: string) {
     this.store[key] = value;
+  }
+
+  removeItem(key: string) {
+    delete this.store[key];
   }
 
   clear() {

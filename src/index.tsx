@@ -11,6 +11,7 @@ import ErrorDialog from './components/ErrorDialog/ErrorDialog';
 import PrivateRoute from './components/PrivateRoute/PrivateRoute';
 import theme from './theme';
 import './types';
+import './i18n';
 import { SnackbarProvider } from 'notistack';
 import { ChatProvider } from './components/ChatProvider';
 import { AttentionProvider } from './components/AttentionProvider';
