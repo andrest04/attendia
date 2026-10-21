@@ -5,6 +5,7 @@ import {
   buildUpcomingSessions,
   findExpiredClasses,
 } from './classSessionsView';
+import { createI18n } from '../../i18n/createI18n';
 import { mockDashboardData } from './mockDashboardData';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
@@ -261,5 +262,35 @@ describe('buildMockClassesView', () => {
     expect(view.dateLabel).toBe(mockDashboardData.upcomingSessionsDateLabel);
     expect(view.expiredSessions).toEqual([]);
     expect(view.expiredClasses).toEqual([]);
+  });
+});
+
+describe('classSessionsView in English', () => {
+  const i18n = createI18n({ detect: false, lng: 'en' });
+  const en = { t: i18n.t.bind(i18n), language: 'en' };
+
+  it('labels upcoming sessions in English', () => {
+    const soon = makeClass({ id: 'soon', scheduledAtMs: NOW_MS + 5 * 60 * 1000 });
+    const hours = makeClass({ id: 'hours', scheduledAtMs: NOW_MS + 3 * 60 * 60 * 1000 });
+    const tomorrow = makeClass({ id: 'tomorrow', scheduledAtMs: new Date(2026, 6, 9, 15, 30).getTime() });
+    const later = makeClass({ id: 'later', scheduledAtMs: new Date(2026, 6, 20, 9, 0).getTime() });
+
+    const [a, b, c, d] = buildUpcomingSessions([soon, hours, tomorrow, later], NOW_MS, en);
+
+    expect(a.relativeLabel).toBe('In 5 min');
+    expect(a.dayLabel).toBe('Today');
+    expect(a.time).toMatch(/^10:05\sAM$/);
+    expect(b.relativeLabel).toBe('In 3h');
+    expect(c.relativeLabel).toBe('Tomorrow');
+    expect(c.dayLabel).toBe('Tomorrow');
+    expect(d.dayLabel).toBe('Jul 20');
+  });
+
+  it('labels expired sessions and the date in English', () => {
+    const old = makeClass({ scheduledAtMs: NOW_MS - 3 * 24 * 60 * 60 * 1000 });
+
+    expect(buildExpiredSessions([old], NOW_MS, en)[0].relativeLabel).toBe('Expired 3d ago');
+    expect(buildRealClassesView([], NOW_MS, en).dateLabel).toBe('Wednesday, July 8, 2026');
+    expect(buildRealClassesView([], NOW_MS).dateLabel).toBe('Miércoles, 8 de julio de 2026');
   });
 });
