@@ -28,6 +28,7 @@ import useProctoringWarnings from '../../hooks/useProctoringWarnings/useProctori
 import useSessionEnd from '../../hooks/useSessionEnd/useSessionEnd';
 import { usePublishSessionEnd } from '../../hooks/useSessionEnd/sessionEndContext';
 import useAttentionReportSaver from '../../hooks/useAttentionReportSaver/useAttentionReportSaver';
+import useLiveReportSync from '../../hooks/useAttentionReportSaver/useLiveReportSync';
 import useIsRoomOwner from '../../hooks/useIsRoomOwner/useIsRoomOwner';
 import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext, buildRaisedHandIdentities } from '../../hooks/useRaiseHand/raisedHandsContext';
@@ -139,7 +140,7 @@ export default function Room() {
   const { sendWarning, warnedByProfessorCount, lastWarningKind } = useProctoringWarnings();
   // Snapshots the attention report to Firestore on both professor exit paths; a
   // silent no-op for students and in non-firebase modes.
-  const { saveReport, buildReport } = useAttentionReportSaver();
+  const { saveReport, buildReport, adoptStartTime } = useAttentionReportSaver();
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
   // Owner-only controls hide ONLY for a confirmed co-teacher; unknown/failed lookups act as owner.
   const isCoTeacher = useIsRoomOwner(isTeacher) === 'co-teacher';
@@ -194,6 +195,9 @@ export default function Room() {
   // Owner-only: persist the attention report when the tab is closed or refreshed. A co-teacher
   // must not build, queue or POST one (the server refuses reports for rooms they do not own).
   useUnloadReportPersistence(isTeacher && !isCoTeacher, buildReport);
+  // Owner-only: restore the class report stored while the teacher was away and keep a live snapshot
+  // on the server, so leaving without ending (or a connectivity loss) never loses the report.
+  useLiveReportSync({ enabled: isTeacher && !isCoTeacher, buildReport, adoptStartTime });
 
   // Speaker-view stage: ParticipantStrip filmstrip on top + MainParticipant filling remaining space.
   // Used by both desktop shells; not rendered on mobile or in gallery view.

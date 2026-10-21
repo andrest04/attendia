@@ -2,6 +2,7 @@ import { MutableRefObject, useEffect, useRef, useState } from 'react';
 import { RemoteAttention } from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import { AttentionTimelinePoint } from './types';
 import { averageIndex, formatTimelineLabel, isMeasured, ParticipantHistory, recordHistory } from './liveAttention';
+import { AttentionSeed, mergeHistory } from './liveSnapshot';
 
 // Maximum timeline points kept in memory before the oldest are evicted.
 // 90 points at 1-second intervals covers a 1.5-minute sliding window — enough
@@ -42,10 +43,14 @@ export interface GroupTimeline {
  * `remoteAttention` is read through a ref: the interval is created once (per `isActive`) and
  * would otherwise close over the telemetry from the render where isActive flipped true — empty
  * at that instant, so every tick would write 0 forever.
+ *
+ * `seed` is a snapshot restored from the server when the owner teacher re-enters a class that kept
+ * running: its timeline is prepended and its per-student history folded into the live one.
  */
 export default function useGroupTimeline(
   remoteAttention: MutableRefObject<RemoteAttention[]>,
-  isActive: boolean
+  isActive: boolean,
+  seed: AttentionSeed | null = null
 ): GroupTimeline {
   const [timeline, setTimeline] = useState<AttentionTimelinePoint[]>([]);
   const [fullTimeline, setFullTimeline] = useState<AttentionTimelinePoint[]>([]);
@@ -96,6 +101,14 @@ export default function useGroupTimeline(
     const id = window.setInterval(push, TIMELINE_INTERVAL_MS);
     return () => window.clearInterval(id);
   }, [isActive, remoteAttention]);
+
+  useEffect(() => {
+    if (!seed || !isActive) return;
+    const merged = [...seed.fullTimeline, ...fullTimelineRef.current].slice(-FULL_TIMELINE_HARD_CAP);
+    fullTimelineRef.current = merged;
+    setFullTimeline(merged);
+    mergeHistory(history.current, seed.history);
+  }, [seed, isActive]);
 
   return { timeline, fullTimeline, history };
 }

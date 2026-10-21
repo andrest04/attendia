@@ -8,8 +8,12 @@ import { RemoteParticipant, Room } from 'twilio-video';
  *
  * It never shrinks: a student who leaves stays counted, and a rejoin under the same identity is
  * a no-op (no double count, and no re-render). It resets when the room itself goes away.
+ * `restored` (identities from a snapshot restored by the owner teacher) joins the roster too.
  */
-export default function useAttendanceRoster(room: Room | null | undefined): ReadonlySet<string> {
+export default function useAttendanceRoster(
+  room: Room | null | undefined,
+  restored: ReadonlySet<string> | null = null
+): ReadonlySet<string> {
   const [attended, setAttended] = useState<ReadonlySet<string>>(() => new Set());
 
   useEffect(() => {
@@ -26,6 +30,14 @@ export default function useAttendanceRoster(room: Room | null | undefined): Read
       room.off('participantConnected', handleConnected);
     };
   }, [room]);
+
+  useEffect(() => {
+    if (!restored) return;
+    setAttended(previous => {
+      const missing = Array.from(restored).filter(identity => !previous.has(identity));
+      return missing.length === 0 ? previous : new Set([...Array.from(previous), ...missing]);
+    });
+  }, [restored]);
 
   return attended;
 }

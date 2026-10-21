@@ -36,6 +36,11 @@ export interface AttentionReportSaverApi {
    * where an async POST can't be awaited but a synchronous localStorage write can.
    */
   buildReport: (endReason: ReportEndReason) => AttentionReport | null;
+  /**
+   * A restored live snapshot says when the class really began. Adopts it when it is earlier than
+   * the time this view first observed the room, so the duration continues across re-entries.
+   */
+  adoptStartTime: (startedAtIso: string) => void;
 }
 
 export default function useAttentionReportSaver(): AttentionReportSaverApi {
@@ -60,6 +65,14 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
       startedAtRef.current = Date.now();
     }
   }, [room]);
+
+  const adoptStartTime = useCallback((startedAtIso: string) => {
+    const restored = new Date(startedAtIso).getTime();
+    if (!Number.isFinite(restored)) {
+      return;
+    }
+    startedAtRef.current = startedAtRef.current === null ? restored : Math.min(startedAtRef.current, restored);
+  }, []);
 
   const buildReport = useCallback(
     (endReason: ReportEndReason): AttentionReport | null => {
@@ -127,5 +140,5 @@ export default function useAttentionReportSaver(): AttentionReportSaverApi {
     [buildReport, user, saveRef]
   );
 
-  return { saveReport, buildReport };
+  return { saveReport, buildReport, adoptStartTime };
 }

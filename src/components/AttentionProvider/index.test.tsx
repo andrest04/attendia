@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useMediaQuery } from '@material-ui/core';
-import { AttentionProvider, useAttention } from './index';
+import { AttentionProvider, AttentionRestoreContext, useAttention } from './index';
+import { AttentionReport } from './reportTypes';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
@@ -807,6 +808,75 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
 
     expect(mockUseAttentionTelemetry).toHaveBeenCalled();
     mockUseAttentionTelemetry.mock.calls.forEach(call => expect(call[3]).toBe(false));
+  });
+});
+
+// ─── RESTORE: a re-entering teacher continues from the stored snapshot ──────────
+describe('useAttention inside AttentionProvider — restoring a stored snapshot', () => {
+  const storedReport: AttentionReport = {
+    roomSid: 'RM00000000000000000000000000000abc',
+    roomName: 'test-room',
+    endReason: 'left',
+    source: 'live',
+    studentCount: 1,
+    attentionThreshold: 60,
+    ranges: { lowMax: 40, mediumMax: 70 },
+    groupAverage: 70,
+    percentAboveThreshold: 50,
+    timeline: [
+      { time: '10:00:00', value: 60 },
+      { time: '10:00:01', value: 80 },
+    ],
+    participants: [{ identity: 'student-z', indexAvg: 70, indexMin: 50, indexMax: 90, level: 'medium', alertCount: 1 }],
+    proctoringAlerts: [{ identity: 'student-z', kind: 'away', detectedAt: '10:00' }],
+    endedAtIso: '2026-07-03T10:00:02.000Z',
+    startedAtIso: '2026-07-03T09:59:00.000Z',
+    durationMs: 62000,
+    recordingWasActiveAtEnd: false,
+  };
+  const useBoth = () => ({ attention: useAttention(), restore: useContext(AttentionRestoreContext) });
+
+  beforeEach(() => {
+    process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
+    setMobileDevice(false);
+    mockUseMediaQuery.mockReturnValue(false);
+    mockUseVideoContext.mockReturnValue({ room: createFakeRoom(), localTracks: [] });
+    mockUseAttentionCapture.mockReturnValue({
+      capture: 'inactive',
+      index: 0,
+      components: { eyes: 0, head: 0 },
+      faces: 0,
+      multiface: false,
+    });
+    mockUseAttentionTelemetry.mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+  });
+
+  it('seeds the timeline, the roster, the per-student history and the proctoring log', () => {
+    const { result } = renderHook(useBoth, { wrapper });
+
+    act(() => result.current.restore(storedReport));
+
+    const { attention } = result.current;
+    expect(attention.fullTimeline).toEqual(storedReport.timeline);
+    const student = attention.participants.find(p => p.identity === 'student-z');
+    expect(student).toMatchObject({ indexMin: 50, indexMax: 90, indexAvg: 70 });
+    expect(attention.proctoringLog).toEqual([expect.objectContaining({ identity: 'student-z', kind: 'away' })]);
+    // Restored events are history: they never reappear in the live (expiring) feed.
+    expect(attention.proctoringAlerts).toEqual([]);
+  });
+
+  it('is a no-op while the pipeline is off', () => {
+    delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    const { result } = renderHook(useBoth, { wrapper });
+
+    act(() => result.current.restore(storedReport));
+
+    expect(result.current.attention.fullTimeline).toEqual([]);
+    expect(result.current.attention.participants).toEqual([]);
   });
 });
 
