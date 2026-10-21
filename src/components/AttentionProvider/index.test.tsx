@@ -323,7 +323,7 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
 
       // Clock moves forward; student-c is still multiface — no new event, same stamp.
       act(() => {
-        jest.setSystemTime(new Date('2026-06-20T10:25:00Z'));
+        jest.setSystemTime(new Date('2026-06-20T10:23:00Z'));
         jest.advanceTimersByTime(3000);
       });
       expect(result.current.proctoringAlerts.length).toBe(1);
@@ -355,7 +355,7 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
         { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
         { identity: 'student-c', index: 80, multiface: false, faces: 1, cameraOff: false },
       ]);
-      jest.setSystemTime(new Date('2026-06-20T10:25:00Z'));
+      jest.setSystemTime(new Date('2026-06-20T10:23:00Z'));
       rerender();
       act(() => {
         jest.advanceTimersByTime(2000);
@@ -369,7 +369,7 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
         { identity: 'student-b', index: 80, multiface: false, faces: 1, cameraOff: false },
         { identity: 'student-c', index: 30, multiface: true, faces: 2, cameraOff: false },
       ]);
-      jest.setSystemTime(new Date('2026-06-20T10:30:00Z'));
+      jest.setSystemTime(new Date('2026-06-20T10:23:50Z'));
       rerender();
       act(() => {
         jest.advanceTimersByTime(2000);
@@ -377,7 +377,28 @@ describe('useAttention inside AttentionProvider — live mode (room present, des
       expect(result.current.proctoringAlerts.length).toBe(2);
       const latest = result.current.proctoringAlerts[result.current.proctoringAlerts.length - 1];
       expect(latest.kind).toBe('multiface');
-      expect(latest.detectedAt).toBe('10:30');
+      expect(latest.detectedAt).toBe('10:23');
+      unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('expires an alert from the live feed after the TTL but keeps it in the full log', () => {
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-06-20T10:22:00Z'));
+      const { result, unmount } = renderHook(useAttention, { wrapper });
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      expect(result.current.proctoringAlerts.length).toBe(1);
+
+      act(() => {
+        jest.advanceTimersByTime(2 * 60 * 1000);
+      });
+      expect(result.current.proctoringAlerts.length).toBe(0);
+      expect(result.current.proctoringLog!.length).toBe(1);
       unmount();
     } finally {
       jest.useRealTimers();

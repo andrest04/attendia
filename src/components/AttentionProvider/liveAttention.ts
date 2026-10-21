@@ -194,26 +194,34 @@ export interface ProctoringState {
   active: ReadonlySet<string>;
   /** Monotonic sequence for unique alert ids (the same identity can re-trigger the same kind). */
   seq: number;
-  /** The capped, append-only event log. */
+  /** The capped, append-only event log. Never expires: the persisted report reads it. */
   log: ProctoringAlert[];
+  /** The slice of `log` still within ALERT_TTL_MS — what the live feed displays. */
+  visible: ProctoringAlert[];
 }
+
+/** How long (ms) a distraction alert stays in the live feed. */
+export const ALERT_TTL_MS = 2 * 60 * 1000;
 
 export const initialProctoringState = (): ProctoringState => ({
   streak: new Map(),
   active: new Set(),
   seq: 0,
   log: [],
+  visible: [],
 });
 
 /**
  * One sampling tick of the proctoring feed. Pure: returns the next state, and whether an
  * event was appended. A condition logs once it clears the debounce and is not already open;
  * once it ends, its streak and open flag are cleared so a later recurrence logs a new event.
+ * `now` (epoch ms, injected) stamps new alerts and prunes expired ones from `visible`.
  */
 export function stepProctoring(
   state: ProctoringState,
   samples: RemoteAttention[],
-  detectedAt: string
+  detectedAt: string,
+  now: number
 ): { state: ProctoringState; changed: boolean } {
   // Currently-active conditions this tick → `identity::kind` (mutually exclusive per participant).
   const current = new Map<string, { identity: string; kind: ProctoringKind }>();
@@ -239,6 +247,7 @@ export function stepProctoring(
         identity,
         kind,
         detectedAt,
+        detectedAtMs: now,
         confidence: PROCTORING_KINDS[kind].confidence,
       };
       log = [...log, alert].slice(-PROCTORING_FEED_MAX);
@@ -253,5 +262,9 @@ export function stepProctoring(
     }
   });
 
-  return { state: { streak, active, seq, log }, changed };
+  // Expiry is display-only: `active` keeps an expired-but-ongoing condition from being re-logged.
+  const visible = log.filter(alert => now - alert.detectedAtMs < ALERT_TTL_MS);
+  if (visible.length !== state.visible.length) changed = true;
+
+  return { state: { streak, active, seq, log, visible }, changed };
 }

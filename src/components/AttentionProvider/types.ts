@@ -78,6 +78,8 @@ export interface ProctoringAlert {
   identity: string;
   kind: 'multiface' | 'absent' | 'away' | 'camera-off';
   detectedAt: string;
+  /** Epoch milliseconds of the detection; drives the live feed's expiry. */
+  detectedAtMs: number;
   /** Confidence score 0-1. */
   confidence: number;
 }
@@ -112,7 +114,13 @@ export interface AttentionData {
   fullTimeline: AttentionTimelinePoint[];
   self: SelfAttention;
   participants: ParticipantAttention[];
+  /** Live feed: alerts expire after ALERT_TTL_MS. Shown in the room UI. */
   proctoringAlerts: ProctoringAlert[];
+  /**
+   * Full, never-expired event log (capped). The persisted report reads this; falls back to
+   * `proctoringAlerts` when absent (ad-hoc fixtures).
+   */
+  proctoringLog?: ProctoringAlert[];
 }
 
 /** Everything the context exposes to consumers. */

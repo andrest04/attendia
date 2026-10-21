@@ -25,7 +25,7 @@ const baseInput: LiveReportSource = {
     { identity: 'Ana García', index: 85, level: 'high', multiface: false, cameraOff: false, indexAvg: 83 },
     { identity: 'Beto Díaz', index: 30, level: 'low', multiface: true, cameraOff: false },
   ],
-  proctoringAlerts: [{ id: 'a1', identity: 'Beto Díaz', kind: 'multiface', detectedAt: '10:02', confidence: 1 }],
+  proctoringAlerts: [{ id: 'a1', identity: 'Beto Díaz', kind: 'multiface', detectedAt: '10:02', detectedAtMs: 0, confidence: 1 }],
   attentionLevel,
   reportDate: new Date('2026-06-20T10:00:00Z'),
 };

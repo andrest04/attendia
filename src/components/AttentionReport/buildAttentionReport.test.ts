@@ -91,6 +91,22 @@ describe('buildAttentionReport', () => {
     ]);
   });
 
+  it('persists the full proctoring log, including alerts already expired from the live feed', () => {
+    const report = buildAttentionReport({
+      data: makeData({
+        proctoringAlerts: [],
+        proctoringLog: [
+          { id: '1', identity: 'Luis', kind: 'away', detectedAt: '10:00', detectedAtMs: 0, confidence: 0.9 },
+        ],
+      }),
+      room,
+      endReason: 'left',
+      startedAtMs: null,
+      now,
+    });
+    expect(report.proctoringAlerts).toEqual([{ identity: 'Luis', kind: 'away', detectedAt: '10:00' }]);
+  });
+
   it('links the report to the scheduled class only when there is one', () => {
     const linked = buildAttentionReport({
       data: makeData(),

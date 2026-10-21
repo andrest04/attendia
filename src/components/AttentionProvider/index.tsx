@@ -157,7 +157,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
     remoteParticipants,
   ]);
   const { timeline, fullTimeline, history } = useGroupTimeline(remoteAttentionRef, isLive);
-  const proctoringAlerts = useProctoringFeed(remoteAttentionRef, isLive);
+  const { alerts: proctoringAlerts, log: proctoringLog } = useProctoringFeed(remoteAttentionRef, isLive);
 
   return (
     <AttentionContext.Provider
@@ -199,6 +199,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
           participants,
           // From the live event log assembled by useProctoringFeed — NOT recomputed per render.
           proctoringAlerts,
+          proctoringLog,
           attentionLevel,
         };
         // `history` is a ref mutated in step with `timeline`/`fullTimeline`, which are therefore
@@ -213,6 +214,7 @@ export const AttentionProvider: React.FC = ({ children }) => {
         timeline,
         fullTimeline,
         proctoringAlerts,
+        proctoringLog,
       ])}
     >
       {children}

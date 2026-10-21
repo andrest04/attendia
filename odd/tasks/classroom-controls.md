@@ -18,7 +18,7 @@ Seven requested classroom behaviours, grouped into independent tasks.
 ## Tasks
 
 - [x] T1 "Salir" button turns red on hover (`EndCallButton.tsx`, both variants).
-- [ ] T2 Distraction alerts expire from the live feed after TTL (`stepProctoring`, `detectedAtMs`).
+- [x] T2 Distraction alerts expire from the live feed after TTL (`stepProctoring`, `detectedAtMs`).
 - [ ] T3 Teacher can request a student to enable the mic (`request-unmute`, roster action, student prompt).
 - [ ] T4 Screen-share authorization (grant/revoke, gating in `useScreenShareControl`, roster actions).
 - [ ] T5 Block phones (client screen + `/token` guard + tests).
@@ -32,3 +32,5 @@ Seven requested classroom behaviours, grouped into independent tasks.
 Repo files are CRLF in the working tree: targeted edits only. Prettier 1.19.1: no `import type`/`export type {}`.
 
 ## Log
+- T1 done: Salir hover turns red (#dc2626) in both variants; no hover test (JSS hover not asserted today). Commit 88e9a7e.
+- T2 done: ALERT_TTL_MS=2min; stepProctoring takes injected now, state.visible (expiring) vs state.log (full, feeds the report via AttentionData.proctoringLog). RED 5 failing -> GREEN. Commit (see git log: feat(attention) expire...).
