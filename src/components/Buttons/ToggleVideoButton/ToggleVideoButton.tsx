@@ -1,4 +1,5 @@
 import React, { useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import VideoOffIcon from '../../../icons/VideoOffIcon';
 import VideoOnIcon from '../../../icons/VideoOnIcon';
@@ -13,11 +14,12 @@ export default function ToggleVideoButton(props: {
   /** Renders as a bare icon (no inner circle) so a circular wrapping chip is the only shape. */
   plain?: boolean;
 }) {
+  const { t } = useTranslation('toolbar');
   const [isVideoEnabled, toggleVideoEnabled] = useLocalVideoToggle();
   const lastClickTimeRef = useRef(0);
   const { hasVideoInputDevices } = useDevices();
   const classes = useToolbarButtonStyles();
-  const label = !hasVideoInputDevices ? 'Sin video' : isVideoEnabled ? 'Detener video' : 'Iniciar video';
+  const label = !hasVideoInputDevices ? t('video.none') : isVideoEnabled ? t('video.stop') : t('video.start');
   const isActive = hasVideoInputDevices && isVideoEnabled;
 
   const toggleVideo = useCallback(() => {

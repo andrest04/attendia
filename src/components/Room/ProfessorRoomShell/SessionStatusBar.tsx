@@ -4,7 +4,7 @@ import FiberManualRecordIcon from '@material-ui/icons/FiberManualRecord';
 import useSessionElapsed from './useSessionElapsed';
 import AttendiaLogo from '../../Brand/AttendiaLogo';
 import { useOnboarding } from '../OnboardingTutorial/onboardingContext';
-import { countOf } from '../../../utils/pluralize';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles((theme: Theme) => ({
   bar: {
@@ -135,21 +135,22 @@ interface Props {
   studentCount?: number;
   /** REC indicator state, mirrored from the toolbar toggle (US12). */
   recording?: boolean;
-  /** Whether to render the Ayuda (tour) button — professor only. */
+  /** Whether to render the Help (tour) button — professor only. */
   showHelpButton?: boolean;
 }
 
 /**
  * Top status bar shared by both room shells: attendia logo, REC indicator,
  * session name + student count + elapsed clock, infra chip, and (professor only)
- * the Ayuda button.
+ * the Help button.
  */
 export default function SessionStatusBar({
-  sessionName = 'Sesión',
+  sessionName,
   studentCount = 0,
   recording = false,
   showHelpButton = true,
 }: Props) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
   const elapsed = useSessionElapsed();
   const { openTour } = useOnboarding();
@@ -170,7 +171,7 @@ export default function SessionStatusBar({
       )}
 
       <span className={classes.sessionInfo} data-testid="professor-room-shell-session-info">
-        {sessionName} · {countOf(studentCount, 'estudiante')} · {elapsed}
+        {sessionName ?? t('statusBar.defaultSession')} · {t('statusBar.students', { count: studentCount })} · {elapsed}
       </span>
 
       <div className={classes.spacer} />
@@ -187,7 +188,7 @@ export default function SessionStatusBar({
           onClick={openTour}
           data-testid="professor-room-shell-help-button"
         >
-          Ayuda
+          {t('statusBar.help')}
         </button>
       )}
     </div>

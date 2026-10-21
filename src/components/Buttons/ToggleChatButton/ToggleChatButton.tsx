@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import ChatIcon from '../../../icons/ChatIcon';
 import { makeStyles } from '@material-ui/core';
@@ -58,6 +59,7 @@ const useStyles = makeStyles({
 });
 
 export default function ToggleChatButton() {
+  const { t } = useTranslation('toolbar');
   const classes = useStyles();
   const toolbarClasses = useToolbarButtonStyles();
   const [shouldAnimate, setShouldAnimate] = useState(false);
@@ -99,7 +101,7 @@ export default function ToggleChatButton() {
         </div>
       }
     >
-      Chat
+      {t('chat.label')}
     </Button>
   );
 }

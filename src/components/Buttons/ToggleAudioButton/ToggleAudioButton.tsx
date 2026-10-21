@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import MicIcon from '../../../icons/MicIcon';
 import MicOffIcon from '../../../icons/MicOffIcon';
@@ -13,11 +14,12 @@ export default function ToggleAudioButton(props: {
   /** Renders as a bare icon (no inner circle) so a circular wrapping chip is the only shape. */
   plain?: boolean;
 }) {
+  const { t } = useTranslation('toolbar');
   const [isAudioEnabled, toggleAudioEnabled] = useLocalAudioToggle();
   const { localTracks } = useVideoContext();
   const hasAudioTrack = localTracks.some(track => track.kind === 'audio');
   const classes = useToolbarButtonStyles();
-  const label = !hasAudioTrack ? 'Sin audio' : isAudioEnabled ? 'Silenciar' : 'Activar';
+  const label = !hasAudioTrack ? t('audio.none') : isAudioEnabled ? t('audio.mute') : t('audio.unmute');
   const isActive = hasAudioTrack && isAudioEnabled;
 
   return (

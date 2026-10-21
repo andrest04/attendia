@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import BackgroundSelectionDialog from '../BackgroundSelectionDialog/BackgroundSelectionDialog';
 import ChatWindow from '../ChatWindow/ChatWindow';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { GalleryView } from '../GalleryView/GalleryView';
 import { MobileGalleryView } from '../MobileGalleryView/MobileGalleryView';
 import MainParticipant from '../MainParticipant/MainParticipant';
@@ -111,6 +112,7 @@ export function useSetSpeakerViewOnScreenShare(
 }
 
 export default function Room() {
+  const { t } = useTranslation('room');
   const classes = useStyles();
   const { isChatWindowOpen } = useChatContext();
   const { isBackgroundSelectionOpen, room } = useVideoContext();
@@ -122,7 +124,7 @@ export default function Room() {
   const isNarrowDesktop = useMediaQuery(theme.breakpoints.down('md'));
   const screenShareParticipant = useScreenShareParticipant();
   // Meet-style clean entry: both side rails start collapsed and the toolbar opens them
-  // (Participantes / Chat / Panel de atención). The layout owns the rails' exclusion rule.
+  // (participants / chat / attention panel). The layout owns the rails' exclusion rule.
   const layout = useRoomLayout(isNarrowDesktop);
   const { raisedHands, isHandRaised, setHandRaised, grantTurn, turnGrantedCount } = useRaiseHand();
   const {
@@ -160,7 +162,7 @@ export default function Room() {
   usePublishSessionEnd(sessionEndApi);
   const isRecording = useIsRecording();
   const [proctoringEnabled, setProctoringEnabled] = useState(true);
-  // Re-open trigger for the onboarding tour: the professor's "Ayuda" button bumps this
+  // Re-open trigger for the onboarding tour: the professor's "Help" button bumps this
   // counter; OnboardingTutorial restarts at step 0 on each bump. Starts at 0 (no-op on mount).
   const [onboardingSignal, setOnboardingSignal] = useState(0);
   const openTour = useCallback(() => setOnboardingSignal(s => s + 1), []);
@@ -192,8 +194,8 @@ export default function Room() {
     [raisedHands, isHandRaised, room]
   );
   const participantCount = participants.length + 1;
-  const activeSpeakerLabel = mainParticipant?.identity || 'Sin participante activo';
-  const sessionLabel = 'Sesión Twilio en vivo';
+  const activeSpeakerLabel = mainParticipant?.identity || t('session.noActiveParticipant');
+  const sessionLabel = t('session.defaultName');
   const isDesktopShell = !isMobile;
   const hasLegacyRightDrawer = isBackgroundSelectionOpen || (!isDesktopShell && isChatWindowOpen);
 

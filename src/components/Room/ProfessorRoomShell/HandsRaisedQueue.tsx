@@ -1,5 +1,6 @@
 import React from 'react';
 import { makeStyles, Theme } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles((theme: Theme) => ({
   handsQueue: {
@@ -78,13 +79,14 @@ interface HandsRaisedQueueProps {
  * container can compose it unconditionally.
  */
 export default function HandsRaisedQueue({ handsRaised, onGrantTurn }: HandsRaisedQueueProps) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
 
   if (handsRaised.length === 0) return null;
 
   return (
     <div className={classes.handsQueue} data-testid="professor-room-shell-hands-queue">
-      <div className={classes.handsQueueTitle}>✋ Manos levantadas ({handsRaised.length})</div>
+      <div className={classes.handsQueueTitle}>✋ {t('hands.title', { count: handsRaised.length })}</div>
       {handsRaised.map(identity => (
         <div key={identity} className={classes.handRow}>
           <div className={classes.handIdentityWrapper}>
@@ -94,7 +96,7 @@ export default function HandsRaisedQueue({ handsRaised, onGrantTurn }: HandsRais
             </span>
           </div>
           <button type="button" className={classes.grantTurnButton} onClick={() => onGrantTurn?.(identity)}>
-            Dar turno
+            {t('hands.grantTurn')}
           </button>
         </div>
       ))}

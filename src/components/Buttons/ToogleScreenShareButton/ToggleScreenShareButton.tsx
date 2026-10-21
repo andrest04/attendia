@@ -1,5 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import ScreenShareIcon from '../../../icons/ScreenShareIcon';
@@ -7,11 +8,12 @@ import Tooltip from '@material-ui/core/Tooltip';
 import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useScreenShareControl from '../../../hooks/useScreenShareControl/useScreenShareControl';
 
-export const SCREEN_SHARE_TEXT = 'Compartir pantalla';
-export const STOP_SCREEN_SHARE_TEXT = 'Dejar de compartir';
-export const SHARE_IN_PROGRESS_TEXT = 'No puedes compartir pantalla mientras otro usuario lo está haciendo';
-export const SHARE_LOCKED_TEXT = 'Pide permiso al profesor para compartir pantalla';
-export const SHARE_NOT_SUPPORTED_TEXT = 'Este navegador no admite compartir pantalla';
+// Translation keys (namespace-qualified), shared with the room toolbars: resolve them with `t`.
+export const SCREEN_SHARE_KEY = 'toolbar:screenShare.start';
+export const STOP_SCREEN_SHARE_KEY = 'toolbar:screenShare.stop';
+export const SHARE_IN_PROGRESS_KEY = 'toolbar:screenShare.blockedByOther';
+export const SHARE_LOCKED_KEY = 'toolbar:screenShare.lockedByTeacher';
+export const SHARE_NOT_SUPPORTED_KEY = 'toolbar:screenShare.notSupported';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -27,6 +29,7 @@ const useStyles = makeStyles((theme: Theme) =>
 );
 
 export default function ToggleScreenShareButton(props: { disabled?: boolean; className?: string; iconOnly?: boolean }) {
+  const { t } = useTranslation('toolbar');
   const classes = useStyles();
   const toolbarClasses = useToolbarButtonStyles();
   const {
@@ -42,15 +45,15 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
   let tooltipMessage = '';
 
   if (disableScreenShareButton) {
-    tooltipMessage = SHARE_IN_PROGRESS_TEXT;
+    tooltipMessage = t(SHARE_IN_PROGRESS_KEY);
   }
 
   if (lockedByTeacher) {
-    tooltipMessage = SHARE_LOCKED_TEXT;
+    tooltipMessage = t(SHARE_LOCKED_KEY);
   }
 
   if (!isScreenShareSupported) {
-    tooltipMessage = SHARE_NOT_SUPPORTED_TEXT;
+    tooltipMessage = t(SHARE_NOT_SUPPORTED_KEY);
   }
 
   return (
@@ -71,10 +74,12 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
           onClick={toggleScreenShare}
           disabled={isDisabled}
           startIcon={<ScreenShareIcon />}
-          aria-label={props.iconOnly ? (isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir') : undefined}
+          aria-label={
+            props.iconOnly ? (isSharingScreen ? t(STOP_SCREEN_SHARE_KEY) : t('screenShare.short')) : undefined
+          }
           data-cy-share-screen
         >
-          {props.iconOnly ? null : isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir'}
+          {props.iconOnly ? null : isSharingScreen ? t(STOP_SCREEN_SHARE_KEY) : t('screenShare.short')}
         </Button>
       </span>
     </Tooltip>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Participant } from 'twilio-video';
+import { useTranslation } from 'react-i18next';
 import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
 import { ShellNotification } from '../shellNotification';
 
@@ -7,13 +8,14 @@ import { ShellNotification } from '../shellNotification';
 const MAX_PANEL_NOTIFICATIONS = 3;
 
 /**
- * Builds the student left-rail "Notificaciones" feed: a short log of CLASSMATES
+ * Builds the student left-rail notifications feed: a short log of CLASSMATES
  * joining/leaving the session. The professor's presence and the local student's
  * own raise-hand are intentionally NOT logged here — those are surfaced as
  * transient toasts instead (see useNotificationToasts). The list is capped to the
  * last few entries so it never fills up with noise.
  */
 export default function useShellNotifications(participants: Participant[]) {
+  const { t } = useTranslation('notifications');
   const [notifications, setNotifications] = useState<ShellNotification[]>([]);
   const prevParticipantIds = useRef<string[]>(participants.map(p => p.sid));
   const prevParticipantIdentityMap = useRef<Record<string, string>>(
@@ -33,8 +35,9 @@ export default function useShellNotifications(participants: Participant[]) {
           ...prev,
           ...joined.map(p => ({
             id: `joined-${p.sid}-${Date.now()}`,
-            text: `${p.identity} se unió a la sesión`,
+            text: t('participantJoined', { name: p.identity }),
             kind: 'participant' as const,
+            event: 'joined' as const,
             createdAt: Date.now(),
           })),
         ].slice(-MAX_PANEL_NOTIFICATIONS)
@@ -52,8 +55,9 @@ export default function useShellNotifications(participants: Participant[]) {
           ...prev,
           ...left.map(identity => ({
             id: `left-${identity}-${Date.now()}`,
-            text: `${identity} salió de la sesión`,
+            text: t('participantLeft', { name: identity }),
             kind: 'participant' as const,
+            event: 'left' as const,
             createdAt: Date.now(),
           })),
         ].slice(-MAX_PANEL_NOTIFICATIONS)
@@ -65,7 +69,7 @@ export default function useShellNotifications(participants: Participant[]) {
       (acc, participant) => ({ ...acc, [participant.sid]: participant.identity }),
       {} as Record<string, string>
     );
-  }, [participants]);
+  }, [participants, t]);
 
   return notifications;
 }

@@ -3,6 +3,7 @@ import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import useLatest from '../useLatest/useLatest';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import { RemoteParticipant } from 'twilio-video';
 import { isFromTeacher, SessionEndedMessage } from '../useClassDataChannel/classProtocol';
 import { useAppState } from '../../state';
@@ -66,6 +67,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
   const { room } = useVideoContext();
   const { user, setSessionEndedByProfessor } = useAppState();
   const { enqueueSnackbar } = useSnackbar();
+  const { t } = useTranslation('notifications');
   const [isEnding, setIsEnding] = useState(false);
   const sendRef = useRef<(message: SessionEndedMessage) => void>(() => undefined);
   const isCoTeacher = options.isCoTeacher ?? false;
@@ -130,14 +132,14 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       // Even if completion fails (offline, transient), we still leave and show the
       // ended screen locally — the broadcast already told the connected students. The
       // professor must know the room may still be open, so surface it.
-      enqueueSnackbar('No se pudo cerrar la sala en el servidor. Los estudiantes podrían seguir conectados.', {
+      enqueueSnackbar(t('endSessionFailed'), {
         variant: 'warning',
       });
     } finally {
       setIsEnding(false);
       leaveAsEnded();
     }
-  }, [room, user, leaveAsEnded, onProfessorEndRef, enqueueSnackbar, isCoTeacher, leaveWithoutEnding]);
+  }, [room, user, leaveAsEnded, onProfessorEndRef, enqueueSnackbar, t, isCoTeacher, leaveWithoutEnding]);
 
   return { endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher };
 }

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import Button from '@material-ui/core/Button';
 import Tooltip from '@material-ui/core/Tooltip';
 import CaptionsIcon from '../../../icons/CaptionsIcon';
@@ -8,6 +9,7 @@ import { useToolbarButtonStyles } from '../toolbarButtonStyles';
 import { useAppState } from '../../../state';
 
 export default function ToggleCaptionsButton(props: { disabled?: boolean; className?: string }) {
+  const { t } = useTranslation('toolbar');
   const { isCaptionsEnabled, setIsCaptionsEnabled } = useAppState();
   const classes = useToolbarButtonStyles();
 
@@ -15,7 +17,7 @@ export default function ToggleCaptionsButton(props: { disabled?: boolean; classN
     setIsCaptionsEnabled(enabled => !enabled);
   }, [setIsCaptionsEnabled]);
 
-  const tooltipTitle = isCaptionsEnabled ? '' : 'Requires Real-Time Transcriptions to be enabled in the Twilio Console';
+  const tooltipTitle = isCaptionsEnabled ? '' : t('captions.requiresTranscriptions');
 
   return (
     <Tooltip title={tooltipTitle} placement="top" data-testid="captions-tooltip">
@@ -26,9 +28,9 @@ export default function ToggleCaptionsButton(props: { disabled?: boolean; classN
           disabled={props.disabled}
           startIcon={isCaptionsEnabled ? <CaptionsIcon /> : <CaptionsOffIcon />}
           data-cy="toggle-captions"
-          aria-label="Toggle Captions"
+          aria-label={t('captions.ariaLabel')}
         >
-          {isCaptionsEnabled ? 'Subtítulos' : 'Subtítulos'}
+          {t('captions.label')}
         </Button>
       </span>
     </Tooltip>

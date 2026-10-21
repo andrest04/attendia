@@ -1,5 +1,6 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 import { ParticipantAttention, ProctoringAlert } from '../../AttentionProvider/types';
 import { ShellNotification } from '../shellNotification';
 import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
@@ -106,12 +107,13 @@ export default function ProfessorLeftRail({
   source,
   onAlertClick,
 }: ProfessorLeftRailProps) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
 
   return (
     <CollapsibleRail side="left" open={open} className={classes.leftRail} data-testid="professor-room-shell-left-rail">
       <div className={classes.leftHeader}>
-        <span className={classes.leftHeading}>Participantes</span>
+        <span className={classes.leftHeading}>{t('participants.title')}</span>
         <div className={classes.leftHeaderActions}>
           <span className={classes.participantCountBadge} data-testid="professor-room-shell-participant-count">
             {participantCount}
@@ -119,7 +121,7 @@ export default function ProfessorLeftRail({
           {onClose && (
             <RailCloseButton
               onClick={onClose}
-              aria-label="Cerrar participantes"
+              aria-label={t('participants.close')}
               data-testid="professor-room-shell-close-left"
             />
           )}

@@ -3,6 +3,7 @@ import { makeStyles, Theme } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import IconButton from '@material-ui/core/IconButton';
 import Typography from '@material-ui/core/Typography';
+import { useTranslation } from 'react-i18next';
 
 // MUI icons — all in existing deps
 import CameraAltIcon from '@material-ui/icons/CameraAlt';
@@ -35,9 +36,10 @@ const markOnboardingDone = (): void => onboardingDone.write(true);
 interface StepDef {
   accentColor: string;
   icon: React.ReactElement;
-  title: string;
-  body: string;
-  callout: string;
+  /** Translation keys (namespace `room`) for the step copy. */
+  titleKey: string;
+  bodyKey: string;
+  calloutKey: string;
   /** Icon shown inside the tinted callout. Defaults to InfoOutlinedIcon. */
   calloutIcon?: React.ElementType;
   /**
@@ -57,20 +59,18 @@ const STEPS: StepDef[] = [
   {
     accentColor: '#1d6eed', // primary blue
     icon: <CameraAltIcon style={{ fontSize: 20 }} />,
-    title: 'Controles de cámara y micrófono',
-    body:
-      'Gestiona tu cámara y micrófono desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.',
-    callout: 'El área resaltada en la parte inferior es la barra de herramientas principal.',
+    titleKey: 'onboarding.steps.controls.title',
+    bodyKey: 'onboarding.steps.controls.body',
+    calloutKey: 'onboarding.steps.controls.callout',
     calloutIcon: CameraAltIcon,
     anchorTestId: 'professor-room-shell-toolbar-slot',
   },
   {
     accentColor: '#10b981', // success green
     icon: <MenuBookIcon style={{ fontSize: 20 }} />,
-    title: 'Chat y participantes',
-    body:
-      'Abre el panel derecho con estos botones de la barra de herramientas para ver la lista de participantes y comunicarte por el chat.',
-    callout: 'Los botones resaltados abren los paneles de participantes y de chat.',
+    titleKey: 'onboarding.steps.panels.title',
+    bodyKey: 'onboarding.steps.panels.body',
+    calloutKey: 'onboarding.steps.panels.callout',
     calloutIcon: MenuBookIcon,
     // Anchors to the toolbar buttons that OPEN the panel (not the panel itself):
     // the side rails start collapsed, so the rail element is not in the DOM when
@@ -80,10 +80,9 @@ const STEPS: StepDef[] = [
   {
     accentColor: '#ffb800', // warning amber
     icon: <MemoryIcon style={{ fontSize: 20 }} />,
-    title: 'Detección de atención',
-    body:
-      'El sistema analiza tu nivel de atención de forma local en tu dispositivo. Estos datos ayudan al profesor a entender el compromiso del grupo.',
-    callout: 'Los datos faciales NO se almacenan ni se envían a servidores externos.',
+    titleKey: 'onboarding.steps.attention.title',
+    bodyKey: 'onboarding.steps.attention.body',
+    calloutKey: 'onboarding.steps.attention.callout',
     calloutIcon: MemoryIcon,
     // No spotlight: the Figma copy here is about data privacy, not a highlighted
     // room zone, so this step intentionally points at nothing.
@@ -91,10 +90,9 @@ const STEPS: StepDef[] = [
   {
     accentColor: '#1d2f6f', // secondary navy
     icon: <SecurityIcon style={{ fontSize: 20 }} />,
-    title: 'Privacidad y seguridad',
-    body:
-      'Toda la comunicación está cifrada con SRTP. Los tokens de sesión se generan automáticamente y expiran al cerrar la sesión.',
-    callout: 'Consulta la política de privacidad desde el pie de página.',
+    titleKey: 'onboarding.steps.privacy.title',
+    bodyKey: 'onboarding.steps.privacy.body',
+    calloutKey: 'onboarding.steps.privacy.callout',
     calloutIcon: SecurityIcon,
   },
 ];
@@ -324,6 +322,7 @@ interface Props {
 }
 
 export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: Props) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
   const [step, setStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -418,7 +417,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
       className={classes.backdrop}
       role="dialog"
       aria-modal="true"
-      aria-label="Tutorial de bienvenida"
+      aria-label={t('onboarding.dialogLabel')}
       data-testid="onboarding-backdrop"
     >
       {anchorRect &&
@@ -465,10 +464,10 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
               </div>
               <div className={classes.headerText}>
                 <span className={classes.stepLabel} data-testid="onboarding-step-label">
-                  Paso {step + 1} de {STEPS.length}
+                  {t('onboarding.stepOf', { current: step + 1, total: STEPS.length })}
                 </span>
                 <Typography className={classes.title} data-testid="onboarding-title">
-                  {current.title}
+                  {t(current.titleKey)}
                 </Typography>
               </div>
             </div>
@@ -476,7 +475,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
               size="small"
               className={classes.closeBtn}
               onClick={dismiss}
-              aria-label="Cerrar tutorial"
+              aria-label={t('onboarding.close')}
               data-testid="onboarding-close"
             >
               <CloseIcon fontSize="small" />
@@ -497,21 +496,21 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
 
           {/* Body text */}
           <Typography className={classes.body} data-testid="onboarding-body">
-            {current.body}
+            {t(current.bodyKey)}
           </Typography>
 
           {/* Tinted callout */}
           <div className={classes.callout} style={{ backgroundColor: calloutBg }} data-testid="onboarding-callout">
             <CalloutIcon className={classes.calloutIcon} style={{ color: calloutColor }} />
             <span className={classes.calloutText} style={{ color: calloutColor }}>
-              {current.callout}
+              {t(current.calloutKey)}
             </span>
           </div>
 
           {/* Footer */}
           <div className={classes.footer}>
             <button className={classes.skipLink} onClick={dismiss} data-testid="onboarding-skip">
-              Saltar tutorial
+              {t('onboarding.skip')}
             </button>
 
             <div className={classes.navButtons}>
@@ -523,7 +522,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
                   onClick={goPrev}
                   data-testid="onboarding-prev"
                 >
-                  ← Anterior
+                  {t('onboarding.previous')}
                 </Button>
               )}
               <Button
@@ -534,7 +533,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
                 onClick={goNext}
                 data-testid="onboarding-next"
               >
-                {isLast ? 'Comenzar' : 'Siguiente →'}
+                {isLast ? t('onboarding.start') : t('onboarding.next')}
               </Button>
             </div>
           </div>
@@ -545,11 +544,11 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
             <button
               className={classes.manualLink}
               onClick={() => window.open(routes.manual, '_blank', 'noopener')}
-              aria-label="Acceder al manual completo"
+              aria-label={t('onboarding.manual')}
               data-testid="onboarding-manual"
             >
               <MenuBookIcon style={{ fontSize: 18 }} />
-              Acceder al manual completo
+              {t('onboarding.manual')}
             </button>
           </div>
         </div>

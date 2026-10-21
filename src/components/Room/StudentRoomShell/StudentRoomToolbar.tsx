@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@material-ui/core';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import ScreenShareIcon from '@material-ui/icons/ScreenShare';
@@ -11,9 +12,9 @@ import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton
 import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton';
 import ToolbarDeviceMenu from '../../Buttons/ToolbarDeviceMenu/ToolbarDeviceMenu';
 import {
-  SCREEN_SHARE_TEXT,
-  SHARE_LOCKED_TEXT,
-  STOP_SCREEN_SHARE_TEXT,
+  SCREEN_SHARE_KEY,
+  SHARE_LOCKED_KEY,
+  STOP_SCREEN_SHARE_KEY,
 } from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import RaiseHandButton from '../../Buttons/RaiseHandButton/RaiseHandButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
@@ -23,7 +24,7 @@ import useToolbarChipStyles from '../ToolbarParts/useToolbarChipStyles';
 interface StudentRoomToolbarProps {
   handRaised?: boolean;
   onHandRaisedChange?: (next: boolean) => void;
-  /** Whether the left (Participantes) rail is open. Driven by Room.tsx. */
+  /** Whether the left (participants) rail is open. Driven by Room.tsx. */
   participantsOpen?: boolean;
   onParticipantsToggle?: () => void;
   /** Whether the right (chat) rail is open. Driven by Room.tsx. */
@@ -39,6 +40,7 @@ export default function StudentRoomToolbar({
   chatOpen = false,
   onChatToggle,
 }: StudentRoomToolbarProps = {}) {
+  const { t } = useTranslation('toolbar');
   const { classes, chip, endCallChip } = useToolbarChipStyles();
   const {
     toggleScreenShare,
@@ -54,7 +56,7 @@ export default function StudentRoomToolbar({
   const moreItems: OverflowMenuItem[] = [
     {
       testId: 'student-toolbar-screenshare',
-      label: lockedByTeacher ? SHARE_LOCKED_TEXT : isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT,
+      label: t(lockedByTeacher ? SHARE_LOCKED_KEY : isSharingScreen ? STOP_SCREEN_SHARE_KEY : SCREEN_SHARE_KEY),
       icon: isSharingScreen ? (
         <StopScreenShareIcon style={{ fontSize: 18 }} />
       ) : (
@@ -82,7 +84,7 @@ export default function StudentRoomToolbar({
         onClick={() => onParticipantsToggle?.()}
         startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
         className={chip}
-        aria-label="Participantes"
+        aria-label={t('participants')}
         data-testid="student-toolbar-participants"
         aria-pressed={participantsOpen}
       />
@@ -95,7 +97,7 @@ export default function StudentRoomToolbar({
           </div>
         }
         className={chip}
-        aria-label="Chat"
+        aria-label={t('chat.label')}
         data-testid="student-toolbar-chat"
         aria-pressed={chatOpen}
       />

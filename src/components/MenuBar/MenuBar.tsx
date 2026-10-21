@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 
 import Button from '@material-ui/core/Button';
@@ -68,6 +69,7 @@ const useStyles = makeStyles((theme: Theme) =>
 );
 
 export default function MenuBar() {
+  const { t } = useTranslation('toolbar');
   const classes = useStyles();
   const { isSharingScreen, toggleScreenShare } = useVideoContext();
   const roomState = useRoomState();
@@ -81,8 +83,8 @@ export default function MenuBar() {
     <>
       {isSharingScreen && (
         <Grid container justifyContent="center" alignItems="center" className={classes.screenShareBanner}>
-          <Typography variant="h6">Estás compartiendo tu pantalla</Typography>
-          <Button onClick={() => toggleScreenShare()}>Dejar de compartir</Button>
+          <Typography variant="h6">{t('menuBar.sharingBanner')}</Typography>
+          <Button onClick={() => toggleScreenShare()}>{t('screenShare.stop')}</Button>
         </Grid>
       )}
       <footer className={classes.container}>
@@ -90,7 +92,7 @@ export default function MenuBar() {
           <Hidden smDown>
             <Grid style={{ flex: 1 }}>
               <Typography variant="body1">
-                {room!.name} | {participants.length + 1} participant{participants.length ? 's' : ''}
+                {room!.name} | {t('menuBar.participants', { count: participants.length + 1 })}
               </Typography>
             </Grid>
           </Hidden>

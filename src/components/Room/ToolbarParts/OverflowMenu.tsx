@@ -1,5 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { Button, createStyles, makeStyles } from '@material-ui/core';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 
@@ -115,6 +116,7 @@ interface OverflowMenuProps {
  * Both room toolbars used to hand-roll this markup; they now only declare their items.
  */
 export default function OverflowMenu({ items, testIdPrefix, chipClassName }: OverflowMenuProps) {
+  const { t } = useTranslation('toolbar');
   const classes = useStyles();
   const [isOpen, setIsOpen] = React.useState(false);
   const close = () => setIsOpen(false);
@@ -126,7 +128,7 @@ export default function OverflowMenu({ items, testIdPrefix, chipClassName }: Ove
         onClick={() => setIsOpen(open => !open)}
         startIcon={<MoreVertIcon style={{ color: isOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
         className={chipClassName}
-        aria-label="Más"
+        aria-label={t('overflow.more')}
         data-testid={`${testIdPrefix}-more`}
         aria-haspopup="true"
         aria-expanded={isOpen}

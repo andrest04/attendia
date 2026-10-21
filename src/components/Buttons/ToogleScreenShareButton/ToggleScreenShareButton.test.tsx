@@ -1,13 +1,14 @@
 import React from 'react';
+import i18n from '../../../i18n/testInit';
 import { mount, shallow } from 'enzyme';
 import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
 import ToggleScreenShareButton, {
-  SHARE_IN_PROGRESS_TEXT,
-  SHARE_LOCKED_TEXT,
-  SHARE_NOT_SUPPORTED_TEXT,
-  STOP_SCREEN_SHARE_TEXT,
+  SHARE_IN_PROGRESS_KEY,
+  SHARE_LOCKED_KEY,
+  SHARE_NOT_SUPPORTED_KEY,
+  STOP_SCREEN_SHARE_KEY,
 } from './ToggleScreenShareButton';
 import { useScreenShareGrant } from '../../../hooks/useScreenShareControl/screenShareGrantContext';
 import ScreenShareIcon from '../../../icons/ScreenShareIcon';
@@ -49,8 +50,8 @@ describe('the ToggleScreenShareButton component', () => {
     }));
     const wrapper = mount(<ToggleScreenShareButton />);
     expect(wrapper.find(Button).prop('disabled')).toBe(true);
-    expect(wrapper.find(Tooltip).prop('title')).toBe(SHARE_LOCKED_TEXT);
-    expect(SHARE_LOCKED_TEXT).toBe('Pide permiso al profesor para compartir pantalla');
+    expect(wrapper.find(Tooltip).prop('title')).toBe(i18n.t(SHARE_LOCKED_KEY));
+    expect(i18n.t(SHARE_LOCKED_KEY)).toBe('Pide permiso al profesor para compartir pantalla');
   });
 
   it('renders with "Compartir" label and enabled when nobody is sharing', () => {
@@ -68,7 +69,7 @@ describe('the ToggleScreenShareButton component', () => {
     // screenShareParticipant is truthy because the local user's track is tracked too.
     mockUseScreenShareParticipant.mockImplementation(() => 'mockLocalParticipant');
     const wrapper = mount(<ToggleScreenShareButton />);
-    expect(wrapper.find(Button).text()).toContain(STOP_SCREEN_SHARE_TEXT);
+    expect(wrapper.find(Button).text()).toContain(i18n.t(STOP_SCREEN_SHARE_KEY));
     expect(wrapper.find(Button).prop('disabled')).toBe(false);
   });
 
@@ -88,7 +89,7 @@ describe('the ToggleScreenShareButton component', () => {
     // isSharingScreen remains false — a remote participant is sharing.
     const wrapper = mount(<ToggleScreenShareButton />);
     expect(wrapper.find(Button).prop('disabled')).toBe(true);
-    expect(wrapper.find(Tooltip).prop('title')).toBe(SHARE_IN_PROGRESS_TEXT);
+    expect(wrapper.find(Tooltip).prop('title')).toBe(i18n.t(SHARE_IN_PROGRESS_KEY));
   });
 
   it('calls the correct toggle function when clicked (not sharing)', () => {
@@ -104,6 +105,6 @@ describe('the ToggleScreenShareButton component', () => {
     });
     const wrapper = mount(<ToggleScreenShareButton />);
     expect(wrapper.find(Button).prop('disabled')).toBe(true);
-    expect(wrapper.find(Tooltip).prop('title')).toBe(SHARE_NOT_SUPPORTED_TEXT);
+    expect(wrapper.find(Tooltip).prop('title')).toBe(i18n.t(SHARE_NOT_SUPPORTED_KEY));
   });
 });

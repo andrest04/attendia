@@ -1,16 +1,18 @@
 import React from 'react';
 import Button from '@material-ui/core/Button';
 import Snackbar from '@material-ui/core/Snackbar';
+import { useTranslation } from 'react-i18next';
 
-export const UNMUTE_REQUEST_TEXT = 'El profesor te pide activar tu micrófono';
-export const CAMERA_REQUEST_TEXT = 'El profesor te sugiere encender tu cámara';
+// Translation keys (namespace-qualified): resolve them with `t`.
+export const UNMUTE_REQUEST_KEY = 'toolbar:unmuteRequest.mic';
+export const CAMERA_REQUEST_KEY = 'toolbar:unmuteRequest.camera';
 
 export type RequestKind = 'mic' | 'camera';
 
 /** Copy and test id per kind: adding a kind is adding a row. */
-const KIND_VIEW: Record<RequestKind, { text: string; testId: string }> = {
-  mic: { text: UNMUTE_REQUEST_TEXT, testId: 'unmute-request-prompt' },
-  camera: { text: CAMERA_REQUEST_TEXT, testId: 'camera-request-prompt' },
+const KIND_VIEW: Record<RequestKind, { textKey: string; testId: string }> = {
+  mic: { textKey: UNMUTE_REQUEST_KEY, testId: 'unmute-request-prompt' },
+  camera: { textKey: CAMERA_REQUEST_KEY, testId: 'camera-request-prompt' },
 };
 
 interface UnmuteRequestPromptProps {
@@ -28,20 +30,21 @@ interface UnmuteRequestPromptProps {
  * request is not lost, and it never touches the microphone or camera by itself.
  */
 export default function UnmuteRequestPrompt({ kind = 'mic', open, onAccept, onDismiss }: UnmuteRequestPromptProps) {
+  const { t } = useTranslation('toolbar');
   const view = KIND_VIEW[kind];
   return (
     <Snackbar
       open={open}
       anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      message={view.text}
+      message={t(view.textKey)}
       data-testid={view.testId}
       action={
         <>
           <Button color="inherit" size="small" onClick={onDismiss}>
-            Ahora no
+            {t('unmuteRequest.notNow')}
           </Button>
           <Button color="secondary" size="small" onClick={onAccept}>
-            Activar
+            {t('unmuteRequest.enable')}
           </Button>
         </>
       }

@@ -2,6 +2,7 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import CloseIcon from '@material-ui/icons/Close';
 import DescriptionIcon from '@material-ui/icons/Description';
+import { useTranslation } from 'react-i18next';
 import AttentionReportView, { AttentionReportViewData } from '../../AttentionReport/AttentionReportView';
 
 const useStyles = makeStyles(() => ({
@@ -76,13 +77,14 @@ interface LiveReportModalProps {
 }
 
 /**
- * In-room "Ver reporte" modal — reopens the full AttentionReportView while the
+ * In-room "View report" modal — reopens the full AttentionReportView while the
  * class session is still live, fed directly from useAttention() via
  * buildReportViewData (no localStorage snapshot, no new tab; see Feature 3).
  * Structural template mirrors ProctoringAlertModal's absolute overlay scoped to
  * the shell root; header treatment mirrors ReportPage's nav bar.
  */
 export default function LiveReportModal({ data, onClose }: LiveReportModalProps) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
 
   return (
@@ -90,7 +92,7 @@ export default function LiveReportModal({ data, onClose }: LiveReportModalProps)
       <div className={classes.modalCard}>
         <div className={classes.modalHeader}>
           <DescriptionIcon className={classes.modalHeaderIcon} />
-          <span className={classes.modalTitle}>Reporte de Atención</span>
+          <span className={classes.modalTitle}>{t('liveReport.title')}</span>
           <button
             type="button"
             className={classes.modalClose}
@@ -98,7 +100,7 @@ export default function LiveReportModal({ data, onClose }: LiveReportModalProps)
             data-testid="professor-live-report-modal-close"
           >
             <CloseIcon style={{ fontSize: 16 }} />
-            Cerrar
+            {t('liveReport.close')}
           </button>
         </div>
         <div className={classes.modalBody}>

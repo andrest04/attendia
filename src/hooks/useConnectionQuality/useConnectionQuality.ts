@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Pre-connect connection quality, derived from the browser's Network Information
@@ -14,11 +15,12 @@ export interface ConnectionQualityInfo {
   label: string;
 }
 
-const QUALITY_LABELS: Record<ConnectionQuality, string> = {
-  good: 'Conexión buena',
-  medium: 'Conexión media',
-  poor: 'Conexión débil',
-  unknown: 'Verificando…',
+/** Translation key (namespace `room`) of the label for each bucket: adding a bucket is adding a row. */
+const QUALITY_LABEL_KEYS: Record<ConnectionQuality, string> = {
+  good: 'connectionQuality.good',
+  medium: 'connectionQuality.medium',
+  poor: 'connectionQuality.poor',
+  unknown: 'connectionQuality.unknown',
 };
 
 /** Maps an `effectiveType` value to our coarse quality buckets. */
@@ -37,6 +39,7 @@ export function mapEffectiveType(effectiveType?: string): ConnectionQuality {
 }
 
 export default function useConnectionQuality(): ConnectionQualityInfo {
+  const { t } = useTranslation('room');
   const [quality, setQuality] = useState<ConnectionQuality>(() =>
     mapEffectiveType(navigator.connection?.effectiveType)
   );
@@ -54,5 +57,5 @@ export default function useConnectionQuality(): ConnectionQualityInfo {
     return () => connection.removeEventListener('change', handleChange);
   }, []);
 
-  return { quality, label: QUALITY_LABELS[quality] };
+  return { quality, label: t(QUALITY_LABEL_KEYS[quality]) };
 }

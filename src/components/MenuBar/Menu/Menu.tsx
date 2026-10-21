@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import AboutDialog from '../../AboutDialog/AboutDialog';
 import BackgroundIcon from '../../../icons/BackgroundIcon';
 import CollaborationViewIcon from '@material-ui/icons/AccountBox';
@@ -32,6 +33,7 @@ export const IconContainer = styled('div')({
 });
 
 export default function Menu(props: { buttonClassName?: string }) {
+  const { t } = useTranslation('toolbar');
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
 
   const [aboutOpen, setAboutOpen] = useState(false);
@@ -67,7 +69,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <MoreIcon />
         ) : (
           <>
-            Más
+            {t('menu.more')}
             <ExpandMoreIcon />
           </>
         )}
@@ -89,7 +91,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <IconContainer>
             <SettingsIcon />
           </IconContainer>
-          <Typography variant="body1">Configuración de audio y video</Typography>
+          <Typography variant="body1">{t('menu.audioVideoSettings')}</Typography>
         </MenuItem>
 
         {isSupported && (
@@ -103,7 +105,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             <IconContainer>
               <BackgroundIcon />
             </IconContainer>
-            <Typography variant="body1">Fondos</Typography>
+            <Typography variant="body1">{t('menu.backgrounds')}</Typography>
           </MenuItem>
         )}
 
@@ -112,7 +114,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             <IconContainer>
               <FlipCameraIcon />
             </IconContainer>
-            <Typography variant="body1">Girar cámara</Typography>
+            <Typography variant="body1">{t('menu.flipCamera')}</Typography>
           </MenuItem>
         )}
 
@@ -126,7 +128,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             data-cy-recording-button
           >
             <IconContainer>{isRecording ? <StopRecordingIcon /> : <StartRecordingIcon />}</IconContainer>
-            <Typography variant="body1">{isRecording ? 'Detener grabación' : 'Iniciar grabación'}</Typography>
+            <Typography variant="body1">{isRecording ? t('menu.stopRecording') : t('menu.startRecording')}</Typography>
           </MenuItem>
         )}
 
@@ -139,7 +141,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <IconContainer>
             <SearchIcon style={{ fill: '#707578', width: '0.9em' }} />
           </IconContainer>
-          <Typography variant="body1">Monitor de sala</Typography>
+          <Typography variant="body1">{t('menu.roomMonitor')}</Typography>
         </MenuItem>
 
         <MenuItem
@@ -155,14 +157,14 @@ export default function Menu(props: { buttonClassName?: string }) {
               <GridViewIcon style={{ fill: '#707578', width: '0.9em' }} />
             )}
           </IconContainer>
-          <Typography variant="body1">{isGalleryViewActive ? 'Vista de orador' : 'Vista de galería'}</Typography>
+          <Typography variant="body1">{isGalleryViewActive ? t('menu.speakerView') : t('menu.galleryView')}</Typography>
         </MenuItem>
 
         <MenuItem onClick={() => setAboutOpen(true)}>
           <IconContainer>
             <InfoIconOutlined />
           </IconContainer>
-          <Typography variant="body1">Acerca de</Typography>
+          <Typography variant="body1">{t('menu.about')}</Typography>
         </MenuItem>
       </MenuContainer>
       <AboutDialog

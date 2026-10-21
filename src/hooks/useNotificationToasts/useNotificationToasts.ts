@@ -1,8 +1,9 @@
 import { Participant } from 'twilio-video';
+import { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { useSnackbar, VariantType } from 'notistack';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
 import { ProctoringAlert } from '../../components/AttentionProvider/types';
-import { PROCTORING_KINDS } from '../../components/AttentionProvider/proctoring';
 import useOnChange from '../useOnChange/useOnChange';
 import useOnIncrease from '../useOnIncrease/useOnIncrease';
 
@@ -51,40 +52,39 @@ interface ToastPolicy {
 }
 
 /** Student-facing copy for a proctoring warning, specific to the detected condition. */
-function warningMessage(kind: ProctoringAlert['kind'] | null): string {
-  return (kind && PROCTORING_KINDS[kind]?.studentWarning) || 'El profesor te envió una advertencia';
+function warningMessage(kind: ProctoringAlert['kind'] | null, t: TFunction): string {
+  return kind ? t(`warning.${kind}`) : t('warning.generic');
 }
 
 // Professor: students joining/leaving and raising their hand.
-const teacherPolicy: ToastPolicy = {
+const createTeacherPolicy = (t: TFunction): ToastPolicy => ({
   participantJoined: identity =>
-    isTeacherIdentity(identity) ? undefined : toast(`${stripTeacherSuffix(identity)} se unió a la sesión`),
+    isTeacherIdentity(identity) ? undefined : toast(t('participantJoined', { name: stripTeacherSuffix(identity) })),
   participantLeft: identity =>
-    isTeacherIdentity(identity) ? undefined : toast(`${stripTeacherSuffix(identity)} salió de la sesión`),
-  handRaised: identity => toast(`${stripTeacherSuffix(identity)} levantó la mano`),
-  // The owner may mute or turn off a co-teacher; both teachers read as "El profesor".
-  muted: () => toast('El profesor silenció tu micrófono', 'warning'),
-  cameraTurnedOff: () => toast('El profesor apagó tu cámara', 'warning'),
-};
+    isTeacherIdentity(identity) ? undefined : toast(t('participantLeft', { name: stripTeacherSuffix(identity) })),
+  handRaised: identity => toast(t('handRaised', { name: stripTeacherSuffix(identity) })),
+  // The owner may mute or turn off a co-teacher; both teachers read as "the professor".
+  muted: () => toast(t('mutedByProfessor'), 'warning'),
+  cameraTurnedOff: () => toast(t('cameraOffByProfessor'), 'warning'),
+});
 
 // Student: the professor joining/leaving, "es tu turno", recording on/off, being muted or
 // warned. Classmates joining/leaving go to the panel log, not toasts; the student's own
 // raise-hand is not toasted — it is redundant noise.
-const studentPolicy: ToastPolicy = {
-  participantJoined: identity => (isTeacherIdentity(identity) ? toast('El profesor se unió a la sesión') : undefined),
-  participantLeft: identity =>
-    isTeacherIdentity(identity) ? toast('El profesor salió de la sesión', 'warning') : undefined,
+const createStudentPolicy = (t: TFunction): ToastPolicy => ({
+  participantJoined: identity => (isTeacherIdentity(identity) ? toast(t('professorJoined')) : undefined),
+  participantLeft: identity => (isTeacherIdentity(identity) ? toast(t('professorLeft'), 'warning') : undefined),
   recordingChanged: isRecording =>
-    isRecording ? toast('La sesión se está grabando', 'warning') : toast('Se detuvo la grabación', 'default'),
-  turnGranted: () => toast('Es tu turno · el profesor te dio la palabra', 'success'),
-  muted: () => toast('El profesor silenció tu micrófono', 'warning'),
-  cameraTurnedOff: () => toast('El profesor apagó tu cámara', 'warning'),
-  warned: kind => toast(warningMessage(kind), 'warning'),
-};
+    isRecording ? toast(t('recordingStarted'), 'warning') : toast(t('recordingStopped'), 'default'),
+  turnGranted: () => toast(t('turnGranted'), 'success'),
+  muted: () => toast(t('mutedByProfessor'), 'warning'),
+  cameraTurnedOff: () => toast(t('cameraOffByProfessor'), 'warning'),
+  warned: kind => toast(warningMessage(kind, t), 'warning'),
+});
 
 /**
  * Fires transient toast notifications with a CURATED, role-aware policy so the
- * same raw room events surface only where they matter (see teacherPolicy / studentPolicy).
+ * same raw room events surface only where they matter (see createTeacherPolicy / createStudentPolicy).
  *
  * All toasts go through notistack's SnackbarProvider (maxSnack + autoHide), so a
  * busy room never buries the screen. Events are detected as changes against the previous
@@ -102,7 +102,8 @@ export default function useNotificationToasts({
   lastWarningKind,
 }: UseNotificationToastsArgs) {
   const { enqueueSnackbar } = useSnackbar();
-  const policy = isTeacher ? teacherPolicy : studentPolicy;
+  const { t } = useTranslation('notifications');
+  const policy = isTeacher ? createTeacherPolicy(t) : createStudentPolicy(t);
 
   const show = (candidate: Toast | undefined) => {
     if (candidate) enqueueSnackbar(candidate.message, { variant: candidate.variant });

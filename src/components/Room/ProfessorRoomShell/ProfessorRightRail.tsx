@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import VisibilityIcon from '@material-ui/icons/Visibility';
 import WarningIcon from '@material-ui/icons/Warning';
+import { useTranslation } from 'react-i18next';
 import { AttentionLevel, AttentionTimelinePoint, ParticipantAttention } from '../../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
 import { classifyAttention } from '../../AttentionProvider/presence';
@@ -222,6 +223,7 @@ export default function ProfessorRightRail({
   onOpenReport,
   rightPanel = null,
 }: ProfessorRightRailProps) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
 
   return (
@@ -239,7 +241,7 @@ export default function ProfessorRightRail({
           aria-pressed={rightTab === 'grupo'}
           onClick={() => onRightTabChange?.('grupo')}
         >
-          Grupo
+          {t('rightRail.tabGroup')}
         </button>
         <button
           type="button"
@@ -248,7 +250,7 @@ export default function ProfessorRightRail({
           aria-pressed={rightTab === 'individual'}
           onClick={() => onRightTabChange?.('individual')}
         >
-          Individual
+          {t('rightRail.tabIndividual')}
         </button>
         <button
           type="button"
@@ -257,10 +259,14 @@ export default function ProfessorRightRail({
           aria-pressed={rightTab === 'chat'}
           onClick={() => onRightTabChange?.('chat')}
         >
-          Chat
+          {t('chat.tab')}
         </button>
         {onClose && (
-          <RailCloseButton onClick={onClose} aria-label="Cerrar panel" data-testid="professor-room-shell-close-right" />
+          <RailCloseButton
+            onClick={onClose}
+            aria-label={t('rightRail.closePanel')}
+            data-testid="professor-room-shell-close-right"
+          />
         )}
       </div>
 
@@ -273,25 +279,25 @@ export default function ProfessorRightRail({
                 level={attentionLevel(groupAttention)}
                 available={groupDataAvailable}
               />
-              <span className={classes.gaugeLabel}>Atención grupal</span>
+              <span className={classes.gaugeLabel}>{t('rightRail.groupAttention')}</span>
             </div>
 
             {!groupDataAvailable && (
               <div className={classes.bannerInfo} data-testid="professor-room-shell-group-nodata-banner">
                 <WarningIcon className={classes.bannerInfoIcon} />
-                <span>Sin datos de atención, verifica la conexión de los estudiantes.</span>
+                <span>{t('rightRail.noData')}</span>
               </div>
             )}
 
             {isGroupBelowThreshold && (
               <div className={classes.banner} data-testid="professor-room-shell-group-banner">
                 <WarningIcon className={classes.bannerIcon} />
-                <span>Atención grupal por debajo del umbral ({attentionThreshold}%)</span>
+                <span>{t('rightRail.belowThreshold', { threshold: attentionThreshold })}</span>
               </div>
             )}
 
             <div data-testid="professor-room-shell-timeline-section">
-              <div className={classes.chartTitle}>Evolución temporal</div>
+              <div className={classes.chartTitle}>{t('rightRail.timeline')}</div>
               <div style={{ height: 120 }} data-testid="professor-room-shell-timeline">
                 {/* Skip the chart while the rail is collapsed to 0px: recharts'
                     ResponsiveContainer warns when it measures a 0-width parent.
@@ -311,7 +317,7 @@ export default function ProfessorRightRail({
               data-testid="professor-room-shell-view-report"
               onClick={onOpenReport}
             >
-              <VisibilityIcon style={{ fontSize: 16 }} /> Ver reporte
+              <VisibilityIcon style={{ fontSize: 16 }} /> {t('rightRail.viewReport')}
             </button>
           </>
         ) : rightTab === 'individual' ? (
@@ -320,14 +326,14 @@ export default function ProfessorRightRail({
               const presence = classifyAttention(participant);
               if (presence !== 'measured') {
                 // No reading: say why instead of showing a stale value or a misleading 0%.
-                const { Icon, label, individualTestId } = presenceView[presence];
+                const { Icon, labelKey, individualTestId } = presenceView[presence];
                 return (
                   <div key={participant.identity} className={classes.individualRow}>
                     <div className={classes.individualHeader}>
                       <span>{participant.identity}</span>
                     </div>
                     <span className={classes.individualCameraOff} data-testid={individualTestId}>
-                      <Icon fontSize="inherit" /> {label}
+                      <Icon fontSize="inherit" /> {t(labelKey)}
                     </span>
                   </div>
                 );

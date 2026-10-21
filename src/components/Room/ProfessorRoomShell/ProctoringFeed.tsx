@@ -1,7 +1,7 @@
 import React from 'react';
 import { makeStyles } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 import { ProctoringAlert } from '../../AttentionProvider/types';
-import { PROCTORING_KINDS } from '../../AttentionProvider/proctoring';
 import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { proctoringKindIcon } from './professorShellHelpers';
 
@@ -64,11 +64,12 @@ interface ProctoringFeedProps {
  * proctoring is enabled; each card opens the detail modal via onAlertClick.
  */
 export default function ProctoringFeed({ visibleAlerts, onAlertClick }: ProctoringFeedProps) {
+  const { t } = useTranslation('room');
   const classes = useStyles();
 
   return (
     <div className={classes.proctoringFeed} data-testid="professor-room-shell-proctoring-feed">
-      <div className={classes.proctoringFeedTitle}>Alertas de proctoring ({visibleAlerts.length})</div>
+      <div className={classes.proctoringFeedTitle}>{t('proctoring.feedTitle', { count: visibleAlerts.length })}</div>
       {visibleAlerts.map(alert => {
         const KindIcon = proctoringKindIcon[alert.kind];
         return (
@@ -85,7 +86,7 @@ export default function ProctoringFeed({ visibleAlerts, onAlertClick }: Proctori
               <span>{stripTeacherSuffix(alert.identity)}</span>
             </div>
             <span className={classes.proctoringAlertMeta}>
-              {PROCTORING_KINDS[alert.kind].label} · {alert.detectedAt}
+              {t(`proctoring.kind.${alert.kind}`)} · {alert.detectedAt}
             </span>
           </div>
         );
