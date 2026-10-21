@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, createStyles, makeStyles, Theme, Typography } from '@material-ui/core';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
+import { useTranslation } from 'react-i18next';
 import { useAppState } from '../../state';
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -55,23 +56,24 @@ const useStyles = makeStyles((theme: Theme) =>
  */
 export default function SessionEndedScreen() {
   const classes = useStyles();
+  const { t } = useTranslation('misc');
   const { setSessionEndedByProfessor } = useAppState();
 
   return (
     <div className={classes.root} data-testid="session-ended-screen">
       <CheckCircleOutlineIcon className={classes.icon} />
       <Typography variant="h5" className={classes.title}>
-        La sesión finalizó
+        {t('sessionEnded.title')}
       </Typography>
       <Typography variant="body1" className={classes.subtitle}>
-        El docente terminó la clase. Gracias por participar.
+        {t('sessionEnded.subtitle')}
       </Typography>
       <Button
         className={classes.button}
         onClick={() => setSessionEndedByProfessor(false)}
         data-testid="session-ended-home"
       >
-        Volver al inicio
+        {t('sessionEnded.home')}
       </Button>
     </div>
   );

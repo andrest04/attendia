@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles } from '@material-ui/core/styles';
 import PanToolIcon from '@material-ui/icons/PanTool';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles(() => ({
   badge: {
@@ -41,12 +42,13 @@ const ICON_SIZE = { tile: 16, stage: 22 };
  */
 export default function RaisedHandBadge({ size }: { size: 'tile' | 'stage' }) {
   const classes = useStyles();
+  const { t } = useTranslation('misc');
   return (
     <span
       className={clsx(classes.badge, classes[size])}
       data-testid="participant-raised-hand"
-      title="Mano levantada"
-      aria-label="Mano levantada"
+      title={t('tile.handRaised')}
+      aria-label={t('tile.handRaised')}
     >
       <PanToolIcon style={{ color: '#1f2937', fontSize: ICON_SIZE[size] }} />
     </span>

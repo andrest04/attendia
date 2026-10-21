@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 import { Participant } from 'twilio-video';
+import { useTranslation } from 'react-i18next';
 
 import AudioLevelIndicator from '../AudioLevelIndicator/AudioLevelIndicator';
 import AvatarIcon from '../../icons/AvatarIcon';
@@ -235,6 +236,7 @@ export default function ParticipantInfo({
   const { isGalleryViewActive } = useAppState();
 
   const classes = useStyles();
+  const { t } = useTranslation('misc');
 
   const hasMultiface = Boolean(attention && attention.multiface);
 
@@ -260,10 +262,10 @@ export default function ParticipantInfo({
             {attention.multiface && (
               <span
                 className={classes.multifacePill}
-                title="Múltiples rostros detectados"
+                title={t('room:roster.multiface')}
                 data-testid="participant-multiface-flag"
               >
-                Multi-rostro
+                {t('tile.multiface')}
               </span>
             )}
             {/* Level badge only for a real reading: camera off, phone, no face or no reading
@@ -277,7 +279,7 @@ export default function ParticipantInfo({
                   color: ATTENTION_LEVEL_STYLE[attention.level].badgeText,
                 }}
               >
-                {ATTENTION_LEVEL_STYLE[attention.level].label}
+                {t(`room:level.${attention.level}`)}
               </span>
             )}
           </>
@@ -293,7 +295,7 @@ export default function ParticipantInfo({
             <AudioLevelIndicator audioTrack={audioTrack} />
             <Typography variant="body1" className={classes.typography} component="span">
               {stripTeacherSuffix(participant.identity)}
-              {isLocalParticipant && ' (Yo)'}
+              {isLocalParticipant && ` ${t('tile.localSuffix')}`}
             </Typography>
             {isTeacher && <RoleBadge size="sm" className={classes.roleBadge} />}
           </span>

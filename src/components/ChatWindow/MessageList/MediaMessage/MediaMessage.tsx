@@ -1,6 +1,7 @@
 import FileDownloadIcon from '../../../../icons/FileDownloadIcon';
 import { makeStyles } from '@material-ui/core/styles';
 import { Media } from '@twilio/conversations';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles({
   messageContainer: {
@@ -48,6 +49,7 @@ export function formatFileSize(bytes: number, suffixIndex = 0): string {
 
 export default function FileMessage({ media }: MediaMessageProps) {
   const classes = useStyles();
+  const { t } = useTranslation('chat');
 
   const handleClick = () => {
     media.getContentTemporaryUrl().then(url => {
@@ -71,7 +73,9 @@ export default function FileMessage({ media }: MediaMessageProps) {
       </div>
       <div className={classes.mediaInfo}>
         <p className={classes.filename}>{media.filename}</p>
-        <p className={classes.size}>{formatFileSize(media.size)} - Click to open</p>
+        <p className={classes.size}>
+          {formatFileSize(media.size)} - {t('clickToOpen')}
+        </p>
       </div>
     </div>
   );

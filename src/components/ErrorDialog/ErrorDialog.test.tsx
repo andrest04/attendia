@@ -35,7 +35,7 @@ describe('the ErrorDialog component', () => {
     const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
     expect(wrapper.find(DialogContentText).text()).toBe(message);
     expect(wrapper.find('code').exists()).toBe(true);
-    expect(wrapper.find('code').text()).toBe(`Error Code: ${code}`);
+    expect(wrapper.find('code').text()).toBe(`Código de error: ${code}`);
   });
 
   it('should display an enhanced error message when error code is 20101', () => {
@@ -44,7 +44,7 @@ describe('the ErrorDialog component', () => {
     expect(wrapper.find(DialogContentText).text()).toBe(
       'No se pudo validar la sesión. Verifica que las credenciales sean correctas.'
     );
-    expect(wrapper.find('code').text()).toBe(`Error Code: ${20101}`);
+    expect(wrapper.find('code').text()).toBe(`Código de error: ${20101}`);
   });
 
   it('should display an enhanced error message when the error message is "Permission denied by system"', () => {

@@ -27,7 +27,7 @@ export function createI18n({ detect = true, lng }: CreateI18nOptions = {}): I18n
     supportedLngs: SUPPORTED_LANGUAGES,
     nonExplicitSupportedLngs: true,
     defaultNS: 'common',
-    ns: ['common', 'classSessions', 'room', 'toolbar', 'notifications'],
+    ns: ['common', 'classSessions', 'room', 'toolbar', 'notifications', 'prejoin', 'auth', 'errors', 'chat', 'misc'],
     returnNull: false,
     interpolation: { escapeValue: false },
     initImmediate: false,

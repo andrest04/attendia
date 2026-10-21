@@ -1,6 +1,9 @@
+import { TFunction } from 'i18next';
+import spanishTranslator from '../../i18n/spanishTranslator';
+
 // This function is used to provide error messages to the user that are
 // different than the error messages provided by the SDK.
-export default function enhanceMessage(message = '', code?: number, name?: string) {
+export default function enhanceMessage(message = '', code?: number, name?: string, t: TFunction = spanishTranslator) {
   // getUserMedia errors are best matched by their (browser-stable) name, with a
   // fallback to the raw message since Twilio/browsers word these differently.
   const permissionDenied = name === 'NotAllowedError' || name === 'PermissionDeniedError';
@@ -13,15 +16,15 @@ export default function enhanceMessage(message = '', code?: number, name?: strin
 
   switch (true) {
     case code === 20101: // Invalid token error
-      return 'No se pudo validar la sesión. Verifica que las credenciales sean correctas.';
+      return t('errors:enhanced.invalidToken');
     case message === 'Permission denied by system':
-      return 'No se puede compartir la pantalla. Verifica que el sistema operativo tenga habilitados los permisos para compartir pantalla.';
+      return t('errors:enhanced.screenShareSystemDenied');
     case permissionDenied:
-      return 'El navegador bloqueó el acceso a la cámara o el micrófono. Haz clic en el ícono de la cámara (a la izquierda de la barra de direcciones), permite el acceso y vuelve a intentar.';
+      return t('errors:enhanced.permissionDenied');
     case deviceInUse:
-      return 'No se pudo iniciar la cámara. Cierra otras apps o pestañas que la estén usando y vuelve a intentar.';
+      return t('errors:enhanced.deviceInUse');
     case deviceNotFound:
-      return 'No se encontró una cámara o un micrófono. Conecta un dispositivo y vuelve a intentar.';
+      return t('errors:enhanced.deviceNotFound');
     default:
       return message;
   }

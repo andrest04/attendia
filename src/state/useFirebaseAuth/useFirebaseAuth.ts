@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { initializeApp } from 'firebase/app';
+import { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import {
   getAuth,
   User,
@@ -24,6 +26,7 @@ import {
 import { ResourceFileKind } from '../../components/TeacherDashboard/types';
 import { ClientApiError, createApiClient, throwOnErrorResponse, withUser } from './apiClient';
 import { featureFlags } from '../../utils/featureFlags';
+import spanishTranslator from '../../i18n/spanishTranslator';
 
 // Re-exported so existing importers keep working; the class lives with the API client.
 export { ClientApiError };
@@ -217,7 +220,8 @@ async function uploadResourceRequest(
   user: User,
   file: File,
   classId: string,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  t: TFunction = spanishTranslator
 ): Promise<ResourceRecord> {
   const idToken = await user.getIdToken();
 
@@ -253,7 +257,7 @@ async function uploadResourceRequest(
       }
     };
 
-    xhr.onerror = () => reject(new Error('No pudimos subir el archivo. Intenta de nuevo en unos segundos.'));
+    xhr.onerror = () => reject(new Error(t('errors:auth.uploadFailed')));
 
     xhr.send(formData);
   });
@@ -322,6 +326,7 @@ const startClassRequest = (user: User, id: string, roomName: string): Promise<vo
   createApiClient(user).send(`/classes/${encodeURIComponent(id)}/start`, { method: 'POST', json: { roomName } });
 
 export default function useFirebaseAuth() {
+  const { t } = useTranslation('errors');
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -470,21 +475,21 @@ export default function useFirebaseAuth() {
 
   const reauthenticate = useCallback(
     async (currentPassword?: string) => {
-      if (!user || !user.email) throw new Error('No hay una sesión activa para confirmar tu identidad.');
+      if (!user || !user.email) throw new Error(t('auth.noSessionToConfirm'));
       const hasPasswordProvider = user.providerData.some(provider => provider.providerId === 'password');
       if (hasPasswordProvider) {
-        if (!currentPassword) throw new Error('Ingresa tu contraseña actual para continuar.');
+        if (!currentPassword) throw new Error(t('auth.currentPasswordRequired'));
         await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
         return;
       }
       await reauthenticateWithPopup(user, new GoogleAuthProvider());
     },
-    [user]
+    [user, t]
   );
 
   const updateTeacherProfile = useCallback(
     async (input: { displayName?: string; syncEmail?: true }) => {
-      if (!user) throw new Error('No hay una sesión activa.');
+      if (!user) throw new Error(t('auth.noSession'));
       const previousDisplayName = user.displayName;
       try {
         if (input.displayName !== undefined) await updateProfile(user, { displayName: input.displayName });
@@ -502,9 +507,7 @@ export default function useFirebaseAuth() {
             await updateProfile(user, { displayName: previousDisplayName || null });
           } catch (rollbackError) {
             reportProfileFailure(user, 'profile_auth_display_name_rollback', rollbackError);
-            throw new Error(
-              'No pudimos guardar el nombre ni restaurar tu identidad. Reintenta el cambio para reconciliarla.'
-            );
+            throw new Error(t('auth.renameRollbackFailed'));
           }
         }
         reportProfileFailure(user, 'profile_firestore_update', error);
@@ -514,12 +517,12 @@ export default function useFirebaseAuth() {
       setUser(getAuth().currentUser);
       return updatedProfile;
     },
-    [user, applyProfile]
+    [user, applyProfile, t]
   );
 
   const changeEmail = useCallback(
     async (email: string, currentPassword?: string) => {
-      if (!user) throw new Error('No hay una sesión activa.');
+      if (!user) throw new Error(t('auth.noSession'));
       try {
         await reauthenticate(currentPassword);
         await updateEmail(user, email.trim());
@@ -532,12 +535,12 @@ export default function useFirebaseAuth() {
         throw error;
       }
     },
-    [user, reauthenticate, applyProfile]
+    [user, reauthenticate, applyProfile, t]
   );
 
   const changePassword = useCallback(
     async (currentPassword: string | undefined, newPassword: string) => {
-      if (!user) throw new Error('No hay una sesión activa.');
+      if (!user) throw new Error(t('auth.noSession'));
       const hasPasswordProvider = user.providerData.some(provider => provider.providerId === 'password');
       try {
         await reauthenticate(currentPassword);
@@ -552,7 +555,7 @@ export default function useFirebaseAuth() {
         throw error;
       }
     },
-    [user, reauthenticate]
+    [user, reauthenticate, t]
   );
 
   // Every endpoint callback below is the same request bound to the signed-in user:
@@ -660,8 +663,14 @@ export default function useFirebaseAuth() {
   );
 
   const uploadResource = useMemo(
-    () => withUser(user, 'Cannot upload a resource without an authenticated user', uploadResourceRequest),
-    [user]
+    () =>
+      withUser(
+        user,
+        'Cannot upload a resource without an authenticated user',
+        (u: User, file: File, classId: string, onProgress?: (percent: number) => void) =>
+          uploadResourceRequest(u, file, classId, onProgress, t)
+      ),
+    [user, t]
   );
 
   const fetchResourceDownloadUrl = useMemo(

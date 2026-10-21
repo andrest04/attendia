@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { Participant } from 'twilio-video';
+import { useTranslation } from 'react-i18next';
 
 import AudioLevelIndicator from '../AudioLevelIndicator/AudioLevelIndicator';
 import AvatarIcon from '../../icons/AvatarIcon';
@@ -116,6 +117,7 @@ interface MainParticipantInfoProps {
 
 export default function MainParticipantInfo({ participant, children }: MainParticipantInfoProps) {
   const classes = useStyles();
+  const { t } = useTranslation('misc');
   const { room } = useVideoContext();
   const localParticipant = room!.localParticipant;
   const isLocal = localParticipant === participant;
@@ -150,22 +152,19 @@ export default function MainParticipantInfo({ participant, children }: MainParti
             <AudioLevelIndicator audioTrack={audioTrack} />
             <Typography variant="body1" color="inherit">
               {stripTeacherSuffix(participant.identity)}
-              {isLocal && ' (Yo)'}
-              {isSharingScreen && ' - Screen'}
+              {isLocal && ` ${t('tile.localSuffix')}`}
+              {isSharingScreen && ` ${t('tile.screenSuffix')}`}
             </Typography>
             {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" className={classes.roleBadge} />}
           </div>
           <NetworkQualityLevel participant={participant} />
         </div>
         {isRecording && (
-          <Tooltip
-            title="All participants' audio and video is currently being recorded. Visit the app settings to stop recording."
-            placement="top"
-          >
+          <Tooltip title={t('tile.recordingTooltip')} placement="top">
             <div className={classes.recordingIndicator}>
               <div className={classes.circle}></div>
               <Typography variant="body1" color="inherit" data-cy-recording-indicator>
-                Recording
+                {t('tile.recording')}
               </Typography>
             </div>
           </Tooltip>

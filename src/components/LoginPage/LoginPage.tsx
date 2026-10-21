@@ -1,5 +1,9 @@
 import React, { ChangeEvent, useEffect, useRef, useState, FormEvent } from 'react';
+import { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 import { useAppState } from '../../state';
+import spanishTranslator from '../../i18n/spanishTranslator';
+import { EMPHASIS_MARK, emphasize } from '../../i18n/richText';
 
 import Button from '@material-ui/core/Button';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
@@ -17,19 +21,9 @@ import { useLocation, useHistory, Link } from 'react-router-dom';
 
 type PreJoinRole = 'teacher' | 'student';
 
-const SELF_REGISTER_ROLE_OPTIONS: { role: PreJoinRole; label: string; caption: string; testId: string }[] = [
-  {
-    role: 'teacher',
-    label: 'Soy profesor',
-    caption: 'Crear y dar clases',
-    testId: 'role-option-profesor',
-  },
-  {
-    role: 'student',
-    label: 'Soy estudiante',
-    caption: 'Unirme a clases existentes',
-    testId: 'role-option-estudiante',
-  },
+const SELF_REGISTER_ROLE_OPTIONS: { role: PreJoinRole; testId: string }[] = [
+  { role: 'teacher', testId: 'role-option-profesor' },
+  { role: 'student', testId: 'role-option-estudiante' },
 ];
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -301,23 +295,22 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
-// Friendly Spanish messages by Firebase auth error code. Anything unknown (including
-// profile-endpoint failures) falls back to a generic Spanish message.
-const INVALID_CREDENTIALS_MESSAGE = 'Correo o contraseña incorrectos. Revisa tus datos e intenta de nuevo.';
-const FIREBASE_AUTH_ERROR_MESSAGES: { [code: string]: string } = {
-  'auth/invalid-credential': INVALID_CREDENTIALS_MESSAGE,
-  'auth/wrong-password': INVALID_CREDENTIALS_MESSAGE,
-  'auth/user-not-found': INVALID_CREDENTIALS_MESSAGE,
-  'auth/email-already-in-use': 'Ya existe una cuenta con este correo. Inicia sesión para continuar.',
-  'auth/weak-password': 'La contraseña es demasiado débil. Usa al menos 6 caracteres.',
-  'auth/invalid-email': 'El correo electrónico no es válido.',
-  'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos e intenta de nuevo.',
+// Friendly messages (translation keys) by Firebase auth error code. Anything unknown (including
+// profile-endpoint failures) falls back to a generic message.
+const FIREBASE_AUTH_ERROR_KEYS: { [code: string]: string } = {
+  'auth/invalid-credential': 'auth:errors.invalidCredentials',
+  'auth/wrong-password': 'auth:errors.invalidCredentials',
+  'auth/user-not-found': 'auth:errors.invalidCredentials',
+  'auth/email-already-in-use': 'auth:errors.emailInUse',
+  'auth/weak-password': 'auth:errors.weakPassword',
+  'auth/invalid-email': 'auth:errors.invalidEmail',
+  'auth/too-many-requests': 'auth:errors.tooManyRequests',
 };
-const GENERIC_AUTH_ERROR_MESSAGE = 'No pudimos completar la operación. Intenta de nuevo en unos segundos.';
+const GENERIC_AUTH_ERROR_KEY = 'auth:errors.generic';
 
-export function getFirebaseAuthErrorMessage(error: any): string {
+export function getFirebaseAuthErrorMessage(error: any, t: TFunction = spanishTranslator): string {
   const code: unknown = error?.code;
-  return (typeof code === 'string' && FIREBASE_AUTH_ERROR_MESSAGES[code]) || GENERIC_AUTH_ERROR_MESSAGE;
+  return t((typeof code === 'string' && FIREBASE_AUTH_ERROR_KEYS[code]) || GENERIC_AUTH_ERROR_KEY);
 }
 
 /** A labelled outlined text input, the field every auth form is made of. */
@@ -367,6 +360,7 @@ function AuthErrorMessage({ error }: { error: Error | null }) {
 
 function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role: PreJoinRole) => void }) {
   const classes = useStyles();
+  const { t } = useTranslation('auth');
 
   return (
     <div className={classes.roleCards} style={{ marginBottom: 16 }}>
@@ -398,8 +392,8 @@ function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role
             )}
           </div>
           <div>
-            <div className={classes.roleLabel}>{option.label}</div>
-            <div className={classes.roleCaption}>{option.caption}</div>
+            <div className={classes.roleLabel}>{t(`roles.${option.role}.label`)}</div>
+            <div className={classes.roleCaption}>{t(`roles.${option.role}.caption`)}</div>
           </div>
         </div>
       ))}
@@ -409,6 +403,7 @@ function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role
 
 export default function LoginPage() {
   const classes = useStyles();
+  const { t } = useTranslation('auth');
   const { signIn, signInWithEmail, register, completeProfile, signOut, user, profile, isAuthReady } = useAppState();
   const history = useHistory();
   const location = useLocation<{ from: Location }>();
@@ -438,7 +433,7 @@ export default function LoginPage() {
     (action || Promise.resolve())
       .then(() => onSuccess?.())
       .catch(err => {
-        if (isMountedRef.current) setAuthError(new Error(getFirebaseAuthErrorMessage(err)));
+        if (isMountedRef.current) setAuthError(new Error(getFirebaseAuthErrorMessage(err, t)));
       })
       .finally(() => {
         if (isMountedRef.current) setIsSubmitting(false);
@@ -509,28 +504,31 @@ export default function LoginPage() {
     completion: () => (
       <>
         <Typography variant="h5" className={classes.formTitle}>
-          ¿Cómo vas a usar Attendia?
+          {t('completion.title')}
         </Typography>
-        <Typography className={classes.formSubtitle}>
-          Selecciona tu rol para terminar de configurar tu cuenta.
-        </Typography>
+        <Typography className={classes.formSubtitle}>{t('completion.subtitle')}</Typography>
         <Typography className={classes.signedInAs}>
-          Conectado como <span className={classes.signedInAsEmail}>{user?.displayName || user?.email}</span>
+          {emphasize(
+            t('completion.signedInAs', { account: EMPHASIS_MARK }),
+            user?.displayName || user?.email,
+            { className: classes.signedInAsEmail },
+            'span'
+          )}
         </Typography>
         <form onSubmit={handleCompleteProfile}>
           <RoleSelector value={completionRole} onChange={setCompletionRole} />
           <AuthErrorMessage error={authError} />
           <Button variant="contained" type="submit" disabled={isSubmitting} className={classes.primaryButton}>
-            Confirmar y continuar
+            {t('completion.confirm')}
           </Button>
           <Button
             type="button"
             onClick={handleAbandonCompletion}
             disabled={isSubmitting}
             className={classes.completionCancelButton}
-            aria-label="Cancelar la configuración y cerrar sesión"
+            aria-label={t('completion.cancelLabel')}
           >
-            Cancelar y cerrar sesión
+            {t('completion.cancel')}
           </Button>
         </form>
       </>
@@ -538,12 +536,18 @@ export default function LoginPage() {
     login: () => (
       <>
         <Typography variant="h5" className={classes.formTitle}>
-          Iniciar sesión
+          {t('login.title')}
         </Typography>
-        <Typography className={classes.formSubtitle}>Accede con tu cuenta para entrar a tus clases.</Typography>
+        <Typography className={classes.formSubtitle}>{t('login.subtitle')}</Typography>
         <form onSubmit={handleEmailLogin}>
-          <AuthField id="input-email" label="Correo electrónico" type="email" value={email} onChange={setEmail} />
-          <AuthField id="input-password" label="Contraseña" type="password" value={password} onChange={setPassword} />
+          <AuthField id="input-email" label={t('fields.email')} type="email" value={email} onChange={setEmail} />
+          <AuthField
+            id="input-password"
+            label={t('fields.password')}
+            type="password"
+            value={password}
+            onChange={setPassword}
+          />
           <AuthErrorMessage error={authError} />
           <Button
             variant="contained"
@@ -551,11 +555,11 @@ export default function LoginPage() {
             disabled={!email.length || !password.length || isSubmitting}
             className={classes.primaryButton}
           >
-            Iniciar sesión
+            {t('login.submit')}
           </Button>
         </form>
         <div className={classes.divider}>
-          <span className={classes.dividerText}>o</span>
+          <span className={classes.dividerText}>{t('login.or')}</span>
         </div>
         <Button
           variant="contained"
@@ -564,12 +568,12 @@ export default function LoginPage() {
           disabled={isSubmitting}
           startIcon={<GoogleLogo />}
         >
-          Continuar con Google
+          {t('login.google')}
         </Button>
         <div className={classes.switchRow}>
-          ¿No tienes cuenta?
+          {t('login.noAccount')}
           <button type="button" className={classes.switchLink} onClick={() => switchView('register')}>
-            Crear cuenta
+            {t('login.createAccount')}
           </button>
         </div>
       </>
@@ -577,21 +581,21 @@ export default function LoginPage() {
     register: () => (
       <>
         <Typography variant="h5" className={classes.formTitle}>
-          Crear cuenta
+          {t('register.title')}
         </Typography>
-        <Typography className={classes.formSubtitle}>Regístrate para crear o unirte a clases en Attendia.</Typography>
+        <Typography className={classes.formSubtitle}>{t('register.subtitle')}</Typography>
         <form onSubmit={handleRegister}>
-          <AuthField id="input-name" label="Nombre completo" value={fullName} onChange={setFullName} />
+          <AuthField id="input-name" label={t('fields.fullName')} value={fullName} onChange={setFullName} />
           <AuthField
             id="input-register-email"
-            label="Correo electrónico"
+            label={t('fields.email')}
             type="email"
             value={email}
             onChange={setEmail}
           />
           <AuthField
             id="input-register-password"
-            label="Contraseña"
+            label={t('fields.password')}
             type="password"
             value={password}
             onChange={setPassword}
@@ -604,13 +608,13 @@ export default function LoginPage() {
             disabled={!fullName.trim().length || !email.length || !password.length || isSubmitting}
             className={classes.primaryButton}
           >
-            Crear cuenta
+            {t('register.submit')}
           </Button>
         </form>
         <div className={classes.switchRow}>
-          ¿Ya tienes cuenta?
+          {t('register.haveAccount')}
           <button type="button" className={classes.switchLink} onClick={() => switchView('login')}>
-            Iniciar sesión
+            {t('register.signIn')}
           </button>
         </div>
       </>
@@ -623,7 +627,7 @@ export default function LoginPage() {
         {stepViews[step]()}
 
         <Link to={routes.security} className={classes.securityLink}>
-          Seguridad y Privacidad
+          {t('securityLink')}
         </Link>
       </div>
     </IntroContainer>

@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
+import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles((theme: Theme) => ({
   overlay: {
@@ -30,10 +31,11 @@ const useStyles = makeStyles((theme: Theme) => ({
 /** Dims a participant's video and says they are reconnecting. */
 export default function ReconnectingOverlay({ compact }: { compact?: boolean }) {
   const classes = useStyles();
+  const { t } = useTranslation('misc');
   return (
     <div className={classes.overlay}>
       <Typography variant="body1" className={clsx(classes.text, { [classes.compactText]: compact })}>
-        Reconnecting...
+        {t('tile.reconnecting')}
       </Typography>
     </div>
   );

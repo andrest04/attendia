@@ -4,6 +4,7 @@ import CircularProgress from '@material-ui/core/CircularProgress';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import WarningIcon from '@material-ui/icons/Warning';
 import SecurityIcon from '@material-ui/icons/Security';
+import { useTranslation } from 'react-i18next';
 import WifiIcon from '@material-ui/icons/Wifi';
 
 import { LocalVideoTrack } from 'twilio-video';
@@ -30,18 +31,12 @@ import SmallCheckIcon from '../../../icons/SmallCheckIcon';
 import InfoIconOutlined from '../../../icons/InfoIconOutlined';
 import { featureFlags } from '../../../utils/featureFlags';
 import { selectCameraTrack } from '../../../utils/trackSelectors';
+import { EMPHASIS_MARK, emphasize } from '../../../i18n/richText';
 
 // Pre-join check states share one icon vocabulary across the device list.
 // 'unavailable' = the check can't run right now and that's expected (e.g. the
 // lighting check with the camera turned off) — neutral, not an error.
 type CheckState = 'ok' | 'fail' | 'pending' | 'unavailable';
-
-const CONNECTION_QUALITY_LABEL: Record<ConnectionQuality, string> = {
-  good: 'Conexión buena',
-  medium: 'Conexión media',
-  poor: 'Conexión pobre',
-  unknown: 'Verificando…',
-};
 
 const CONNECTION_BAR_COLOR: Record<ConnectionQuality, string> = {
   good: '#10b981',
@@ -449,6 +444,7 @@ function lightingToCheckState(status: LightingStatus): CheckState {
 
 export default function DeviceSelectionScreen({ name, roomName, setStep }: DeviceSelectionScreenProps) {
   const classes = useStyles();
+  const { t } = useTranslation('prejoin');
   const { getToken, isFetching, isKrispEnabled, isKrispInstalled, startClass } = useAppState();
   const { connect: chatConnect } = useChatContext();
   const {
@@ -492,25 +488,25 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   // never the positive copy next to a warning icon.
   const deviceChecks: Array<{ label: string; state: CheckState }> = [
     {
-      label: hasAudioInputDevices ? 'Micrófono detectado' : 'Micrófono no detectado',
+      label: hasAudioInputDevices ? t('device.checks.micOk') : t('device.checks.micMissing'),
       state: hasAudioInputDevices ? 'ok' : 'fail',
     },
     {
-      label: hasVideoInputDevices ? 'Cámara detectada' : 'Cámara no detectada',
+      label: hasVideoInputDevices ? t('device.checks.cameraOk') : t('device.checks.cameraMissing'),
       state: hasVideoInputDevices ? 'ok' : 'fail',
     },
     {
-      label: audioOutputDevices.length > 0 ? 'Altavoces funcionando' : 'Altavoces no detectados',
+      label: audioOutputDevices.length > 0 ? t('device.checks.speakersOk') : t('device.checks.speakersMissing'),
       state: audioOutputDevices.length > 0 ? 'ok' : 'fail',
     },
     {
       label: isCameraOff
-        ? 'Iluminación (cámara apagada)'
+        ? t('device.checks.lightingCameraOff')
         : isVideoMuted
-        ? 'Iluminación (cámara bloqueada)'
+        ? t('device.checks.lightingCameraBlocked')
         : lightingState === 'fail'
-        ? 'Iluminación insuficiente'
-        : 'Iluminación adecuada',
+        ? t('device.checks.lightingLow')
+        : t('device.checks.lightingOk'),
       state: lightingState,
     },
   ];
@@ -594,7 +590,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
           </div>
           <div>
             <Typography variant="body2" style={{ fontWeight: 'bold', fontSize: '16px' }}>
-              Uniéndose a la reunión
+              {t('device.joining')}
             </Typography>
           </div>
         </Grid>
@@ -607,11 +603,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
       {/* Page heading */}
       <div className={classes.titleBlock}>
         <Typography className={classes.pageTitle} component="h1">
-          Sala de Espera
+          {t('device.title')}
         </Typography>
         <Typography className={classes.subtitle}>
-          Verifica tus dispositivos antes de entrar · Clase:{' '}
-          <strong className={classes.subtitleBold}>{roomName}</strong>
+          {t('device.subtitle')} <strong className={classes.subtitleBold}>{roomName}</strong>
         </Typography>
       </div>
 
@@ -619,22 +614,18 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
           too dark. Suppressed when the camera isn't delivering frames, since the
           reading would be invalid. */}
       {lighting.status === 'low' && !isCameraUnavailable && !lightingDismissed && (
-        <div className={classes.lightingBanner} role="note" aria-label="Verificación de iluminación">
+        <div className={classes.lightingBanner} role="note" aria-label={t('device.lighting.bannerLabel')}>
           <div className={classes.lightingBannerIconWrap}>
             <WarningIcon style={{ fontSize: 17, color: '#ffb800' }} />
           </div>
           <div className={classes.lightingBannerBody}>
-            <div className={classes.lightingBannerTitle}>
-              Condiciones de iluminación insuficientes para análisis de atención
-            </div>
-            <div className={classes.lightingBannerSub}>
-              Mejora la iluminación de tu entorno para que el sistema pueda analizar tu atención correctamente.
-            </div>
+            <div className={classes.lightingBannerTitle}>{t('device.lighting.title')}</div>
+            <div className={classes.lightingBannerSub}>{t('device.lighting.hint')}</div>
           </div>
           <button
             type="button"
             className={classes.lightingBannerClose}
-            aria-label="Cerrar aviso"
+            aria-label={t('device.lighting.close')}
             onClick={() => setLightingDismissed(true)}
           >
             ×
@@ -668,9 +659,9 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
               style={{ marginTop: '1em' }}
             >
               <div className={classes.toolTipContainer}>
-                <Typography variant="subtitle2">Cancelación de ruido</Typography>
+                <Typography variant="subtitle2">{t('device.noise.title')}</Typography>
                 <Tooltip
-                  title="Suprime el ruido de fondo de tu micrófono"
+                  title={t('device.noise.tooltip')}
                   interactive
                   leaveDelay={250}
                   leaveTouchDelay={15000}
@@ -691,7 +682,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
                     onClick={toggleKrisp}
                   />
                 }
-                label={isKrispEnabled ? 'Activado' : 'Desactivado'}
+                label={isKrispEnabled ? t('device.noise.on') : t('device.noise.off')}
                 style={{ marginRight: 0 }}
                 // Prevents <Switch /> from being temporarily enabled (and then quickly disabled) in unsupported browsers after
                 // isAcquiringLocalTracks becomes false:
@@ -710,21 +701,21 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         {/* "Verificación previa" panel — real device, connection, and lighting status. */}
         <Grid item md={4} sm={12} xs={12}>
           <div className={classes.panel}>
-            <Typography className={classes.panelTitle}>Verificación previa</Typography>
+            <Typography className={classes.panelTitle}>{t('device.panelTitle')}</Typography>
 
             {/* Connection quality section */}
             <div className={classes.panelGroup}>
-              <span className={classes.sectionLabel}>Calidad de conexión</span>
+              <span className={classes.sectionLabel}>{t('device.connectionLabel')}</span>
               <div className={classes.connectionPill}>
                 <WifiIcon style={{ fontSize: 15, color: CONNECTION_BAR_COLOR[connection.quality] }} />
-                <span className={classes.connectionLabel}>{CONNECTION_QUALITY_LABEL[connection.quality]}</span>
+                <span className={classes.connectionLabel}>{t(`device.connection.${connection.quality}`)}</span>
                 <ConnectionBars quality={connection.quality} color={CONNECTION_BAR_COLOR[connection.quality]} />
               </div>
             </div>
 
             {/* Device checks section */}
             <div className={classes.panelGroup}>
-              <span className={classes.sectionLabel}>Estado de dispositivos</span>
+              <span className={classes.sectionLabel}>{t('device.devicesLabel')}</span>
               <div className={classes.checkList}>
                 {deviceChecks.map((item, index) => {
                   // Until this row's turn arrives, show the spinner regardless of
@@ -747,15 +738,13 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
             <div className={classes.privacy}>
               <div className={classes.privacyHeader}>
                 <SecurityIcon style={{ fontSize: 15, color: '#1d6eed', marginTop: 1, flexShrink: 0 }} />
-                <span className={classes.privacyTitle}>Privacidad de datos faciales</span>
+                <span className={classes.privacyTitle}>{t('device.privacy.title')}</span>
               </div>
               <Typography className={classes.privacyText}>
-                El análisis de atención se procesa{' '}
-                <strong style={{ fontWeight: 700, color: '#64748b' }}>localmente</strong>. No se almacenan datos
-                faciales.
+                {emphasize(t('device.privacy.text', { local: EMPHASIS_MARK }), t('device.privacy.local'))}
               </Typography>
               <a href="/security" className={classes.privacyLink}>
-                Política de privacidad →
+                {t('device.privacy.link')}
               </a>
             </div>
 
@@ -768,10 +757,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
                 onClick={handleJoin}
                 disabled={disableButtons}
               >
-                Entrar a la sala →
+                {t('device.enter')}
               </button>
               <Button variant="outlined" color="primary" className={classes.cancelButton} onClick={handleCancel}>
-                Cancelar
+                {t('device.cancel')}
               </Button>
             </div>
           </div>

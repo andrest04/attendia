@@ -1,6 +1,7 @@
 import React from 'react';
 import { makeStyles, createStyles } from '@material-ui/core/styles';
 import CloseIcon from '../../../icons/CloseIcon';
+import { useTranslation } from 'react-i18next';
 
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
 
@@ -35,11 +36,12 @@ const useStyles = makeStyles(() =>
 
 export default function ChatWindowHeader() {
   const classes = useStyles();
+  const { t } = useTranslation('chat');
   const { setIsChatWindowOpen } = useChatContext();
 
   return (
     <div className={classes.container}>
-      <div className={classes.text}>Chat</div>
+      <div className={classes.text}>{t('title')}</div>
       <button className={classes.closeChatWindow} onClick={() => setIsChatWindowOpen(false)}>
         <CloseIcon />
       </button>
