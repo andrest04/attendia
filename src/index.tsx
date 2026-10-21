@@ -18,6 +18,7 @@ import { ParticipantProvider } from './components/ParticipantProvider';
 import { VideoProvider } from './components/VideoProvider';
 import useConnectionOptions from './utils/useConnectionOptions/useConnectionOptions';
 import UnsupportedBrowserWarning from './components/UnsupportedBrowserWarning/UnsupportedBrowserWarning';
+import PhoneGate from './components/PhoneBlockedScreen/PhoneGate';
 import { routes, videoAppPaths } from './routes';
 import SnackbarCloseButton from './components/SnackbarCloseButton/SnackbarCloseButton';
 
@@ -120,14 +121,16 @@ export const ReactApp = () => (
     <CssBaseline />
     <UnsupportedBrowserWarning>
       <Router>
-        <AppStateProvider>
-          {/* Single boundary for the lazy standalone pages. The fallback is
+        <PhoneGate>
+          <AppStateProvider>
+            {/* Single boundary for the lazy standalone pages. The fallback is
               intentionally empty: these pages own the full viewport, so there is
               no surrounding layout to jank while the chunk loads. */}
-          <Suspense fallback={null}>
-            <AppRoutes />
-          </Suspense>
-        </AppStateProvider>
+            <Suspense fallback={null}>
+              <AppRoutes />
+            </Suspense>
+          </AppStateProvider>
+        </PhoneGate>
       </Router>
     </UnsupportedBrowserWarning>
   </MuiThemeProvider>

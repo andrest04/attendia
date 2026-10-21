@@ -15,7 +15,7 @@ describe('server/index.ts security wiring', () => {
   it('guards /token with the profile-role resolver, the room claimer and the identity reservation', () => {
     const source = indexSource();
     expect(source).toMatch(
-      /app\.all\(\s*'\/token',\s*authMiddleware,\s*createRoomAccessGuard\(roomExists, createProfileRoleResolver\(firestore\), roomClaimer\),\s*identityReservationGuard,\s*tokenEndpoint\s*\);/
+      /app\.all\(\s*'\/token',\s*authMiddleware,\s*createPhoneBlockGuard\(\),\s*createRoomAccessGuard\(roomExists, createProfileRoleResolver\(firestore\), roomClaimer\),\s*identityReservationGuard,\s*tokenEndpoint\s*\);/
     );
     expect(source).toMatch(
       /const identityReservationGuard = createIdentityReservationGuard\(\s*firestore,\s*createParticipantConnectionChecker\(twilioClient\),\s*serverTimestamp\s*\);/

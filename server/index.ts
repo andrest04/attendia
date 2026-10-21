@@ -8,6 +8,7 @@ import {
   createRoomDetailsFetcher,
   createRoomSessionBinder,
 } from './roomOwnership';
+import { createPhoneBlockGuard } from './phoneBlockGuard';
 import { createRoomExists } from './roomExists';
 import { createIdentityReservationGuard, createParticipantConnectionChecker } from './identityReservation';
 import { createRoomOpenHandler } from './roomOpen';
@@ -126,6 +127,7 @@ const identityReservationGuard = createIdentityReservationGuard(
 app.all(
   '/token',
   authMiddleware,
+  createPhoneBlockGuard(),
   createRoomAccessGuard(roomExists, createProfileRoleResolver(firestore), roomClaimer),
   identityReservationGuard,
   tokenEndpoint
