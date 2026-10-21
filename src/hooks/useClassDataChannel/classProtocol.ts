@@ -72,6 +72,23 @@ export interface AttentionTelemetryMessage {
   unsupported: boolean;
 }
 
+/** One buffered attention reading: epoch ms and the 0-100 index. */
+export interface AttentionBackfillSample {
+  t: number;
+  index: number;
+}
+
+/**
+ * A student's readings taken while no teacher was in the room, sent (reliably, in chunks) when
+ * a teacher connects. The sender is the Twilio participant; `identity` is informational and a
+ * receiver ignores a payload that names someone else.
+ */
+export interface AttentionBackfillMessage {
+  type: 'attention-backfill';
+  identity: string;
+  samples: AttentionBackfillSample[];
+}
+
 export type ClassMessage =
   | RaiseHandMessage
   | GrantTurnMessage
@@ -80,7 +97,8 @@ export type ClassMessage =
   | GrantScreenShareMessage
   | ProctoringWarningMessage
   | SessionEndedMessage
-  | AttentionTelemetryMessage;
+  | AttentionTelemetryMessage
+  | AttentionBackfillMessage;
 
 /** Whether a targeted message (one carrying an `identity`) is aimed at the local participant. */
 export function isAddressedToMe(message: { identity?: unknown }, room: Room | null | undefined): boolean {

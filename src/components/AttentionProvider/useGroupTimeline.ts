@@ -1,7 +1,15 @@
-import { MutableRefObject, useEffect, useRef, useState } from 'react';
+import { MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { RemoteAttention } from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 import { AttentionTimelinePoint } from './types';
-import { averageIndex, formatTimelineLabel, isMeasured, ParticipantHistory, recordHistory } from './liveAttention';
+import {
+  averageIndex,
+  formatTimelineLabel,
+  isMeasured,
+  ParticipantHistory,
+  recordHistory,
+  recordIndexSample,
+} from './liveAttention';
+import { acceptBackfill, BackfillLedger, createBackfillLedger, mergeBackfillTimeline, TimedPoint } from './backfill';
 import { AttentionSeed, mergeHistory } from './liveSnapshot';
 
 // Maximum timeline points kept in memory before the oldest are evicted.
@@ -33,6 +41,11 @@ export interface GroupTimeline {
   fullTimeline: AttentionTimelinePoint[];
   /** Per-student index history (min/max/sum/count), accumulated at the same cadence. */
   history: MutableRefObject<ParticipantHistory>;
+  /**
+   * Folds readings a student buffered while no teacher was present into the history and the full
+   * timeline. Idempotent (a repeated chunk changes nothing) and never touches the proctoring feed.
+   */
+  mergeBackfill: (identity: string, samples: unknown) => void;
 }
 
 /**
@@ -55,7 +68,10 @@ export default function useGroupTimeline(
   const [timeline, setTimeline] = useState<AttentionTimelinePoint[]>([]);
   const [fullTimeline, setFullTimeline] = useState<AttentionTimelinePoint[]>([]);
   const timelineRef = useRef<AttentionTimelinePoint[]>([]);
-  const fullTimelineRef = useRef<AttentionTimelinePoint[]>([]);
+  // The full series with the epoch each point belongs to (seeded points use 0), so backfilled
+  // points can be placed chronologically.
+  const fullTimedRef = useRef<TimedPoint[]>([]);
+  const ledgerRef = useRef<BackfillLedger>(createBackfillLedger());
   const history = useRef<ParticipantHistory>(new Map());
 
   useEffect(() => {
@@ -63,9 +79,10 @@ export default function useGroupTimeline(
       // Reset timeline + per-student history when we go back to fallback.
       timelineRef.current = [];
       setTimeline([]);
-      fullTimelineRef.current = [];
+      fullTimedRef.current = [];
       setFullTimeline([]);
       history.current.clear();
+      ledgerRef.current = createBackfillLedger();
       return;
     }
 
@@ -90,9 +107,9 @@ export default function useGroupTimeline(
 
       // Full-session series (uncapped in practice — only a generous defensive ceiling) that
       // report generation persists/displays, distinct from the 90-point rolling window above.
-      const nextFull = [...fullTimelineRef.current, point].slice(-FULL_TIMELINE_HARD_CAP);
-      fullTimelineRef.current = nextFull;
-      setFullTimeline(nextFull);
+      const nextFull = [...fullTimedRef.current, { t: Date.now(), point }].slice(-FULL_TIMELINE_HARD_CAP);
+      fullTimedRef.current = nextFull;
+      setFullTimeline(nextFull.map(e => e.point));
     };
 
     // Seed one point immediately so the chart is never empty on first render.
@@ -104,11 +121,25 @@ export default function useGroupTimeline(
 
   useEffect(() => {
     if (!seed || !isActive) return;
-    const merged = [...seed.fullTimeline, ...fullTimelineRef.current].slice(-FULL_TIMELINE_HARD_CAP);
-    fullTimelineRef.current = merged;
-    setFullTimeline(merged);
+    const seeded: TimedPoint[] = seed.fullTimeline.map(point => ({ t: 0, point }));
+    const merged = [...seeded, ...fullTimedRef.current].slice(-FULL_TIMELINE_HARD_CAP);
+    fullTimedRef.current = merged;
+    setFullTimeline(merged.map(e => e.point));
     mergeHistory(history.current, seed.history);
   }, [seed, isActive]);
 
-  return { timeline, fullTimeline, history };
+  const mergeBackfill = useCallback(
+    (identity: string, samples: unknown) => {
+      if (!isActive) return;
+      const fresh = acceptBackfill(ledgerRef.current, identity, samples, Date.now());
+      if (fresh.length === 0) return;
+      fresh.forEach(sample => recordIndexSample(history.current, identity, sample.index));
+      const merged = mergeBackfillTimeline(fullTimedRef.current, fresh, ledgerRef.current, FULL_TIMELINE_HARD_CAP);
+      fullTimedRef.current = merged;
+      setFullTimeline(merged.map(e => e.point));
+    },
+    [isActive]
+  );
+
+  return { timeline, fullTimeline, history, mergeBackfill };
 }

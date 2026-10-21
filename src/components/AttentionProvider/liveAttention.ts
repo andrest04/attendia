@@ -69,17 +69,20 @@ export type ParticipantHistory = Map<string, IndexHistory>;
  * after they left still has their min/max/avg.
  */
 export function recordHistory(history: ParticipantHistory, measured: RemoteAttention[]): void {
-  measured.forEach(sample => {
-    const entry = history.get(sample.identity);
-    if (!entry) {
-      history.set(sample.identity, { min: sample.index, max: sample.index, sum: sample.index, count: 1 });
-    } else {
-      entry.min = Math.min(entry.min, sample.index);
-      entry.max = Math.max(entry.max, sample.index);
-      entry.sum += sample.index;
-      entry.count += 1;
-    }
-  });
+  measured.forEach(sample => recordIndexSample(history, sample.identity, sample.index));
+}
+
+/** Folds ONE reading of ONE student into the history (also used to backfill buffered readings). */
+export function recordIndexSample(history: ParticipantHistory, identity: string, index: number): void {
+  const entry = history.get(identity);
+  if (!entry) {
+    history.set(identity, { min: index, max: index, sum: index, count: 1 });
+  } else {
+    entry.min = Math.min(entry.min, index);
+    entry.max = Math.max(entry.max, index);
+    entry.sum += index;
+    entry.count += 1;
+  }
 }
 
 // ─── Participant rows ──────────────────────────────────────────────────────────

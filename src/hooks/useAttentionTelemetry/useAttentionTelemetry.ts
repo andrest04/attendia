@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import useLatest from '../useLatest/useLatest';
-import { AttentionTelemetryMessage } from '../useClassDataChannel/classProtocol';
+import {
+  AttentionBackfillMessage,
+  AttentionBackfillSample,
+  AttentionTelemetryMessage,
+  isFromTeacher,
+} from '../useClassDataChannel/classProtocol';
+import { appendBackfillSample, chunkBackfill, isBackfillMessage } from './attentionBackfill';
 import { AttentionCaptureResult } from '../useAttentionCapture/useAttentionCapture';
 
 /**
@@ -55,6 +61,15 @@ import { AttentionCaptureResult } from '../useAttentionCapture/useAttentionCaptu
  * DataTracks do NOT replay messages sent before a peer subscribed; the ~1 Hz
  * cadence means any late joiner will receive fresh data within 1 second.
  *
+ * Backfill (no teacher in the room):
+ * - While the capture measures and NO teacher participant is connected, a student keeps a bounded
+ *   local buffer of {t, index} (one sample per 10 s, 3 h cap). When a teacher (re)connects the
+ *   buffer is sent over the RELIABLE channel as chunked additive `attention-backfill` messages
+ *   (resent at +3 s and +10 s because the teacher may subscribe to our track late; the receiver
+ *   merge is idempotent), then cleared. The reliable track is only published while there is
+ *   something buffered. Teachers never buffer; the receiver (a teacher) trusts the sending
+ *   participant, never the payload identity. Fully inert when `enabled` is false.
+ *
  * This hook is a SINGLETON — call it once in Room.tsx, not inside every tile.
  */
 
@@ -67,6 +82,18 @@ const STALE_TTL_MS = 5000;
 
 // How often the staleness sweep runs.
 const STALE_SWEEP_MS = 1000;
+
+// When the buffered readings are (re)sent after a teacher connects: now, and twice more so a
+// late subscription of the teacher to our reliable track cannot lose them. The last one clears.
+const BACKFILL_SEND_DELAYS_MS = [0, 3000, 10000];
+
+const hasTeacher = (room: { participants?: Map<string, { identity: string }> } | null | undefined): boolean => {
+  let found = false;
+  room?.participants?.forEach(p => {
+    if (isFromTeacher(p)) found = true;
+  });
+  return found;
+};
 
 export interface RemoteAttention {
   /** Maps to the Twilio participant identity string. */
@@ -174,19 +201,36 @@ export default function useAttentionTelemetry(
   localResult?: AttentionCaptureResult,
   cameraOff: boolean = false,
   unsupported: boolean = false,
-  enabled: boolean = true
+  enabled: boolean = true,
+  onBackfill?: (identity: string, samples: unknown) => void
 ): RemoteAttention[] {
   const { room } = useVideoContext();
   const [remoteAttention, setRemoteAttention] = useState<Map<string, StoredRemoteAttention>>(new Map());
   const status = localStatus(cameraOff, unsupported);
+  const onBackfillRef = useLatest(onBackfill);
+  const localIdentity = room?.localParticipant?.identity;
+  const isLocalTeacher = isFromTeacher({ identity: localIdentity });
+
+  // Backfill state: who counts as a teacher in the room right now, and the student's own buffer.
+  const teacherIds = useRef<Set<string>>(new Set());
+  const [teacherPresent, setTeacherPresent] = useState(() => hasTeacher(room));
+  const bufferRef = useRef<AttentionBackfillSample[]>([]);
+  const [hasBuffer, setHasBuffer] = useState(false);
 
   // Unreliable + unordered track: this is "latest value wins" telemetry, not a
   // delivery-guaranteed event. See the header comment for why reliable delivery
   // collapses the group index to 0 under congestion.
-  const { send } = useClassDataChannel<AttentionTelemetryWireMessage>({
+  const { send } = useClassDataChannel<AttentionTelemetryWireMessage | AttentionBackfillMessage>({
     enabled,
     trackOptions: { ordered: false, maxRetransmits: 0 },
     onMessage: (parsed, participant) => {
+      if (isBackfillMessage(parsed)) {
+        // Only a teacher consumes backfill, and only from students; the sender is the Twilio
+        // participant, so a payload naming someone else is simply ignored.
+        if (isLocalTeacher && !isFromTeacher(participant))
+          onBackfillRef.current?.(participant.identity, parsed.samples);
+        return;
+      }
       if (!isAttentionTelemetryMessage(parsed)) return;
       const identity = participant.identity;
       const entry: StoredRemoteAttention = {
@@ -209,7 +253,14 @@ export default function useAttentionTelemetry(
         return next;
       });
     },
+    onParticipantConnected: participant => {
+      if (isFromTeacher(participant)) {
+        teacherIds.current.add(participant.identity);
+        setTeacherPresent(true);
+      }
+    },
     onParticipantDisconnected: participant => {
+      if (teacherIds.current.delete(participant.identity)) setTeacherPresent(teacherIds.current.size > 0);
       setRemoteAttention(prev => {
         const next = new Map(prev);
         next.delete(participant.identity);
@@ -217,6 +268,54 @@ export default function useAttentionTelemetry(
       });
     },
   });
+
+  // Re-sync who is a teacher when the room changes (the events only cover later arrivals).
+  useEffect(() => {
+    const ids = new Set<string>();
+    room?.participants?.forEach(p => {
+      if (isFromTeacher(p)) ids.add(p.identity);
+    });
+    teacherIds.current = ids;
+    setTeacherPresent(ids.size > 0);
+  }, [room]);
+
+  // Reliable channel for the backfill hand-over: published only while there is something buffered.
+  const { send: sendReliable } = useClassDataChannel<AttentionBackfillMessage>({
+    enabled: enabled && !isLocalTeacher && hasBuffer,
+    onMessage: () => undefined,
+  });
+
+  // Buffer our own measured readings while no teacher is in the room.
+  useEffect(() => {
+    if (!enabled || isLocalTeacher || teacherPresent || status !== 'measuring') return;
+    if (!localResult || localResult.capture !== 'active' || localResult.faces < 1) return;
+    const next = appendBackfillSample(bufferRef.current, { t: Date.now(), index: localResult.index });
+    if (next !== bufferRef.current) {
+      bufferRef.current = next;
+      setHasBuffer(true);
+    }
+  }, [enabled, isLocalTeacher, teacherPresent, status, localResult]);
+
+  // A teacher is here: hand the buffer over (idempotent resends), then drop it.
+  useEffect(() => {
+    if (!enabled || isLocalTeacher || !teacherPresent || !hasBuffer || !localIdentity) return;
+    const sendAll = () => chunkBackfill(localIdentity, bufferRef.current).forEach(sendReliable);
+    const timers = BACKFILL_SEND_DELAYS_MS.map((delay, i) => {
+      const run = () => {
+        sendAll();
+        if (i === BACKFILL_SEND_DELAYS_MS.length - 1) {
+          bufferRef.current = [];
+          setHasBuffer(false);
+        }
+      };
+      if (delay === 0) {
+        run();
+        return undefined;
+      }
+      return window.setTimeout(run, delay);
+    });
+    return () => timers.forEach(id => id !== undefined && window.clearTimeout(id));
+  }, [enabled, isLocalTeacher, teacherPresent, hasBuffer, localIdentity, sendReliable]);
 
   // Broadcast local attention whenever capture is active.
   useEffect(() => {

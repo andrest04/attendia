@@ -152,7 +152,14 @@ export const AttentionProvider: React.FC = ({ children }) => {
   // Layer 3: DataTrack transport — broadcast local + aggregate remotes. The hook is always
   // called (React rules), but it is inert in `off` mode: with the pipeline off nobody
   // publishes a telemetry track, receives it or runs its sweep.
-  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, isLive);
+  // Readings students buffered while no teacher was in the room arrive through `onBackfill` and
+  // are merged by useGroupTimeline (declared below, hence the ref).
+  const mergeBackfillRef = useRef<(identity: string, samples: unknown) => void>(() => undefined);
+  const onBackfill = useCallback(
+    (identity: string, samples: unknown) => mergeBackfillRef.current(identity, samples),
+    []
+  );
+  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, isLive, onBackfill);
 
   // Latest-value ref: the sampling intervals are created once (per isLive) and would otherwise
   // close over the telemetry from the render where isLive flipped true — empty at that instant.
@@ -184,7 +191,8 @@ export const AttentionProvider: React.FC = ({ children }) => {
   const connected = useMemo<ReadonlySet<string>>(() => new Set(remoteParticipants.map(p => p.identity)), [
     remoteParticipants,
   ]);
-  const { timeline, fullTimeline, history } = useGroupTimeline(remoteAttentionRef, isLive, seed);
+  const { timeline, fullTimeline, history, mergeBackfill } = useGroupTimeline(remoteAttentionRef, isLive, seed);
+  mergeBackfillRef.current = mergeBackfill;
   const { alerts: proctoringAlerts, log: proctoringLog } = useProctoringFeed(remoteAttentionRef, isLive, seed);
 
   return (

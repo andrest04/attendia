@@ -880,6 +880,69 @@ describe('useAttention inside AttentionProvider — restoring a stored snapshot'
   });
 });
 
+describe('useAttention inside AttentionProvider — backfill from students (teacher was absent)', () => {
+  const T = Date.now() - 60_000;
+  const samples = [
+    { t: T, index: 40 },
+    { t: T + 10_000, index: 60 },
+  ];
+  const onBackfill = () => mockUseAttentionTelemetry.mock.calls[mockUseAttentionTelemetry.mock.calls.length - 1][4];
+
+  beforeEach(() => {
+    process.env.REACT_APP_ENABLE_ATTENTION_CV = 'true';
+    setMobileDevice(false);
+    mockUseMediaQuery.mockReturnValue(false);
+    mockUseVideoContext.mockReturnValue({ room: createFakeRoom(), localTracks: [] });
+    mockUseAttentionCapture.mockReturnValue({
+      capture: 'inactive',
+      index: 0,
+      components: { eyes: 0, head: 0 },
+      faces: 0,
+      multiface: false,
+    });
+    mockUseAttentionTelemetry.mockReturnValue([]);
+  });
+
+  afterEach(() => {
+    delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+  });
+
+  it('merges buffered readings into the history and the full timeline, once', () => {
+    const { result } = renderHook(useAttention, { wrapper });
+    act(() => onBackfill()('student-b', samples));
+    expect(result.current.fullTimeline.map(p => p.value)).toEqual([40, 60]);
+    expect(result.current.participants.find(p => p.identity === 'student-b')).toMatchObject({
+      indexMin: 40,
+      indexMax: 60,
+      indexAvg: 50,
+    });
+
+    // The same chunk again (resend) changes nothing.
+    act(() => onBackfill()('student-b', samples));
+    expect(result.current.fullTimeline).toHaveLength(2);
+    expect(result.current.participants.find(p => p.identity === 'student-b')).toMatchObject({ indexAvg: 50 });
+  });
+
+  it('never raises proctoring alerts for backfilled data', () => {
+    const { result } = renderHook(useAttention, { wrapper });
+    act(() =>
+      onBackfill()('student-b', [
+        { t: T, index: 0 },
+        { t: T + 10_000, index: 0 },
+      ])
+    );
+    expect(result.current.proctoringAlerts).toEqual([]);
+    expect(result.current.proctoringLog).toEqual([]);
+  });
+
+  it('ignores backfill while the pipeline is off', () => {
+    delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
+    const { result } = renderHook(useAttention, { wrapper });
+    act(() => onBackfill()('student-b', samples));
+    expect(result.current.fullTimeline).toEqual([]);
+  });
+});
+
 // ─── MOBILE: room present but mobile ──────────────────────────────────────────
 describe('useAttention inside AttentionProvider — mobile (room present, isMobile)', () => {
   beforeEach(() => {
@@ -965,7 +1028,13 @@ describe('useAttention inside AttentionProvider — mobile (room present, isMobi
     mockUseAttentionTelemetry.mockClear();
     try {
       renderHook(useAttention, { wrapper });
-      expect(mockUseAttentionTelemetry).toHaveBeenCalledWith(expect.anything(), false, true, true);
+      expect(mockUseAttentionTelemetry).toHaveBeenCalledWith(
+        expect.anything(),
+        false,
+        true,
+        true,
+        expect.any(Function)
+      );
     } finally {
       delete process.env.REACT_APP_ENABLE_ATTENTION_CV;
     }
