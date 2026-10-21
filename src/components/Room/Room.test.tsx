@@ -12,6 +12,7 @@ import useMainParticipant from '../../hooks/useMainParticipant/useMainParticipan
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
 import useIsRoomOwner from '../../hooks/useIsRoomOwner/useIsRoomOwner';
+import { ModerationActionsContext } from './ModerationMenu/moderationActionsContext';
 import useUnloadReportPersistence from '../../hooks/useUnloadReportPersistence/useUnloadReportPersistence';
 import { RaisedHandsContext } from '../../hooks/useRaiseHand/raisedHandsContext';
 
@@ -36,6 +37,10 @@ jest.mock('@material-ui/core', () => {
   return { ...actual, useMediaQuery: jest.fn() };
 });
 jest.mock('../../hooks/useIsRoomOwner/useIsRoomOwner');
+jest.mock('../../hooks/useLocalVideoToggle/useLocalVideoToggle', () => ({
+  __esModule: true,
+  default: () => [false, jest.fn()],
+}));
 jest.mock('../../hooks/useUnloadReportPersistence/useUnloadReportPersistence');
 jest.mock('notistack', () => ({
   useSnackbar: () => ({ enqueueSnackbar: jest.fn(), closeSnackbar: jest.fn() }),
@@ -79,7 +84,14 @@ describe('the Room component', () => {
 
   it('renders the unmute-request prompt (closed until the professor asks)', () => {
     const wrapper = shallow(<Room />);
-    const prompt = wrapper.find('UnmuteRequestPrompt');
+    const prompt = wrapper.find('UnmuteRequestPrompt').first();
+    expect(prompt.exists()).toBe(true);
+    expect(prompt.prop('open')).toBe(false);
+  });
+
+  it('renders the camera-request prompt (closed until the professor suggests it)', () => {
+    const wrapper = shallow(<Room />);
+    const prompt = wrapper.find('UnmuteRequestPrompt').filterWhere(n => n.prop('kind') === 'camera');
     expect(prompt.exists()).toBe(true);
     expect(prompt.prop('open')).toBe(false);
   });
@@ -304,6 +316,21 @@ describe('the Room component', () => {
       expect(toolbar.props.onEndForAll).toBeUndefined();
       expect(toolbar.props.onLeave).toEqual(expect.any(Function));
       expect(mockUseUnloadReportPersistence).toHaveBeenLastCalledWith(false, expect.any(Function));
+    });
+
+    it('still renders both request prompts for a teacher (a co-teacher can be asked by the owner)', () => {
+      asTeacher();
+      const wrapper = shallow(<Room />);
+      expect(wrapper.find('UnmuteRequestPrompt')).toHaveLength(2);
+    });
+
+    it('hands the moderation context the local owner status as the actor role', () => {
+      mockUseIsRoomOwner.mockImplementation(() => 'owner');
+      asTeacher();
+      const value = shallow(<Room />)
+        .find(ModerationActionsContext.Provider)
+        .prop('value') as any;
+      expect(value.actorRole).toBe('owner');
     });
 
     it('only looks up the owner status for a teacher', () => {

@@ -2,8 +2,10 @@ import { act, renderHook } from '@testing-library/react-hooks';
 import EventEmitter from 'events';
 import useModeration from './useModeration';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import useLocalVideoToggle from '../useLocalVideoToggle/useLocalVideoToggle';
 
 jest.mock('../useVideoContext/useVideoContext');
+jest.mock('../useLocalVideoToggle/useLocalVideoToggle');
 
 const mockSend = jest.fn();
 jest.mock('twilio-video', () => ({
@@ -12,6 +14,7 @@ jest.mock('twilio-video', () => ({
 }));
 
 const mockedVideoContext = useVideoContext as jest.Mock<any>;
+const mockedLocalVideoToggle = useLocalVideoToggle as jest.Mock<any>;
 
 function createParticipant(identity: string): any {
   const participant: any = new EventEmitter();
@@ -31,9 +34,12 @@ const muteAudio = (identity: string) => JSON.stringify({ type: 'mute-audio', ide
 describe('useModeration', () => {
   let mockRoom: any;
   let localAudioDisable: jest.Mock;
+  let mockToggleVideo: jest.Mock;
+  let mockCameraOn = true;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCameraOn = true;
     localAudioDisable = jest.fn();
     mockRoom = new EventEmitter();
     mockRoom.participants = new Map();
@@ -44,6 +50,8 @@ describe('useModeration', () => {
       unpublishTrack: jest.fn(),
     };
     mockedVideoContext.mockImplementation(() => ({ room: mockRoom }));
+    mockToggleVideo = jest.fn();
+    mockedLocalVideoToggle.mockImplementation(() => [mockCameraOn, mockToggleVideo]);
   });
 
   it('publishes a data track on mount', () => {
@@ -306,5 +314,114 @@ describe('useModeration', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(mockRoom.localParticipant.unpublishTrack).toHaveBeenCalled();
+  });
+
+  describe('camera moderation', () => {
+    const muteVideo = (identity: string) => JSON.stringify({ type: 'mute-video', identity });
+    const requestVideo = (identity: string) => JSON.stringify({ type: 'request-video', identity });
+
+    function connectPeer(identity: string) {
+      const peer = createParticipant(identity);
+      const data = createDataTrack();
+      act(() => {
+        mockRoom.emit('participantConnected', peer);
+        peer.emit('trackSubscribed', data);
+      });
+      return data;
+    }
+
+    it('muteVideo and requestVideo send messages targeted at the identity', () => {
+      const { result } = renderHook(() => useModeration());
+      act(() => result.current.muteVideo('student-bob'));
+      act(() => result.current.requestVideo('student-bob'));
+      expect(mockSend).toHaveBeenCalledWith(muteVideo('student-bob'));
+      expect(mockSend).toHaveBeenCalledWith(requestVideo('student-bob'));
+    });
+
+    it('turns the camera off through the shared toggle and bumps the count when the teacher mutes video at me', () => {
+      const { result } = renderHook(() => useModeration());
+      const profData = connectPeer('Ana [Profesor]');
+      act(() => {
+        profData.emit('message', muteVideo('me'));
+      });
+      expect(mockToggleVideo).toHaveBeenCalledTimes(1);
+      expect(result.current.cameraOffByProfessorCount).toBe(1);
+    });
+
+    it('ignores mute-video from a student or aimed at someone else', () => {
+      const { result } = renderHook(() => useModeration());
+      const studentData = connectPeer('student-bob');
+      act(() => {
+        studentData.emit('message', muteVideo('me'));
+      });
+      const profData = connectPeer('Ana [Profesor]');
+      act(() => {
+        profData.emit('message', muteVideo('someone-else'));
+      });
+      expect(mockToggleVideo).not.toHaveBeenCalled();
+      expect(result.current.cameraOffByProfessorCount).toBe(0);
+    });
+
+    it('does nothing on mute-video when the camera is already off', () => {
+      mockCameraOn = false;
+      const { result } = renderHook(() => useModeration());
+      const profData = connectPeer('Ana [Profesor]');
+      act(() => {
+        profData.emit('message', muteVideo('me'));
+      });
+      expect(mockToggleVideo).not.toHaveBeenCalled();
+      expect(result.current.cameraOffByProfessorCount).toBe(0);
+    });
+
+    it('request-video only raises a pending request when the camera is off, and never turns it on by itself', () => {
+      mockCameraOn = false;
+      const { result } = renderHook(() => useModeration());
+      const profData = connectPeer('Ana [Profesor]');
+      act(() => {
+        profData.emit('message', requestVideo('me'));
+      });
+      expect(result.current.cameraRequestPending).toBe(true);
+      expect(mockToggleVideo).not.toHaveBeenCalled();
+    });
+
+    it('ignores request-video when the camera is on', () => {
+      const { result } = renderHook(() => useModeration());
+      const profData = connectPeer('Ana [Profesor]');
+      act(() => {
+        profData.emit('message', requestVideo('me'));
+      });
+      expect(result.current.cameraRequestPending).toBe(false);
+    });
+
+    it('ignores request-video from a student or aimed at someone else', () => {
+      mockCameraOn = false;
+      const { result } = renderHook(() => useModeration());
+      const studentData = connectPeer('student-bob');
+      const profData = connectPeer('Ana [Profesor]');
+      act(() => {
+        studentData.emit('message', requestVideo('me'));
+        profData.emit('message', requestVideo('someone-else'));
+      });
+      expect(result.current.cameraRequestPending).toBe(false);
+    });
+
+    it('acceptCameraRequest turns the camera on from the click and clears the request; dismiss does not', () => {
+      mockCameraOn = false;
+      const { result } = renderHook(() => useModeration());
+      const profData = connectPeer('Ana [Profesor]');
+      act(() => {
+        profData.emit('message', requestVideo('me'));
+      });
+      act(() => result.current.dismissCameraRequest());
+      expect(result.current.cameraRequestPending).toBe(false);
+      expect(mockToggleVideo).not.toHaveBeenCalled();
+
+      act(() => {
+        profData.emit('message', requestVideo('me'));
+      });
+      act(() => result.current.acceptCameraRequest());
+      expect(mockToggleVideo).toHaveBeenCalledTimes(1);
+      expect(result.current.cameraRequestPending).toBe(false);
+    });
   });
 });

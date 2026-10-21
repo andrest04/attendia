@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
+import useLocalVideoToggle from '../useLocalVideoToggle/useLocalVideoToggle';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import {
   isAddressedToMe,
   GrantScreenShareMessage,
   isFromTeacher,
   MuteAudioMessage,
+  MuteVideoMessage,
   UnmuteRequestMessage,
+  VideoRequestMessage,
 } from '../useClassDataChannel/classProtocol';
 
 /**
@@ -38,9 +41,18 @@ import {
  *   The professor tracks the granted identities and re-sends them when a student (re)connects.
  * - { type: 'request-unmute', identity } — the professor asks `identity` to turn the mic
  *   ON. The target only records a pending request; it never enables the track on its own.
+ * - { type: 'mute-video', identity } — the professor asks `identity` to turn the camera OFF.
+ *   Obeyed through the same toggle as ToggleVideoButton (unpublish + remove the local track).
+ * - { type: 'request-video', identity } — the professor suggests turning the camera ON.
+ *   Like request-unmute, only a pending prompt; the camera is published from the student's click.
  */
 
-type ModerationMessage = MuteAudioMessage | UnmuteRequestMessage | GrantScreenShareMessage;
+type ModerationMessage =
+  | MuteAudioMessage
+  | UnmuteRequestMessage
+  | MuteVideoMessage
+  | VideoRequestMessage
+  | GrantScreenShareMessage;
 
 export interface ModerationApi {
   /** Professor action: ask `identity` to mute their microphone. */
@@ -55,6 +67,18 @@ export interface ModerationApi {
   acceptUnmuteRequest: () => void;
   /** Student declined / closed the prompt: clear the request without touching the mic. */
   dismissUnmuteRequest: () => void;
+  /** Professor action: force `identity`'s camera off. */
+  muteVideo: (identity: string) => void;
+  /** Increments each time the professor turns THIS participant's camera off (drives a toast). */
+  cameraOffByProfessorCount: number;
+  /** Professor action: suggest `identity` turn their camera on (the student must accept). */
+  requestVideo: (identity: string) => void;
+  /** True while THIS participant has an unanswered "turn your camera on" suggestion. */
+  cameraRequestPending: boolean;
+  /** Student accepted: turn the camera on (from their click) and clear the request. */
+  acceptCameraRequest: () => void;
+  /** Student declined / closed the prompt: clear the request without touching the camera. */
+  dismissCameraRequest: () => void;
   /** Professor action: allow (or revoke) screen sharing for `identity`. */
   grantScreenShare: (identity: string, allowed: boolean) => void;
   /** Professor side: identities currently allowed to share their screen. */
@@ -67,7 +91,11 @@ export default function useModeration(): ModerationApi {
   const { room, isSharingScreen, toggleScreenShare } = useVideoContext();
   const [mutedByProfessorCount, setMutedByProfessorCount] = useState(0);
   const [unmuteRequestPending, setUnmuteRequestPending] = useState(false);
+  const [cameraOffByProfessorCount, setCameraOffByProfessorCount] = useState(0);
+  const [cameraRequestPending, setCameraRequestPending] = useState(false);
   const [screenShareAllowed, setScreenShareAllowed] = useState(false);
+  // The very same toggle ToggleVideoButton uses: off = unpublish + remove the local track.
+  const [isCameraOn, toggleCamera] = useLocalVideoToggle();
   const [screenShareGrants, setScreenShareGrants] = useState<string[]>([]);
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
   // `send` only exists after the channel hook runs, but the connect handler is passed into it.
@@ -109,6 +137,17 @@ export default function useModeration(): ModerationApi {
           if (publication.track && !publication.track.isEnabled) micIsOff = true;
         });
         if (micIsOff) setUnmuteRequestPending(true);
+      }
+      if (message.type === 'mute-video' && isFromTeacher(participant) && isAddressedToMe(message, room)) {
+        // Only a camera that is actually on is switched off (and only then is the student told).
+        if (isCameraOn) {
+          toggleCamera();
+          setCameraOffByProfessorCount(count => count + 1);
+        }
+      }
+      if (message.type === 'request-video' && isFromTeacher(participant) && isAddressedToMe(message, room)) {
+        // NEVER publish the camera here: only prompt, and only when it is off.
+        if (!isCameraOn) setCameraRequestPending(true);
       }
       if (message.type === 'grant-screenshare' && isFromTeacher(participant) && isAddressedToMe(message, room)) {
         setScreenShareAllowed(message.allowed === true);
@@ -153,6 +192,27 @@ export default function useModeration(): ModerationApi {
     [send]
   );
 
+  const muteVideo = useCallback(
+    (identity: string) => {
+      send({ type: 'mute-video', identity });
+    },
+    [send]
+  );
+
+  const requestVideo = useCallback(
+    (identity: string) => {
+      send({ type: 'request-video', identity });
+    },
+    [send]
+  );
+
+  const acceptCameraRequest = useCallback(() => {
+    if (!isCameraOn) toggleCamera();
+    setCameraRequestPending(false);
+  }, [isCameraOn, toggleCamera]);
+
+  const dismissCameraRequest = useCallback(() => setCameraRequestPending(false), []);
+
   const acceptUnmuteRequest = useCallback(() => {
     room?.localParticipant?.audioTracks.forEach((publication: any) => {
       if (publication.track && !publication.track.isEnabled) publication.track.enable();
@@ -169,6 +229,12 @@ export default function useModeration(): ModerationApi {
     unmuteRequestPending,
     acceptUnmuteRequest,
     dismissUnmuteRequest,
+    muteVideo,
+    cameraOffByProfessorCount,
+    requestVideo,
+    cameraRequestPending,
+    acceptCameraRequest,
+    dismissCameraRequest,
     grantScreenShare,
     screenShareGrants,
     screenShareAllowed,

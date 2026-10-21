@@ -12,6 +12,7 @@ import ScreenShareIcon from '../../icons/ScreenShareIcon';
 import RoleBadge from '../RoleBadge/RoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
+import TileModerationMenu from '../Room/ModerationMenu/TileModerationMenu';
 
 jest.mock('../../state');
 jest.mock('../../hooks/useRaiseHand/raisedHandsContext', () => ({ useRaisedHand: jest.fn() }));
@@ -331,5 +332,20 @@ describe('the ParticipantInfo component', () => {
       </ParticipantInfo>
     );
     expect(wrapper.find(RaisedHandBadge).exists()).toBe(false);
+  });
+
+  it('renders the moderation kebab leaf only when moderation handlers are provided', () => {
+    mockUsePublications.mockImplementation(() => []);
+    const moderation = { onMuteVideo: jest.fn() };
+    const withMenu = shallow(
+      <ParticipantInfo participant={{ identity: 'Ana' } as any} moderation={moderation}>
+        mock children
+      </ParticipantInfo>
+    );
+    expect(withMenu.find(TileModerationMenu).prop('identity')).toBe('Ana');
+    expect(withMenu.find(TileModerationMenu).prop('handlers')).toBe(moderation);
+
+    const without = shallow(<ParticipantInfo participant={{ identity: 'Ana' } as any}>mock children</ParticipantInfo>);
+    expect(without.find(TileModerationMenu).exists()).toBe(false);
   });
 });

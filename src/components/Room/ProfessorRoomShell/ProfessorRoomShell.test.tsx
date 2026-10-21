@@ -353,6 +353,39 @@ describe('ProfessorRoomShell', () => {
     expect(wrapper.find('[data-testid="professor-room-shell-roster-menu"]').exists()).toBe(false);
   });
 
+  it('turns a student camera off or suggests it on from the roster kebab menu', () => {
+    const onMuteVideo = jest.fn();
+    const onRequestVideo = jest.fn();
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        onMuteParticipant={jest.fn()}
+        onMuteVideo={onMuteVideo}
+        onRequestVideo={onRequestVideo}
+        participants={[{ identity: 'Ana García' }]}
+      />
+    );
+    wrapper
+      .find('button[data-testid="professor-room-shell-roster-menu-button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+    const off = wrapper.find('button[data-testid="professor-room-shell-roster-mute-video"]');
+    expect(off.text()).toContain('Apagar cámara');
+    off.simulate('click');
+    expect(onMuteVideo).toHaveBeenCalledWith('Ana García');
+
+    wrapper
+      .find('button[data-testid="professor-room-shell-roster-menu-button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+    const suggest = wrapper.find('button[data-testid="professor-room-shell-roster-request-video"]');
+    expect(suggest.text()).toContain('Sugerir cámara');
+    suggest.simulate('click');
+    expect(onRequestVideo).toHaveBeenCalledWith('Ana García');
+  });
+
   it('grants and revokes screen sharing from the roster kebab, reflecting the granted state', () => {
     const onSetScreenShareGrant = jest.fn();
     const wrapper = mount(

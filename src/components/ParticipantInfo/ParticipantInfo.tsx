@@ -12,6 +12,8 @@ import Typography from '@material-ui/core/Typography';
 
 import useParticipantTile from '../../hooks/useParticipantTile/useParticipantTile';
 import { useAppState } from '../../state';
+import TileModerationMenu from '../Room/ModerationMenu/TileModerationMenu';
+import { StudentModerationHandlers } from '../Room/ModerationMenu/studentModerationItems';
 import { AttentionLevel } from '../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
@@ -206,6 +208,8 @@ interface ParticipantInfoProps {
   isDominantSpeaker?: boolean;
   /** Attention badge + multiface flag for the professor's gallery (US08/US25). */
   attention?: ParticipantTileAttention;
+  /** Moderation actions for this tile's student; set only for a teacher viewing a remote student. */
+  moderation?: StudentModerationHandlers;
 }
 
 export default function ParticipantInfo({
@@ -217,6 +221,7 @@ export default function ParticipantInfo({
   hideParticipant,
   isDominantSpeaker,
   attention,
+  moderation,
 }: ParticipantInfoProps) {
   const {
     audioTrack,
@@ -249,6 +254,7 @@ export default function ParticipantInfo({
       data-cy-participant={participant.identity}
     >
       <div className={classes.infoContainer}>
+        {moderation && <TileModerationMenu identity={participant.identity} handlers={moderation} />}
         {attention && (
           <>
             {attention.multiface && (

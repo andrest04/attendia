@@ -15,6 +15,7 @@ import { usePagination } from './usePagination/usePagination';
 import useDominantSpeaker from '../../hooks/useDominantSpeaker/useDominantSpeaker';
 import { useAppState } from '../../state';
 import { AttentionContext } from '../AttentionProvider';
+import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 
 const CONTAINER_GUTTER = '50px';
@@ -125,6 +126,7 @@ export function GalleryView() {
   // provider, e.g. in unit tests) and surfaced on the professor's gallery only.
   const attention = useContext(AttentionContext);
   const isTeacher = isTeacherIdentity(room?.localParticipant?.identity);
+  const moderationActions = useModerationActions();
   const attentionByIdentity = useMemo(() => {
     const byIdentity = new Map<string, ParticipantTileAttention>();
     if (isTeacher && attention) {
@@ -200,6 +202,9 @@ export function GalleryView() {
               isDominantSpeaker={participant === dominantSpeaker}
               attention={
                 participant === room!.localParticipant ? undefined : attentionByIdentity.get(participant.identity)
+              }
+              moderation={
+                isTeacher && participant !== room!.localParticipant ? moderationActions || undefined : undefined
               }
             />
           </div>

@@ -76,6 +76,14 @@ describe('useNotificationToasts', () => {
       expect(messages()).toEqual(['El profesor silenció tu micrófono']);
     });
 
+    it('toasts when the professor turns this student camera off', () => {
+      const { rerender } = renderHook(props => useNotificationToasts(props), {
+        initialProps: { ...base, isTeacher: false, cameraOffByProfessorCount: 0 },
+      });
+      rerender({ ...base, isTeacher: false, cameraOffByProfessorCount: 1 });
+      expect(messages()).toEqual(['El profesor apagó tu cámara']);
+    });
+
     it('toasts a kind-specific message when the professor sends this student a warning', () => {
       const { rerender } = renderHook(props => useNotificationToasts(props), {
         initialProps: { ...base, isTeacher: false },
@@ -98,15 +106,23 @@ describe('useNotificationToasts', () => {
       expect(messages()).toEqual(['Sofía se unió a la sesión', 'Sofía levantó la mano', 'Sofía salió de la sesión']);
     });
 
-    it('does NOT toast recording, turn or mute changes for the professor', () => {
+    it('does NOT toast recording or turn changes for the professor', () => {
       const { rerender } = renderHook(props => useNotificationToasts(props), {
         initialProps: { ...base, isTeacher: true },
       });
       rerender({ ...base, isTeacher: true, isRecording: true });
       rerender({ ...base, isTeacher: true, turnGrantedCount: 5 });
-      rerender({ ...base, isTeacher: true, mutedByProfessorCount: 3 });
       rerender({ ...base, isTeacher: true, warnedByProfessorCount: 2, lastWarningKind: 'multiface' });
       expect(mockEnqueue).not.toHaveBeenCalled();
+    });
+
+    it('toasts a co-teacher when the owner mutes the mic or turns the camera off', () => {
+      const { rerender } = renderHook(props => useNotificationToasts(props), {
+        initialProps: { ...base, isTeacher: true, mutedByProfessorCount: 0, cameraOffByProfessorCount: 0 },
+      });
+      rerender({ ...base, isTeacher: true, mutedByProfessorCount: 1, cameraOffByProfessorCount: 0 });
+      rerender({ ...base, isTeacher: true, mutedByProfessorCount: 1, cameraOffByProfessorCount: 1 });
+      expect(messages()).toEqual(['El profesor silenció tu micrófono', 'El profesor apagó tu cámara']);
     });
   });
 });

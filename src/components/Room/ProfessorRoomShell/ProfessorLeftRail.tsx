@@ -65,6 +65,8 @@ interface ProfessorLeftRailProps {
   onGrantTurn?: (identity: string) => void;
   onMuteParticipant?: (identity: string) => void;
   onRequestUnmute?: (identity: string) => void;
+  onMuteVideo?: (identity: string) => void;
+  onRequestVideo?: (identity: string) => void;
   onSetScreenShareGrant?: (identity: string, allowed: boolean) => void;
   screenShareGrants?: string[];
   notifications: ShellNotification[];
@@ -94,6 +96,8 @@ export default function ProfessorLeftRail({
   onGrantTurn,
   onMuteParticipant,
   onRequestUnmute,
+  onMuteVideo,
+  onRequestVideo,
   onSetScreenShareGrant,
   screenShareGrants,
   notifications,
@@ -127,10 +131,14 @@ export default function ProfessorLeftRail({
       <RosterList
         participants={participants}
         attentionByIdentity={attentionByIdentity}
-        onMuteParticipant={onMuteParticipant}
-        onRequestUnmute={onRequestUnmute}
-        onSetScreenShareGrant={onSetScreenShareGrant}
-        screenShareGrants={screenShareGrants}
+        moderation={{
+          onMuteParticipant,
+          onRequestUnmute,
+          onMuteVideo,
+          onRequestVideo,
+          onSetScreenShareGrant,
+          screenShareGrants,
+        }}
       />
 
       <NotificationsFeed notifications={notifications} />
