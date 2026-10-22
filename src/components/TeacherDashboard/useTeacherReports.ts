@@ -1,4 +1,5 @@
 import { Dispatch, SetStateAction, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DashboardStat } from './types';
 import { mockDashboardData } from './mockDashboardData';
 import { StateContextType } from '../../state';
@@ -8,6 +9,14 @@ import { buildReportStats, computeTotalHoursTaught } from './reportStats';
 import { getPendingAttentionReports, removePendingAttentionReport } from '../AttentionReport/pendingAttentionReports';
 import { isPermanentClientError } from '../../state/useFirebaseAuth/apiClient';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
+
+// The stat cards' labels are translated here (the mock fixture keeps the Spanish text).
+const STAT_LABEL_KEYS: { [statId: string]: string } = {
+  'sessions-week': 'stats.sessionsWeek',
+  'active-students': 'stats.activeStudents',
+  'avg-attention': 'stats.avgAttention',
+  'hours-taught': 'stats.hoursTaught',
+};
 
 export interface UseTeacherReportsParams {
   fetchAttentionReports?: StateContextType['fetchAttentionReports'];
@@ -35,6 +44,7 @@ export default function useTeacherReports({
   setPendingReports,
   notifications,
 }: UseTeacherReportsParams) {
+  const { t } = useTranslation('dashboardShell');
   const data = mockDashboardData;
   const {
     data: reports,
@@ -43,7 +53,7 @@ export default function useTeacherReports({
     reload: loadReports,
   } = useReloadableResource<StoredAttentionReport[] | null>(fetchAttentionReports, {
     initial: null,
-    failureMessage: 'No pudimos consultar el historial de clases.',
+    failureMessage: t('reports.fetchFailed'),
     logLabel: 'TeacherDashboard: could not fetch attention reports',
   });
 
@@ -95,18 +105,23 @@ export default function useTeacherReports({
 
   const hasRealStats = Boolean(fetchAttentionReports);
 
+  const translatedStats = data.stats.map(stat => ({
+    ...stat,
+    label: STAT_LABEL_KEYS[stat.id] ? t(STAT_LABEL_KEYS[stat.id]) : stat.label,
+  }));
+
   const stats: DashboardStat[] = hasRealStats
     ? (() => {
         const { sessionsThisWeek, activeStudents, avgAttentionPercent } = buildReportStats(reports || [], Date.now());
         const totalHoursTaught = computeTotalHoursTaught(reports || []);
         return [
-          { ...data.stats[0], value: `${sessionsThisWeek}` },
-          { ...data.stats[1], value: `${activeStudents}` },
-          { ...data.stats[2], value: `${avgAttentionPercent}%` },
-          { ...data.stats[3], value: `${totalHoursTaught}h` },
+          { ...translatedStats[0], value: `${sessionsThisWeek}` },
+          { ...translatedStats[1], value: `${activeStudents}` },
+          { ...translatedStats[2], value: `${avgAttentionPercent}%` },
+          { ...translatedStats[3], value: `${totalHoursTaught}h` },
         ];
       })()
-    : data.stats;
+    : translatedStats;
 
   return {
     reports,

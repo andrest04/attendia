@@ -10,6 +10,9 @@
  * server remains the source of truth and re-validates independently.
  */
 
+import { TFunction } from 'i18next';
+import spanishTranslator from '../../i18n/spanishTranslator';
+
 export const MAX_RESOURCE_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 // A single file-picker selection larger than this is rejected outright (no
@@ -72,13 +75,13 @@ function isSupportedResourceMimeType(mimetype: string): boolean {
   );
 }
 
-/** Returns a user-facing Spanish error, or null if the file is upload-eligible. */
-export function validateResourceFile(file: File): string | null {
+/** Returns a user-facing error (Spanish unless `t` is passed), or null if the file is upload-eligible. */
+export function validateResourceFile(file: File, t: TFunction = spanishTranslator): string | null {
   if (file.size > MAX_RESOURCE_FILE_SIZE_BYTES) {
-    return 'El archivo supera el tamaño máximo permitido (25 MB).';
+    return t('dashboardShell:upload.tooLarge');
   }
   if (!isSupportedResourceMimeType(file.type)) {
-    return 'Tipo de archivo no admitido. Solo se aceptan PDFs, presentaciones, documentos de Word, archivos ZIP y videos.';
+    return t('dashboardShell:upload.unsupportedType');
   }
   return null;
 }

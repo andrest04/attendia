@@ -5,6 +5,8 @@ import NotificationsNoneIcon from '@material-ui/icons/NotificationsNone';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import PersonIcon from '@material-ui/icons/Person';
 import { useHistory } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSelector from '../LanguageSelector/LanguageSelector';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import { routes } from '../../routes';
 
@@ -176,6 +178,8 @@ interface Props {
   onProfileClick?: () => void;
   // Extra <MenuItem>s rendered after "Perfil" (e.g. sign-out, on the prejoin header).
   extraMenuItems?: React.ReactNode;
+  /** Mounts the language switcher beside the notifications bell (off where the host already has one). */
+  showLanguageSelector?: boolean;
 }
 
 /** Top bar shared by every Panel Docente tab and the prejoin flow: brand, notifications, profile chip. */
@@ -194,8 +198,10 @@ export default function DashboardHeader({
   showProfileLink = true,
   onProfileClick,
   extraMenuItems,
+  showLanguageSelector = false,
 }: Props) {
   const classes = useStyles();
+  const { t } = useTranslation('dashboardShell');
   const history = useHistory();
   const [profileMenuAnchor, setProfileMenuAnchor] = useState<HTMLElement | null>(null);
   const [notificationMenuAnchor, setNotificationMenuAnchor] = useState<HTMLElement | null>(null);
@@ -213,7 +219,7 @@ export default function DashboardHeader({
   return (
     <header className={classes.root} data-testid="dashboard-header">
       {onLogoClick ? (
-        <button type="button" className={classes.logoButton} onClick={onLogoClick} aria-label="Ir al inicio">
+        <button type="button" className={classes.logoButton} onClick={onLogoClick} aria-label={t('header.goHome')}>
           {logo}
         </button>
       ) : (
@@ -222,6 +228,7 @@ export default function DashboardHeader({
       {centerLabel && <span className={classes.centerLabel}>{centerLabel}</span>}
       <div className={classes.right}>
         {badge}
+        {showLanguageSelector && <LanguageSelector />}
         {showProfile &&
           showNotifications &&
           (notificationContent ? (
@@ -229,7 +236,7 @@ export default function DashboardHeader({
               <IconButton
                 className={classes.bell}
                 data-testid="dashboard-header-notifications"
-                aria-label="Abrir notificaciones"
+                aria-label={t('header.openNotifications')}
                 aria-controls={notificationMenuAnchor ? 'dashboard-notification-menu' : undefined}
                 aria-haspopup="true"
                 aria-expanded={Boolean(notificationMenuAnchor)}
@@ -247,13 +254,17 @@ export default function DashboardHeader({
                 onClose={closeNotifications}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones', style: { overflow: 'hidden' } }}
+                PaperProps={{ role: 'dialog', 'aria-label': t('header.notifications'), style: { overflow: 'hidden' } }}
               >
                 {notificationContent(closeNotifications)}
               </Popover>
             </>
           ) : (
-            <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
+            <span
+              className={classes.bell}
+              data-testid="dashboard-header-notifications"
+              aria-label={t('header.notifications')}
+            >
               <NotificationsNoneIcon />
             </span>
           ))}
@@ -263,7 +274,7 @@ export default function DashboardHeader({
               className={classes.profile}
               classes={{ label: classes.profileLabel }}
               data-testid="dashboard-header-profile"
-              aria-label="Abrir menú de perfil"
+              aria-label={t('header.openProfileMenu')}
               aria-controls={profileMenuAnchor ? 'dashboard-profile-menu' : undefined}
               aria-haspopup="true"
               aria-expanded={Boolean(profileMenuAnchor)}
@@ -290,7 +301,7 @@ export default function DashboardHeader({
             >
               {showProfileLink && (
                 <MenuItem onClick={openProfile} data-testid="dashboard-profile-menu-item">
-                  Perfil
+                  {t('header.profile')}
                 </MenuItem>
               )}
               {extraMenuItems}

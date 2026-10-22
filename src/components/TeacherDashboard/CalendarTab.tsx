@@ -7,7 +7,9 @@ import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import DeleteIcon from '@material-ui/icons/Delete';
+import { useTranslation } from 'react-i18next';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { formatDate, formatDayMonth, formatLongDate, formatTime, weekdayName } from '../../i18n/format';
 import { buildCalendarDays, calendarSummary, mondayLeadingBlanks, monthStart } from './calendarView';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -206,7 +208,8 @@ const useStyles = makeStyles((theme: Theme) => ({
   state: { padding: theme.spacing(3), color: theme.palette.text.secondary },
 }));
 
-const WEEKDAY_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+// Monday first, as the grid is (0 = Sunday).
+const WEEKDAY_INDEXES = [1, 2, 3, 4, 5, 6, 0];
 
 interface Props {
   classes: ClassRecord[] | null;
@@ -225,12 +228,6 @@ interface Props {
   expiredClassIds?: Set<string>;
 }
 
-function formatTime(value: number | null): string {
-  return value === null
-    ? 'Horario no disponible'
-    : new Date(value).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-}
-
 export default function CalendarTab({
   classes: classRecords,
   isLoading,
@@ -244,6 +241,8 @@ export default function CalendarTab({
   expiredClassIds,
 }: Props) {
   const styles = useStyles();
+  const { t, i18n } = useTranslation('calendar');
+  const language = i18n.language;
   const [visibleMonth, setVisibleMonth] = useState(() => monthStart(new Date()));
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const days = buildCalendarDays(classRecords || [], visibleMonth);
@@ -259,7 +258,10 @@ export default function CalendarTab({
     setVisibleMonth(monthStart(today));
     setSelectedDay(today.getDate());
   };
-  const monthLabel = visibleMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  const monthLabel = formatDate(visibleMonth, { month: 'long', year: 'numeric' }, language);
+  const formatClassTime = (value: number | null) =>
+    value === null ? t('timeUnavailable') : formatTime(value, language);
+  const dateOfDay = (day: number) => new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day);
 
   const effectiveDay = selectedDay > days.length ? 1 : selectedDay;
   const effectiveSelected = days.find(day => day.day === effectiveDay) || days[0];
@@ -273,7 +275,7 @@ export default function CalendarTab({
   if (isLoading)
     return (
       <div className={styles.state} data-testid="dashboard-calendar-loading">
-        <CircularProgress size={24} /> Cargando calendario...
+        <CircularProgress size={24} /> {t('loading')}
       </div>
     );
   if (error)
@@ -281,14 +283,14 @@ export default function CalendarTab({
       <div className={styles.state} data-testid="dashboard-calendar-error">
         {error}
         <div>
-          <Button onClick={onRetry}>Reintentar</Button>
+          <Button onClick={onRetry}>{t('retry')}</Button>
         </div>
       </div>
     );
   if (classRecords === null)
     return (
       <div className={styles.state} data-testid="dashboard-calendar-unavailable">
-        El calendario real requiere autenticación Firebase.
+        {t('unavailable')}
       </div>
     );
 
@@ -303,7 +305,7 @@ export default function CalendarTab({
         <div className={styles.header}>
           <div>
             <div className={styles.title}>{monthLabel}</div>
-            <div className={styles.subtitle}>Clases programadas</div>
+            <div className={styles.subtitle}>{t('scheduledClasses')}</div>
           </div>
           <div className={styles.navButtons}>
             <button
@@ -312,11 +314,11 @@ export default function CalendarTab({
               onClick={goToToday}
               data-testid="dashboard-calendar-today"
             >
-              Hoy
+              {t('today')}
             </button>
             <button
               type="button"
-              aria-label="Mes anterior"
+              aria-label={t('previousMonth')}
               className={styles.navButton}
               onClick={() => changeMonth(-1)}
               data-testid="dashboard-calendar-prev-month"
@@ -325,7 +327,7 @@ export default function CalendarTab({
             </button>
             <button
               type="button"
-              aria-label="Mes siguiente"
+              aria-label={t('nextMonth')}
               className={styles.navButton}
               onClick={() => changeMonth(1)}
               data-testid="dashboard-calendar-next-month"
@@ -335,9 +337,9 @@ export default function CalendarTab({
           </div>
         </div>
         <div className={styles.weekRow}>
-          {WEEKDAY_LABELS.map(label => (
-            <span key={label} className={styles.weekLabel}>
-              {label}
+          {WEEKDAY_INDEXES.map(index => (
+            <span key={index} className={styles.weekLabel}>
+              {weekdayName(index, 'narrow', language)}
             </span>
           ))}
         </div>
@@ -351,7 +353,7 @@ export default function CalendarTab({
             <button
               key={day.day}
               type="button"
-              aria-label={`${day.day} de ${monthLabel}`}
+              aria-label={formatLongDate(dateOfDay(day.day), language)}
               onClick={() => setSelectedDay(day.day)}
               className={clsx(styles.dayCell, { [styles.dayCellSelected]: day.day === effectiveDay })}
               data-testid={`dashboard-calendar-day-${day.day}`}
@@ -379,15 +381,11 @@ export default function CalendarTab({
       </div>
       <div className={styles.sidePanel}>
         <div>
-          <div className={styles.sideTitle}>
-            {effectiveDay} de {visibleMonth.toLocaleDateString('es-AR', { month: 'long' })}
-          </div>
+          <div className={styles.sideTitle}>{formatDayMonth(dateOfDay(effectiveDay), language)}</div>
           <div className={styles.sideSubtitle}>
             {(() => {
               const count = effectiveSelected ? effectiveSelected.classes.length : 0;
-              if (count === 0) return 'No hay clases programadas';
-              if (count === 1) return '1 clase programada';
-              return `${count} clases programadas`;
+              return count === 0 ? t('noClasses') : t('classCount', { count });
             })()}
           </div>
           {effectiveSelected &&
@@ -401,19 +399,22 @@ export default function CalendarTab({
                 data-testid={`dashboard-calendar-session-${classRecord.id}`}
               >
                 {expiredClassIds?.has(classRecord.id) && (
-                  <span className={styles.badgeExpired} data-testid={`dashboard-calendar-expired-badge-${classRecord.id}`}>
-                    Vencida
+                  <span
+                    className={styles.badgeExpired}
+                    data-testid={`dashboard-calendar-expired-badge-${classRecord.id}`}
+                  >
+                    {t('expired')}
                   </span>
                 )}
                 <div className={styles.sessionTitle}>{classRecord.title}</div>
                 <div className={styles.sessionMeta}>
                   <span className={styles.metaItem}>
                     <AccessTimeIcon style={{ fontSize: 14 }} />
-                    {formatTime(classRecord.scheduledAtMs)}
+                    {formatClassTime(classRecord.scheduledAtMs)}
                   </span>
                   <span className={styles.metaItem}>
                     <PeopleAltIcon style={{ fontSize: 14 }} />
-                    {classRecord.studentCount} alumnos
+                    {t('studentCount', { count: classRecord.studentCount })}
                   </span>
                 </div>
                 <div className={styles.sessionActions}>
@@ -423,7 +424,7 @@ export default function CalendarTab({
                     onClick={() => onStartClass(classRecord)}
                     data-testid={`dashboard-calendar-start-${classRecord.id}`}
                   >
-                    Iniciar
+                    {t('start')}
                   </button>
                   {onCancelClass && (
                     <button
@@ -434,7 +435,7 @@ export default function CalendarTab({
                       data-testid={`dashboard-calendar-cancel-${classRecord.id}`}
                     >
                       <DeleteIcon style={{ fontSize: 16 }} />
-                      {cancellingClassId === classRecord.id ? 'Cancelando…' : 'Cancelar'}
+                      {cancellingClassId === classRecord.id ? t('cancelling') : t('cancel')}
                     </button>
                   )}
                 </div>
@@ -444,23 +445,23 @@ export default function CalendarTab({
             <div className={styles.cancelError} data-testid="dashboard-calendar-cancel-error">
               {cancelError}{' '}
               <button type="button" onClick={onRetryCancel} data-testid="dashboard-calendar-retry-cancel-button">
-                Reintentar cancelación
+                {t('retryCancel')}
               </button>
             </div>
           )}
         </div>
         <div className={styles.summaryCard} data-testid="dashboard-calendar-summary">
-          <div className={styles.summaryTitle}>{monthLabel.toUpperCase()} · RESUMEN</div>
+          <div className={styles.summaryTitle}>{t('summaryTitle', { month: monthLabel.toUpperCase() })}</div>
           <div className={styles.summaryRow}>
-            <span>Clases programadas</span>
+            <span>{t('summary.scheduledClasses')}</span>
             <span>{summary.scheduledSessions}</span>
           </div>
           <div className={styles.summaryRow}>
-            <span>Alumnos esperados</span>
+            <span>{t('summary.expectedStudents')}</span>
             <span>{summary.expectedStudents}</span>
           </div>
           <div className={styles.summaryRow}>
-            <span>Horas de clase</span>
+            <span>{t('summary.classHours')}</span>
             <span>{summary.classHours}</span>
           </div>
         </div>

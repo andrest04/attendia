@@ -1,10 +1,11 @@
 import React from 'react';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import { DashboardTabId } from './types';
-import { dashboardTabIcon, dashboardTabLabel } from './dashboardHelpers';
+import { dashboardTabIcon, dashboardTabLabelKey } from './dashboardHelpers';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // This theme's `sm` boundary is 960px. A fixed rail leaves too little room for
@@ -150,10 +151,11 @@ interface Props {
 /** Left navigation rail shared by every Panel Docente tab. */
 export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankClass, onSignOut }: Props) {
   const classes = useStyles();
+  const { t } = useTranslation('dashboardShell');
 
   return (
     <nav className={classes.root} data-testid="dashboard-sidebar">
-      <span className={classes.sectionLabel}>PANEL DOCENTE</span>
+      <span className={classes.sectionLabel}>{t('sidebar.sectionLabel')}</span>
       <div className={classes.nav}>
         {TABS.map(tab => {
           const Icon = dashboardTabIcon[tab];
@@ -166,7 +168,7 @@ export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankC
               data-testid={`dashboard-sidebar-tab-${tab}`}
             >
               <Icon style={{ fontSize: 20 }} />
-              {dashboardTabLabel[tab]}
+              {t(dashboardTabLabelKey[tab])}
             </button>
           );
         })}
@@ -179,18 +181,18 @@ export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankC
           data-testid="dashboard-sidebar-start-class"
         >
           <PlayArrowIcon style={{ fontSize: 18 }} />
-          Iniciar clase
+          {t('sidebar.startClass')}
         </button>
         <button
           type="button"
           className={classes.signOutLink}
           onClick={onSignOut}
           disabled={!onSignOut}
-          title={onSignOut ? undefined : 'Cerrar sesión no está disponible en este modo'}
+          title={onSignOut ? undefined : t('sidebar.signOutUnavailable')}
           data-testid="dashboard-sidebar-sign-out"
         >
           <ExitToAppIcon style={{ fontSize: 16 }} />
-          Cerrar sesión
+          {t('sidebar.signOut')}
         </button>
       </div>
     </nav>

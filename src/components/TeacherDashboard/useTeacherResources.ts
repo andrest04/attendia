@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAppState } from '../../state';
 import { ClassRecord, ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { countOf } from '../../utils/pluralize';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
 import { routePath } from '../../routes';
 import { MAX_FILES_PER_UPLOAD, validateResourceFile } from './resourceUploadValidation';
@@ -54,6 +54,7 @@ export default function useTeacherResources({
   onDeleteClass,
 }: UseTeacherResourcesParams) {
   const { fetchResources, uploadResource, fetchResourceDownloadUrl, deleteResource } = useAppState();
+  const { t } = useTranslation('dashboardShell');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [resources, setResources] = useState<ResourceRecord[]>([]);
@@ -153,7 +154,7 @@ export default function useTeacherResources({
 
   const handleUploadClick = () => {
     if (!activeClassId) {
-      setErrorMessage('Selecciona una clase programada antes de subir el archivo.');
+      setErrorMessage(t('upload.selectClassFirst'));
       return;
     }
     fileInputRef.current?.click();
@@ -196,14 +197,12 @@ export default function useTeacherResources({
     setErrorMessage(null);
 
     if (files.length > MAX_FILES_PER_UPLOAD) {
-      setErrorMessage(
-        `Puedes subir hasta ${MAX_FILES_PER_UPLOAD} archivos a la vez. Selecciona menos archivos e intenta de nuevo.`
-      );
+      setErrorMessage(t('upload.tooManyFiles', { max: MAX_FILES_PER_UPLOAD }));
       return;
     }
 
     files.forEach(file => {
-      const validationError = validateResourceFile(file);
+      const validationError = validateResourceFile(file, t);
       if (validationError) {
         const id = `upload-${uploadIdRef.current++}`;
         setUploadingFiles(current => [...current, { id, name: file.name, progress: 0, error: validationError }]);
@@ -286,7 +285,7 @@ export default function useTeacherResources({
           setResources(current => current.filter(r => !deletedIds.includes(r.id)));
         }
         if (failedCount > 0) {
-          setBulkDeleteError(`No pudimos eliminar ${countOf(failedCount, 'recurso')}.`);
+          setBulkDeleteError(t('upload.deleteResourcesFailed', { count: failedCount }));
         }
         // A cancelled pill's doc is already gone — its files were the only thing left
         // to delete, so it only disappears once every one of them is actually gone; a
@@ -305,7 +304,7 @@ export default function useTeacherResources({
         return undefined;
       })
       .catch(err => {
-        if (isMountedRef.current) setBulkDeleteError(err.message || 'No pudimos eliminar la clase.');
+        if (isMountedRef.current) setBulkDeleteError(err.message || t('upload.deleteClassFailed'));
       })
       .finally(() => {
         if (isMountedRef.current) {

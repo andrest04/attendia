@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Button,
   CircularProgress,
@@ -27,12 +28,13 @@ export default function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'Confirmar',
-  cancelLabel = 'Cancelar',
+  confirmLabel,
+  cancelLabel,
   isConfirming = false,
   onConfirm,
   onCancel,
 }: Props) {
+  const { t } = useTranslation('dashboardShell');
   return (
     <Dialog open={open} onClose={onCancel} data-testid="dashboard-confirm-dialog">
       <DialogTitle>{title}</DialogTitle>
@@ -41,7 +43,7 @@ export default function ConfirmDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} data-testid="dashboard-confirm-dialog-cancel">
-          {cancelLabel}
+          {cancelLabel ?? t('confirmDialog.cancel')}
         </Button>
         <Button
           onClick={onConfirm}
@@ -51,7 +53,7 @@ export default function ConfirmDialog({
           autoFocus
           data-testid="dashboard-confirm-dialog-confirm"
         >
-          {isConfirming ? <CircularProgress size={18} color="inherit" /> : confirmLabel}
+          {isConfirming ? <CircularProgress size={18} color="inherit" /> : confirmLabel ?? t('confirmDialog.confirm')}
         </Button>
       </DialogActions>
     </Dialog>
