@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import Button from '@material-ui/core/Button';
 import { makeStyles, Theme } from '@material-ui/core/styles';
+import { useTranslation } from 'react-i18next';
 import { useAppState } from '../../state';
 import { DashboardTabId } from './types';
 import { mockDashboardData } from './mockDashboardData';
@@ -111,6 +112,7 @@ export default function TeacherDashboard({
   onNotificationNavigate,
 }: Props) {
   const classes = useStyles();
+  const { t } = useTranslation('dashboardShell');
   const {
     signOut,
     user,
@@ -345,6 +347,7 @@ export default function TeacherDashboard({
         professorPhotoURL={resolveProfilePhotoURL(profile?.avatarUrl, profile?.avatarRemoved, user?.photoURL)}
         onLogoClick={onTabChange ? () => onTabChange('clases') : undefined}
         notificationUnreadCount={notifications.unreadCount}
+        showLanguageSelector
         notificationContent={close => (
           <NotificationDropdown
             {...notifications}
@@ -378,10 +381,9 @@ export default function TeacherDashboard({
         <div className={classes.content}>
           {pendingReports.length > 0 && (
             <div className={classes.pendingReports} data-testid="dashboard-pending-reports">
-              No pudimos guardar {pendingReports.length === 1 ? 'un reporte' : `${pendingReports.length} reportes`} al
-              cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.
+              {t('pendingReports', { count: pendingReports.length })}
               <Button onClick={retryPendingReports} data-testid="dashboard-retry-pending-reports">
-                Reintentar guardado
+                {t('retryPendingReports')}
               </Button>
             </div>
           )}
@@ -390,22 +392,20 @@ export default function TeacherDashboard({
       </div>
       <ConfirmDialog
         open={cancelDialog.isOpen}
-        title="Cancelar clase"
-        message={`¿Cancelar "${cancelDialog.target?.title}"? Esta acción no se puede deshacer.`}
-        confirmLabel="Cancelar clase"
-        cancelLabel="Volver"
+        title={t('cancelClassDialog.title')}
+        message={t('cancelClassDialog.message', { title: cancelDialog.target?.title ?? '' })}
+        confirmLabel={t('cancelClassDialog.confirm')}
+        cancelLabel={t('cancelClassDialog.back')}
         isConfirming={cancellingClassId === cancelDialog.target?.id}
         onConfirm={confirmCancelClass}
         onCancel={cancelDialog.close}
       />
       <ConfirmDialog
         open={cancelExpiredDialog.isOpen}
-        title="Cancelar clases vencidas"
-        message={`¿Cancelar ${
-          expiredClasses.length === 1 ? 'la clase vencida' : `las ${expiredClasses.length} clases vencidas`
-        }? Esta acción no se puede deshacer.`}
-        confirmLabel="Cancelar"
-        cancelLabel="Volver"
+        title={t('cancelExpiredDialog.title')}
+        message={t('cancelExpiredDialog.message', { count: expiredClasses.length })}
+        confirmLabel={t('cancelExpiredDialog.confirm')}
+        cancelLabel={t('cancelExpiredDialog.back')}
         isConfirming={isCancellingExpired}
         onConfirm={confirmCancelExpiredClasses}
         onCancel={cancelExpiredDialog.close}

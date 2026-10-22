@@ -1,4 +1,6 @@
+import { TFunction } from 'i18next';
 import { toClassSessionRoomName } from '../../classSession/classSessionTypes';
+import spanishTranslator from '../../i18n/spanishTranslator';
 
 /** What the "Nueva clase" form holds: the raw inputs, before any of them is trusted. */
 export interface NewClassFormValues {
@@ -28,17 +30,23 @@ const fail = (message: string): NewClassValidation => ({ ok: false, message });
  * message always points at the first thing to fix. Pure: the clock is injected, which is what
  * makes "no puedes programar una clase en el pasado" testable.
  */
-export function validateNewClass(form: NewClassFormValues, nowMs: number): NewClassValidation {
+export function validateNewClass(
+  form: NewClassFormValues,
+  nowMs: number,
+  t: TFunction = spanishTranslator
+): NewClassValidation {
   const title = form.title.trim();
-  if (!title) return fail('Indica un título para la clase.');
+  if (!title) return fail(t('dashboardShell:newClass.titleRequired'));
 
-  if (!isValidDate(form.date) || !isValidDate(form.time)) return fail('Indica la fecha y la hora de la clase.');
+  if (!isValidDate(form.date) || !isValidDate(form.time)) return fail(t('dashboardShell:newClass.dateTimeRequired'));
 
   const studentCount = Number(form.studentCount);
-  if (!Number.isFinite(studentCount) || studentCount < 0) return fail('La cantidad de alumnos esperados no es válida.');
+  if (!Number.isFinite(studentCount) || studentCount < 0) return fail(t('dashboardShell:newClass.studentCountInvalid'));
 
   const durationMinutes = Number(form.durationMinutes);
-  if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) return fail('La duración de la clase no es válida.');
+  if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) {
+    return fail(t('dashboardShell:newClass.durationInvalid'));
+  }
 
   const scheduledAtMs = new Date(
     form.date.getFullYear(),
@@ -47,8 +55,8 @@ export function validateNewClass(form: NewClassFormValues, nowMs: number): NewCl
     form.time.getHours(),
     form.time.getMinutes()
   ).getTime();
-  if (!Number.isFinite(scheduledAtMs)) return fail('La fecha y hora indicadas no son válidas.');
-  if (scheduledAtMs < nowMs) return fail('No puedes programar una clase en una fecha u hora pasada.');
+  if (!Number.isFinite(scheduledAtMs)) return fail(t('dashboardShell:newClass.dateTimeInvalid'));
+  if (scheduledAtMs < nowMs) return fail(t('dashboardShell:newClass.inThePast'));
 
   return {
     ok: true,

@@ -26,11 +26,12 @@ export const dashboardTabIcon: Record<DashboardTabId, IconComponent> = {
   calendario: EventIcon,
 };
 
-export const dashboardTabLabel: Record<DashboardTabId, string> = {
-  clases: 'Clases',
-  historial: 'Historial',
-  recursos: 'Recursos',
-  calendario: 'Calendario',
+/** Translation key of each tab's label (namespace-qualified, resolved with `t` where it renders). */
+export const dashboardTabLabelKey: Record<DashboardTabId, string> = {
+  clases: 'dashboardShell:tabs.clases',
+  historial: 'dashboardShell:tabs.historial',
+  recursos: 'dashboardShell:tabs.recursos',
+  calendario: 'dashboardShell:tabs.calendario',
 };
 
 /** Real route for each tab, so it's reflected in the URL (bookmarks, refresh, back/forward). */

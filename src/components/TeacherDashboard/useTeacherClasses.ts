@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { mockDashboardData } from './mockDashboardData';
 import { ClassRecord, CreateClassInput } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StateContextType } from '../../state';
@@ -7,7 +8,6 @@ import { checkRoomOpen } from '../../classSession/checkRoomOpen';
 import { shouldReprobe } from './roomProbeThrottle';
 import { buildMockClassesView, buildRealClassesView } from './classSessionsView';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
-import { countOf } from '../../utils/pluralize';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
 
 export interface UseTeacherClassesParams {
@@ -106,6 +106,8 @@ export default function useTeacherClasses({
   onStartClass,
   refreshNotifications,
 }: UseTeacherClassesParams) {
+  const { t, i18n } = useTranslation('dashboardShell');
+  const language = i18n.language;
   const data = mockDashboardData;
   const {
     data: realClasses,
@@ -115,7 +117,7 @@ export default function useTeacherClasses({
     reload: loadClasses,
   } = useReloadableResource<ClassRecord[]>(fetchClasses, {
     initial: [],
-    failureMessage: 'No pudimos consultar las clases programadas.',
+    failureMessage: t('classes.fetchFailed'),
     logLabel: 'TeacherDashboard: could not fetch classes',
   });
   const [cancellingClassId, setCancellingClassId] = useState<string | null>(null);
@@ -131,7 +133,7 @@ export default function useTeacherClasses({
   const hasRealClasses = Boolean(fetchClasses && createClass && deleteClass && startClass);
 
   const { sessions, expiredSessions, expiredClasses, dateLabel } = hasRealClasses
-    ? buildRealClassesView(realClasses, Date.now())
+    ? buildRealClassesView(realClasses, Date.now(), { t, language })
     : buildMockClassesView(data);
   const expiredClassIds = new Set(expiredClasses.map(classRecord => classRecord.id));
   const { status: startedRoomStatus, refresh: refreshStartedRooms } = useRoomOpenStatus(
@@ -151,7 +153,7 @@ export default function useTeacherClasses({
         refreshNotifications();
       })
       .catch(err => {
-        setCancelError(err.message || 'No pudimos cancelar la clase.');
+        setCancelError(err.message || t('classes.cancelFailed'));
         cancelRetrySessionRef.current = session;
       })
       .finally(() => setCancellingClassId(null));
@@ -202,7 +204,7 @@ export default function useTeacherClasses({
           setRealClasses(current => current.filter(c => !deletedIds.includes(c.id)));
         }
         if (failedCount > 0) {
-          setCancelExpiredError(`No pudimos cancelar ${countOf(failedCount, 'clase vencida', 'clases vencidas')}.`);
+          setCancelExpiredError(t('classes.cancelExpiredFailed', { count: failedCount }));
         }
         setIsCancellingExpired(false);
       }
@@ -227,14 +229,12 @@ export default function useTeacherClasses({
         });
         return;
       }
-      setStartClassError(
-        'Ya hay una sesión activa con este nombre de sala. Si es de otro profesor, entra con su código desde "Iniciar clase".'
-      );
+      setStartClassError(t('classes.roomInUse'));
       return;
     }
     startClass!(classId, roomName)
       .then(() => onStartClass({ roomName, name: toClassSessionDisplayName(professorName, 'teacher'), classId }))
-      .catch(err => setStartClassError(err.message || 'No pudimos iniciar la clase programada.'))
+      .catch(err => setStartClassError(err.message || t('classes.startFailed')))
       .finally(() => setIsStartingClass(false));
   };
 

@@ -1,3 +1,6 @@
+import { TFunction } from 'i18next';
+import spanishTranslator from '../../i18n/spanishTranslator';
+
 export const MAX_AVATAR_BLOB_BYTES = 2 * 1024 * 1024;
 export const AVATAR_OUTPUT_SIZE = 256;
 
@@ -12,19 +15,23 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob 
   return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+function loadImage(src: string, t: TFunction): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('La imagen no es válida.'));
+    image.onerror = () => reject(new Error(t('teacherProfile:crop.invalidImage')));
     image.src = src;
   });
 }
 
 // Renders the user's crop/zoom selection onto a fixed-size square canvas and re-encodes
 // it as JPEG, stepping down quality until it fits the upload budget.
-export async function cropToBudgetedBlob(imageSrc: string, crop: PixelCrop): Promise<Blob> {
-  const image = await loadImage(imageSrc);
+export async function cropToBudgetedBlob(
+  imageSrc: string,
+  crop: PixelCrop,
+  t: TFunction = spanishTranslator
+): Promise<Blob> {
+  const image = await loadImage(imageSrc, t);
   const outputSize = Math.min(AVATAR_OUTPUT_SIZE, Math.round(crop.width));
   const canvas = document.createElement('canvas');
   canvas.width = outputSize;
@@ -34,5 +41,5 @@ export async function cropToBudgetedBlob(imageSrc: string, crop: PixelCrop): Pro
     const blob = await canvasToBlob(canvas, quality);
     if (blob && blob.size <= MAX_AVATAR_BLOB_BYTES) return blob;
   }
-  throw new Error('La imagen sigue siendo demasiado grande después de comprimirla.');
+  throw new Error(t('teacherProfile:crop.stillTooLarge'));
 }

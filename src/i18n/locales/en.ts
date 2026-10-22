@@ -1,9 +1,11 @@
+import dashboard from './dashboard.en';
 import entryFlow from './entryFlow.en';
 import roomUi from './roomUi.en';
 
 const en = {
   ...roomUi,
   ...entryFlow,
+  ...dashboard,
   common: {
     language: {
       label: 'Language',

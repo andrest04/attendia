@@ -17,6 +17,9 @@ import { makeStyles, Theme } from '@material-ui/core/styles';
 import PersonIcon from '@material-ui/icons/Person';
 import { Link, Redirect } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
+import { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
+import spanishTranslator from '../../i18n/spanishTranslator';
 import { useAppState } from '../../state';
 import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
 import DashboardHeader from '../TeacherDashboard/DashboardHeader';
@@ -91,17 +94,17 @@ const useStyles = makeStyles((theme: Theme) => ({
 // never reaches the server. SVG is excluded (vector, not a photo, and taints the canvas).
 const ALLOWED_AVATAR_INPUT_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'];
 
-function validateAvatarFile(file: File) {
+function validateAvatarFile(file: File, t: TFunction) {
   if (!ALLOWED_AVATAR_INPUT_MIME_TYPES.includes(file.type) || file.size > MAX_INPUT_AVATAR_BYTES) {
-    throw new Error('Elige una imagen JPEG, PNG, WebP, GIF o BMP de hasta 2 MB.');
+    throw new Error(t('teacherProfile:photo.invalidFile'));
   }
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
+function readFileAsDataUrl(file: File, t: TFunction): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('No pudimos leer la imagen.'));
+    reader.onerror = () => reject(new Error(t('teacherProfile:photo.readFailed')));
     reader.readAsDataURL(file);
   });
 }
@@ -112,15 +115,16 @@ function isValidEmail(email: string): boolean {
   return EMAIL_PATTERN.test(email.trim());
 }
 
-function errorMessage(error: any) {
-  if (error?.code === 'auth/requires-recent-login') return 'Confirmar identidad e intentar nuevamente.';
-  if (error?.code === 'auth/email-already-in-use') return 'Ese correo ya está vinculado a otra cuenta.';
-  if (error?.code === 'auth/invalid-email') return 'Ese correo no es válido.';
-  return error?.message || 'No pudimos completar el cambio. Intenta de nuevo.';
+function errorMessage(error: any, t: TFunction = spanishTranslator) {
+  if (error?.code === 'auth/requires-recent-login') return t('teacherProfile:errors.requiresRecentLogin');
+  if (error?.code === 'auth/email-already-in-use') return t('teacherProfile:errors.emailInUse');
+  if (error?.code === 'auth/invalid-email') return t('teacherProfile:errors.invalidEmail');
+  return error?.message || t('teacherProfile:errors.generic');
 }
 
 export default function TeacherProfilePage() {
   const classes = useStyles();
+  const { t } = useTranslation('teacherProfile');
   const {
     user,
     profile,
@@ -172,7 +176,7 @@ export default function TeacherProfilePage() {
     try {
       await work();
     } catch (error) {
-      enqueueSnackbar(errorMessage(error), { variant: 'error' });
+      enqueueSnackbar(errorMessage(error, t), { variant: 'error' });
     } finally {
       setSavingAction(null);
     }
@@ -188,7 +192,7 @@ export default function TeacherProfilePage() {
     if (isNameEmpty || isNameUnchanged) return;
     run('name', async () => {
       await updateTeacherProfile!({ displayName: name.trim() });
-      enqueueSnackbar('Nombre actualizado.', { variant: 'success' });
+      enqueueSnackbar(t('name.updated'), { variant: 'success' });
     });
   };
 
@@ -197,14 +201,14 @@ export default function TeacherProfilePage() {
     event.target.value = ''; // allow re-selecting the same file after cancelling the crop
     if (!file) return;
     try {
-      validateAvatarFile(file);
+      validateAvatarFile(file, t);
     } catch (error) {
-      enqueueSnackbar(error instanceof Error ? error.message : 'No pudimos validar la imagen. Intenta de nuevo.', {
+      enqueueSnackbar(error instanceof Error ? error.message : t('photo.validationFailed'), {
         variant: 'error',
       });
       return;
     }
-    readFileAsDataUrl(file)
+    readFileAsDataUrl(file, t)
       .then(setCropImageSrc)
       .catch((error: Error) => enqueueSnackbar(error.message, { variant: 'error' }));
   };
@@ -218,7 +222,7 @@ export default function TeacherProfilePage() {
       const updatedProfile = await uploadAvatar!(compressedFile);
       setAvatarUrl(updatedProfile.avatarUrl);
       setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-      enqueueSnackbar('Foto actualizada.', { variant: 'success' });
+      enqueueSnackbar(t('photo.updated'), { variant: 'success' });
     });
   };
 
@@ -242,7 +246,7 @@ export default function TeacherProfilePage() {
     return run('email', async () => {
       await changeEmail!(email, emailCurrentPassword || undefined);
       setEmailCurrentPassword('');
-      enqueueSnackbar('Correo actualizado.', { variant: 'success' });
+      enqueueSnackbar(t('email.updated'), { variant: 'success' });
     });
   };
 
@@ -259,7 +263,7 @@ export default function TeacherProfilePage() {
       if (!hasPasswordProvider) setHasLinkedPassword(true);
       setCurrentPassword('');
       setNewPassword('');
-      enqueueSnackbar(hasPasswordProvider ? 'Contraseña actualizada.' : 'Contraseña creada y vinculada a tu cuenta.', {
+      enqueueSnackbar(hasPasswordProvider ? t('password.updated') : t('password.created'), {
         variant: 'success',
       });
     });
@@ -276,9 +280,10 @@ export default function TeacherProfilePage() {
           professorPhotoURL={photo}
           identityColor="student"
           showNotifications={false}
+          showLanguageSelector
           extraMenuItems={
             <MenuItem onClick={() => signOut?.()} data-testid="student-profile-header-sign-out">
-              Cerrar sesión
+              {t('signOut')}
             </MenuItem>
           }
         />
@@ -286,8 +291,8 @@ export default function TeacherProfilePage() {
       <main className={classes.page} data-testid="teacher-profile-page">
         <Container maxWidth={false} className={classes.container}>
           <div className={classes.header}>
-            <Typography variant="h4">Perfil {profile.role === 'student' ? 'estudiante' : 'docente'}</Typography>
-            <Typography color="textSecondary">Administra tu identidad y acceso.</Typography>
+            <Typography variant="h4">{t('title', { context: profile.role })}</Typography>
+            <Typography color="textSecondary">{t('subtitle')}</Typography>
             {profile.role === 'student' && (
               <Button
                 className={classes.studentRoomEntry}
@@ -296,7 +301,7 @@ export default function TeacherProfilePage() {
                 variant="contained"
                 data-testid="student-room-entry"
               >
-                Volver a ingresar a una sala
+                {t('backToRoom')}
               </Button>
             )}
           </div>
@@ -304,7 +309,7 @@ export default function TeacherProfilePage() {
             <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-photo">
               <section className={classes.section} aria-labelledby="photo-heading">
                 <Typography id="photo-heading" variant="h6">
-                  Foto
+                  {t('photo.heading')}
                 </Typography>
                 <div className={classes.avatarRow}>
                   <span
@@ -315,7 +320,7 @@ export default function TeacherProfilePage() {
                     {!photo && <PersonIcon style={{ fontSize: 40 }} />}
                   </span>
                   <Button className={classes.button} component="label" variant="outlined" disabled={isSaving}>
-                    {savingAction === 'avatar' ? <CircularProgress size={18} color="inherit" /> : 'Cambiar foto'}
+                    {savingAction === 'avatar' ? <CircularProgress size={18} color="inherit" /> : t('photo.change')}
                     <input
                       hidden
                       type="file"
@@ -333,11 +338,15 @@ export default function TeacherProfilePage() {
                           const updatedProfile = await deleteAvatar!();
                           setAvatarUrl(updatedProfile.avatarUrl);
                           setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-                          enqueueSnackbar('Foto eliminada.', { variant: 'success' });
+                          enqueueSnackbar(t('photo.deleted'), { variant: 'success' });
                         })
                       }
                     >
-                      {savingAction === 'deleteAvatar' ? <CircularProgress size={18} color="inherit" /> : 'Eliminar foto'}
+                      {savingAction === 'deleteAvatar' ? (
+                        <CircularProgress size={18} color="inherit" />
+                      ) : (
+                        t('photo.delete')
+                      )}
                     </Button>
                   ) : (
                     avatarRemoved &&
@@ -350,14 +359,14 @@ export default function TeacherProfilePage() {
                             const updatedProfile = await restoreProviderPhoto!();
                             setAvatarUrl(updatedProfile.avatarUrl);
                             setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-                            enqueueSnackbar('Foto restaurada.', { variant: 'success' });
+                            enqueueSnackbar(t('photo.restored'), { variant: 'success' });
                           })
                         }
                       >
                         {savingAction === 'restorePhoto' ? (
                           <CircularProgress size={18} color="inherit" />
                         ) : (
-                          'Usar foto de Google'
+                          t('photo.useGoogle')
                         )}
                       </Button>
                     )
@@ -367,15 +376,15 @@ export default function TeacherProfilePage() {
             </Paper>
             <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-name">
               <form className={classes.section} onSubmit={saveName} noValidate>
-                <Typography variant="h6">Nombre</Typography>
+                <Typography variant="h6">{t('name.heading')}</Typography>
                 <TextField
-                  label="Nombre"
+                  label={t('name.label')}
                   value={name}
                   onChange={event => setName(event.target.value)}
                   required
                   inputProps={{ maxLength: 100 }}
                   error={nameSubmitted && isNameEmpty}
-                  helperText={nameSubmitted && isNameEmpty ? 'Ingresa un nombre.' : ' '}
+                  helperText={nameSubmitted && isNameEmpty ? t('name.required') : ' '}
                 />
                 <Button
                   className={classes.button}
@@ -384,15 +393,15 @@ export default function TeacherProfilePage() {
                   color="primary"
                   disabled={isSaving || isNameEmpty || isNameUnchanged}
                 >
-                  {savingAction === 'name' ? <CircularProgress size={18} color="inherit" /> : 'Guardar nombre'}
+                  {savingAction === 'name' ? <CircularProgress size={18} color="inherit" /> : t('name.save')}
                 </Button>
               </form>
             </Paper>
             <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-email">
               <form className={classes.section} onSubmit={saveEmail} noValidate>
-                <Typography variant="h6">Correo</Typography>
+                <Typography variant="h6">{t('email.heading')}</Typography>
                 <TextField
-                  label="Nuevo correo"
+                  label={t('email.label')}
                   type="email"
                   value={email}
                   onChange={event => setEmail(event.target.value)}
@@ -402,30 +411,28 @@ export default function TeacherProfilePage() {
                   error={(emailSubmitted && isEmailEmpty) || isEmailInvalid}
                   helperText={
                     isEmailChangeLocked
-                      ? 'Crea una contraseña para habilitar el cambio de correo.'
+                      ? t('email.lockedHelper')
                       : emailSubmitted && isEmailEmpty
-                      ? 'Ingresa un correo.'
+                      ? t('email.required')
                       : isEmailInvalid
-                      ? 'El formato del correo no es válido.'
+                      ? t('email.invalidFormat')
                       : ' '
                   }
                 />
                 {isEmailChangeLocked && (
                   <Typography id="email-password-setup-hint" color="textSecondary" aria-live="polite">
-                    Tu cuenta usa Google. Primero crea una contraseña para cambiar el correo.
+                    {t('email.googleHint')}
                   </Typography>
                 )}
                 {hasPasswordProvider && (
                   <TextField
-                    label="Contraseña actual"
+                    label={t('password.current')}
                     type="password"
                     value={emailCurrentPassword}
                     onChange={event => setEmailCurrentPassword(event.target.value)}
                     required
                     error={emailSubmitted && isCurrentPasswordEmptyForEmail}
-                    helperText={
-                      emailSubmitted && isCurrentPasswordEmptyForEmail ? 'Ingresa tu contraseña actual.' : ' '
-                    }
+                    helperText={emailSubmitted && isCurrentPasswordEmptyForEmail ? t('password.currentRequired') : ' '}
                   />
                 )}
                 <Button
@@ -441,39 +448,37 @@ export default function TeacherProfilePage() {
                     isCurrentPasswordEmptyForEmail
                   }
                 >
-                  {savingAction === 'email' ? <CircularProgress size={18} color="inherit" /> : 'Guardar correo'}
+                  {savingAction === 'email' ? <CircularProgress size={18} color="inherit" /> : t('email.save')}
                 </Button>
               </form>
             </Paper>
             <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-password">
               <form className={classes.section} onSubmit={savePassword} noValidate>
-                <Typography variant="h6">{hasPasswordProvider ? 'Contraseña' : 'Crear contraseña'}</Typography>
+                <Typography variant="h6">
+                  {hasPasswordProvider ? t('password.heading') : t('password.create')}
+                </Typography>
                 {hasPasswordProvider && (
                   <TextField
-                    label="Contraseña actual"
+                    label={t('password.current')}
                     type="password"
                     value={currentPassword}
                     onChange={event => setCurrentPassword(event.target.value)}
                     required
                     error={passwordSubmitted && isCurrentPasswordEmptyForPassword}
                     helperText={
-                      passwordSubmitted && isCurrentPasswordEmptyForPassword ? 'Ingresa tu contraseña actual.' : ' '
+                      passwordSubmitted && isCurrentPasswordEmptyForPassword ? t('password.currentRequired') : ' '
                     }
                   />
                 )}
                 <TextField
-                  label="Nueva contraseña"
+                  label={t('password.new')}
                   type="password"
                   value={newPassword}
                   onChange={event => setNewPassword(event.target.value)}
                   required
                   inputProps={{ minLength: 8 }}
                   error={passwordSubmitted && isNewPasswordInvalid}
-                  helperText={
-                    passwordSubmitted && isNewPasswordInvalid
-                      ? 'La nueva contraseña debe tener al menos 8 caracteres.'
-                      : ' '
-                  }
+                  helperText={passwordSubmitted && isNewPasswordInvalid ? t('password.tooShort') : ' '}
                 />
                 <Button
                   className={classes.button}
@@ -485,9 +490,9 @@ export default function TeacherProfilePage() {
                   {savingAction === 'password' ? (
                     <CircularProgress size={18} color="inherit" />
                   ) : hasPasswordProvider ? (
-                    'Actualizar contraseña'
+                    t('password.update')
                   ) : (
-                    'Crear contraseña'
+                    t('password.create')
                   )}
                 </Button>
               </form>
@@ -498,23 +503,20 @@ export default function TeacherProfilePage() {
             onClose={() => setIsEmailConfirmOpen(false)}
             data-testid="email-confirm-dialog"
           >
-            <DialogTitle>¿Confirmar el cambio de correo?</DialogTitle>
+            <DialogTitle>{t('confirmEmail.title')}</DialogTitle>
             <DialogContent>
-              <DialogContentText>Nuevo correo:</DialogContentText>
+              <DialogContentText>{t('confirmEmail.newEmail')}</DialogContentText>
               <DialogContentText>
                 <strong>{email}</strong>
               </DialogContentText>
-              <DialogContentText>
-                Se actualizará de inmediato, sin un paso de verificación previo. Este correo se utilizará para iniciar
-                sesión a partir de ahora.
-              </DialogContentText>
+              <DialogContentText>{t('confirmEmail.notice')}</DialogContentText>
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setIsEmailConfirmOpen(false)} data-testid="email-confirm-cancel">
-                Cancelar
+                {t('confirmEmail.cancel')}
               </Button>
               <Button onClick={confirmSaveEmail} color="primary" variant="contained" data-testid="email-confirm-accept">
-                Confirmar
+                {t('confirmEmail.confirm')}
               </Button>
             </DialogActions>
           </Dialog>

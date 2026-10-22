@@ -14,6 +14,7 @@ import {
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import { makeStyles, Theme } from '@material-ui/core/styles';
+import { useTranslation } from 'react-i18next';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -126,17 +127,19 @@ interface Props {
   onClearAll(): void;
 }
 
-const errorCopy: Array<{ key: keyof Props; copy: string }> = [
-  { key: 'refreshError', copy: 'No pudimos actualizar las notificaciones.' },
-  { key: 'paginationError', copy: 'No pudimos cargar más notificaciones.' },
-  { key: 'readError', copy: 'No pudimos marcar la notificación como leída.' },
-  { key: 'markAllError', copy: 'No pudimos marcar todas como leídas.' },
-  { key: 'clearError', copy: 'No pudimos vaciar las notificaciones.' },
-  { key: 'reconcileError', copy: 'No pudimos sincronizar las notificaciones.' },
+// Which prop raises which message (a key under notificationDropdown.errors).
+const errorCopy: Array<{ key: keyof Props; copyKey: string }> = [
+  { key: 'refreshError', copyKey: 'errors.refresh' },
+  { key: 'paginationError', copyKey: 'errors.pagination' },
+  { key: 'readError', copyKey: 'errors.read' },
+  { key: 'markAllError', copyKey: 'errors.markAll' },
+  { key: 'clearError', copyKey: 'errors.clear' },
+  { key: 'reconcileError', copyKey: 'errors.reconcile' },
 ];
 
 export default function NotificationDropdown(props: Props) {
   const classes = useStyles();
+  const { t } = useTranslation('dashboardShell');
   const {
     notifications,
     unreadCount,
@@ -167,10 +170,10 @@ export default function NotificationDropdown(props: Props) {
   return (
     <div className={classes.root} data-testid="notification-dropdown">
       <div className={classes.header}>
-        <Typography className={classes.heading}>Notificaciones</Typography>
+        <Typography className={classes.heading}>{t('notificationDropdown.title')}</Typography>
         <IconButton
           size="small"
-          aria-label="Más opciones de notificaciones"
+          aria-label={t('notificationDropdown.moreOptions')}
           data-testid="notification-dropdown-menu-button"
           onClick={event => setMenuAnchor(event.currentTarget)}
         >
@@ -178,22 +181,22 @@ export default function NotificationDropdown(props: Props) {
         </IconButton>
         <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeMenu}>
           <MenuItem onClick={handleMarkAllRead} disabled={unreadCount === 0 || mutationPending}>
-            Marcar todas como leídas
+            {t('notificationDropdown.markAllRead')}
           </MenuItem>
           <MenuItem onClick={handleClearAll} disabled={notifications.length === 0 || mutationPending}>
-            Vaciar notificaciones
+            {t('notificationDropdown.clearAll')}
           </MenuItem>
         </Menu>
       </div>
       <Divider />
       {!hasConfirmedState ? (
         <div className={classes.state} data-testid="notification-dropdown-loading">
-          <CircularProgress size={24} aria-label="Cargando notificaciones" />
+          <CircularProgress size={24} aria-label={t('notificationDropdown.loading')} />
         </div>
       ) : notifications.length === 0 ? (
         <div className={classes.state} data-testid="notification-dropdown-empty">
           <CheckCircleOutlineIcon className={classes.stateIcon} />
-          Estás al día
+          {t('notificationDropdown.allCaughtUp')}
         </div>
       ) : (
         <List disablePadding className={classes.list}>
@@ -207,7 +210,10 @@ export default function NotificationDropdown(props: Props) {
               onClick={() => onNotificationClick(notification)}
             >
               {notification.readAtMs === null && (
-                <span className={classes.unreadDot} data-testid={`notification-row-${notification.notificationId}-unread-dot`} />
+                <span
+                  className={classes.unreadDot}
+                  data-testid={`notification-row-${notification.notificationId}-unread-dot`}
+                />
               )}
               <ListItemText
                 primary={notification.title}
@@ -221,14 +227,14 @@ export default function NotificationDropdown(props: Props) {
         {errorCopy.map(error =>
           props[error.key] ? (
             <Typography key={error.key} className={classes.error} variant="caption" role="alert">
-              {error.copy}
+              {t(`notificationDropdown.${error.copyKey}`)}
             </Typography>
           ) : null
         )}
       </div>
       {hasConfirmedState && unreadCount > 0 && (
         <Typography className={classes.warning} variant="caption">
-          Tienes notificaciones sin leer
+          {t('notificationDropdown.unreadWarning')}
         </Typography>
       )}
       {hasConfirmedState && hasMore && (
@@ -236,7 +242,7 @@ export default function NotificationDropdown(props: Props) {
           <Divider />
           <div className={classes.actions}>
             <Button onClick={onLoadMore} disabled={isLoadingMore || mutationPending}>
-              Cargar más
+              {t('notificationDropdown.loadMore')}
             </Button>
           </div>
         </>
