@@ -57,6 +57,36 @@ describe('TeacherProfilePage', () => {
     window.localStorage.clear();
   });
 
+  const stylesFor = (className: string) => {
+    const css = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+    const match = css.match(new RegExp(`\\.${className}\\s*\\{([^}]*)\\}`));
+    return match ? match[1] : '';
+  };
+
+  it('paints a neutral circle, not the brand blue, while the photo is still loading', () => {
+    mockUseAppState.mockReturnValue(teacherState());
+    const wrapper = shallow(<TeacherProfilePage />);
+    const [, photoClass] = (wrapper.find('[data-testid="teacher-profile-avatar"]').prop('className') as string).split(
+      ' '
+    );
+
+    expect(stylesFor(photoClass)).toMatch(/background-color:\s*#e2ecf9/);
+  });
+
+  it('packs the photo card content at the top instead of stretching the gap under the title', () => {
+    mockUseAppState.mockReturnValue(teacherState());
+    const wrapper = shallow(<TeacherProfilePage />);
+    const panelClass = (wrapper.find('[data-testid="teacher-profile-photo"]').prop('className') as string).split(
+      ' '
+    )[0];
+    const sectionClass = (wrapper.find('[aria-labelledby="photo-heading"]').prop('className') as string).split(' ')[0];
+
+    expect(stylesFor(panelClass)).toMatch(/align-content:\s*start/);
+    expect(stylesFor(sectionClass)).toMatch(/align-content:\s*start/);
+  });
+
   it('shows the photo controls and their toasts in English when the language is English', async () => {
     setLocale('en');
     const state = teacherState();

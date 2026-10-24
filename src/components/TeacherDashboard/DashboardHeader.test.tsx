@@ -155,4 +155,21 @@ describe('DashboardHeader extraMenuItems', () => {
     expect(wrapper.find(MenuItem).exists()).toBe(true);
     expect(wrapper.find('[data-testid="extra-item"]').exists()).toBe(true);
   });
+
+  it('paints a neutral circle, not the brand blue, behind the photo while it loads', () => {
+    const wrapper = shallow(
+      <DashboardHeader professorName="Ana" professorInitials="A" professorPhotoURL="https://example.com/ana.jpg" />
+    );
+    const avatar = wrapper
+      .find('ProfileAvatar')
+      .first()
+      .dive()
+      .find('[data-testid="dashboard-header-avatar-photo"]');
+    const photoClass = (avatar.prop('className') as string).split(' ')[1];
+    const css = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+
+    expect(css).toMatch(new RegExp(`\\.${photoClass}\\s*\\{[^}]*background-color:\\s*#e2ecf9`));
+  });
 });

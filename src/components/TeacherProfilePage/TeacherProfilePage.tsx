@@ -57,11 +57,14 @@ const useStyles = makeStyles((theme: Theme) => ({
     boxSizing: 'border-box',
     padding: theme.spacing(3),
     display: 'grid',
+    // Without this the single grid row stretches to the 220px minimum and spreads the card's
+    // content apart (a big gap between the title and the avatar row).
+    alignContent: 'start',
     gap: theme.spacing(3),
     border: `1px solid ${theme.palette.divider}`,
     borderRadius: theme.shape.borderRadius,
   },
-  section: { display: 'grid', gap: theme.spacing(2) },
+  section: { display: 'grid', alignContent: 'start', gap: theme.spacing(2) },
   avatarRow: { display: 'flex', alignItems: 'center', gap: theme.spacing(2), flexWrap: 'wrap' },
   avatar: {
     width: 72,
@@ -75,6 +78,9 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexShrink: 0,
   },
   avatarPhoto: {
+    // Neutral, not the brand blue: while the photo downloads the circle would otherwise read as
+    // "no photo" (an empty blue disc), and a transparent photo would sit on the brand colour.
+    backgroundColor: '#e2ecf9',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
   },
