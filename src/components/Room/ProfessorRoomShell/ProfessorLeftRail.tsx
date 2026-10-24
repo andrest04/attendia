@@ -7,6 +7,7 @@ import RosterList from './RosterList';
 import HandsRaisedQueue from './HandsRaisedQueue';
 import NotificationsFeed from './NotificationsFeed';
 import ProctoringFeed from './ProctoringFeed';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles(() => ({
   leftRail: {
@@ -119,7 +120,7 @@ export default function ProfessorLeftRail({
           {onClose && (
             <RailCloseButton
               onClick={onClose}
-              aria-label="Cerrar participantes"
+              aria-label={t('Cerrar participantes')}
               data-testid="professor-room-shell-close-left"
             />
           )}

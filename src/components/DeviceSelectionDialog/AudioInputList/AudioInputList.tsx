@@ -6,6 +6,7 @@ import { SELECTED_AUDIO_INPUT_KEY } from '../../../constants';
 import useDevices from '../../../hooks/useDevices/useDevices';
 import useMediaStreamTrack from '../../../hooks/useMediaStreamTrack/useMediaStreamTrack';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
+import { t } from '../../../i18n/translate';
 import { selectAudioTrack } from '../../../utils/trackSelectors';
 
 export default function AudioInputList() {
@@ -44,7 +45,7 @@ export default function AudioInputList() {
               </Select>
             </FormControl>
           ) : (
-            <Typography>{localAudioTrack?.mediaStreamTrack.label || 'No Local Audio'}</Typography>
+            <Typography>{localAudioTrack?.mediaStreamTrack.label || t('Sin audio local')}</Typography>
           )}
         </div>
         <AudioLevelIndicator audioTrack={localAudioTrack} color="black" />

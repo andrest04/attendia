@@ -66,6 +66,7 @@ describe('useSessionEnd', () => {
     // server answers 401 and the Twilio room is never completed for the other participants.
     expect(((global as any).fetch as jest.Mock).mock.calls[0][1].headers).toEqual({
       Authorization: 'teacher-id-token',
+      'Accept-Language': 'es',
       'content-type': 'application/json',
     });
     expect(mockClearRejoin).toHaveBeenCalled();

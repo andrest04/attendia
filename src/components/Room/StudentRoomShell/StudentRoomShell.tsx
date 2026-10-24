@@ -7,6 +7,7 @@ import RoleBadge from '../../RoleBadge/RoleBadge';
 import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';
 import RoomShellLayout from '../ShellLayout/RoomShellLayout';
 import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
+import { t } from '../../../i18n/translate';
 
 // ─── Design tokens (from theme + Figma) ─────────────────────────────────────
 // Primary blue:  #1d6eed
@@ -308,7 +309,7 @@ function ChatIcon({ className }: { className?: string }) {
 type ConnectionQuality = { label: string; color: string };
 function connectionQuality(level: number | null | undefined): ConnectionQuality {
   if (level == null) return { label: 'Sin datos', color: '#9ca3af' };
-  if (level <= 2) return { label: 'Débil', color: '#ef4444' };
+  if (level <= 2) return { label: t('Débil'), color: '#ef4444' };
   if (level === 3) return { label: 'Media', color: '#f59e0b' };
   return { label: 'Buena', color: '#10b981' };
 }
@@ -343,9 +344,9 @@ export default function StudentRoomShell({
   stage,
   toolbarSlot = null,
   rightPanel = null,
-  activeSpeakerLabel = 'Sin participante activo',
-  sessionLabel = 'Sesión Twilio en vivo',
-  sessionName = 'Sesión Twilio en vivo',
+  activeSpeakerLabel = t('Sin participante activo'),
+  sessionLabel = t('Sesión Twilio en vivo'),
+  sessionName = t('Sesión Twilio en vivo'),
   participantCount = 0,
   recording = false,
   isConnectivityDegraded = false,
@@ -393,7 +394,7 @@ export default function StudentRoomShell({
                 {onCloseLeft && (
                   <RailCloseButton
                     onClick={onCloseLeft}
-                    aria-label="Cerrar participantes"
+                    aria-label={t('Cerrar participantes')}
                     data-testid="student-room-shell-close-left"
                   />
                 )}
@@ -433,7 +434,7 @@ export default function StudentRoomShell({
             {/* Connectivity banner */}
             {isConnectivityDegraded && (
               <div className={classes.connectivityBanner} data-testid="student-room-shell-connectivity-banner">
-                Resolución reducida por baja conectividad
+                {t('Resolución reducida por baja conectividad')}
               </div>
             )}
           </div>
@@ -454,7 +455,7 @@ export default function StudentRoomShell({
             {onCloseRight && (
               <RailCloseButton
                 onClick={onCloseRight}
-                aria-label="Cerrar chat"
+                aria-label={t('Cerrar chat')}
                 data-testid="student-room-shell-close-right"
               />
             )}

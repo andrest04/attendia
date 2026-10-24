@@ -5,6 +5,7 @@ import useSessionElapsed from './useSessionElapsed';
 import AttendiaLogo from '../../Brand/AttendiaLogo';
 import { useOnboarding } from '../OnboardingTutorial/onboardingContext';
 import { countOf } from '../../../utils/pluralize';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   bar: {
@@ -145,7 +146,7 @@ interface Props {
  * the Ayuda button.
  */
 export default function SessionStatusBar({
-  sessionName = 'Sesión',
+  sessionName = t('Sesión'),
   studentCount = 0,
   recording = false,
   showHelpButton = true,
@@ -170,7 +171,7 @@ export default function SessionStatusBar({
       )}
 
       <span className={classes.sessionInfo} data-testid="professor-room-shell-session-info">
-        {sessionName} · {countOf(studentCount, 'estudiante')} · {elapsed}
+        {sessionName} · {countOf(studentCount, t('estudiante'))} · {elapsed}
       </span>
 
       <div className={classes.spacer} />

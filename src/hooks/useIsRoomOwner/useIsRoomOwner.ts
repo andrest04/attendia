@@ -3,6 +3,7 @@ import { useAppState } from '../../state';
 import { createApiClient } from '../../state/useFirebaseAuth/apiClient';
 import useAsyncResource from '../useAsyncResource/useAsyncResource';
 import useVideoContext from '../useVideoContext/useVideoContext';
+import { t } from '../../i18n/translate';
 
 export type RoomOwnerStatus = 'owner' | 'co-teacher' | 'unknown';
 
@@ -29,7 +30,7 @@ export default function useIsRoomOwner(enabled: boolean): RoomOwnerStatus {
     [enabled, roomName, firebaseUser]
   );
 
-  const { data } = useAsyncResource(load, { failureMessage: 'No pudimos verificar tu rol en la sala.' });
+  const { data } = useAsyncResource(load, { failureMessage: t('No pudimos verificar tu rol en la sala.') });
   if (!data || typeof data.isOwner !== 'boolean') return 'unknown';
   return data.isOwner ? 'owner' : 'co-teacher';
 }

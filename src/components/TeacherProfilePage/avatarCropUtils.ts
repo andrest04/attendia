@@ -1,3 +1,4 @@
+import { t } from '../../i18n/translate';
 export const MAX_AVATAR_BLOB_BYTES = 2 * 1024 * 1024;
 export const AVATAR_OUTPUT_SIZE = 256;
 
@@ -16,7 +17,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('La imagen no es válida.'));
+    image.onerror = () => reject(new Error(t('La imagen no es válida.')));
     image.src = src;
   });
 }
@@ -34,5 +35,5 @@ export async function cropToBudgetedBlob(imageSrc: string, crop: PixelCrop): Pro
     const blob = await canvasToBlob(canvas, quality);
     if (blob && blob.size <= MAX_AVATAR_BLOB_BYTES) return blob;
   }
-  throw new Error('La imagen sigue siendo demasiado grande después de comprimirla.');
+  throw new Error(t('La imagen sigue siendo demasiado grande después de comprimirla.'));
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import Button from '@material-ui/core/Button';
 import Snackbar from '@material-ui/core/Snackbar';
+import { t } from '../../../i18n/translate';
 
 export const UNMUTE_REQUEST_TEXT = 'El profesor te pide activar tu micrófono';
 export const CAMERA_REQUEST_TEXT = 'El profesor te sugiere encender tu cámara';
@@ -33,7 +34,7 @@ export default function UnmuteRequestPrompt({ kind = 'mic', open, onAccept, onDi
     <Snackbar
       open={open}
       anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      message={view.text}
+      message={t(view.text)}
       data-testid={view.testId}
       action={
         <>

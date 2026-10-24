@@ -3,6 +3,7 @@ import { classifyAttention } from './presence';
 import { classifyProctoring, PROCTORING_KINDS, ProctoringKind } from './proctoring';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import { RemoteAttention } from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
+import { t } from '../../i18n/translate';
 
 /**
  * The pure rules behind the live attention data: who counts as "measured", how the group
@@ -168,7 +169,7 @@ export function buildParticipants(input: {
       multiface: false,
       level: attentionLevel(average),
       cameraOff: true, // honestly excluded from the live group gauge
-      faces: entry ? 1 : 0, // 0 = never measured at all → UI renders "sin medición"
+      faces: entry ? 1 : 0, // 0 = never measured at all → UI renders t("sin medición")
       unsupported: false,
       pending: false,
       ...accumulated,

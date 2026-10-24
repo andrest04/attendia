@@ -6,6 +6,7 @@ import VideoTrack from '../../../VideoTrack/VideoTrack';
 import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
 import { selectCameraTrack } from '../../../../utils/trackSelectors';
 import { stripTeacherSuffix } from '../../../../classSession/classSessionTypes';
+import { t } from '../../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // Outer card: browser-window chrome + video area
@@ -169,7 +170,7 @@ export default function LocalVideoPreview({ identity, children }: { identity: st
               </div>
               <div className={classes.cameraChip}>
                 <div className={classes.cameraChipDot} />
-                <span className={classes.cameraChipLabel}>Cámara apagada</span>
+                <span className={classes.cameraChipLabel}>{t('Cámara apagada')}</span>
               </div>
             </div>
           )}

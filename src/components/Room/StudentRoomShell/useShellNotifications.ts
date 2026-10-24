@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Participant } from 'twilio-video';
 import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
+import { t } from '../../../i18n/translate';
 import { ShellNotification } from '../shellNotification';
 
 /** The student panel is a lightweight activity log, not a firehose — keep only the most recent few. */
@@ -33,7 +34,7 @@ export default function useShellNotifications(participants: Participant[]) {
           ...prev,
           ...joined.map(p => ({
             id: `joined-${p.sid}-${Date.now()}`,
-            text: `${p.identity} se unió a la sesión`,
+            text: t('{{name}} se unió a la sesión', { name: p.identity }),
             kind: 'participant' as const,
             createdAt: Date.now(),
           })),
@@ -52,7 +53,7 @@ export default function useShellNotifications(participants: Participant[]) {
           ...prev,
           ...left.map(identity => ({
             id: `left-${identity}-${Date.now()}`,
-            text: `${identity} salió de la sesión`,
+            text: t('{{name}} salió de la sesión', { name: identity }),
             kind: 'participant' as const,
             createdAt: Date.now(),
           })),

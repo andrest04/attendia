@@ -9,6 +9,7 @@ import { useAppState } from '../../state';
 import { leaveClass } from '../../components/PreJoinScreens/leaveClass';
 import { ReportEndReason } from '../../components/AttentionProvider/reportTypes';
 import { ClientApiError, createApiClient } from '../../state/useFirebaseAuth/apiClient';
+import { t } from '../../i18n/translate';
 
 /**
  * "End the session for everyone" signaling for the classroom flow.
@@ -134,7 +135,9 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       if (error instanceof ClientApiError && error.status === 403) {
         notOwner = true;
         enqueueSnackbar(
-          'Solo el docente a cargo de la clase puede cerrarla para todos. Saliste de la sala y la clase sigue abierta.',
+          t(
+            'Solo el docente a cargo de la clase puede cerrarla para todos. Saliste de la sala y la clase sigue abierta.'
+          ),
           { variant: 'info' }
         );
         return;
@@ -144,7 +147,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       // Even if completion fails (offline, transient), we still leave and show the
       // ended screen locally — the broadcast tells the connected students. The
       // professor must know the room may still be open, so surface it.
-      enqueueSnackbar('No se pudo cerrar la sala en el servidor. Los estudiantes podrían seguir conectados.', {
+      enqueueSnackbar(t('No se pudo cerrar la sala en el servidor. Los estudiantes podrían seguir conectados.'), {
         variant: 'warning',
       });
     } finally {

@@ -39,6 +39,7 @@ import { OnboardingContext } from './OnboardingTutorial/onboardingContext';
 import ParticipantStrip from './ParticipantStrip/ParticipantStrip';
 import { usePublishScreenShareGrant } from '../../hooks/useScreenShareControl/screenShareGrantContext';
 import UnmuteRequestPrompt from './UnmuteRequestPrompt/UnmuteRequestPrompt';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => {
   const totalMobileSidebarHeight = `${theme.sidebarMobileHeight +
@@ -192,8 +193,8 @@ export default function Room() {
     [raisedHands, isHandRaised, room]
   );
   const participantCount = participants.length + 1;
-  const activeSpeakerLabel = mainParticipant?.identity || 'Sin participante activo';
-  const sessionLabel = 'Sesión Twilio en vivo';
+  const activeSpeakerLabel = mainParticipant?.identity || t('Sin participante activo');
+  const sessionLabel = t('Sesión Twilio en vivo');
   const isDesktopShell = !isMobile;
   const hasLegacyRightDrawer = isBackgroundSelectionOpen || (!isDesktopShell && isChatWindowOpen);
 

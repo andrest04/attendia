@@ -1,3 +1,4 @@
+import { t } from '../../i18n/translate';
 import { ATTENTION_RANGES } from './attentionFormula';
 import { ProctoringAlert } from './types';
 
@@ -25,23 +26,23 @@ export interface ProctoringKindInfo {
 
 export const PROCTORING_KINDS: Record<ProctoringKind, ProctoringKindInfo> = {
   multiface: {
-    label: 'Múltiples rostros',
-    studentWarning: 'El profesor detectó varias personas en tu cámara',
+    label: t('Múltiples rostros'),
+    studentWarning: t('El profesor detectó varias personas en tu cámara'),
     confidence: 1.0,
   },
   absent: {
     label: 'Sin presencia',
-    studentWarning: 'El profesor no te detecta frente a la cámara',
+    studentWarning: t('El profesor no te detecta frente a la cámara'),
     confidence: 1.0,
   },
   away: {
-    label: 'Distraído',
-    studentWarning: 'El profesor te pidió volver a concentrarte en la clase',
+    label: t('Distraído'),
+    studentWarning: t('El profesor te pidió volver a concentrarte en la clase'),
     confidence: 0.9,
   },
   'camera-off': {
-    label: 'Cámara apagada',
-    studentWarning: 'El profesor te pidió encender tu cámara',
+    label: t('Cámara apagada'),
+    studentWarning: t('El profesor te pidió encender tu cámara'),
     confidence: 1.0,
   },
 };

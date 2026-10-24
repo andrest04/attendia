@@ -1,4 +1,5 @@
 import { toClassSessionRoomName } from '../../classSession/classSessionTypes';
+import { t } from '../../i18n/translate';
 
 /** What the "Nueva clase" form holds: the raw inputs, before any of them is trusted. */
 export interface NewClassFormValues {
@@ -30,15 +31,17 @@ const fail = (message: string): NewClassValidation => ({ ok: false, message });
  */
 export function validateNewClass(form: NewClassFormValues, nowMs: number): NewClassValidation {
   const title = form.title.trim();
-  if (!title) return fail('Indica un título para la clase.');
+  if (!title) return fail(t('Indica un título para la clase.'));
 
-  if (!isValidDate(form.date) || !isValidDate(form.time)) return fail('Indica la fecha y la hora de la clase.');
+  if (!isValidDate(form.date) || !isValidDate(form.time)) return fail(t('Indica la fecha y la hora de la clase.'));
 
   const studentCount = Number(form.studentCount);
-  if (!Number.isFinite(studentCount) || studentCount < 0) return fail('La cantidad de alumnos esperados no es válida.');
+  if (!Number.isFinite(studentCount) || studentCount < 0)
+    return fail(t('La cantidad de alumnos esperados no es válida.'));
 
   const durationMinutes = Number(form.durationMinutes);
-  if (!Number.isInteger(durationMinutes) || durationMinutes <= 0) return fail('La duración de la clase no es válida.');
+  if (!Number.isInteger(durationMinutes) || durationMinutes <= 0)
+    return fail(t('La duración de la clase no es válida.'));
 
   const scheduledAtMs = new Date(
     form.date.getFullYear(),
@@ -47,8 +50,8 @@ export function validateNewClass(form: NewClassFormValues, nowMs: number): NewCl
     form.time.getHours(),
     form.time.getMinutes()
   ).getTime();
-  if (!Number.isFinite(scheduledAtMs)) return fail('La fecha y hora indicadas no son válidas.');
-  if (scheduledAtMs < nowMs) return fail('No puedes programar una clase en una fecha u hora pasada.');
+  if (!Number.isFinite(scheduledAtMs)) return fail(t('La fecha y hora indicadas no son válidas.'));
+  if (scheduledAtMs < nowMs) return fail(t('No puedes programar una clase en una fecha u hora pasada.'));
 
   return {
     ok: true,

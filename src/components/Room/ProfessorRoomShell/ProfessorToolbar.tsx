@@ -123,7 +123,7 @@ export default function ProfessorToolbar({
     // Opens the analytics rail (Grupo/Individual) — the attention cockpit.
     {
       testId: 'professor-toolbar-attention',
-      label: attentionOpen ? 'Ocultar atención' : 'Panel de atención',
+      label: attentionOpen ? t('Ocultar atención') : t('Panel de atención'),
       icon: <DonutLargeIcon style={{ fontSize: 18 }} />,
       checked: attentionOpen,
       tone: 'accent',
@@ -131,7 +131,7 @@ export default function ProfessorToolbar({
     },
     {
       testId: 'professor-toolbar-record',
-      label: isRecording ? 'Detener grabación' : 'Grabar',
+      label: isRecording ? t('Detener grabación') : 'Grabar',
       icon: <FiberManualRecordIcon style={{ fontSize: 18 }} />,
       checked: isRecording,
       tone: 'recording',
@@ -164,7 +164,7 @@ export default function ProfessorToolbar({
           onClick={() => onParticipantsToggle?.()}
           startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
           className={chip}
-          aria-label="Participantes"
+          aria-label={t('Participantes')}
           data-testid="professor-toolbar-participants"
           aria-pressed={participantsOpen}
         />

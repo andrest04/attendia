@@ -6,6 +6,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import VideoTrack from '../../VideoTrack/VideoTrack';
 import useDevices from '../../../hooks/useDevices/useDevices';
 import useMediaStreamTrack from '../../../hooks/useMediaStreamTrack/useMediaStreamTrack';
+import { t } from '../../../i18n/translate';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
 const useStyles = makeStyles({
@@ -71,7 +72,7 @@ export default function VideoInputList() {
           <Typography variant="subtitle2" gutterBottom>
             Video Input
           </Typography>
-          <Typography>{localVideoTrack?.mediaStreamTrack.label || 'No Local Video'}</Typography>
+          <Typography>{localVideoTrack?.mediaStreamTrack.label || t('Sin video local')}</Typography>
         </>
       )}
     </div>

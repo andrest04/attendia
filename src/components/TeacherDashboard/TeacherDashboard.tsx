@@ -23,6 +23,7 @@ import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/profes
 import { dashboardTabPath } from './dashboardHelpers';
 import { routePath } from '../../routes';
 import { clearPendingAttentionReports, getPendingAttentionReports } from '../AttentionReport/pendingAttentionReports';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -378,8 +379,14 @@ export default function TeacherDashboard({
         <div className={classes.content}>
           {pendingReports.length > 0 && (
             <div className={classes.pendingReports} data-testid="dashboard-pending-reports">
-              No pudimos guardar {pendingReports.length === 1 ? 'un reporte' : `${pendingReports.length} reportes`} al
-              cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.
+              {pendingReports.length === 1
+                ? t(
+                    'No pudimos guardar un reporte al cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.'
+                  )
+                : t(
+                    'No pudimos guardar {{count}} reportes al cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.',
+                    { count: pendingReports.length }
+                  )}
               <Button onClick={retryPendingReports} data-testid="dashboard-retry-pending-reports">
                 Reintentar guardado
               </Button>
@@ -390,22 +397,22 @@ export default function TeacherDashboard({
       </div>
       <ConfirmDialog
         open={cancelDialog.isOpen}
-        title="Cancelar clase"
+        title={t('Cancelar clase')}
         message={`¿Cancelar "${cancelDialog.target?.title}"? Esta acción no se puede deshacer.`}
-        confirmLabel="Cancelar clase"
-        cancelLabel="Volver"
+        confirmLabel={t('Cancelar clase')}
+        cancelLabel={t('Volver')}
         isConfirming={cancellingClassId === cancelDialog.target?.id}
         onConfirm={confirmCancelClass}
         onCancel={cancelDialog.close}
       />
       <ConfirmDialog
         open={cancelExpiredDialog.isOpen}
-        title="Cancelar clases vencidas"
+        title={t('Cancelar clases vencidas')}
         message={`¿Cancelar ${
-          expiredClasses.length === 1 ? 'la clase vencida' : `las ${expiredClasses.length} clases vencidas`
+          expiredClasses.length === 1 ? t('la clase vencida') : `las ${expiredClasses.length} clases vencidas`
         }? Esta acción no se puede deshacer.`}
-        confirmLabel="Cancelar"
-        cancelLabel="Volver"
+        confirmLabel={t('Cancelar')}
+        cancelLabel={t('Volver')}
         isConfirming={isCancellingExpired}
         onConfirm={confirmCancelExpiredClasses}
         onCancel={cancelExpiredDialog.close}

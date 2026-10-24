@@ -21,6 +21,7 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
 import baseTheme from '../../theme';
+import { t } from '../../i18n/translate';
 
 // @material-ui/pickers ships its overridable class keys separately from core's `Overrides` type;
 // this augmentation is required for `theme.overrides.MuiPickers*` below to type-check.
@@ -574,7 +575,7 @@ export default function ClassesTab({
           data-testid="dashboard-rejoin-session-button"
         >
           <MeetingRoomIcon style={{ fontSize: 18 }} />
-          {isStartingClass ? 'Verificando…' : 'Volver a entrar'}
+          {isStartingClass ? 'Verificando…' : t('Volver a entrar')}
         </button>
       );
     }
@@ -582,7 +583,7 @@ export default function ClassesTab({
       return (
         <>
           <div className={classes.newClassError} data-testid="dashboard-room-closed-note">
-            La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.
+            {t('La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.')}
           </div>
           <button
             type="button"
@@ -592,7 +593,7 @@ export default function ClassesTab({
             data-testid="dashboard-restart-session-button"
           >
             <PlayArrowIcon style={{ fontSize: 16 }} />
-            {isStartingClass ? 'Verificando…' : 'Iniciar de nuevo'}
+            {isStartingClass ? 'Verificando…' : t('Iniciar de nuevo')}
           </button>
         </>
       );
@@ -689,7 +690,7 @@ export default function ClassesTab({
       <div className={classes.sectionHeader}>
         <div>
           <div className={classes.sectionTitle}>
-            Próximas sesiones
+            {t('Próximas sesiones')}
             {sessionsAreMock && (
               <span className={classes.mockTag} data-testid="dashboard-sessions-mock-tag">
                 Datos simulados
@@ -728,18 +729,18 @@ export default function ClassesTab({
       {onCreateClass && isFormOpen && (
         <form className={classes.newClassForm} onSubmit={handleSubmitNewClass}>
           <div className={classes.newClassFormTitle}>Nueva clase</div>
-          <div className={classes.newClassFormSubtitle}>Completa estos datos para programar la sesión.</div>
+          <div className={classes.newClassFormSubtitle}>{t('Completa estos datos para programar la sesión.')}</div>
 
           <div className={classes.newClassFieldGrid}>
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-title">
-                Título de la clase
+                {t('Título de la clase')}
               </label>
               <input
                 id="new-class-title"
                 type="text"
                 className={classes.newClassInput}
-                placeholder="Ej: Matemáticas — Grupo A"
+                placeholder={t('Ej: Matemáticas — Grupo A')}
                 value={titleInput}
                 onChange={e => setTitleInput(e.target.value)}
                 data-testid="dashboard-new-class-title-input"
@@ -811,7 +812,7 @@ export default function ClassesTab({
 
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-duration">
-                Duración (minutos)
+                {t('Duración (minutos)')}
               </label>
               <input
                 id="new-class-duration"
@@ -833,7 +834,7 @@ export default function ClassesTab({
               disabled={isSubmitting}
               data-testid="dashboard-new-class-submit-button"
             >
-              {isSubmitting ? 'Creando…' : 'Crear clase'}
+              {isSubmitting ? 'Creando…' : t('Crear clase')}
             </button>
             <button type="button" className={classes.newClassCancelButton} onClick={resetForm}>
               Cancelar
@@ -884,7 +885,7 @@ export default function ClassesTab({
                   data-testid="dashboard-start-session-button"
                 >
                   <PlayArrowIcon style={{ fontSize: 18 }} />
-                  {isStartingClass ? 'Verificando…' : 'Iniciar sesión'}
+                  {isStartingClass ? 'Verificando…' : t('Iniciar sesión')}
                 </button>
               ) : onCancelClass ? (
                 <button
@@ -895,7 +896,7 @@ export default function ClassesTab({
                   data-testid="dashboard-cancel-session-button"
                 >
                   <DeleteIcon style={{ fontSize: 16 }} />
-                  {cancellingClassId === session.id ? 'Cancelando…' : 'Cancelar'}
+                  {cancellingClassId === session.id ? 'Cancelando…' : t('Cancelar')}
                 </button>
               ) : (
                 <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">
@@ -938,7 +939,7 @@ export default function ClassesTab({
                     data-testid="dashboard-start-session-button"
                   >
                     <PlayArrowIcon style={{ fontSize: 18 }} />
-                    {isStartingClass ? 'Verificando…' : 'Iniciar sesión'}
+                    {isStartingClass ? 'Verificando…' : t('Iniciar sesión')}
                   </button>
                 )}
               </div>
@@ -982,7 +983,7 @@ export default function ClassesTab({
                     data-testid="dashboard-cancel-expired-session-button"
                   >
                     <DeleteIcon style={{ fontSize: 16 }} />
-                    {cancellingClassId === session.id ? 'Cancelando…' : 'Cancelar'}
+                    {cancellingClassId === session.id ? 'Cancelando…' : t('Cancelar')}
                   </button>
                 )}
               </div>
@@ -995,7 +996,7 @@ export default function ClassesTab({
         <div className={classes.newClassError} data-testid="dashboard-cancel-error">
           {cancelError}{' '}
           <button type="button" onClick={onRetryCancel} data-testid="dashboard-retry-cancel-button">
-            Reintentar cancelación
+            {t('Reintentar cancelación')}
           </button>
         </div>
       )}

@@ -9,6 +9,7 @@ import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { buildCalendarDays, calendarSummary, mondayLeadingBlanks, monthStart } from './calendarView';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -227,7 +228,7 @@ interface Props {
 
 function formatTime(value: number | null): string {
   return value === null
-    ? 'Horario no disponible'
+    ? t('Horario no disponible')
     : new Date(value).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -288,7 +289,7 @@ export default function CalendarTab({
   if (classRecords === null)
     return (
       <div className={styles.state} data-testid="dashboard-calendar-unavailable">
-        El calendario real requiere autenticación Firebase.
+        {t('El calendario real requiere autenticación Firebase.')}
       </div>
     );
 
@@ -385,8 +386,8 @@ export default function CalendarTab({
           <div className={styles.sideSubtitle}>
             {(() => {
               const count = effectiveSelected ? effectiveSelected.classes.length : 0;
-              if (count === 0) return 'No hay clases programadas';
-              if (count === 1) return '1 clase programada';
+              if (count === 0) return t('No hay clases programadas');
+              if (count === 1) return t('1 clase programada');
               return `${count} clases programadas`;
             })()}
           </div>
@@ -401,7 +402,10 @@ export default function CalendarTab({
                 data-testid={`dashboard-calendar-session-${classRecord.id}`}
               >
                 {expiredClassIds?.has(classRecord.id) && (
-                  <span className={styles.badgeExpired} data-testid={`dashboard-calendar-expired-badge-${classRecord.id}`}>
+                  <span
+                    className={styles.badgeExpired}
+                    data-testid={`dashboard-calendar-expired-badge-${classRecord.id}`}
+                  >
                     Vencida
                   </span>
                 )}
@@ -434,7 +438,7 @@ export default function CalendarTab({
                       data-testid={`dashboard-calendar-cancel-${classRecord.id}`}
                     >
                       <DeleteIcon style={{ fontSize: 16 }} />
-                      {cancellingClassId === classRecord.id ? 'Cancelando…' : 'Cancelar'}
+                      {cancellingClassId === classRecord.id ? 'Cancelando…' : t('Cancelar')}
                     </button>
                   )}
                 </div>
@@ -444,7 +448,7 @@ export default function CalendarTab({
             <div className={styles.cancelError} data-testid="dashboard-calendar-cancel-error">
               {cancelError}{' '}
               <button type="button" onClick={onRetryCancel} data-testid="dashboard-calendar-retry-cancel-button">
-                Reintentar cancelación
+                {t('Reintentar cancelación')}
               </button>
             </div>
           )}

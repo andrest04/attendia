@@ -1,5 +1,6 @@
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { DashboardData, UpcomingSession } from './types';
+import { t } from '../../i18n/translate';
 
 // A class that started up to this long ago is still joinable/visible on the
 // "Próximas sesiones" grid, instead of vanishing the instant its scheduled time
@@ -32,7 +33,7 @@ function formatTimeLabel(date: Date): string {
 
 function formatDayLabel(sessionDate: Date, now: Date): string {
   if (isSameCalendarDay(sessionDate, now)) return 'Hoy';
-  if (isNextCalendarDay(sessionDate, now)) return 'Mañana';
+  if (isNextCalendarDay(sessionDate, now)) return t('Mañana');
   return sessionDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 }
 
@@ -42,7 +43,7 @@ function formatRelativeLabel(scheduledAtMs: number, nowMs: number, sessionDate: 
   if (diffMinutes <= 0) return 'Ahora';
   if (diffMinutes < 60) return `En ${diffMinutes} min`;
   if (isSameCalendarDay(sessionDate, now)) return `En ${Math.floor(diffMinutes / 60)}h`;
-  if (isNextCalendarDay(sessionDate, now)) return 'Mañana';
+  if (isNextCalendarDay(sessionDate, now)) return t('Mañana');
   return formatDayLabel(sessionDate, now);
 }
 

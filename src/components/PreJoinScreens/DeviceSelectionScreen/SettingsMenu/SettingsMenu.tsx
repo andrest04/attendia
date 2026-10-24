@@ -11,6 +11,7 @@ import ConnectionOptionsDialog from '../../../ConnectionOptionsDialog/Connection
 import DeviceSelectionDialog from '../../../DeviceSelectionDialog/DeviceSelectionDialog';
 import SettingsIcon from '../../../../icons/SettingsIcon';
 import { useAppState } from '../../../../state';
+import { t } from '../../../../i18n/translate';
 
 export default function SettingsMenu({ mobileButtonClass }: { mobileButtonClass?: string }) {
   const { roomType } = useAppState();
@@ -31,11 +32,11 @@ export default function SettingsMenu({ mobileButtonClass }: { mobileButtonClass?
           startIcon={<MoreIcon />}
           className={mobileButtonClass}
         >
-          Más
+          {t('Más')}
         </Button>
       ) : (
         <Button ref={anchorRef} onClick={() => setMenuOpen(true)} startIcon={<SettingsIcon />}>
-          Configuración
+          {t('Configuración')}
         </Button>
       )}
       <MenuContainer
@@ -53,14 +54,14 @@ export default function SettingsMenu({ mobileButtonClass }: { mobileButtonClass?
         }}
       >
         <MenuItem onClick={() => setAboutOpen(true)}>
-          <Typography variant="body1">Acerca de</Typography>
+          <Typography variant="body1">{t('Acerca de')}</Typography>
         </MenuItem>
         <MenuItem onClick={() => setDeviceSettingsOpen(true)}>
-          <Typography variant="body1">Configuración de audio y video</Typography>
+          <Typography variant="body1">{t('Configuración de audio y video')}</Typography>
         </MenuItem>
         {roomType !== 'peer-to-peer' && roomType !== 'go' && (
           <MenuItem onClick={() => setConnectionSettingsOpen(true)}>
-            <Typography variant="body1">Configuración de conexión</Typography>
+            <Typography variant="body1">{t('Configuración de conexión')}</Typography>
           </MenuItem>
         )}
       </MenuContainer>

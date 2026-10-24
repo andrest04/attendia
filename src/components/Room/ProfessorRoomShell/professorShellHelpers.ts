@@ -7,6 +7,7 @@ import PersonOutlineIcon from '@material-ui/icons/PersonOutline';
 import HourglassEmptyIcon from '@material-ui/icons/HourglassEmpty';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { AttentionPresence } from '../../AttentionProvider/presence';
+import { t } from '../../../i18n/translate';
 
 // Leaf module for the ProfessorRoomShell family: pure helpers, shared maps, and the
 // right-rail tab type. Kept dependency-light (only AttentionProvider types + MUI
@@ -41,14 +42,14 @@ export const presenceView: Record<
   // here. Distinct from "distracted" or "0%".
   unsupported: {
     Icon: SmartphoneIcon,
-    label: 'No medible (celular)',
+    label: t('No medible (celular)'),
     rosterTestId: 'professor-room-shell-unsupported-flag',
     individualTestId: 'professor-room-shell-individual-unsupported',
   },
   // Camera off → no live attention. Show a muted state, never the stale value.
   cameraOff: {
     Icon: VideocamOffIcon,
-    label: 'Cámara apagada',
+    label: t('Cámara apagada'),
     rosterTestId: 'professor-room-shell-cameraoff-flag',
     individualTestId: 'professor-room-shell-individual-cameraoff',
   },
@@ -57,7 +58,7 @@ export const presenceView: Record<
   // shown when the student's device explicitly reports the camera off.
   pending: {
     Icon: HourglassEmptyIcon,
-    label: 'Analizando… (sin lectura aún)',
+    label: t('Analizando… (sin lectura aún)'),
     rosterTestId: 'professor-room-shell-pending-flag',
     individualTestId: 'professor-room-shell-individual-pending',
   },
@@ -66,7 +67,7 @@ export const presenceView: Record<
   // cannot see their face.
   noFace: {
     Icon: VisibilityOffIcon,
-    label: 'Sin medición — rostro no detectado',
+    label: t('Sin medición — rostro no detectado'),
     rosterTestId: 'professor-room-shell-nomeasure-flag',
     individualTestId: 'professor-room-shell-individual-nomeasure',
   },
@@ -77,13 +78,22 @@ export const presenceView: Record<
 export function proctoringKindMessage(kind: ProctoringKind, name: string, detectedAt: string): string {
   switch (kind) {
     case 'camera-off':
-      return `${name} apagó su cámara. No hay datos de atención mientras esté apagada · Detectado a las ${detectedAt}`;
+      return t(
+        '{{name}} apagó su cámara. No hay datos de atención mientras esté apagada · Detectado a las {{detectedAt}}',
+        {
+          name,
+          detectedAt,
+        }
+      );
     case 'multiface':
-      return `Se detectaron varios rostros en la cámara de ${name} · Detectado a las ${detectedAt}`;
+      return t('Se detectaron varios rostros en la cámara de {{name}} · Detectado a las {{detectedAt}}', {
+        name,
+        detectedAt,
+      });
     case 'away':
-      return `${name} apartó la mirada de la pantalla · Detectado a las ${detectedAt}`;
+      return t('{{name}} apartó la mirada de la pantalla · Detectado a las {{detectedAt}}', { name, detectedAt });
     case 'absent':
-      return `No se detecta a ${name} frente a la cámara · Detectado a las ${detectedAt}`;
+      return t('No se detecta a {{name}} frente a la cámara · Detectado a las {{detectedAt}}', { name, detectedAt });
   }
 }
 

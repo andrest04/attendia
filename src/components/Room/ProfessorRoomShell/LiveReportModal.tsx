@@ -3,6 +3,7 @@ import { makeStyles } from '@material-ui/core';
 import CloseIcon from '@material-ui/icons/Close';
 import DescriptionIcon from '@material-ui/icons/Description';
 import AttentionReportView, { AttentionReportViewData } from '../../AttentionReport/AttentionReportView';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles(() => ({
   modalBackdrop: {
@@ -90,7 +91,7 @@ export default function LiveReportModal({ data, onClose }: LiveReportModalProps)
       <div className={classes.modalCard}>
         <div className={classes.modalHeader}>
           <DescriptionIcon className={classes.modalHeaderIcon} />
-          <span className={classes.modalTitle}>Reporte de Atención</span>
+          <span className={classes.modalTitle}>{t('Reporte de Atención')}</span>
           <button
             type="button"
             className={classes.modalClose}

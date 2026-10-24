@@ -7,6 +7,7 @@ import { PROCTORING_KINDS } from '../../AttentionProvider/proctoring';
 import { attentionStatusColors } from '../../../theme';
 import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { getInitials, proctoringKindIcon, proctoringKindMessage } from './professorShellHelpers';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles(() => ({
   modalBackdrop: {
@@ -211,14 +212,14 @@ export default function ProctoringAlertModal({
               <KindIcon style={{ fontSize: 20, color: '#b45309' }} />
             </div>
             <div>
-              <div className={classes.modalTitle}>{PROCTORING_KINDS[alert.kind].label}</div>
+              <div className={classes.modalTitle}>{t(PROCTORING_KINDS[alert.kind].label)}</div>
               <div className={classes.modalCaption}>Proctoring</div>
             </div>
           </div>
           <button
             type="button"
             className={classes.modalClose}
-            aria-label="Cerrar"
+            aria-label={t('Cerrar')}
             onClick={onClose}
             data-testid="professor-proctoring-modal-close"
           >
@@ -231,7 +232,7 @@ export default function ProctoringAlertModal({
             <div className={classes.studentCardAvatar}>{getInitials(alert.identity)}</div>
             <div className={classes.studentCardInfo}>
               <div className={classes.studentCardName}>{stripTeacherSuffix(alert.identity)}</div>
-              <div className={classes.studentCardRole}>Estudiante · Sesión activa</div>
+              <div className={classes.studentCardRole}>{t('Estudiante · Sesión activa')}</div>
               <div className={classes.alertBox}>
                 <WarningIcon
                   className={classes.alertBoxIcon}
@@ -253,7 +254,7 @@ export default function ProctoringAlertModal({
             data-testid="professor-proctoring-modal-legitimate"
           >
             <CheckCircleOutlineIcon style={{ fontSize: 16, color: attentionStatusColors.high }} />
-            Marcar como legítimo
+            {t('Marcar como legítimo')}
           </button>
           <button
             type="button"

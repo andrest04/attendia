@@ -10,6 +10,7 @@ import useDevices from '../../../hooks/useDevices/useDevices';
 import useMediaStreamTrack from '../../../hooks/useMediaStreamTrack/useMediaStreamTrack';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import { selectAudioTrack, selectCameraTrack } from '../../../utils/trackSelectors';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -173,16 +174,16 @@ export default function ToolbarDeviceMenu({ kind, disabled, ...rest }: ToolbarDe
     kind === 'audio'
       ? [
           {
-            title: 'Micrófono',
+            title: t('Micrófono'),
             devices: audioInputDevices,
             activeDeviceId:
               localAudioTrack?.noiseCancellation?.sourceTrack?.getSettings().deviceId ||
               audioStreamTrack?.getSettings().deviceId,
             onSelect: selectAudioInput,
-            fallbackLabel: 'Micrófono del sistema',
+            fallbackLabel: t('Micrófono del sistema'),
           },
           {
-            title: 'Parlante',
+            title: t('Parlante'),
             devices: audioOutputDevices,
             activeDeviceId: activeSinkId,
             onSelect: setActiveSinkId,
@@ -191,15 +192,15 @@ export default function ToolbarDeviceMenu({ kind, disabled, ...rest }: ToolbarDe
         ]
       : [
           {
-            title: 'Cámara',
+            title: t('Cámara'),
             devices: videoInputDevices,
             activeDeviceId: videoStreamTrack?.getSettings().deviceId,
             onSelect: selectVideoInput,
-            fallbackLabel: 'Cámara del sistema',
+            fallbackLabel: t('Cámara del sistema'),
           },
         ];
 
-  const ariaLabel = kind === 'audio' ? 'Elegir micrófono o parlante' : 'Elegir cámara';
+  const ariaLabel = kind === 'audio' ? t('Elegir micrófono o parlante') : t('Elegir cámara');
 
   return (
     <div className={classes.wrap}>

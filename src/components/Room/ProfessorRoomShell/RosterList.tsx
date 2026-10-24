@@ -13,6 +13,7 @@ import useRemoteMedia from '../../../hooks/useRemoteMedia/useRemoteMedia';
 import { useModerationActions } from '../ModerationMenu/moderationActionsContext';
 import { getInitials, presenceView } from './professorShellHelpers';
 import { attentionStatusColors } from '../../../theme';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   rosterRow: {
@@ -228,7 +229,7 @@ function RosterRow({
         <span
           className={classes.multifaceWarning}
           data-testid="professor-room-shell-multiface-flag"
-          title="Múltiples rostros detectados"
+          title={t('Múltiples rostros detectados')}
         >
           ⚠
         </span>

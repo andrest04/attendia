@@ -7,6 +7,7 @@ import { storedReportToViewData } from '../AttentionReport/storedReportViewData'
 import StandalonePage, { PageMessageCard, PageNavButton, PageTitle } from '../StandalonePage/StandalonePage';
 import useAsyncResource from '../../hooks/useAsyncResource/useAsyncResource';
 import { useAppState } from '../../state';
+import { t } from '../../i18n/translate';
 
 /*
  * Standalone "Reporte de Atención" page, opened in a NEW TAB from the in-room
@@ -29,13 +30,13 @@ export default function ReportPage() {
         : null,
     [fetchAttentionReport, roomSid]
   );
-  const { data, error: loadError } = useAsyncResource(load, { failureMessage: 'No pudimos consultar el reporte.' });
-  const error = fetchAttentionReport ? loadError : 'No pudimos validar tu acceso al reporte.';
+  const { data, error: loadError } = useAsyncResource(load, { failureMessage: t('No pudimos consultar el reporte.') });
+  const error = fetchAttentionReport ? loadError : t('No pudimos validar tu acceso al reporte.');
 
   return (
     <StandalonePage
       testId="report-page"
-      navStart={<PageTitle tone="muted">Reporte de Atención</PageTitle>}
+      navStart={<PageTitle tone="muted">{t('Reporte de Atención')}</PageTitle>}
       navEnd={
         <PageNavButton
           onClick={() => window.close()}
@@ -50,7 +51,7 @@ export default function ReportPage() {
         <AttentionReportView data={data} />
       ) : (
         <PageMessageCard testId="report-page-empty" maxWidth={520}>
-          {error || 'Cargando el reporte...'}
+          {error || t('Cargando el reporte...')}
         </PageMessageCard>
       )}
     </StandalonePage>

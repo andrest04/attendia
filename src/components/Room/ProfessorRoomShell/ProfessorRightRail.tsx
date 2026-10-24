@@ -10,6 +10,7 @@ import { attentionStatusColors } from '../../../theme';
 import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import { presenceView, ProfessorRightTab } from './professorShellHelpers';
+import { t } from '../../../i18n/translate';
 
 // Code-split the timeline chart: it is the only recharts consumer on the professor
 // room path, so lazy-loading it keeps recharts out of the main bundle. The chunk is
@@ -260,7 +261,11 @@ export default function ProfessorRightRail({
           Chat
         </button>
         {onClose && (
-          <RailCloseButton onClick={onClose} aria-label="Cerrar panel" data-testid="professor-room-shell-close-right" />
+          <RailCloseButton
+            onClick={onClose}
+            aria-label={t('Cerrar panel')}
+            data-testid="professor-room-shell-close-right"
+          />
         )}
       </div>
 
@@ -273,13 +278,13 @@ export default function ProfessorRightRail({
                 level={attentionLevel(groupAttention)}
                 available={groupDataAvailable}
               />
-              <span className={classes.gaugeLabel}>Atención grupal</span>
+              <span className={classes.gaugeLabel}>{t('Atención grupal')}</span>
             </div>
 
             {!groupDataAvailable && (
               <div className={classes.bannerInfo} data-testid="professor-room-shell-group-nodata-banner">
                 <WarningIcon className={classes.bannerInfoIcon} />
-                <span>Sin datos de atención, verifica la conexión de los estudiantes.</span>
+                <span>{t('Sin datos de atención, verifica la conexión de los estudiantes.')}</span>
               </div>
             )}
 
@@ -291,7 +296,7 @@ export default function ProfessorRightRail({
             )}
 
             <div data-testid="professor-room-shell-timeline-section">
-              <div className={classes.chartTitle}>Evolución temporal</div>
+              <div className={classes.chartTitle}>{t('Evolución temporal')}</div>
               <div style={{ height: 120 }} data-testid="professor-room-shell-timeline">
                 {/* Skip the chart while the rail is collapsed to 0px: recharts'
                     ResponsiveContainer warns when it measures a 0-width parent.

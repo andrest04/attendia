@@ -8,6 +8,7 @@ import { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
 import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
 import { canModerate, ModerationActorRole } from '../../../hooks/useClassDataChannel/classProtocol';
 import { RemoteMedia } from '../../../hooks/useRemoteMedia/useRemoteMedia';
+import { t } from '../../../i18n/translate';
 
 /** What a teacher can do to one student. A missing handler removes its menu item. */
 export interface StudentModerationHandlers {
@@ -42,7 +43,7 @@ export function buildStudentModerationItems(
     media?.micOn === false
       ? onRequestUnmute && {
           testId: `${testIdPrefix}-request-unmute`,
-          label: 'Pedir activar micrófono',
+          label: t('Pedir activar micrófono'),
           icon: <MicIcon style={ICON_STYLE} />,
           onSelect: () => onRequestUnmute(identity),
         }
@@ -56,13 +57,13 @@ export function buildStudentModerationItems(
     media?.cameraOn === false
       ? onRequestVideo && {
           testId: `${testIdPrefix}-request-video`,
-          label: 'Sugerir cámara',
+          label: t('Sugerir cámara'),
           icon: <VideocamIcon style={ICON_STYLE} />,
           onSelect: () => onRequestVideo(identity),
         }
       : onMuteVideo && {
           testId: `${testIdPrefix}-mute-video`,
-          label: 'Apagar cámara',
+          label: t('Apagar cámara'),
           icon: <VideocamOffIcon style={ICON_STYLE} />,
           onSelect: () => onMuteVideo(identity),
         };
@@ -71,7 +72,7 @@ export function buildStudentModerationItems(
     cameraEntry,
     onSetScreenShareGrant && {
       testId: `${testIdPrefix}-screenshare`,
-      label: isSharingAllowed ? 'Quitar permiso de pantalla' : 'Permitir compartir pantalla',
+      label: isSharingAllowed ? t('Quitar permiso de pantalla') : t('Permitir compartir pantalla'),
       icon: <ScreenShareIcon style={ICON_STYLE} />,
       onSelect: () => onSetScreenShareGrant(identity, !isSharingAllowed),
     },

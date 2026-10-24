@@ -7,6 +7,7 @@ import GetAppIcon from '@material-ui/icons/GetApp';
 import StandalonePage, { PageMessageCard, PageNavButton, PageNote, PageTitle } from '../StandalonePage/StandalonePage';
 import useAsyncResource from '../../hooks/useAsyncResource/useAsyncResource';
 import { useAppState } from '../../state';
+import { t } from '../../i18n/translate';
 
 /*
  * Standalone recording player, opened in a NEW TAB from "Ver grabación" on the
@@ -53,9 +54,9 @@ export default function RecordingViewerPage() {
     fetchRecordingDownloadUrl,
   ]);
   const { data: videoUrl, error: loadError } = useAsyncResource(load, {
-    failureMessage: 'No pudimos cargar la grabación.',
+    failureMessage: t('No pudimos cargar la grabación.'),
   });
-  const error = fetchRecordingDownloadUrl ? loadError : 'No pudimos validar tu acceso a esta grabación.';
+  const error = fetchRecordingDownloadUrl ? loadError : t('No pudimos validar tu acceso a esta grabación.');
 
   const handleDownload = () => {
     if (!fetchRecordingDownloadUrl) return;
@@ -63,7 +64,7 @@ export default function RecordingViewerPage() {
     setDownloadError(null);
     fetchRecordingDownloadUrl(roomSid)
       .then(ticketUrl => window.open(ticketUrl, '_blank', 'noopener'))
-      .catch(err => setDownloadError(err.message || 'No pudimos descargar la grabación.'))
+      .catch(err => setDownloadError(err.message || t('No pudimos descargar la grabación.')))
       .finally(() => setIsDownloading(false));
   };
 
@@ -71,7 +72,7 @@ export default function RecordingViewerPage() {
     <StandalonePage
       testId="recording-viewer-page"
       fill
-      navStart={<PageTitle tone="strong">Grabación de la clase</PageTitle>}
+      navStart={<PageTitle tone="strong">{t('Grabación de la clase')}</PageTitle>}
       navEnd={
         <>
           {videoUrl && (
@@ -99,7 +100,7 @@ export default function RecordingViewerPage() {
         {videoUrl ? (
           <video className={classes.video} src={videoUrl} controls autoPlay data-testid="recording-viewer-video" />
         ) : (
-          <PageMessageCard testId="recording-viewer-empty">{error || 'Cargando la grabación...'}</PageMessageCard>
+          <PageMessageCard testId="recording-viewer-empty">{error || t('Cargando la grabación...')}</PageMessageCard>
         )}
         {downloadError && <PageNote testId="recording-viewer-page-download-error">{downloadError}</PageNote>}
       </div>

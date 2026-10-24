@@ -2,6 +2,7 @@ import React from 'react';
 import { Button, createStyles, makeStyles, Theme, Typography } from '@material-ui/core';
 import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import { useAppState } from '../../state';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -61,10 +62,10 @@ export default function SessionEndedScreen() {
     <div className={classes.root} data-testid="session-ended-screen">
       <CheckCircleOutlineIcon className={classes.icon} />
       <Typography variant="h5" className={classes.title}>
-        La sesión finalizó
+        {t('La sesión finalizó')}
       </Typography>
       <Typography variant="body1" className={classes.subtitle}>
-        El docente terminó la clase. Gracias por participar.
+        {t('El docente terminó la clase. Gracias por participar.')}
       </Typography>
       <Button
         className={classes.button}

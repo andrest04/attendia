@@ -5,6 +5,7 @@ import { countOf } from '../../utils/pluralize';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
 import { routePath } from '../../routes';
 import { MAX_FILES_PER_UPLOAD, validateResourceFile } from './resourceUploadValidation';
+import { t } from '../../i18n/translate';
 
 export interface ResourceGroup {
   classId: string;
@@ -153,7 +154,7 @@ export default function useTeacherResources({
 
   const handleUploadClick = () => {
     if (!activeClassId) {
-      setErrorMessage('Selecciona una clase programada antes de subir el archivo.');
+      setErrorMessage(t('Selecciona una clase programada antes de subir el archivo.'));
       return;
     }
     fileInputRef.current?.click();
@@ -305,7 +306,7 @@ export default function useTeacherResources({
         return undefined;
       })
       .catch(err => {
-        if (isMountedRef.current) setBulkDeleteError(err.message || 'No pudimos eliminar la clase.');
+        if (isMountedRef.current) setBulkDeleteError(err.message || t('No pudimos eliminar la clase.'));
       })
       .finally(() => {
         if (isMountedRef.current) {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Container, Paper, Typography } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles({
   container: { marginTop: '2.5em' },
@@ -15,7 +16,7 @@ export default function PhoneBlockedScreen() {
     <Container maxWidth="sm" className={classes.container}>
       <Paper className={classes.paper}>
         <Typography variant="h5" className={classes.heading}>
-          Esta plataforma no está disponible en celulares
+          {t('Esta plataforma no está disponible en celulares')}
         </Typography>
         <Typography>Ingresa desde un computador o tablet.</Typography>
       </Paper>

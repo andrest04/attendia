@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { Button, createStyles, makeStyles } from '@material-ui/core';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
+import { t } from '../../../i18n/translate';
 
 // Hand-rolled (not MUI Menu) to stay portal-free and trivially testable, mirroring the roster
 // moderation kebab in ProfessorRoomShell.
@@ -126,7 +127,7 @@ export default function OverflowMenu({ items, testIdPrefix, chipClassName }: Ove
         onClick={() => setIsOpen(open => !open)}
         startIcon={<MoreVertIcon style={{ color: isOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
         className={chipClassName}
-        aria-label="Más"
+        aria-label={t('Más')}
         data-testid={`${testIdPrefix}-more`}
         aria-haspopup="true"
         aria-expanded={isOpen}

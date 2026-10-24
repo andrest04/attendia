@@ -8,6 +8,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@material-ui/core';
+import { t } from '../../i18n/translate';
 
 interface Props {
   open: boolean;
@@ -27,8 +28,8 @@ export default function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'Confirmar',
-  cancelLabel = 'Cancelar',
+  confirmLabel = t('Confirmar'),
+  cancelLabel = t('Cancelar'),
   isConfirming = false,
   onConfirm,
   onCancel,

@@ -6,6 +6,7 @@ import CaptionsIcon from '../../../icons/CaptionsIcon';
 import CaptionsOffIcon from '../../../icons/CaptionsOffIcon';
 import { useToolbarButtonStyles } from '../toolbarButtonStyles';
 import { useAppState } from '../../../state';
+import { t } from '../../../i18n/translate';
 
 export default function ToggleCaptionsButton(props: { disabled?: boolean; className?: string }) {
   const { isCaptionsEnabled, setIsCaptionsEnabled } = useAppState();
@@ -28,7 +29,7 @@ export default function ToggleCaptionsButton(props: { disabled?: boolean; classN
           data-cy="toggle-captions"
           aria-label="Toggle Captions"
         >
-          {isCaptionsEnabled ? 'Subtítulos' : 'Subtítulos'}
+          {isCaptionsEnabled ? t('Subtítulos') : t('Subtítulos')}
         </Button>
       </span>
     </Tooltip>

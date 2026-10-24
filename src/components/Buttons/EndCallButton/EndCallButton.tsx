@@ -134,7 +134,9 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
         <DialogContent>
           <DialogContentText>
             {t(
-              'Puedes salir tú solo y dejar la clase abierta para que los estudiantes continúen, o terminar la sesión para todos y cerrar la sala.'
+              t(
+                'Puedes salir tú solo y dejar la clase abierta para que los estudiantes continúen, o terminar la sesión para todos y cerrar la sala.'
+              )
             )}
           </DialogContentText>
         </DialogContent>
@@ -151,7 +153,7 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
             className={classes.endForAll}
             data-testid="end-call-end-for-all"
           >
-            {t(props.isEnding ? 'Terminando…' : 'Terminar para todos')}
+            {t(props.isEnding ? 'Terminando…' : t('Terminar para todos'))}
           </Button>
         </DialogActions>
       </Dialog>

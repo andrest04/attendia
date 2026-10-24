@@ -5,6 +5,8 @@ import { timestampMillis } from './firestoreTime';
 import { ExpressResponse, HttpError, sendBadRequest, sendError } from './http';
 import { inboxGeneration, inboxUnreadCount } from './notificationInbox';
 import { logOperationalFailure } from './operationalEvents';
+import { localizeNotificationCopy } from './notificationCopy';
+import { resolveLocale } from './locale';
 import { teacherHandler } from './teacherHandler';
 import {
   CanonicalNotificationCandidate,
@@ -116,13 +118,14 @@ function encodeCursor(cursor: Cursor): string {
   return encodeBase64Url(JSON.stringify(cursor));
 }
 
-function toResponse(snapshot: Snapshot, readBeforeMs: number | null) {
+function toResponse(snapshot: Snapshot, readBeforeMs: number | null, locale: ReturnType<typeof resolveLocale> = 'es') {
   const data = snapshot.data() || {};
   const createdAtMs = timestampMillis(data.createdAt);
   const explicitReadAtMs = timestampMillis(data.readAt);
   const effectivelyRead = explicitReadAtMs !== null || (
     readBeforeMs !== null && createdAtMs !== null && createdAtMs <= readBeforeMs
   );
+  const copy = localizeNotificationCopy(locale, data);
   return {
     notificationId: snapshot.id,
     ownerUid: data.ownerUid,
@@ -132,8 +135,8 @@ function toResponse(snapshot: Snapshot, readBeforeMs: number | null) {
     eventOccurrenceAtMs: timestampMillis(data.eventOccurrenceAt),
     createdAtMs,
     readAtMs: explicitReadAtMs === null && effectivelyRead ? readBeforeMs : explicitReadAtMs,
-    title: data.title,
-    message: data.message,
+    title: copy.title,
+    message: copy.message,
     destination: data.destination,
   };
 }
@@ -372,7 +375,11 @@ export function createPatchNotificationReadHandler(
         throw HttpError.notFound('notification not found');
       }
       res.status(200).json({
-        notification: toResponse({ id, data: () => committedItem.data() }, timestampMillis(committedState.readBefore)),
+        notification: toResponse(
+          { id, data: () => committedItem.data() },
+          timestampMillis(committedState.readBefore),
+          resolveLocale(req)
+        ),
         unreadCount: inboxUnreadCount(committedState),
       });
       await runBoundedMaintenance(boundedMaintenance, 'PATCH /notifications/:id/read', uid);
@@ -517,7 +524,7 @@ export function createGetNotificationsHandler(
         : null;
 
       res.status(200).json({
-        items: page.map(value => toResponse(value, readBeforeMs)),
+        items: page.map(value => toResponse(value, readBeforeMs, resolveLocale(req))),
         unreadCount,
         nextCursor,
         hasMore,
