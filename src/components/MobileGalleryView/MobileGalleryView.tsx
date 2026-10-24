@@ -2,6 +2,7 @@ import { CSSProperties } from 'react';
 import clsx from 'clsx';
 import { makeStyles, createStyles, Theme, useMediaQuery } from '@material-ui/core';
 import Participant from '../Participant/Participant';
+import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 import useDominantSpeaker from '../../hooks/useDominantSpeaker/useDominantSpeaker';
 import useParticipantContext from '../../hooks/useParticipantsContext/useParticipantsContext';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
@@ -57,6 +58,8 @@ export function MobileGalleryView() {
   const dominantSpeaker = useDominantSpeaker(true);
   const remoteParticipantCount = mobileGalleryViewParticipants.length;
 
+  // Provided only to teachers; never offered on the local tile.
+  const moderationActions = useModerationActions();
   const pages: IParticipant[][] = [[]];
   // Add the localParticipant to the front of the array to ensure they are always the first participant:
   pages[0].push(room!.localParticipant);
@@ -101,6 +104,7 @@ export function MobileGalleryView() {
                     participant={participant}
                     isLocalParticipant={room!.localParticipant === participant}
                     isDominantSpeaker={dominantSpeaker === participant}
+                    moderation={room!.localParticipant === participant ? undefined : moderationActions || undefined}
                   />
                 </div>
               ))}
