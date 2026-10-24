@@ -95,6 +95,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 12,
     color: '#64748b',
     lineHeight: '18px',
+    margin: 0,
   },
 
   // ── Tag badge (EP01...) ────────────────────────────────────────────────────────
@@ -228,7 +229,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 12,
     color: '#1d2f6f',
     lineHeight: '18px',
-    marginBottom: 3,
+    margin: '0 0 3px',
   },
   privacyBody: {
     fontFamily: 'Inter, sans-serif',
@@ -236,6 +237,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 11,
     color: '#64748b',
     lineHeight: '17.05px',
+    margin: 0,
     '& strong': {
       fontWeight: 700,
     },
