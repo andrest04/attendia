@@ -30,6 +30,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
+    // App's Container is a grid with a `1fr` row, whose minimum is the item's content height. Without
+    // this, a long tab (Historial) stretches the row past the viewport and the whole page scrolls,
+    // taking the sidebar buttons with it; with it the row stays viewport-sized and `content` scrolls.
+    minHeight: 0,
     backgroundColor: theme.palette.background.default,
   },
   body: {

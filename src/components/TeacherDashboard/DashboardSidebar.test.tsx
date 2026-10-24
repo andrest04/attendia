@@ -69,6 +69,27 @@ describe('DashboardSidebar', () => {
     expect(labels).toEqual(['Classes', 'History', 'Resources', 'Calendar']);
   });
 
+  it('pins the compact top strip while a long tab scrolls', () => {
+    const wrapper = mount(
+      <DashboardSidebar
+        activeTab="clases"
+        onTabChange={jest.fn()}
+        onStartBlankClass={jest.fn()}
+        onSignOut={jest.fn()}
+      />
+    );
+    const rootClass = wrapper
+      .find('[data-testid="dashboard-sidebar"]')
+      .first()
+      .prop('className') as string;
+    const css = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+
+    expect(css).toMatch(new RegExp(`@media[^{]*\\{[^@]*\\.${rootClass.split(' ')[0]}\\s*\\{[^}]*position:\\s*sticky`));
+    wrapper.unmount();
+  });
+
   it('calls onSignOut when "Cerrar sesión" is clicked and it is available', () => {
     const onSignOut = jest.fn();
     const wrapper = shallow(

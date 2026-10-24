@@ -390,6 +390,18 @@ describe('TeacherDashboard', () => {
     window.localStorage.clear();
   });
 
+  it('lets the grid row shrink to the viewport so a long tab scrolls inside the content, not the page', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
+    const rootClass = (wrapper.find('[data-testid="teacher-dashboard-root"]').prop('className') as string).split(
+      ' '
+    )[0];
+    const css = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+
+    expect(css).toMatch(new RegExp(`\\.${rootClass}\\s*\\{[^}]*min-height:\\s*0`));
+  });
+
   describe('pending report replay', () => {
     const PENDING_KEY = 'twilio-video-pending-attention-reports';
     const seedQueue = () =>
