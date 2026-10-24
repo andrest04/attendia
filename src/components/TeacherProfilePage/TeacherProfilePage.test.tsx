@@ -5,6 +5,7 @@ import { Redirect } from 'react-router-dom';
 import TeacherProfilePage from './TeacherProfilePage';
 import { useAppState } from '../../state';
 import DashboardHeader from '../TeacherDashboard/DashboardHeader';
+import { setLocale } from '../../i18n/locale';
 
 jest.mock('../../state');
 jest.mock('react-router-dom', () => ({
@@ -50,6 +51,53 @@ function button(wrapper: any, label: string) {
 describe('TeacherProfilePage', () => {
   beforeEach(() => {
     mockEnqueueSnackbar.mockClear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  const stylesFor = (className: string) => {
+    const css = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+    const match = css.match(new RegExp(`\\.${className}\\s*\\{([^}]*)\\}`));
+    return match ? match[1] : '';
+  };
+
+  it('paints a neutral circle, not the brand blue, while the photo is still loading', () => {
+    mockUseAppState.mockReturnValue(teacherState());
+    const wrapper = shallow(<TeacherProfilePage />);
+    const [, photoClass] = (wrapper.find('[data-testid="teacher-profile-avatar"]').prop('className') as string).split(
+      ' '
+    );
+
+    expect(stylesFor(photoClass)).toMatch(/background-color:\s*#e2ecf9/);
+  });
+
+  it('packs the photo card content at the top instead of stretching the gap under the title', () => {
+    mockUseAppState.mockReturnValue(teacherState());
+    const wrapper = shallow(<TeacherProfilePage />);
+    const panelClass = (wrapper.find('[data-testid="teacher-profile-photo"]').prop('className') as string).split(
+      ' '
+    )[0];
+    const sectionClass = (wrapper.find('[aria-labelledby="photo-heading"]').prop('className') as string).split(' ')[0];
+
+    expect(stylesFor(panelClass)).toMatch(/align-content:\s*start/);
+    expect(stylesFor(sectionClass)).toMatch(/align-content:\s*start/);
+  });
+
+  it('shows the photo controls and their toasts in English when the language is English', async () => {
+    setLocale('en');
+    const state = teacherState();
+    mockUseAppState.mockReturnValue(state);
+    const wrapper = shallow(<TeacherProfilePage />);
+
+    expect(wrapper.text()).toContain('Change photo');
+    expect(wrapper.text()).not.toContain('Cambiar foto');
+
+    await button(wrapper, 'Delete photo').prop('onClick')!({});
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Photo deleted.', { variant: 'success' });
   });
 
   it('renders editable teacher profile fields and the Google photo fallback', () => {
@@ -185,9 +233,11 @@ describe('TeacherProfilePage', () => {
 
     expect(state.deleteAvatar).toHaveBeenCalled();
     expect(wrapper.find('[data-testid="teacher-profile-avatar"]').prop('style')).toBeUndefined();
-    expect(wrapper.findWhere((node: any) => typeof node.prop('onClick') === 'function' && node.text() === 'Eliminar foto').exists()).toBe(
-      false
-    );
+    expect(
+      wrapper
+        .findWhere((node: any) => typeof node.prop('onClick') === 'function' && node.text() === 'Eliminar foto')
+        .exists()
+    ).toBe(false);
 
     await button(wrapper, 'Usar foto de Google').prop('onClick')!({});
     wrapper.update();

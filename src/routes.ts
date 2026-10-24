@@ -12,6 +12,8 @@ export const routes = {
   manual: '/manual',
   history: '/history',
   profile: '/profile',
+  /** The "Iniciar clase" panel. Under /dashboard like the tabs, but it is not one: no sidebar entry. */
+  dashboardQuickStart: '/dashboard/iniciar-clase',
   /** A class room by name; also the deep link students join through. */
   room: '/room/:URLRoomName',
   report: '/report/:roomSid',
@@ -31,4 +33,9 @@ export const routePath = {
  * from the pathname — landing/lobby, the dashboard tab, the profile — so they share ONE route and
  * the providers stay mounted while navigating between them.
  */
-export const videoAppPaths = [routes.home, routes.profile, ...Object.values(dashboardTabPath)];
+export const videoAppPaths = [
+  routes.home,
+  routes.profile,
+  routes.dashboardQuickStart,
+  ...Object.values(dashboardTabPath),
+];

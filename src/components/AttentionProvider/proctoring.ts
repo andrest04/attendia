@@ -1,4 +1,3 @@
-import { t } from '../../i18n/translate';
 import { ATTENTION_RANGES } from './attentionFormula';
 import { ProctoringAlert } from './types';
 
@@ -24,25 +23,27 @@ export interface ProctoringKindInfo {
   confidence: number;
 }
 
+// Spanish source strings: the consumers (feed, alert modal, toasts) translate with t() at render, so a
+// language switch applies. Calling t() here would freeze the language the module happened to load in.
 export const PROCTORING_KINDS: Record<ProctoringKind, ProctoringKindInfo> = {
   multiface: {
-    label: t('Múltiples rostros'),
-    studentWarning: t('El profesor detectó varias personas en tu cámara'),
+    label: 'Múltiples rostros',
+    studentWarning: 'El profesor detectó varias personas en tu cámara',
     confidence: 1.0,
   },
   absent: {
     label: 'Sin presencia',
-    studentWarning: t('El profesor no te detecta frente a la cámara'),
+    studentWarning: 'El profesor no te detecta frente a la cámara',
     confidence: 1.0,
   },
   away: {
-    label: t('Distraído'),
-    studentWarning: t('El profesor te pidió volver a concentrarte en la clase'),
+    label: 'Distraído',
+    studentWarning: 'El profesor te pidió volver a concentrarte en la clase',
     confidence: 0.9,
   },
   'camera-off': {
-    label: t('Cámara apagada'),
-    studentWarning: t('El profesor te pidió encender tu cámara'),
+    label: 'Cámara apagada',
+    studentWarning: 'El profesor te pidió encender tu cámara',
     confidence: 1.0,
   },
 };

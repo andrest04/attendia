@@ -92,6 +92,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexShrink: 0,
   },
   avatarPhoto: {
+    // Neutral while the photo downloads, so the chip does not flash the brand blue as if there were none.
+    backgroundColor: '#e2ecf9',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
   },

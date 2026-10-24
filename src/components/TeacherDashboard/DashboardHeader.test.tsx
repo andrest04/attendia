@@ -50,12 +50,25 @@ describe('DashboardHeader profile menu', () => {
     expect(wrapper.find(Badge).prop('badgeContent')).toBe(7);
     trigger.simulate('click', { currentTarget: document.createElement('button') });
     wrapper.update();
-    expect(wrapper.find(Popover).filter('#dashboard-notification-menu').prop('open')).toBe(true);
+    expect(
+      wrapper
+        .find(Popover)
+        .filter('#dashboard-notification-menu')
+        .prop('open')
+    ).toBe(true);
     expect(wrapper.find('[data-testid="inbox"]').exists()).toBe(true);
 
-    wrapper.find(Popover).filter('#dashboard-notification-menu').prop('onClose')!({}, 'backdropClick');
+    wrapper
+      .find(Popover)
+      .filter('#dashboard-notification-menu')
+      .prop('onClose')!({}, 'backdropClick');
     wrapper.update();
-    expect(wrapper.find(Popover).filter('#dashboard-notification-menu').prop('open')).toBe(false);
+    expect(
+      wrapper
+        .find(Popover)
+        .filter('#dashboard-notification-menu')
+        .prop('open')
+    ).toBe(false);
   });
 
   it('uses the supported rectangular badge overlap value', () => {
@@ -69,8 +82,18 @@ describe('DashboardHeader profile menu', () => {
   it('uses an anchored popover for composite notification content instead of treating it as a menu item', () => {
     const wrapper = shallow(<DashboardHeader notificationContent={() => <div>Inbox</div>} />);
 
-    expect(wrapper.find(Popover).filter('#dashboard-notification-menu').exists()).toBe(true);
-    expect(wrapper.find(Menu).filter('#dashboard-notification-menu').exists()).toBe(false);
+    expect(
+      wrapper
+        .find(Popover)
+        .filter('#dashboard-notification-menu')
+        .exists()
+    ).toBe(true);
+    expect(
+      wrapper
+        .find(Menu)
+        .filter('#dashboard-notification-menu')
+        .exists()
+    ).toBe(false);
   });
 });
 
@@ -96,9 +119,7 @@ describe('DashboardHeader showProfile / showNotifications', () => {
   });
 
   it('hides just the bell when showNotifications is false', () => {
-    const wrapper = shallow(
-      <DashboardHeader professorName="Ana" professorInitials="A" showNotifications={false} />
-    );
+    const wrapper = shallow(<DashboardHeader professorName="Ana" professorInitials="A" showNotifications={false} />);
 
     expect(wrapper.find('[data-testid="dashboard-header-notifications"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="dashboard-header-profile"]').exists()).toBe(true);
@@ -133,5 +154,22 @@ describe('DashboardHeader extraMenuItems', () => {
 
     expect(wrapper.find(MenuItem).exists()).toBe(true);
     expect(wrapper.find('[data-testid="extra-item"]').exists()).toBe(true);
+  });
+
+  it('paints a neutral circle, not the brand blue, behind the photo while it loads', () => {
+    const wrapper = shallow(
+      <DashboardHeader professorName="Ana" professorInitials="A" professorPhotoURL="https://example.com/ana.jpg" />
+    );
+    const avatar = wrapper
+      .find('ProfileAvatar')
+      .first()
+      .dive()
+      .find('[data-testid="dashboard-header-avatar-photo"]');
+    const photoClass = (avatar.prop('className') as string).split(' ')[1];
+    const css = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+
+    expect(css).toMatch(new RegExp(`\\.${photoClass}\\s*\\{[^}]*background-color:\\s*#e2ecf9`));
   });
 });

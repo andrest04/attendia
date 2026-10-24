@@ -121,20 +121,22 @@ export const ReactApp = () => (
   <MuiThemeProvider theme={theme}>
     <CssBaseline />
     <LocaleProvider>
-      <UnsupportedBrowserWarning>
-        <Router>
-          <PhoneGate>
-            <AppStateProvider>
-              {/* Single boundary for the lazy standalone pages. The fallback is
+      {() => (
+        <UnsupportedBrowserWarning>
+          <Router>
+            <PhoneGate>
+              <AppStateProvider>
+                {/* Single boundary for the lazy standalone pages. The fallback is
               intentionally empty: these pages own the full viewport, so there is
               no surrounding layout to jank while the chunk loads. */}
-              <Suspense fallback={null}>
-                <AppRoutes />
-              </Suspense>
-            </AppStateProvider>
-          </PhoneGate>
-        </Router>
-      </UnsupportedBrowserWarning>
+                <Suspense fallback={null}>
+                  <AppRoutes />
+                </Suspense>
+              </AppStateProvider>
+            </PhoneGate>
+          </Router>
+        </UnsupportedBrowserWarning>
+      )}
     </LocaleProvider>
   </MuiThemeProvider>
 );

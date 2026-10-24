@@ -18,17 +18,18 @@ import { t } from '../../i18n/translate';
 
 type PreJoinRole = 'teacher' | 'student';
 
+// Spanish source strings: RoleSelector translates them at render, so a language switch applies.
 const SELF_REGISTER_ROLE_OPTIONS: { role: PreJoinRole; label: string; caption: string; testId: string }[] = [
   {
     role: 'teacher',
-    label: t('Soy profesor'),
-    caption: t('Crear y dar clases'),
+    label: 'Soy profesor',
+    caption: 'Crear y dar clases',
     testId: 'role-option-profesor',
   },
   {
     role: 'student',
-    label: t('Soy estudiante'),
-    caption: t('Unirme a clases existentes'),
+    label: 'Soy estudiante',
+    caption: 'Unirme a clases existentes',
     testId: 'role-option-estudiante',
   },
 ];
