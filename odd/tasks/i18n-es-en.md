@@ -15,11 +15,11 @@ S8. A language control is reachable before login (header shared with prejoin and
 
 ## Tasks
 
-- T1 (S1, S4, S5, S8) inline: client locale runtime, language control, `Accept-Language` on API calls. done
-- T2 (S2, S4, S7) inline: server localizes `explanation` in `sendError`, English catalog for every current explanation. done
-- T3 (S1) inline: login copy follows the selected language. done
+- T1 (S1, S4, S5, S8) inline: client locale runtime, language control, `Accept-Language` on API calls. done `5cf6dfc`
+- T2 (S2, S4, S7) inline: server localizes `explanation` in `sendError`, English catalog for every current explanation. done `5cf6dfc`
+- T3 (S1) inline: login copy follows the selected language. done `5cf6dfc`
 - T4 (S1) inline: remaining client UI (prejoin, room chrome beyond the shared controls, dashboard, dialogs, pages). pending. Room audio/video/screen-share/raise-hand/end-call copy is done.
-- T5 (S3) inline: confirm `[Profesor]` is not passed through the translator. done
+- T5 (S3) inline: confirm `[Profesor]` is not passed through the translator. done `5cf6dfc`
 
 ## Log
 
