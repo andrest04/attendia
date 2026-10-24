@@ -9,28 +9,28 @@ const fullHandlers = () => ({
 });
 
 describe('buildStudentModerationItems', () => {
+  it('offers only the action that fits each device state', () => {
+    const labels = (media: { micOn: boolean; cameraOn: boolean }) =>
+      buildStudentModerationItems('Ana', fullHandlers(), 'menu', media)
+        .filter(i => i.testId !== 'menu-screenshare')
+        .map(i => i.label);
+    expect(labels({ micOn: true, cameraOn: true })).toEqual(['Silenciar', 'Apagar cámara']);
+    expect(labels({ micOn: false, cameraOn: false })).toEqual(['Pedir activar micrófono', 'Sugerir cámara']);
+    expect(labels({ micOn: true, cameraOn: false })).toEqual(['Silenciar', 'Sugerir cámara']);
+  });
+
   it('offers every action in a stable order, with ids derived from the prefix', () => {
     const items = buildStudentModerationItems('Ana', fullHandlers(), 'menu');
-    expect(items.map(i => i.testId)).toEqual([
-      'menu-mute',
-      'menu-request-unmute',
-      'menu-mute-video',
-      'menu-request-video',
-      'menu-screenshare',
-    ]);
-    expect(items.map(i => i.label)).toEqual([
-      'Silenciar',
-      'Pedir activar micrófono',
-      'Apagar cámara',
-      'Sugerir cámara',
-      'Permitir compartir pantalla',
-    ]);
+    expect(items.map(i => i.testId)).toEqual(['menu-mute', 'menu-mute-video', 'menu-screenshare']);
+    expect(items.map(i => i.label)).toEqual(['Silenciar', 'Apagar cámara', 'Permitir compartir pantalla']);
   });
 
   it('binds the identity to each handler', () => {
     const handlers = fullHandlers();
-    const items = buildStudentModerationItems('Ana', handlers, 'menu');
-    items.forEach(item => item.onSelect());
+    [
+      ...buildStudentModerationItems('Ana', handlers, 'menu', { micOn: true, cameraOn: true }),
+      ...buildStudentModerationItems('Ana', handlers, 'menu', { micOn: false, cameraOn: false }),
+    ].forEach(item => item.onSelect());
     expect(handlers.onMuteParticipant).toHaveBeenCalledWith('Ana');
     expect(handlers.onRequestUnmute).toHaveBeenCalledWith('Ana');
     expect(handlers.onMuteVideo).toHaveBeenCalledWith('Ana');
@@ -59,8 +59,8 @@ describe('buildModerationItemsForTarget', () => {
 
   it('offers students the full menu to an owner and to a co-teacher', () => {
     const target = { identity: 'Ana', isLocal: false };
-    expect(buildModerationItemsForTarget(target, fullHandlers(), 'menu', 'owner')).toHaveLength(5);
-    expect(buildModerationItemsForTarget(target, fullHandlers(), 'menu', 'co-teacher')).toHaveLength(5);
+    expect(buildModerationItemsForTarget(target, fullHandlers(), 'menu', 'owner')).toHaveLength(3);
+    expect(buildModerationItemsForTarget(target, fullHandlers(), 'menu', 'co-teacher')).toHaveLength(3);
   });
 
   it('offers a teacher target only forced-off actions and suggestions (no screen-share grant) to the owner', () => {
@@ -70,14 +70,14 @@ describe('buildModerationItemsForTarget', () => {
       'menu',
       'owner'
     );
-    expect(ids(items)).toEqual(['menu-mute', 'menu-request-unmute', 'menu-mute-video', 'menu-request-video']);
+    expect(ids(items)).toEqual(['menu-mute', 'menu-mute-video']);
   });
 
   it('reads the actor role from the handlers when none is passed', () => {
     const handlers = { ...fullHandlers(), actorRole: 'owner' as const };
     expect(
       buildModerationItemsForTarget({ identity: 'Bea [Profesor]', isLocal: false }, handlers, 'menu')
-    ).toHaveLength(4);
+    ).toHaveLength(2);
   });
 
   it('offers nothing on a teacher to a co-teacher, an unknown role or when the target is oneself', () => {

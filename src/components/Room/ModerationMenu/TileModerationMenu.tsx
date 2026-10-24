@@ -1,6 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { makeStyles } from '@material-ui/core';
+import useRemoteMedia from '../../../hooks/useRemoteMedia/useRemoteMedia';
 import OverflowMenu from '../ToolbarParts/OverflowMenu';
 import { buildModerationItemsForTarget, StudentModerationHandlers } from './studentModerationItems';
 
@@ -38,7 +39,8 @@ interface TileModerationMenuProps {
 export default function TileModerationMenu({ identity, handlers, corner = 'left' }: TileModerationMenuProps) {
   const classes = useStyles();
   const testIdPrefix = `participant-moderation-${identity}`;
-  const items = buildModerationItemsForTarget({ identity, isLocal: false }, handlers, testIdPrefix);
+  const media = useRemoteMedia(identity);
+  const items = buildModerationItemsForTarget({ identity, isLocal: false, media }, handlers, testIdPrefix);
   if (items.length === 0) return null;
   return (
     <div
