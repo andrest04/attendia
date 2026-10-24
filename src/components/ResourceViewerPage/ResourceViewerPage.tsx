@@ -57,7 +57,7 @@ export default function ResourceViewerPage() {
         ? () =>
             fetchResources!().then(resources => {
               const found = resources.find(r => r.id === resourceId);
-              if (!found) throw new Error('El recurso solicitado no existe.');
+              if (!found) throw new Error(t('El recurso solicitado no existe.'));
               return found;
             })
         : null,
@@ -96,7 +96,7 @@ export default function ResourceViewerPage() {
           icon={<CloseIcon style={{ fontSize: 16 }} />}
           testId="resource-viewer-page-close"
         >
-          Cerrar
+          {t('Cerrar')}
         </PageNavButton>
       }
     >
@@ -113,7 +113,7 @@ export default function ResourceViewerPage() {
             />
           )
         ) : (
-          <PageMessageCard testId="resource-viewer-empty">{error || 'Cargando el documento...'}</PageMessageCard>
+          <PageMessageCard testId="resource-viewer-empty">{error || t('Cargando el documento...')}</PageMessageCard>
         )}
       </div>
     </StandalonePage>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { makeStyles, createStyles } from '@material-ui/core/styles';
 import CloseIcon from '../../../icons/CloseIcon';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles(() =>
   createStyles({
@@ -34,7 +35,7 @@ export default function BackgroundSelectionHeader({ onClose }: BackgroundSelecti
   const classes = useStyles();
   return (
     <div className={classes.container}>
-      <div className={classes.text}>Fondos</div>
+      <div className={classes.text}>{t('Fondos')}</div>
       <button className={classes.closeBackgroundSelection} onClick={onClose}>
         <CloseIcon />
       </button>

@@ -16,6 +16,7 @@ import { storedReportDate, storedReportToViewData } from '../AttentionReport/sto
 import { StoredAttentionReport } from '../AttentionProvider/reportTypes';
 import { useAppState } from '../../state';
 import { countOf } from '../../utils/pluralize';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 /*
@@ -29,8 +30,8 @@ import { t } from '../../i18n/translate';
 const MOCK_TAG = 'Datos simulados';
 
 const endReasonLabel: { [key: string]: string } = {
-  'ended-for-all': t('Sesión finalizada para todos'),
-  left: t('El profesor salió sin cerrar la sala'),
+  'ended-for-all': 'Sesión finalizada para todos',
+  left: 'El profesor salió sin cerrar la sala',
 };
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -174,8 +175,8 @@ function formatReportDate(report: StoredAttentionReport): string {
   if (isNaN(date.getTime())) {
     return t('Fecha no disponible');
   }
-  const day = date.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const time = date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const day = date.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' });
+  const time = date.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
   return `${day} · ${time}`;
 }
 
@@ -232,7 +233,7 @@ export default function ClassHistoryPage() {
           icon={<ChevronLeftIcon style={{ fontSize: 16 }} />}
           testId="class-history-back-to-lobby"
         >
-          Volver
+          {t('Volver')}
         </PageNavButton>
       }
     >
@@ -244,7 +245,7 @@ export default function ClassHistoryPage() {
               icon={<ChevronLeftIcon style={{ fontSize: 16 }} />}
               testId="class-history-detail-back"
             >
-              Volver al historial
+              {t('Volver al historial')}
             </PageNavButton>
           </div>
           <AttentionReportView data={toViewData(selected)} />
@@ -256,7 +257,7 @@ export default function ClassHistoryPage() {
               <HistoryIcon style={{ fontSize: 22 }} />
             </div>
             <Typography variant="h1" className={classes.h1}>
-              Historial de clases
+              {t('Historial de clases')}
             </Typography>
           </div>
           <Typography className={classes.subtitle}>
@@ -301,9 +302,11 @@ export default function ClassHistoryPage() {
                 >
                   <div className={classes.reportTitleRow}>
                     <span className={classes.reportTitle}>{report.roomName}</span>
-                    {report.source === 'mock' && <span className={classes.mockTag}>{MOCK_TAG}</span>}
+                    {report.source === 'mock' && <span className={classes.mockTag}>{t(MOCK_TAG)}</span>}
                   </div>
-                  <div className={classes.reportMeta}>{endReasonLabel[report.endReason] || report.endReason}</div>
+                  <div className={classes.reportMeta}>
+                    {endReasonLabel[report.endReason] ? t(endReasonLabel[report.endReason]) : report.endReason}
+                  </div>
                   <div className={classes.chipsRow}>
                     <span className={classes.chip}>
                       <EventIcon className={classes.chipIcon} />
@@ -313,8 +316,10 @@ export default function ClassHistoryPage() {
                       <PeopleAltIcon className={classes.chipIcon} />
                       {countOf(report.studentCount, t('estudiante'))}
                     </span>
-                    <span className={classes.chip}>Promedio {report.groupAverage} / 100</span>
-                    <span className={classes.chip}>{countOf((report.proctoringAlerts || []).length, 'alerta')}</span>
+                    <span className={classes.chip}>
+                      {t('Promedio {{value}} / 100', { value: report.groupAverage })}
+                    </span>
+                    <span className={classes.chip}>{countOf((report.proctoringAlerts || []).length, t('alerta'))}</span>
                   </div>
                 </button>
               ))}

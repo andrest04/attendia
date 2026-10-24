@@ -122,7 +122,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
           </DialogContent>
           <DialogActions>
             <Button onClick={onClose} color="primary" variant="contained">
-              Entendido
+              {t('Entendido')}
             </Button>
           </DialogActions>
         </>
@@ -164,7 +164,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
           </DialogContent>
           <DialogActions>
             <Button onClick={onClose} disabled={isSubmitting}>
-              Cancelar
+              {t('Cancelar')}
             </Button>
             <Button
               type="submit"

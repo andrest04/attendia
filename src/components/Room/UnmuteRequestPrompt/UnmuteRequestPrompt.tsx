@@ -39,10 +39,10 @@ export default function UnmuteRequestPrompt({ kind = 'mic', open, onAccept, onDi
       action={
         <>
           <Button color="inherit" size="small" onClick={onDismiss}>
-            Ahora no
+            {t('Ahora no')}
           </Button>
           <Button color="secondary" size="small" onClick={onAccept}>
-            Activar
+            {t('Activar')}
           </Button>
         </>
       }

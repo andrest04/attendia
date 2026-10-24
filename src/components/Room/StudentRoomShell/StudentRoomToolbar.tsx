@@ -97,7 +97,7 @@ export default function StudentRoomToolbar({
           </div>
         }
         className={chip}
-        aria-label="Chat"
+        aria-label={t('Chat')}
         data-testid="student-toolbar-chat"
         aria-pressed={chatOpen}
       />

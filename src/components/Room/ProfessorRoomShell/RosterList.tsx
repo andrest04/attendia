@@ -243,7 +243,7 @@ function RosterRow({
             type="button"
             className={classes.rosterMenuButton}
             data-testid="professor-room-shell-roster-menu-button"
-            aria-label={`Acciones para ${displayIdentity(participant.identity)}`}
+            aria-label={t('Acciones para {{name}}', { name: displayIdentity(participant.identity) })}
             aria-haspopup="true"
             aria-expanded={menuOpen}
             onClick={() => onToggleMenu()}

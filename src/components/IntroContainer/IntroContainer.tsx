@@ -432,7 +432,7 @@ const IntroContainer = (props: IntroContainerProps) => {
         centerLabel={
           props.headerRoomName ? (
             <>
-              Clase: <strong>{props.headerRoomName}</strong>
+              {t('Clase:')} <strong>{props.headerRoomName}</strong>
             </>
           ) : (
             undefined
@@ -501,7 +501,7 @@ const IntroContainer = (props: IntroContainerProps) => {
               onClick={props.onReturnToDashboard}
               data-testid="back-to-dashboard"
             >
-              ← Volver al panel
+              {t('← Volver al panel')}
             </button>
           )}
           <div className={classes.contentCard}>{props.children}</div>
@@ -513,12 +513,12 @@ const IntroContainer = (props: IntroContainerProps) => {
         <div className={classes.footerLeft}>
           <div className={classes.footerDot} />
           <span className={classes.footerText}>
-            Infraestructura: <strong className={classes.footerTextStrong}>Twilio Video WebRTC SFU</strong>
+            {t('Infraestructura:')} <strong className={classes.footerTextStrong}>Twilio Video WebRTC SFU</strong>
           </span>
         </div>
         <div className={classes.footerLinks}>
           <a href="/security" className={classes.footerLink}>
-            Seguridad y Privacidad
+            {t('Seguridad y Privacidad')}
           </a>
         </div>
       </div>

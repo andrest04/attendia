@@ -6,6 +6,7 @@ import { makeStyles } from '@material-ui/core';
 import { useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
+import { t } from '../../../i18n/translate';
 
 export const ANIMATION_DURATION = 700;
 
@@ -99,7 +100,7 @@ export default function ToggleChatButton() {
         </div>
       }
     >
-      Chat
+      {t('Chat')}
     </Button>
   );
 }

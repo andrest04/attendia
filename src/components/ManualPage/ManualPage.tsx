@@ -405,7 +405,7 @@ export default function ManualPage() {
       <Container className={classes.page} maxWidth={false}>
         <div className={classes.pageHeading}>
           <Typography variant="h1" className={classes.h1}>
-            Manual de uso
+            {t('Manual de uso')}
           </Typography>
           <p className={classes.subtitle}>
             {t('Guía completa de las funciones de la sala de clase: controles, participación, atención y reconexión.')}

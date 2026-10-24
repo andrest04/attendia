@@ -23,6 +23,7 @@ import {
   toClassSessionDisplayName,
 } from '../../classSession/classSessionTypes';
 import { Steps } from './steps';
+import { t } from '../../i18n/translate';
 
 interface PreJoinScreensProps {
   /**
@@ -284,11 +285,11 @@ export default function PreJoinScreens({ initialClassSession, onReturnToDashboar
         >
           <CircularProgress variant="indeterminate" />
           <Typography variant="body1" style={{ fontWeight: 'bold' }}>
-            Reconectando a la sala…
+            {t('Reconectando a la sala…')}
           </Typography>
           {URLRoomName && (
             <Typography variant="body2" color="textSecondary">
-              Sala: <strong>{URLRoomName}</strong>
+              {t('Sala:')} <strong>{URLRoomName}</strong>
             </Typography>
           )}
         </div>

@@ -49,7 +49,7 @@ export function buildStudentModerationItems(
         }
       : onMuteParticipant && {
           testId: `${testIdPrefix}-mute`,
-          label: 'Silenciar',
+          label: t('Silenciar'),
           icon: <MicOffIcon style={ICON_STYLE} />,
           onSelect: () => onMuteParticipant(identity),
         };

@@ -112,7 +112,7 @@ export default function ProfessorLeftRail({
   return (
     <CollapsibleRail side="left" open={open} className={classes.leftRail} data-testid="professor-room-shell-left-rail">
       <div className={classes.leftHeader}>
-        <span className={classes.leftHeading}>Participantes</span>
+        <span className={classes.leftHeading}>{t('Participantes')}</span>
         <div className={classes.leftHeaderActions}>
           <span className={classes.participantCountBadge} data-testid="professor-room-shell-participant-count">
             {participantCount}

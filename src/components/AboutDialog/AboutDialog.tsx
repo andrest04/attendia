@@ -48,7 +48,7 @@ function AboutDialog({ open, onClose }: PropsWithChildren<AboutDialogProps>) {
       <Divider />
       <DialogActions>
         <Button onClick={onClose} color="primary" variant="contained" autoFocus>
-          OK
+          {t('Aceptar')}
         </Button>
       </DialogActions>
     </Dialog>

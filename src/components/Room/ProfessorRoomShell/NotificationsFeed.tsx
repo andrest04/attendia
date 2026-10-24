@@ -2,6 +2,7 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import { ShellNotification } from '../shellNotification';
 import { notificationEmoji } from './professorShellHelpers';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles(() => ({
   // A short, persistent log of students joining/leaving. Owns the marginTop:auto
@@ -69,10 +70,10 @@ export default function NotificationsFeed({ notifications }: NotificationsFeedPr
 
   return (
     <div className={classes.notificationsSection} data-testid="professor-room-shell-notifications">
-      <div className={classes.notificationsLabel}>Notificaciones</div>
+      <div className={classes.notificationsLabel}>{t('Notificaciones')}</div>
       {notifications.length === 0 ? (
         <div className={classes.notificationsEmpty} data-testid="professor-room-shell-notifications-empty">
-          Sin actividad por ahora.
+          {t('Sin actividad por ahora.')}
         </div>
       ) : (
         <div className={classes.notificationItems}>

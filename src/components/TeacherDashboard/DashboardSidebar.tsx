@@ -180,7 +180,7 @@ export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankC
           data-testid="dashboard-sidebar-start-class"
         >
           <PlayArrowIcon style={{ fontSize: 18 }} />
-          Iniciar clase
+          {t('Iniciar clase')}
         </button>
         <button
           type="button"

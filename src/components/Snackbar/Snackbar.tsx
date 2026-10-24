@@ -6,6 +6,7 @@ import { IconButton, makeStyles, Theme, Typography } from '@material-ui/core';
 import MUISnackbar from '@material-ui/core/Snackbar';
 import WarningIcon from '../../icons/WarningIcon';
 import InfoIcon from '../../icons/InfoIcon';
+import { t } from '../../i18n/translate';
 
 type SnackbarVariant = 'error' | 'warning' | 'info';
 
@@ -98,7 +99,7 @@ export default function Snackbar({ headline, message, variant, open, handleClose
         </div>
         <div>
           {handleClose && (
-            <IconButton size="small" aria-label="close" color="inherit" onClick={handleClose}>
+            <IconButton size="small" aria-label={t('Cerrar')} color="inherit" onClick={handleClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           )}

@@ -97,11 +97,14 @@ export function proctoringKindMessage(kind: ProctoringKind, name: string, detect
   }
 }
 
-/** Emoji cue for a notification pill, derived from the event copy. */
+/**
+ * Emoji cue for a notification pill, derived from the event copy. The copy is already localized,
+ * so each cue matches the verb of the Spanish source and of its English translation.
+ */
 export function notificationEmoji(text: string): string {
-  if (text.includes('levantó')) return '✋';
-  if (text.includes('unió')) return '🔔';
-  if (text.includes('salió')) return '👋';
+  if (/levantó|raised their hand/.test(text)) return '✋';
+  if (/unió|joined/.test(text)) return '🔔';
+  if (/salió|\bleft\b/.test(text)) return '👋';
   return '🔔';
 }
 

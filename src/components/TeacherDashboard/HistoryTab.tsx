@@ -8,7 +8,7 @@ import { RecordingArtifact, RecordingArtifactStatus, StoredAttentionReport } fro
 import { attentionLevelColor, attentionLevelFromPercent } from './dashboardHelpers';
 import { routePath } from '../../routes';
 import { storedReportDate } from '../AttentionReport/storedReportViewData';
-import { getLocale } from '../../i18n/locale';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 // How often a pending (enqueued/processing) recording's status is re-checked. Twilio
@@ -133,7 +133,7 @@ function formatDate(report: StoredAttentionReport): string {
   const date = storedReportDate(report);
   return isNaN(date.getTime())
     ? t('Fecha no disponible')
-    : date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+    : date.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function formatDuration(report: StoredAttentionReport): string {
@@ -163,7 +163,7 @@ interface RecordingViewContext {
 
 const renderPending = ({ classes, roomSid }: RecordingViewContext) => (
   <span className={classes.noRecording} data-testid={`dashboard-history-recording-pending-${roomSid}`}>
-    <CircularProgress size={12} /> Procesando...
+    <CircularProgress size={12} /> {t('Procesando...')}
   </span>
 );
 
@@ -210,7 +210,7 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
         disabled={isBusy || !canRequest}
         data-testid={`dashboard-history-recording-retry-${roomSid}`}
       >
-        Reintentar
+        {t('Reintentar')}
       </button>
     </>
   ),
@@ -288,7 +288,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
 
   const expiryHint = recording?.mediaExpiresAt
     ? t('Disponible hasta {{date}} (7 días)', {
-        date: new Date(recording.mediaExpiresAt).toLocaleDateString(getLocale() === 'en' ? 'en-US' : 'es-AR', {
+        date: new Date(recording.mediaExpiresAt).toLocaleDateString(dateLocale(), {
           day: 'numeric',
           month: 'short',
         }),
@@ -357,7 +357,7 @@ export default function HistoryTab({
             {error}
             <div>
               <Button onClick={onRetry} data-testid="dashboard-history-retry">
-                Reintentar
+                {t('Reintentar')}
               </Button>
             </div>
           </div>
@@ -373,10 +373,10 @@ export default function HistoryTab({
           <table className={classes.table}>
             <thead>
               <tr>
-                <th className={classes.th}>CLASE</th>
-                <th className={classes.th}>FECHA</th>
+                <th className={classes.th}>{t('CLASE')}</th>
+                <th className={classes.th}>{t('FECHA')}</th>
                 <th className={classes.th}>{t('DURACIÓN')}</th>
-                <th className={classes.th}>ALUMNOS</th>
+                <th className={classes.th}>{t('ALUMNOS')}</th>
                 <th className={classes.th}>{t('ATENCIÓN')}</th>
                 <th className={classes.th}>{t('GRABACIÓN')}</th>
                 <th className={classes.th} />
@@ -423,7 +423,7 @@ export default function HistoryTab({
                         data-testid="dashboard-history-report"
                       >
                         <BarChartIcon style={{ fontSize: 14 }} />
-                        Reporte
+                        {t('Reporte')}
                       </button>
                     </td>
                   </tr>

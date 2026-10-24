@@ -7,7 +7,6 @@ import { checkRoomOpen } from '../../classSession/checkRoomOpen';
 import { shouldReprobe } from './roomProbeThrottle';
 import { buildMockClassesView, buildRealClassesView } from './classSessionsView';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
-import { countOf } from '../../utils/pluralize';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
 import { t } from '../../i18n/translate';
 
@@ -204,7 +203,9 @@ export default function useTeacherClasses({
         }
         if (failedCount > 0) {
           setCancelExpiredError(
-            `No pudimos cancelar ${countOf(failedCount, t('clase vencida'), t('clases vencidas'))}.`
+            failedCount === 1
+              ? t('No pudimos cancelar 1 clase vencida.')
+              : t('No pudimos cancelar {{count}} clases vencidas.', { count: failedCount })
           );
         }
         setIsCancellingExpired(false);

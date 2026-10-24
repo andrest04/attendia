@@ -1,6 +1,7 @@
 import FileDownloadIcon from '../../../../icons/FileDownloadIcon';
 import { makeStyles } from '@material-ui/core/styles';
 import { Media } from '@twilio/conversations';
+import { t } from '../../../../i18n/translate';
 
 const useStyles = makeStyles({
   messageContainer: {
@@ -71,7 +72,7 @@ export default function FileMessage({ media }: MediaMessageProps) {
       </div>
       <div className={classes.mediaInfo}>
         <p className={classes.filename}>{media.filename}</p>
-        <p className={classes.size}>{formatFileSize(media.size)} - Click to open</p>
+        <p className={classes.size}>{t('{{size}} - Haz clic para abrir', { size: formatFileSize(media.size) })}</p>
       </div>
     </div>
   );

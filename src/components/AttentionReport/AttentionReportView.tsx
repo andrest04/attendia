@@ -11,6 +11,7 @@ import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle'
 import { attentionStatusColors } from '../../theme';
 import { countOf } from '../../utils/pluralize';
 import { displayIdentity } from '../../i18n/displayIdentity';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 /*
@@ -474,15 +475,15 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
       color: KPI_COLORS.students,
     },
     {
-      label: 'Alertas de proctoring',
+      label: t('Alertas de proctoring'),
       value: `${totalAlerts}`,
-      sub: 'eventos detectados',
+      sub: t('eventos detectados'),
       color: KPI_COLORS.alerts,
     },
     {
-      label: 'Umbral superado',
+      label: t('Umbral superado'),
       value: hasGroupData ? `${percentAboveThreshold}%` : '—',
-      sub: 'del tiempo total',
+      sub: t('del tiempo total'),
       color: KPI_COLORS.threshold,
     },
   ];
@@ -600,11 +601,11 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
         <div className={classes.chipsRow}>
           <span className={classes.chip}>
             <EventIcon className={classes.chipIcon} />
-            {reportDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {reportDate.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
           <span className={classes.chip}>
             <AccessTimeIcon className={classes.chipIcon} />
-            {reportDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+            {reportDate.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
           </span>
           {source === 'mock' && <span className={classes.mockTag}>{MOCK_DISCLOSURE}</span>}
         </div>

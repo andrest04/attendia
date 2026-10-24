@@ -213,7 +213,7 @@ export default function ProctoringAlertModal({
             </div>
             <div>
               <div className={classes.modalTitle}>{t(PROCTORING_KINDS[alert.kind].label)}</div>
-              <div className={classes.modalCaption}>Proctoring</div>
+              <div className={classes.modalCaption}>{t('Proctoring')}</div>
             </div>
           </div>
           <button
@@ -262,7 +262,7 @@ export default function ProctoringAlertModal({
             onClick={onSendWarning}
             data-testid="professor-proctoring-modal-warning"
           >
-            ⚠ Enviar advertencia
+            {t('⚠ Enviar advertencia')}
           </button>
         </div>
       </div>

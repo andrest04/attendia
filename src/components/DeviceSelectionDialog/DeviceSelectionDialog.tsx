@@ -144,7 +144,7 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
           <Divider />
           <div className={classes.listSection}>
             <Typography variant="h6" className={classes.headline}>
-              Gallery View
+              {t('Vista de galería')}
             </Typography>
             <MaxGalleryViewParticipants />
           </div>
@@ -153,7 +153,7 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
       <Divider />
       <DialogActions>
         <Button color="primary" variant="contained" className={classes.button} onClick={onClose}>
-          Done
+          {t('Listo')}
         </Button>
       </DialogActions>
     </Dialog>

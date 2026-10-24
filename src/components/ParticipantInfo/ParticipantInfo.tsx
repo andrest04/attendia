@@ -264,7 +264,7 @@ export default function ParticipantInfo({
                 title={t('Múltiples rostros detectados')}
                 data-testid="participant-multiface-flag"
               >
-                Multi-rostro
+                {t('Multi-rostro')}
               </span>
             )}
             {/* Level badge only for a real reading: camera off, phone, no face or no reading

@@ -6,6 +6,7 @@ import FileAttachmentIcon from '../../../icons/FileAttachmentIcon';
 import { isMobile } from '../../../utils';
 import Snackbar from '../../Snackbar/Snackbar';
 import TextareaAutosize from '@material-ui/core/TextareaAutosize';
+import { t } from '../../../i18n/translate';
 
 // Send arrow icon (paper-plane style, matching Figma)
 function SendIcon() {
@@ -175,7 +176,7 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
     <div className={classes.chatInputContainer}>
       <Snackbar
         open={Boolean(fileSendError)}
-        headline="Error"
+        headline={t('Error')}
         message={fileSendError || ''}
         variant="error"
         handleClose={() => setFileSendError(null)}
@@ -191,8 +192,8 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
             minRows={1}
             maxRows={3}
             className={classes.textArea}
-            aria-label="chat input"
-            placeholder="Escribe un mensaje..."
+            aria-label={t('Entrada de chat')}
+            placeholder={t('Escribe un mensaje...')}
             onKeyPress={handleReturnKeyPress}
             onChange={handleChange}
             value={messageBody}

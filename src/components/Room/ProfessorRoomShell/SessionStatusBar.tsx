@@ -188,7 +188,7 @@ export default function SessionStatusBar({
           onClick={openTour}
           data-testid="professor-room-shell-help-button"
         >
-          Ayuda
+          {t('Ayuda')}
         </button>
       )}
     </div>

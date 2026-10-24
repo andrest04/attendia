@@ -156,7 +156,7 @@ export default function LocalVideoPreview({ identity, children }: { identity: st
         <div className={classes.trafficDot} style={{ backgroundColor: '#ef4444' }} />
         <div className={classes.trafficDot} style={{ backgroundColor: '#ffb800' }} />
         <div className={classes.trafficDot} style={{ backgroundColor: '#10b981' }} />
-        <span className={classes.titleBarLabel}>Twilio Video · Vista previa</span>
+        <span className={classes.titleBarLabel}>{t('Twilio Video · Vista previa')}</span>
       </div>
 
       {/* Video / avatar area */}

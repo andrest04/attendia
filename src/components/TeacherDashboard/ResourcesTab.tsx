@@ -13,6 +13,7 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
 import { RESOURCE_FILE_ACCEPT } from './resourceUploadValidation';
 import useTeacherResources from './useTeacherResources';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -298,7 +299,7 @@ function formatSizeLabel(bytes: number): string {
 
 function formatDateLabel(ms: number | null): string {
   if (ms === null) return '';
-  return new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return new Date(ms).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
 }
 
 /** "Recursos" tab: real per-class file lists, backed by useAppState (Firestore + Storage). */
@@ -349,7 +350,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
   if (!isAvailable) {
     return (
       <div className={classes.root} data-testid="dashboard-resources-tab">
-        <div className={classes.title}>Recursos</div>
+        <div className={classes.title}>{t('Recursos')}</div>
         <div className={classes.statusMessage}>
           {t('Los recursos reales solo están disponibles con el modo de autenticación Firebase.')}
         </div>
@@ -411,7 +412,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   className={classes.pillCancelledTag}
                   data-testid={`dashboard-resources-pill-cancelled-${option.classId}`}
                 >
-                  (clase cancelada)
+                  {t('(clase cancelada)')}
                 </span>
               )}
               {!option.cancelled && option.expired && (
@@ -419,7 +420,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   className={classes.pillCancelledTag}
                   data-testid={`dashboard-resources-pill-expired-${option.classId}`}
                 >
-                  (clase vencida)
+                  {t('(clase vencida)')}
                 </span>
               )}
               {!option.cancelled && !option.expired && option.completed && (
@@ -427,7 +428,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   className={classes.pillCancelledTag}
                   data-testid={`dashboard-resources-pill-completed-${option.classId}`}
                 >
-                  (clase finalizada)
+                  {t('(clase finalizada)')}
                 </span>
               )}
             </button>
@@ -449,9 +450,9 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
           >
             <DeleteIcon style={{ fontSize: 16 }} />
             {activeOption!.cancelled
-              ? `Eliminar ${
-                  activeGroup!.files.length === 1 ? 'el recurso' : `los ${activeGroup!.files.length} recursos`
-                } de esta clase`
+              ? activeGroup!.files.length === 1
+                ? t('Eliminar el recurso de esta clase')
+                : t('Eliminar los {{count}} recursos de esta clase', { count: activeGroup!.files.length })
               : t('Eliminar clase')}
           </button>
         </div>
@@ -500,7 +501,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                       data-testid="dashboard-resource-view"
                     >
                       <OpenInNewIcon style={{ fontSize: 14 }} />
-                      Ver
+                      {t('Ver')}
                     </button>
                   )}
                   <button
@@ -509,7 +510,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                     onClick={() => handleDownload(file)}
                     data-testid="dashboard-resource-download"
                   >
-                    Descargar
+                    {t('Descargar')}
                   </button>
                 </div>
               </div>
@@ -526,7 +527,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   type="button"
                   className={classes.dismissUploadButton}
                   onClick={() => removeUploadEntry(upload.id)}
-                  aria-label="Descartar"
+                  aria-label={t('Descartar')}
                   data-testid={`dashboard-resources-uploading-dismiss-${upload.id}`}
                 >
                   <CloseIcon style={{ fontSize: 18 }} />
@@ -549,7 +550,9 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   <div className={classes.progressBarTrack}>
                     <div className={classes.progressBarFill} style={{ width: `${upload.progress}%` }} />
                   </div>
-                  <div className={classes.progressLabel}>Subiendo… {upload.progress}%</div>
+                  <div className={classes.progressLabel}>
+                    {t('Subiendo…')} {upload.progress}%
+                  </div>
                 </>
               )}
             </div>

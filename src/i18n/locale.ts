@@ -41,3 +41,8 @@ export function subscribeLocale(listener: Listener): () => void {
 export function acceptLanguageHeader(): { 'Accept-Language': Locale } {
   return { 'Accept-Language': getLocale() };
 }
+
+/** BCP 47 tag for date and time formatting. Read at call time so a language switch applies. */
+export function dateLocale(): string {
+  return getLocale() === 'en' ? 'en-US' : 'es-AR';
+}

@@ -26,8 +26,8 @@ export default function AudioOutputList() {
         </FormControl>
       ) : (
         <>
-          <Typography variant="subtitle2">Audio Output</Typography>
-          <Typography>{activeOutputLabel || 'System Default Audio Output'}</Typography>
+          <Typography variant="subtitle2">{t('Salida de audio')}</Typography>
+          <Typography>{activeOutputLabel || t('Salida de audio predeterminada del sistema')}</Typography>
         </>
       )}
     </div>

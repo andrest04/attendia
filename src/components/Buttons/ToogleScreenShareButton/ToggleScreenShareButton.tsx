@@ -10,7 +10,7 @@ import { t } from '../../../i18n/translate';
 
 export const SCREEN_SHARE_TEXT = 'Compartir pantalla';
 export const STOP_SCREEN_SHARE_TEXT = 'Dejar de compartir';
-export const SHARE_IN_PROGRESS_TEXT = t('No puedes compartir pantalla mientras otro usuario lo está haciendo');
+export const SHARE_IN_PROGRESS_TEXT = 'No puedes compartir pantalla mientras otro usuario lo está haciendo';
 export const SHARE_LOCKED_TEXT = 'Pide permiso al profesor para compartir pantalla';
 export const SHARE_NOT_SUPPORTED_TEXT = 'Este navegador no admite compartir pantalla';
 
@@ -43,7 +43,7 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
   let tooltipMessage = '';
 
   if (disableScreenShareButton) {
-    tooltipMessage = SHARE_IN_PROGRESS_TEXT;
+    tooltipMessage = t(SHARE_IN_PROGRESS_TEXT);
   }
 
   if (lockedByTeacher) {

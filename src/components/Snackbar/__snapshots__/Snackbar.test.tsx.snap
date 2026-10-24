@@ -42,7 +42,7 @@ exports[`the Snackbar component should render correctly with "error" variant 1`]
     </div>
     <div>
       <WithStyles(ForwardRef(IconButton))
-        aria-label="close"
+        aria-label="Cerrar"
         color="inherit"
         onClick={[Function]}
         size="small"
@@ -98,7 +98,7 @@ exports[`the Snackbar component should render correctly with "info" variant 1`] 
     </div>
     <div>
       <WithStyles(ForwardRef(IconButton))
-        aria-label="close"
+        aria-label="Cerrar"
         color="inherit"
         onClick={[Function]}
         size="small"
@@ -154,7 +154,7 @@ exports[`the Snackbar component should render correctly with "warning" variant 1
     </div>
     <div>
       <WithStyles(ForwardRef(IconButton))
-        aria-label="close"
+        aria-label="Cerrar"
         color="inherit"
         onClick={[Function]}
         size="small"

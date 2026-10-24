@@ -7,6 +7,7 @@ import {
 } from './classSessionsView';
 import { mockDashboardData } from './mockDashboardData';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { setLocale } from '../../i18n/locale';
 
 const NOW_MS = new Date(2026, 6, 8, 10, 0, 0).getTime();
 
@@ -223,6 +224,43 @@ describe('buildExpiredSessions', () => {
     expect(byId['hours-ago']).toBe('Venció hace 5h');
     expect(byId['days-ago']).toBe('Venció hace 3d');
   });
+
+  describe('in English', () => {
+    beforeEach(() => setLocale('en'));
+    afterEach(() => setLocale('es'));
+
+    it('translates the overdue labels', () => {
+      const minutesAgo = makeClass({ id: 'minutes-ago', scheduledAtMs: NOW_MS - 20 * 60 * 1000 });
+      const hoursAgo = makeClass({ id: 'hours-ago', scheduledAtMs: NOW_MS - 5 * 60 * 60 * 1000 });
+      const daysAgo = makeClass({ id: 'days-ago', scheduledAtMs: NOW_MS - 3 * 24 * 60 * 60 * 1000 });
+
+      const result = buildExpiredSessions([minutesAgo, hoursAgo, daysAgo], NOW_MS);
+      const byId = Object.fromEntries(result.map(s => [s.id, s.relativeLabel]));
+
+      expect(byId['minutes-ago']).toBe('Overdue by 20 min');
+      expect(byId['hours-ago']).toBe('Overdue by 5h');
+      expect(byId['days-ago']).toBe('Overdue by 3d');
+    });
+
+    it('translates the upcoming relative labels', () => {
+      const soon = makeClass({ id: 'soon', scheduledAtMs: NOW_MS + 5 * 60 * 1000 });
+      const later = makeClass({ id: 'later', scheduledAtMs: NOW_MS + 2 * 60 * 60 * 1000 });
+
+      const byId = Object.fromEntries(buildUpcomingSessions([soon, later], NOW_MS).map(s => [s.id, s.relativeLabel]));
+
+      expect(byId['soon']).toBe('In 5 min');
+      expect(byId['later']).toBe('In 2h');
+    });
+
+    it('formats a far-away day label with the English locale', () => {
+      const scheduledAtMs = NOW_MS + 10 * 24 * 60 * 60 * 1000;
+      const [session] = buildUpcomingSessions([makeClass({ id: 'far', scheduledAtMs })], NOW_MS);
+
+      expect(session.dayLabel).toBe(
+        new Date(scheduledAtMs).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+      );
+    });
+  });
 });
 
 describe('buildRealClassesView', () => {
@@ -242,6 +280,25 @@ describe('buildRealClassesView', () => {
 
     expect(dateLabel).toMatch(/^[A-ZÁÉÍÓÚ]/);
     expect(dateLabel).toContain('2026');
+  });
+
+  it('formats the date label with the English locale when English is selected', () => {
+    const spanish = buildRealClassesView([], NOW_MS).dateLabel;
+    setLocale('en');
+    try {
+      const english = buildRealClassesView([], NOW_MS).dateLabel;
+      expect(english).toBe(
+        new Date(NOW_MS).toLocaleDateString('en-US', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      );
+      expect(english).not.toBe(spanish);
+    } finally {
+      setLocale('es');
+    }
   });
 
   it('is empty for no classes', () => {
