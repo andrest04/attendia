@@ -5,6 +5,7 @@ import { Redirect } from 'react-router-dom';
 import TeacherProfilePage from './TeacherProfilePage';
 import { useAppState } from '../../state';
 import DashboardHeader from '../TeacherDashboard/DashboardHeader';
+import { setLocale } from '../../i18n/locale';
 
 jest.mock('../../state');
 jest.mock('react-router-dom', () => ({
@@ -50,6 +51,23 @@ function button(wrapper: any, label: string) {
 describe('TeacherProfilePage', () => {
   beforeEach(() => {
     mockEnqueueSnackbar.mockClear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('shows the photo controls and their toasts in English when the language is English', async () => {
+    setLocale('en');
+    const state = teacherState();
+    mockUseAppState.mockReturnValue(state);
+    const wrapper = shallow(<TeacherProfilePage />);
+
+    expect(wrapper.text()).toContain('Change photo');
+    expect(wrapper.text()).not.toContain('Cambiar foto');
+
+    await button(wrapper, 'Delete photo').prop('onClick')!({});
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Photo deleted.', { variant: 'success' });
   });
 
   it('renders editable teacher profile fields and the Google photo fallback', () => {
@@ -185,9 +203,11 @@ describe('TeacherProfilePage', () => {
 
     expect(state.deleteAvatar).toHaveBeenCalled();
     expect(wrapper.find('[data-testid="teacher-profile-avatar"]').prop('style')).toBeUndefined();
-    expect(wrapper.findWhere((node: any) => typeof node.prop('onClick') === 'function' && node.text() === 'Eliminar foto').exists()).toBe(
-      false
-    );
+    expect(
+      wrapper
+        .findWhere((node: any) => typeof node.prop('onClick') === 'function' && node.text() === 'Eliminar foto')
+        .exists()
+    ).toBe(false);
 
     await button(wrapper, 'Usar foto de Google').prop('onClick')!({});
     wrapper.update();

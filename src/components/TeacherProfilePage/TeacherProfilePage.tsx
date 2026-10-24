@@ -219,7 +219,7 @@ export default function TeacherProfilePage() {
       const updatedProfile = await uploadAvatar!(compressedFile);
       setAvatarUrl(updatedProfile.avatarUrl);
       setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-      enqueueSnackbar('Foto actualizada.', { variant: 'success' });
+      enqueueSnackbar(t('Foto actualizada.'), { variant: 'success' });
     });
   };
 
@@ -321,7 +321,7 @@ export default function TeacherProfilePage() {
                     {!photo && <PersonIcon style={{ fontSize: 40 }} />}
                   </span>
                   <Button className={classes.button} component="label" variant="outlined" disabled={isSaving}>
-                    {savingAction === 'avatar' ? <CircularProgress size={18} color="inherit" /> : 'Cambiar foto'}
+                    {savingAction === 'avatar' ? <CircularProgress size={18} color="inherit" /> : t('Cambiar foto')}
                     <input
                       hidden
                       type="file"
@@ -339,7 +339,7 @@ export default function TeacherProfilePage() {
                           const updatedProfile = await deleteAvatar!();
                           setAvatarUrl(updatedProfile.avatarUrl);
                           setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-                          enqueueSnackbar('Foto eliminada.', { variant: 'success' });
+                          enqueueSnackbar(t('Foto eliminada.'), { variant: 'success' });
                         })
                       }
                     >
@@ -360,7 +360,7 @@ export default function TeacherProfilePage() {
                             const updatedProfile = await restoreProviderPhoto!();
                             setAvatarUrl(updatedProfile.avatarUrl);
                             setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-                            enqueueSnackbar('Foto restaurada.', { variant: 'success' });
+                            enqueueSnackbar(t('Foto restaurada.'), { variant: 'success' });
                           })
                         }
                       >
