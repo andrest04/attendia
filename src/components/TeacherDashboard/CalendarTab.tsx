@@ -9,7 +9,7 @@ import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { buildCalendarDays, calendarSummary, mondayLeadingBlanks, monthStart } from './calendarView';
-import { getLocale } from '../../i18n/locale';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -227,14 +227,10 @@ interface Props {
   expiredClassIds?: Set<string>;
 }
 
-function dateLocale(): string {
-  return getLocale() === 'en' ? 'en-US' : 'es-AR';
-}
-
 function formatTime(value: number | null): string {
   return value === null
     ? t('Horario no disponible')
-    : new Date(value).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    : new Date(value).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function CalendarTab({

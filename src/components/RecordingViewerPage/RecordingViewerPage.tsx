@@ -83,7 +83,7 @@ export default function RecordingViewerPage() {
               icon={<GetAppIcon style={{ fontSize: 16 }} />}
               testId="recording-viewer-page-download"
             >
-              Descargar
+              {t('Descargar')}
             </PageNavButton>
           )}
           <PageNavButton
@@ -91,7 +91,7 @@ export default function RecordingViewerPage() {
             icon={<CloseIcon style={{ fontSize: 16 }} />}
             testId="recording-viewer-page-close"
           >
-            Cerrar
+            {t('Cerrar')}
           </PageNavButton>
         </>
       }

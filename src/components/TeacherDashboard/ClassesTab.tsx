@@ -21,6 +21,7 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
 import baseTheme from '../../theme';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 // @material-ui/pickers ships its overridable class keys separately from core's `Overrides` type;
@@ -424,7 +425,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 // (ResourcesTab's formatDateLabel, CalendarTab's day labels).
 function formatDuplicateDateLabel(ms: number | null): string {
   if (ms === null) return 'sin fecha';
-  return new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return new Date(ms).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
 }
 
 interface Props {

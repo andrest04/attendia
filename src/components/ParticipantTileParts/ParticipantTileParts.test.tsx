@@ -33,7 +33,7 @@ describe('ReconnectingOverlay', () => {
         .find('WithStyles(ForwardRef(Typography))')
         .children()
         .text()
-    ).toBe('Reconnecting...');
+    ).toBe('Reconectando…');
   });
 
   it('only shrinks the message on phones for compact tiles', () => {

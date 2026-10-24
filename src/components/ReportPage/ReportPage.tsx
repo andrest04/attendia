@@ -43,7 +43,7 @@ export default function ReportPage() {
           icon={<CloseIcon style={{ fontSize: 16 }} />}
           testId="report-page-close"
         >
-          Cerrar
+          {t('Cerrar')}
         </PageNavButton>
       }
     >

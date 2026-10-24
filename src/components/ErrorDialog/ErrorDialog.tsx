@@ -33,7 +33,7 @@ function ErrorDialog({ dismissError, error }: PropsWithChildren<ErrorDialogProps
       </DialogContent>
       <DialogActions>
         <Button onClick={() => dismissError()} color="primary" autoFocus>
-          OK
+          {t('Aceptar')}
         </Button>
       </DialogActions>
     </Dialog>

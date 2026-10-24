@@ -91,7 +91,10 @@ export default function MenuBar() {
           <Hidden smDown>
             <Grid style={{ flex: 1 }}>
               <Typography variant="body1">
-                {room!.name} | {participants.length + 1} participant{participants.length ? 's' : ''}
+                {room!.name} |{' '}
+                {participants.length
+                  ? t('{{count}} participantes', { count: participants.length + 1 })
+                  : t('{{count}} participante', { count: 1 })}
               </Typography>
             </Grid>
           </Hidden>

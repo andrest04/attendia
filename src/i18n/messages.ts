@@ -796,4 +796,9 @@ export const EN: { [spanish: string]: string } = {
   Descartar: 'Dismiss',
   Foto: 'Photo',
   Correo: 'Email',
+  'Reconectando…': 'Reconnecting...',
+  Aceptar: 'OK',
+  '{{count}} participantes': '{{count}} participants',
+  '{{count}} participante': '{{count}} participant',
+  'Mostrando {{visible}} / {{total}} estudiantes': 'Showing {{visible}} / {{total}} students',
 };

@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import Typography from '@material-ui/core/Typography';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   overlay: {
@@ -33,7 +34,7 @@ export default function ReconnectingOverlay({ compact }: { compact?: boolean }) 
   return (
     <div className={classes.overlay}>
       <Typography variant="body1" className={clsx(classes.text, { [classes.compactText]: compact })}>
-        Reconnecting...
+        {t('Reconectando…')}
       </Typography>
     </div>
   );

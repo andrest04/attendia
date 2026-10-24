@@ -1,5 +1,6 @@
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { DashboardData, UpcomingSession } from './types';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 // A class that started up to this long ago is still joinable/visible on the
@@ -34,7 +35,7 @@ function formatTimeLabel(date: Date): string {
 function formatDayLabel(sessionDate: Date, now: Date): string {
   if (isSameCalendarDay(sessionDate, now)) return t('Hoy');
   if (isNextCalendarDay(sessionDate, now)) return t('Mañana');
-  return sessionDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return sessionDate.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
 }
 
 function formatRelativeLabel(scheduledAtMs: number, nowMs: number, sessionDate: Date, now: Date): string {
@@ -165,7 +166,12 @@ export function buildRealClassesView(classes: ClassRecord[], nowMs: number): Cla
     expiredSessions: buildExpiredSessions(classes, nowMs),
     expiredClasses: findExpiredClasses(classes, nowMs),
     dateLabel: capitalizeFirst(
-      new Date(nowMs).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      new Date(nowMs).toLocaleDateString(dateLocale(), {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
     ),
   };
 }

@@ -13,6 +13,7 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
 import { RESOURCE_FILE_ACCEPT } from './resourceUploadValidation';
 import useTeacherResources from './useTeacherResources';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -298,7 +299,7 @@ function formatSizeLabel(bytes: number): string {
 
 function formatDateLabel(ms: number | null): string {
   if (ms === null) return '';
-  return new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return new Date(ms).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
 }
 
 /** "Recursos" tab: real per-class file lists, backed by useAppState (Firestore + Storage). */

@@ -16,9 +16,9 @@ export interface ConnectionQualityInfo {
 }
 
 const QUALITY_LABELS: Record<ConnectionQuality, string> = {
-  good: t('Conexión buena'),
-  medium: t('Conexión media'),
-  poor: t('Conexión débil'),
+  good: 'Conexión buena',
+  medium: 'Conexión media',
+  poor: 'Conexión débil',
   unknown: 'Verificando…',
 };
 

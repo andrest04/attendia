@@ -1,4 +1,4 @@
-import { acceptLanguageHeader, getLocale, LOCALE_STORAGE_KEY, setLocale } from './locale';
+import { acceptLanguageHeader, dateLocale, getLocale, LOCALE_STORAGE_KEY, setLocale } from './locale';
 import { t } from './translate';
 
 afterEach(() => {
@@ -41,5 +41,15 @@ describe('t', () => {
   it('does not translate the teacher identity suffix', () => {
     setLocale('en');
     expect(t('Ana [Profesor]')).toBe('Ana [Profesor]');
+  });
+});
+
+describe('dateLocale', () => {
+  it('is es-AR by default and en-US in English, read at call time', () => {
+    expect(dateLocale()).toBe('es-AR');
+    setLocale('en');
+    expect(dateLocale()).toBe('en-US');
+    setLocale('es');
+    expect(dateLocale()).toBe('es-AR');
   });
 });

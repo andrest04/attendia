@@ -8,7 +8,7 @@ import { RecordingArtifact, RecordingArtifactStatus, StoredAttentionReport } fro
 import { attentionLevelColor, attentionLevelFromPercent } from './dashboardHelpers';
 import { routePath } from '../../routes';
 import { storedReportDate } from '../AttentionReport/storedReportViewData';
-import { getLocale } from '../../i18n/locale';
+import { dateLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 // How often a pending (enqueued/processing) recording's status is re-checked. Twilio
@@ -133,7 +133,7 @@ function formatDate(report: StoredAttentionReport): string {
   const date = storedReportDate(report);
   return isNaN(date.getTime())
     ? t('Fecha no disponible')
-    : date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+    : date.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function formatDuration(report: StoredAttentionReport): string {
@@ -288,7 +288,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
 
   const expiryHint = recording?.mediaExpiresAt
     ? t('Disponible hasta {{date}} (7 días)', {
-        date: new Date(recording.mediaExpiresAt).toLocaleDateString(getLocale() === 'en' ? 'en-US' : 'es-AR', {
+        date: new Date(recording.mediaExpiresAt).toLocaleDateString(dateLocale(), {
           day: 'numeric',
           month: 'short',
         }),

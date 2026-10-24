@@ -131,7 +131,7 @@ describe('the MenuBar component', () => {
         .find('WithStyles(ForwardRef(Typography))')
         .at(0)
         .text()
-    ).toBe('Test Room | 3 participants');
+    ).toBe('Test Room | 3 participantes');
   });
 
   it('should correctly display the number of participants in a room when there is exactly 1 participant', () => {
@@ -142,7 +142,7 @@ describe('the MenuBar component', () => {
         .find('WithStyles(ForwardRef(Typography))')
         .at(0)
         .text()
-    ).toBe('Test Room | 1 participant');
+    ).toBe('Test Room | 1 participante');
   });
 
   it('should render the RaiseHandButton', () => {

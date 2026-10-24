@@ -251,6 +251,15 @@ describe('buildExpiredSessions', () => {
       expect(byId['soon']).toBe('In 5 min');
       expect(byId['later']).toBe('In 2h');
     });
+
+    it('formats a far-away day label with the English locale', () => {
+      const scheduledAtMs = NOW_MS + 10 * 24 * 60 * 60 * 1000;
+      const [session] = buildUpcomingSessions([makeClass({ id: 'far', scheduledAtMs })], NOW_MS);
+
+      expect(session.dayLabel).toBe(
+        new Date(scheduledAtMs).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })
+      );
+    });
   });
 });
 
@@ -271,6 +280,25 @@ describe('buildRealClassesView', () => {
 
     expect(dateLabel).toMatch(/^[A-ZÁÉÍÓÚ]/);
     expect(dateLabel).toContain('2026');
+  });
+
+  it('formats the date label with the English locale when English is selected', () => {
+    const spanish = buildRealClassesView([], NOW_MS).dateLabel;
+    setLocale('en');
+    try {
+      const english = buildRealClassesView([], NOW_MS).dateLabel;
+      expect(english).toBe(
+        new Date(NOW_MS).toLocaleDateString('en-US', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      );
+      expect(english).not.toBe(spanish);
+    } finally {
+      setLocale('es');
+    }
   });
 
   it('is empty for no classes', () => {
