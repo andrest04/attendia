@@ -138,6 +138,45 @@ describe('the App component', () => {
       expect(wrapper.find(PreJoinScreens).exists()).toBe(true);
     });
 
+    it('shows the quick-start panel on its own /dashboard/iniciar-clase route', () => {
+      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      mockUseLocation.mockImplementationOnce(() => ({ pathname: '/dashboard/iniciar-clase' }));
+      const wrapper = shallow(<App />);
+
+      expect(wrapper.find(TeacherDashboard).prop('showQuickStart')).toBe(true);
+      expect(wrapper.find(TeacherDashboard).prop('showProfile')).toBe(false);
+    });
+
+    it('does not show the quick-start panel on a regular tab route', () => {
+      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      mockUseLocation.mockImplementationOnce(() => ({ pathname: '/dashboard/clases' }));
+      const wrapper = shallow(<App />);
+
+      expect(wrapper.find(TeacherDashboard).prop('showQuickStart')).toBe(false);
+    });
+
+    it('pushes the quick-start route when the dashboard asks to open it', () => {
+      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      const wrapper = shallow(<App />);
+
+      wrapper.find(TeacherDashboard).prop('onOpenQuickStart')!();
+      expect(mockHistoryPush).toHaveBeenCalledWith('/dashboard/iniciar-clase');
+    });
+
+    it('leaves the quick-start route for the lobby when a class is started from it', () => {
+      mockUseInitialRole.mockImplementationOnce(() => 'teacher');
+      mockUseRoomState.mockImplementation(() => 'disconnected');
+      mockUseLocation.mockImplementationOnce(() => ({ pathname: '/dashboard/iniciar-clase' }));
+      const wrapper = shallow(<App />);
+
+      wrapper.find(TeacherDashboard).prop('onStartClass')({ roomName: 'mat-a', name: 'Prof. García [Profesor]' });
+
+      expect(mockHistoryPush).toHaveBeenCalledWith('/');
+    });
+
     it('pushes the matching /dashboard/* route when onTabChange fires', () => {
       mockUseInitialRole.mockImplementationOnce(() => 'teacher');
       mockUseRoomState.mockImplementation(() => 'disconnected');

@@ -69,6 +69,10 @@ interface Props {
   onStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
   /** The protected /profile route reuses this dashboard shell instead of a standalone page. */
   showProfile?: boolean;
+  /** The /dashboard/iniciar-clase route is active: show the quick-start panel instead of the tab. */
+  showQuickStart?: boolean;
+  /** Opens the quick-start route. App.tsx owns the URL, like it does for the tabs. */
+  onOpenQuickStart?: () => void;
   /** Route-derived active tab (see dashboardTabPath) — App.tsx owns the URL, not this component. */
   activeTab?: DashboardTabId;
   onTabChange?: (tab: DashboardTabId) => void;
@@ -111,6 +115,8 @@ function notificationDestinationPath(notification: TeacherNotification): string 
 export default function TeacherDashboard({
   onStartClass,
   showProfile = false,
+  showQuickStart = false,
+  onOpenQuickStart,
   activeTab = 'clases',
   onTabChange,
   onNotificationNavigate,
@@ -145,17 +151,13 @@ export default function TeacherDashboard({
     enabled: Boolean(userUid && areNotificationsAvailable),
     userKey: userUid || null,
   });
-  // The sidebar's "Iniciar clase" only opens this in-dashboard panel (sidebar/navbar stay put);
-  // it navigates away to the standalone device-selection prejoin only once a room name is
-  // confirmed (see handleQuickStartCreate below).
-  // The quick-start panel is local state that outranks the route in `content`, so it remembers the
-  // route it was opened on and closes itself when the route changes (e.g. header -> "Perfil").
-  // Adjusting state during render is React's sanctioned way to derive this without an effect.
-  const routeKey = showProfile ? 'profile' : activeTab;
-  const [quickStartRoute, setQuickStartRoute] = useState<string | null>(null);
-  if (quickStartRoute !== null && quickStartRoute !== routeKey) setQuickStartRoute(null);
-  const isQuickStartOpen = quickStartRoute !== null;
-  const setIsQuickStartOpen = (open: boolean) => setQuickStartRoute(open ? routeKey : null);
+  // The sidebar's "Iniciar clase" opens the quick-start route (App.tsx owns the URL); the panel
+  // renders inside the dashboard so the sidebar/navbar stay put. It navigates on to the standalone
+  // device-selection prejoin only once a room name is confirmed (see handleQuickStartCreate below).
+  const isQuickStartOpen = showQuickStart;
+  // Submitting leaves the quick-start route right away, so the panel is not left on screen (and
+  // double-submittable) while the class is persisted in the background.
+  const leaveQuickStart = () => onTabChange?.(activeTab);
   const data = mockDashboardData;
   const professorName = profile?.displayName || user?.displayName || data.professorName;
   const professorInitials = getProfessorInitials(professorName);
@@ -228,7 +230,7 @@ export default function TeacherDashboard({
   };
 
   const handleQuickStartCreate = (session: { roomName: string; name: string; title: string }) => {
-    setIsQuickStartOpen(false);
+    leaveQuickStart();
 
     if (!hasRealClasses) {
       onStartClass(session);
@@ -260,7 +262,7 @@ export default function TeacherDashboard({
   // Joining a room that is already open never records a second class: the teacher's own
   // started class is resumed, anything else is a plain entry (co-teacher or untracked room).
   const handleQuickStartJoinOpen = (session: { roomName: string; name: string }) => {
-    setIsQuickStartOpen(false);
+    leaveQuickStart();
     const ownStarted = realClasses.find(c => c.roomName === session.roomName && c.status === 'started');
     onStartClass(
       ownStarted
@@ -377,14 +379,9 @@ export default function TeacherDashboard({
       />
       <div className={classes.body}>
         <DashboardSidebar
-          activeTab={showProfile ? undefined : activeTab}
-          // Clicking any sidebar tab while the quick-start panel is open also leaves it —
-          // it has no back link of its own, since the sidebar navigation already covers that.
-          onTabChange={tab => {
-            setIsQuickStartOpen(false);
-            onTabChange?.(tab);
-          }}
-          onStartBlankClass={() => setIsQuickStartOpen(true)}
+          activeTab={showProfile || isQuickStartOpen ? undefined : activeTab}
+          onTabChange={tab => onTabChange?.(tab)}
+          onStartBlankClass={() => onOpenQuickStart?.()}
           onSignOut={handleSignOut}
         />
         <div className={classes.content}>

@@ -304,49 +304,37 @@ describe('TeacherDashboard', () => {
     expect(wrapper.find(DashboardHeader).prop('onLogoClick')).toBeUndefined();
   });
 
-  it('opens the embedded quick-start panel (sidebar stays put) on "Iniciar clase", instead of navigating away', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} />);
-
-    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    wrapper.update();
+  it('shows the quick-start panel (sidebar stays put) on its own route, instead of the tab content', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} showQuickStart />);
 
     expect(wrapper.find(DashboardSidebar).exists()).toBe(true);
     expect(wrapper.find(QuickStartClassPanel).exists()).toBe(true);
     expect(wrapper.find(ClassesTab).exists()).toBe(false);
+    expect(wrapper.find(DashboardSidebar).prop('activeTab')).toBeUndefined();
   });
 
-  it('leaves the quick-start panel when the route changes to the profile, and does not bring it back', () => {
+  it('does not show the quick-start panel unless its route is active', () => {
     const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="clases" />);
-    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    wrapper.update();
-    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(true);
 
-    wrapper.setProps({ showProfile: true });
-    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
-    expect(wrapper.find(TeacherProfilePage).exists()).toBe(true);
-
-    wrapper.setProps({ showProfile: false });
     expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
     expect(wrapper.find(ClassesTab).exists()).toBe(true);
   });
 
-  it('leaves the quick-start panel when another tab route becomes active', () => {
-    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="clases" />);
+  it('asks the router to open the quick-start route from "Iniciar clase" instead of keeping local state', () => {
+    const onOpenQuickStart = jest.fn();
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} onOpenQuickStart={onOpenQuickStart} />);
+
     wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
     wrapper.update();
 
-    wrapper.setProps({ activeTab: 'historial' });
-
+    expect(onOpenQuickStart).toHaveBeenCalledTimes(1);
     expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
-    expect(wrapper.find(HistoryTab).exists()).toBe(true);
   });
 
   it('only calls onStartClass (real navigation) once the quick-start panel is submitted with a room name', () => {
     const onStartClass = jest.fn();
-    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} showQuickStart />);
 
-    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    wrapper.update();
     expect(onStartClass).not.toHaveBeenCalled();
 
     wrapper.find(QuickStartClassPanel).prop('onCreate')({
@@ -361,23 +349,17 @@ describe('TeacherDashboard', () => {
       name: 'Andrés Torres [Profesor]',
       title: 'Matemáticas grupo A',
     });
-    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
   });
 
-  it('closes the quick-start panel without navigating when another sidebar tab is picked', () => {
+  it('leaves through the router, without starting a class, when another sidebar tab is picked in quick start', () => {
     const onStartClass = jest.fn();
     const onTabChange = jest.fn();
-    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} onTabChange={onTabChange} />);
-
-    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    wrapper.update();
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} onTabChange={onTabChange} showQuickStart />);
 
     wrapper.find(DashboardSidebar).prop('onTabChange')('historial');
-    wrapper.update();
 
     expect(onStartClass).not.toHaveBeenCalled();
     expect(onTabChange).toHaveBeenCalledWith('historial');
-    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
   });
 
   it('refreshes the confirmed inbox immediately after a pending report recovers', async () => {
@@ -759,10 +741,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     };
     mockCreateClass.mockResolvedValue(created);
     mockStartClass.mockResolvedValue(undefined);
-    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
-
-    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    wrapper.update();
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} showQuickStart />);
     wrapper.find(QuickStartClassPanel).prop('onCreate')({
       roomName: 'fisica-101',
       name: 'Andrés Torres [Profesor]',
@@ -784,10 +763,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
 
   it('joining an open room from quick start only enters it: no class record is created or started', async () => {
     const onStartClass = jest.fn();
-    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
-
-    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    wrapper.update();
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} showQuickStart />);
     wrapper.find(QuickStartClassPanel).prop('onJoinOpen')({
       roomName: 'fisica-101',
       name: 'Andrés Torres [Profesor]',
@@ -799,8 +775,6 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     expect(mockCreateClass).not.toHaveBeenCalled();
     expect(mockStartClass).not.toHaveBeenCalled();
     expect(onStartClass).toHaveBeenCalledWith({ roomName: 'fisica-101', name: 'Andrés Torres [Profesor]' });
-    wrapper.update();
-    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
   });
 
   it('joining an open room that is the own started class of the teacher resumes that class record', async () => {
@@ -822,8 +796,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     await Promise.resolve();
     wrapper.update();
 
-    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    wrapper.update();
+    wrapper.setProps({ showQuickStart: true });
     wrapper.find(QuickStartClassPanel).prop('onJoinOpen')({
       roomName: 'fisica-101',
       name: 'Andrés Torres [Profesor]',
@@ -842,10 +815,7 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
     const onStartClass = jest.fn();
     mockCreateClass.mockRejectedValue(new Error('firestore unavailable'));
     jest.spyOn(console, 'error').mockImplementation(() => {});
-    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
-
-    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
-    wrapper.update();
+    const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} showQuickStart />);
     wrapper.find(QuickStartClassPanel).prop('onCreate')({
       roomName: 'fisica-101',
       name: 'Andrés Torres [Profesor]',
