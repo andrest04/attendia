@@ -5,8 +5,8 @@
 #
 # Builds REMOTELY by default with ACR Tasks (`az acr build`) and then creates/updates
 # the Container App. Pushing a ~1 GB image layer from a home network to ACR kept timing
-# out, and a remote build needs no local Docker: only the (.dockerignore-filtered)
-# source context is uploaded, and the image is built and stored inside Azure. The build
+# out, and a remote build needs no local Docker: only the committed tree
+# (a `git archive` of HEAD, exported to a temp dir) is uploaded, and the image is built and stored inside Azure. The build
 # log is streamed (ACR_BUILD_LOGS=0 passes --no-logs; the command still waits).
 # The REACT_APP_* build args are public client config, but they do appear in the ACR
 # run record.
@@ -92,6 +92,18 @@ set -- \
 
 if [ "$DEPLOY_BUILD" = "remote" ]; then
   echo "==> az acr build ($IMAGE, remote build in ACR Tasks)..."
+  # Build from a clean export of the commit, not the working directory: the image is
+  # exactly the committed tree (same as the dirty-tree rule and the About dialog's
+  # commit), and local sockets/untracked files cannot break the upload (the Azure CLI
+  # tars the whole directory before .dockerignore applies; .dockerignore is tracked, so
+  # it still applies inside the export). Cleaned up explicitly after the build because
+  # the EXIT trap set later would replace any trap set here.
+  BUILD_CONTEXT="$(mktemp -d)"
+  if ! git archive HEAD | tar -x -C "$BUILD_CONTEXT"; then
+    rm -rf "$BUILD_CONTEXT"
+    echo "could not export the commit — nothing was deployed." >&2
+    exit 1
+  fi
   if [ "${ACR_BUILD_LOGS:-1}" = "0" ]; then
     set -- --no-logs "$@"
   fi
@@ -99,7 +111,8 @@ if [ "$DEPLOY_BUILD" = "remote" ]; then
     --registry "$AZURE_ACR_NAME" \
     --image "${AZURE_CONTAINERAPP_NAME}:${TAG}" \
     "$@" \
-    . || { echo "remote build failed — nothing was deployed." >&2; exit 1; }
+    "$BUILD_CONTEXT" || { rm -rf "$BUILD_CONTEXT"; echo "remote build failed — nothing was deployed." >&2; exit 1; }
+  rm -rf "$BUILD_CONTEXT"
 else
   echo "==> az acr login..."
   az acr login --name "$AZURE_ACR_NAME"
