@@ -81,6 +81,7 @@ export const EN: { [spanish: string]: string } = {
   'El chat no está disponible en esta sesión.': 'Chat is not available in this session.',
   'sin medición': 'not measured',
   'Múltiples rostros': 'Multiple faces',
+  'Sin presencia': 'Absent',
   'El profesor detectó varias personas en tu cámara': 'The teacher detected several people on your camera',
   'El profesor no te detecta frente a la cámara': 'The teacher cannot see you in front of the camera',
   Distraído: 'Distracted',
