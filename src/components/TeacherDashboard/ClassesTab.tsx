@@ -681,7 +681,7 @@ export default function ClassesTab({
               </span>
               <div>
                 <div className={classes.statValue}>{stat.value}</div>
-                <div className={classes.statLabel}>{stat.label}</div>
+                <div className={classes.statLabel}>{t(stat.label)}</div>
               </div>
             </div>
           );

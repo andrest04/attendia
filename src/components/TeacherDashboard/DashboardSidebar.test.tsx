@@ -52,6 +52,23 @@ describe('DashboardSidebar', () => {
     expect(wrapper.find('[data-testid="dashboard-sidebar-start-class"]').text()).toContain('Start class');
   });
 
+  it('translates every tab label to English, Calendario included', () => {
+    setLocale('en');
+    const wrapper = shallow(
+      <DashboardSidebar
+        activeTab="clases"
+        onTabChange={jest.fn()}
+        onStartBlankClass={jest.fn()}
+        onSignOut={jest.fn()}
+      />
+    );
+
+    const labels = ['clases', 'historial', 'recursos', 'calendario'].map(tab =>
+      wrapper.find(`[data-testid="dashboard-sidebar-tab-${tab}"]`).text()
+    );
+    expect(labels).toEqual(['Classes', 'History', 'Resources', 'Calendar']);
+  });
+
   it('calls onSignOut when "Cerrar sesión" is clicked and it is available', () => {
     const onSignOut = jest.fn();
     const wrapper = shallow(
