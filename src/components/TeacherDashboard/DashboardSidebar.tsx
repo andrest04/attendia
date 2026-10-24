@@ -154,7 +154,7 @@ export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankC
 
   return (
     <nav className={classes.root} data-testid="dashboard-sidebar">
-      <span className={classes.sectionLabel}>PANEL DOCENTE</span>
+      <span className={classes.sectionLabel}>{t('PANEL DOCENTE')}</span>
       <div className={classes.nav}>
         {TABS.map(tab => {
           const Icon = dashboardTabIcon[tab];

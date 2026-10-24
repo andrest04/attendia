@@ -59,68 +59,70 @@ const accentNavy: CardAccent = {
   iconColor: '#1d2f6f',
 };
 
-const sections: SecuritySection[] = [
-  {
-    id: 'srtp',
-    icon: <LockIcon style={{ fontSize: 20 }} />,
-    accent: accentBlue,
-    categoryPill: 'SRTP · TLS',
-    title: t('Cifrado de transmisión'),
-    description: t(
-      'Todos los flujos de audio, video y datos se cifran mediante SRTP (Secure Real-time Transport Protocol) y TLS (Transport Layer Security), garantizando la confidencialidad e integridad de los medios en tránsito a través de la infraestructura Twilio Video.'
-    ),
-    bullets: [
-      t('SRTP para todos los flujos de audio y video'),
-      t('TLS para señalización y datos de control'),
-      t('Claves de sesión negociadas por DTLS-SRTP'),
-    ],
-  },
-  {
-    id: 'jwt',
-    icon: <VpnKeyIcon style={{ fontSize: 20 }} />,
-    accent: accentGreen,
-    categoryPill: 'JWT · SESSION',
-    title: t('Tokens de acceso de sesión'),
-    description: t(
-      'El acceso a cada sala de clase se gestiona mediante tokens JWT únicos generados por el servidor. Cada token es específico para cada sesión y participante, expirando automáticamente al cerrar la sesión o transcurrido el período de tiempo configurado.'
-    ),
-    bullets: [
-      t('Tokens firmados con algoritmos RS256'),
-      t('Expiración automática configurable (default: 4h)'),
-      t('Invalidación inmediata al cerrar sesión'),
-    ],
-  },
-  {
-    id: 'facial',
-    icon: <VisibilityIcon style={{ fontSize: 20 }} />,
-    accent: accentAmber,
-    categoryPill: 'LOCAL ONLY',
-    title: 'Datos faciales — Procesamiento local',
-    description: t(
-      'El análisis de atención basado en visión por computadora (detección de rostro, detección de parpadeo, dirección de mirada) se realiza exclusivamente en el dispositivo del usuario mediante MediaPipe FaceLandmarker. Ningún dato facial se transmite a servidores externos.'
-    ),
-    bullets: [
-      t('MediaPipe FaceLandmarker ejecutado en el navegador del usuario'),
-      t('El procesamiento de IA nunca abandona el dispositivo'),
-      t('Solo se transmiten índices numéricos agregados de atención'),
-    ],
-  },
-  {
-    id: 'availability',
-    icon: <LanguageIcon style={{ fontSize: 20 }} />,
-    accent: accentNavy,
-    categoryPill: 'GLOBAL SFU',
-    title: t('Disponibilidad del servicio'),
-    description: t(
-      'La plataforma garantiza disponibilidad del 99.95% para usuarios activos, apoyada en la infraestructura global de Twilio Video. En caso de degradación, el sistema ajusta adaptativamente la calidad del video para mantener la continuidad del servicio.'
-    ),
-    bullets: [
-      t('SFU distribuido en múltiples regiones globales'),
-      t('Reconexión automática con backoff exponencial'),
-      t('Reducción adaptativa de bitrate ante pérdida de paquetes'),
-    ],
-  },
-];
+function securitySections(): SecuritySection[] {
+  return [
+    {
+      id: 'srtp',
+      icon: <LockIcon style={{ fontSize: 20 }} />,
+      accent: accentBlue,
+      categoryPill: 'SRTP · TLS',
+      title: t('Cifrado de transmisión'),
+      description: t(
+        'Todos los flujos de audio, video y datos se cifran mediante SRTP (Secure Real-time Transport Protocol) y TLS (Transport Layer Security), garantizando la confidencialidad e integridad de los medios en tránsito a través de la infraestructura Twilio Video.'
+      ),
+      bullets: [
+        t('SRTP para todos los flujos de audio y video'),
+        t('TLS para señalización y datos de control'),
+        t('Claves de sesión negociadas por DTLS-SRTP'),
+      ],
+    },
+    {
+      id: 'jwt',
+      icon: <VpnKeyIcon style={{ fontSize: 20 }} />,
+      accent: accentGreen,
+      categoryPill: 'JWT · SESSION',
+      title: t('Tokens de acceso de sesión'),
+      description: t(
+        'El acceso a cada sala de clase se gestiona mediante tokens JWT únicos generados por el servidor. Cada token es específico para cada sesión y participante, expirando automáticamente al cerrar la sesión o transcurrido el período de tiempo configurado.'
+      ),
+      bullets: [
+        t('Tokens firmados con algoritmos RS256'),
+        t('Expiración automática configurable (default: 4h)'),
+        t('Invalidación inmediata al cerrar sesión'),
+      ],
+    },
+    {
+      id: 'facial',
+      icon: <VisibilityIcon style={{ fontSize: 20 }} />,
+      accent: accentAmber,
+      categoryPill: 'LOCAL ONLY',
+      title: 'Datos faciales — Procesamiento local',
+      description: t(
+        'El análisis de atención basado en visión por computadora (detección de rostro, detección de parpadeo, dirección de mirada) se realiza exclusivamente en el dispositivo del usuario mediante MediaPipe FaceLandmarker. Ningún dato facial se transmite a servidores externos.'
+      ),
+      bullets: [
+        t('MediaPipe FaceLandmarker ejecutado en el navegador del usuario'),
+        t('El procesamiento de IA nunca abandona el dispositivo'),
+        t('Solo se transmiten índices numéricos agregados de atención'),
+      ],
+    },
+    {
+      id: 'availability',
+      icon: <LanguageIcon style={{ fontSize: 20 }} />,
+      accent: accentNavy,
+      categoryPill: 'GLOBAL SFU',
+      title: t('Disponibilidad del servicio'),
+      description: t(
+        'La plataforma garantiza disponibilidad del 99.95% para usuarios activos, apoyada en la infraestructura global de Twilio Video. En caso de degradación, el sistema ajusta adaptativamente la calidad del video para mantener la continuidad del servicio.'
+      ),
+      bullets: [
+        t('SFU distribuido en múltiples regiones globales'),
+        t('Reconexión automática con backoff exponencial'),
+        t('Reducción adaptativa de bitrate ante pérdida de paquetes'),
+      ],
+    },
+  ];
+}
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -465,6 +467,7 @@ function SecurityCard({ section }: { section: SecuritySection }) {
 }
 
 export default function SecurityPage() {
+  const sections = securitySections();
   const classes = useStyles();
 
   const handleGoBack = () => {
@@ -488,14 +491,14 @@ export default function SecurityPage() {
 
         <button className={classes.backButton} onClick={handleGoBack}>
           <ChevronLeftIcon style={{ fontSize: 16 }} />
-          Volver
+          {t('Volver')}
         </button>
 
         <div className={classes.navSpacer} />
 
         <div className={classes.securityChip}>
           <SecurityIcon className={classes.securityChipIcon} />
-          <span className={classes.securityChipText}>Centro de seguridad</span>
+          <span className={classes.securityChipText}>{t('Centro de seguridad')}</span>
         </div>
       </nav>
 

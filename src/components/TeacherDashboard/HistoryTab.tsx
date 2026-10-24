@@ -8,6 +8,7 @@ import { RecordingArtifact, RecordingArtifactStatus, StoredAttentionReport } fro
 import { attentionLevelColor, attentionLevelFromPercent } from './dashboardHelpers';
 import { routePath } from '../../routes';
 import { storedReportDate } from '../AttentionReport/storedReportViewData';
+import { getLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 // How often a pending (enqueued/processing) recording's status is re-checked. Twilio
@@ -179,7 +180,7 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
       disabled={isBusy || !canRequest}
       data-testid={`dashboard-history-recording-request-${roomSid}`}
     >
-      {isBusy && <CircularProgress size={12} />} Solicitar grabación
+      {isBusy && <CircularProgress size={12} />} {t('Solicitar grabación')}
     </button>
   ),
   enqueued: renderPending,
@@ -192,7 +193,7 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
         onClick={onView}
         data-testid={`dashboard-history-recording-view-${roomSid}`}
       >
-        <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> Ver grabación
+        <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> {t('Ver grabación')}
       </button>
       {expiryHint && <span className={classes.recordingHint}>{expiryHint}</span>}
     </>
@@ -282,14 +283,16 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
   }, [roomSid]);
 
   if (!report.recordingWasActiveAtEnd) {
-    return <span className={classes.noRecording}>No disponible</span>;
+    return <span className={classes.noRecording}>{t('No disponible')}</span>;
   }
 
   const expiryHint = recording?.mediaExpiresAt
-    ? `Disponible hasta ${new Date(recording.mediaExpiresAt).toLocaleDateString('es-AR', {
-        day: 'numeric',
-        month: 'short',
-      })} (7 días)`
+    ? t('Disponible hasta {{date}} (7 días)', {
+        date: new Date(recording.mediaExpiresAt).toLocaleDateString(getLocale() === 'en' ? 'en-US' : 'es-AR', {
+          day: 'numeric',
+          month: 'short',
+        }),
+      })
     : null;
 
   return (
@@ -329,7 +332,7 @@ export default function HistoryTab({
     <div className={classes.root} data-testid="dashboard-history-tab">
       <div className={classes.header}>
         <div>
-          <div className={classes.title}>Historial de clases</div>
+          <div className={classes.title}>{t('Historial de clases')}</div>
           <div className={classes.subtitle}>{t('Reportes guardados al finalizar cada sesión')}</div>
         </div>
         <label className={classes.searchBox} data-testid="dashboard-history-search">
@@ -347,7 +350,7 @@ export default function HistoryTab({
       <div className={classes.tableWrap}>
         {isLoading ? (
           <div className={classes.state} data-testid="dashboard-history-loading">
-            <CircularProgress size={24} /> <div>Cargando el historial...</div>
+            <CircularProgress size={24} /> <div>{t('Cargando el historial...')}</div>
           </div>
         ) : error ? (
           <div className={classes.state} data-testid="dashboard-history-error">
@@ -387,7 +390,7 @@ export default function HistoryTab({
                   <tr key={report.roomSid} data-testid={`dashboard-history-row-${report.roomSid}`}>
                     <td className={classes.td}>
                       {report.roomName}
-                      {report.source === 'mock' && <span className={classes.mockTag}>Datos simulados</span>}
+                      {report.source === 'mock' && <span className={classes.mockTag}>{t('Datos simulados')}</span>}
                     </td>
                     <td className={classes.td}>{formatDate(report)}</td>
                     <td className={classes.td}>{formatDuration(report)}</td>

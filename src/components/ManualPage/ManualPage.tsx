@@ -42,98 +42,100 @@ const accentRed: CardAccent = { topBar: '#dc2626', iconBg: '#fee2e2', bulletBg: 
 // Manual content — describes ONLY features that actually exist in the room. Keep
 // this in sync with the in-room behaviour; the onboarding tutorial is the short
 // version of this same material.
-const sections: ManualSection[] = [
-  {
-    id: 'controls',
-    icon: <VideocamIcon style={{ fontSize: 20 }} />,
-    accent: accentBlue,
-    categoryPill: t('BARRA DE HERRAMIENTAS'),
-    title: t('Controles de cámara y micrófono'),
-    description: t(
-      'Gestiona tu cámara, micrófono y pantalla desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.'
-    ),
-    bullets: [
-      t('Silenciar o activar tu micrófono'),
-      t('Iniciar o detener tu cámara'),
-      t('Compartir tu pantalla con la sala'),
-    ],
-  },
-  {
-    id: 'panel',
-    icon: <ChatIcon style={{ fontSize: 20 }} />,
-    accent: accentGreen,
-    categoryPill: 'PANEL DERECHO',
-    title: t('Atención, detalle individual y chat'),
-    description: t(
-      'El panel derecho reúne la información de la sesión. El profesor ve la atención del grupo, el detalle por estudiante y el chat; el estudiante ve el chat de la sesión.'
-    ),
-    bullets: [
-      t('Atención del grupo en tiempo real'),
-      t('Detalle individual por estudiante (vista del profesor)'),
-      t('Chat con el profesor y la lista de participantes'),
-    ],
-  },
-  {
-    id: 'attention',
-    icon: <TrackChangesIcon style={{ fontSize: 20 }} />,
-    accent: accentAmber,
-    categoryPill: t('ANÁLISIS LOCAL'),
-    title: t('Detección de atención'),
-    description: t(
-      'El análisis de atención se ejecuta de forma local en tu navegador a partir de la mirada y la orientación de la cabeza. Ninguna imagen sale de tu dispositivo: solo se comparte un índice numérico. Está deshabilitado de forma predeterminada y requiere tu consentimiento.'
-    ),
-    bullets: [
-      t('El procesamiento corre en tu dispositivo, nunca sale de él'),
-      t('Solo se transmite un índice de atención, nunca imágenes'),
-      t('Deshabilitado por defecto; requiere consentimiento del participante'),
-    ],
-  },
-  {
-    id: 'raise-hand',
-    icon: <PanToolIcon style={{ fontSize: 20 }} />,
-    accent: accentNavy,
-    categoryPill: t('PARTICIPACIÓN'),
-    title: t('Levantar la mano y turnos'),
-    description: t(
-      'Pide la palabra con el botón "Levantar mano". El profesor ve la cola de manos levantadas y puede otorgar el turno; cuando es tu turno recibes un aviso.'
-    ),
-    bullets: [
-      t('Botón "Levantar mano" en la barra de herramientas'),
-      t('El profesor ve la cola y otorga el turno'),
-      t('Aviso "es tu turno" cuando el profesor te habilita'),
-    ],
-  },
-  {
-    id: 'recording',
-    icon: <FiberManualRecordIcon style={{ fontSize: 20 }} />,
-    accent: accentRed,
-    categoryPill: t('SOLO PROFESOR'),
-    title: t('Grabación de la sesión'),
-    description: t(
-      'El profesor puede grabar la sesión desde el control "Grabar". Mientras la grabación está activa, un indicador REC es visible para todos los participantes.'
-    ),
-    bullets: [
-      t('Disponible solo para el profesor'),
-      'Indicador REC visible mientras graba',
-      t('No disponible en salas peer-to-peer / go'),
-    ],
-  },
-  {
-    id: 'rejoin',
-    icon: <RefreshIcon style={{ fontSize: 20 }} />,
-    accent: accentBlue,
-    categoryPill: t('RECONEXIÓN'),
-    title: t('Si recargas la página'),
-    description: t(
-      'Un refresco del navegador no te saca de la clase: la sesión se reconecta automáticamente con tu misma identidad. Solo el botón "Salir" termina la sesión de forma intencional.'
-    ),
-    bullets: [
-      t('Recargar la página reconecta a la misma sala'),
-      t('Se conserva tu identidad y tu rol'),
-      t('"Salir" cierra la sesión y no reconecta'),
-    ],
-  },
-];
+function manualSections(): ManualSection[] {
+  return [
+    {
+      id: 'controls',
+      icon: <VideocamIcon style={{ fontSize: 20 }} />,
+      accent: accentBlue,
+      categoryPill: t('BARRA DE HERRAMIENTAS'),
+      title: t('Controles de cámara y micrófono'),
+      description: t(
+        'Gestiona tu cámara, micrófono y pantalla desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.'
+      ),
+      bullets: [
+        t('Silenciar o activar tu micrófono'),
+        t('Iniciar o detener tu cámara'),
+        t('Compartir tu pantalla con la sala'),
+      ],
+    },
+    {
+      id: 'panel',
+      icon: <ChatIcon style={{ fontSize: 20 }} />,
+      accent: accentGreen,
+      categoryPill: 'PANEL DERECHO',
+      title: t('Atención, detalle individual y chat'),
+      description: t(
+        'El panel derecho reúne la información de la sesión. El profesor ve la atención del grupo, el detalle por estudiante y el chat; el estudiante ve el chat de la sesión.'
+      ),
+      bullets: [
+        t('Atención del grupo en tiempo real'),
+        t('Detalle individual por estudiante (vista del profesor)'),
+        t('Chat con el profesor y la lista de participantes'),
+      ],
+    },
+    {
+      id: 'attention',
+      icon: <TrackChangesIcon style={{ fontSize: 20 }} />,
+      accent: accentAmber,
+      categoryPill: t('ANÁLISIS LOCAL'),
+      title: t('Detección de atención'),
+      description: t(
+        'El análisis de atención se ejecuta de forma local en tu navegador a partir de la mirada y la orientación de la cabeza. Ninguna imagen sale de tu dispositivo: solo se comparte un índice numérico. Está deshabilitado de forma predeterminada y requiere tu consentimiento.'
+      ),
+      bullets: [
+        t('El procesamiento corre en tu dispositivo, nunca sale de él'),
+        t('Solo se transmite un índice de atención, nunca imágenes'),
+        t('Deshabilitado por defecto; requiere consentimiento del participante'),
+      ],
+    },
+    {
+      id: 'raise-hand',
+      icon: <PanToolIcon style={{ fontSize: 20 }} />,
+      accent: accentNavy,
+      categoryPill: t('PARTICIPACIÓN'),
+      title: t('Levantar la mano y turnos'),
+      description: t(
+        'Pide la palabra con el botón "Levantar mano". El profesor ve la cola de manos levantadas y puede otorgar el turno; cuando es tu turno recibes un aviso.'
+      ),
+      bullets: [
+        t('Botón "Levantar mano" en la barra de herramientas'),
+        t('El profesor ve la cola y otorga el turno'),
+        t('Aviso "es tu turno" cuando el profesor te habilita'),
+      ],
+    },
+    {
+      id: 'recording',
+      icon: <FiberManualRecordIcon style={{ fontSize: 20 }} />,
+      accent: accentRed,
+      categoryPill: t('SOLO PROFESOR'),
+      title: t('Grabación de la sesión'),
+      description: t(
+        'El profesor puede grabar la sesión desde el control "Grabar". Mientras la grabación está activa, un indicador REC es visible para todos los participantes.'
+      ),
+      bullets: [
+        t('Disponible solo para el profesor'),
+        t('Indicador REC visible mientras graba'),
+        t('No disponible en salas peer-to-peer / go'),
+      ],
+    },
+    {
+      id: 'rejoin',
+      icon: <RefreshIcon style={{ fontSize: 20 }} />,
+      accent: accentBlue,
+      categoryPill: t('RECONEXIÓN'),
+      title: t('Si recargas la página'),
+      description: t(
+        'Un refresco del navegador no te saca de la clase: la sesión se reconecta automáticamente con tu misma identidad. Solo el botón "Salir" termina la sesión de forma intencional.'
+      ),
+      bullets: [
+        t('Recargar la página reconecta a la misma sala'),
+        t('Se conserva tu identidad y tu rol'),
+        t('"Salir" cierra la sesión y no reconecta'),
+      ],
+    },
+  ];
+}
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -371,6 +373,7 @@ function ManualCard({ section }: { section: ManualSection }) {
  * live Twilio room is never torn down. Content documents only real room features.
  */
 export default function ManualPage() {
+  const sections = manualSections();
   const classes = useStyles();
 
   const handleGoBack = () => {
@@ -388,14 +391,14 @@ export default function ManualPage() {
 
         <button className={classes.backButton} onClick={handleGoBack} data-testid="manual-back">
           <ChevronLeftIcon style={{ fontSize: 16 }} />
-          Volver
+          {t('Volver')}
         </button>
 
         <div className={classes.navSpacer} />
 
         <div className={classes.manualChip}>
           <MenuBookIcon className={classes.manualChipIcon} />
-          <span className={classes.manualChipText}>Manual de uso</span>
+          <span className={classes.manualChipText}>{t('Manual de uso')}</span>
         </div>
       </nav>
 

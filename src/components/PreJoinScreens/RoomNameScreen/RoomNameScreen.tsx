@@ -11,6 +11,7 @@ import {
   isClassSessionDraftReady,
   normalizeStudentJoinInputToRoomName,
 } from '../../../classSession/classSessionTypes';
+import { displayIdentity } from '../../../i18n/displayIdentity';
 import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -494,8 +495,8 @@ export default function RoomNameScreen({
               </svg>
             </div>
             <div className={classes.cardTitleBlock}>
-              <p className={classes.cardTitle}>Profesor</p>
-              <p className={classes.cardSubtitle}>Crear nueva sala de clase</p>
+              <p className={classes.cardTitle}>{t('Profesor')}</p>
+              <p className={classes.cardSubtitle}>{t('Crear nueva sala de clase')}</p>
             </div>
           </div>
 
@@ -504,7 +505,7 @@ export default function RoomNameScreen({
           {/* Session name field */}
           <div className={classes.fieldBlock}>
             <InputLabel shrink htmlFor="input-session-name" className={classes.fieldLabel}>
-              Nombre de la sala
+              {t('Nombre de la sala')}
             </InputLabel>
             <TextField
               id="input-session-name"
@@ -552,16 +553,16 @@ export default function RoomNameScreen({
               <div className={classes.createdRow}>
                 <div className={classes.createdValueBlock}>
                   <Typography variant="caption" className={classes.createdLabel}>
-                    Identidad visible en sala
+                    {t('Identidad visible en sala')}
                   </Typography>
-                  <Typography variant="body2">{teacherDisplayName}</Typography>
+                  <Typography variant="body2">{displayIdentity(teacherDisplayName)}</Typography>
                 </div>
               </div>
 
               <div className={classes.createdRow}>
                 <div className={classes.createdValueBlock}>
                   <Typography variant="caption" className={classes.createdLabel}>
-                    Nombre de la sala
+                    {t('Nombre de la sala')}
                   </Typography>
                   <Typography variant="body2" noWrap title={classSessionAccess.joinCode}>
                     {classSessionAccess.joinCode}
@@ -573,7 +574,7 @@ export default function RoomNameScreen({
                   startIcon={<FileCopyOutlinedIcon fontSize="small" />}
                   onClick={() => handleCopy(classSessionAccess.joinCode)}
                 >
-                  {copied ? 'Copiado' : 'Copiar'}
+                  {copied ? t('Copiado') : t('Copiar')}
                 </Button>
               </div>
             </Box>
@@ -583,7 +584,7 @@ export default function RoomNameScreen({
           {openRoomName && onJoinOpenRoom && !classSessionAccess && (
             <Box className={classes.openRoomNotice} role="alert" data-testid="open-room-notice">
               <Typography variant="body2">
-                Esa sala ya está abierta (<strong>{openRoomName}</strong>). ¿Quieres entrar?
+                {t('Esa sala ya está abierta ({{name}}). ¿Quieres entrar?', { name: openRoomName })}
               </Typography>
               <Button
                 type="button"
@@ -673,7 +674,9 @@ export default function RoomNameScreen({
               {teacherJoinStatus === 'closed' && (
                 <Box className={classes.roomClosedAlert} role="alert" data-testid="teacher-join-closed">
                   <Typography variant="body2">
-                    La sala <strong>{normalizeStudentJoinInputToRoomName(teacherJoinCode)}</strong> no está abierta.
+                    {t('La sala {{name}} no está abierta.', {
+                      name: normalizeStudentJoinInputToRoomName(teacherJoinCode),
+                    })}
                     {t('Revisa que el código esté bien escrito o crea una sala con ese nombre.')}
                   </Typography>
                   {onCreateWithJoinName && !confirmingCreate && (
@@ -685,14 +688,15 @@ export default function RoomNameScreen({
                       onClick={() => setConfirmingCreate(true)}
                       style={{ marginTop: 8, textTransform: 'none' }}
                     >
-                      Crear con este nombre
+                      {t('Crear con este nombre')}
                     </Button>
                   )}
                   {onCreateWithJoinName && confirmingCreate && (
                     <div data-testid="teacher-join-confirm" style={{ marginTop: 8 }}>
                       <Typography variant="body2">
-                        ¿Crear una sala nueva llamada{' '}
-                        <strong>{normalizeStudentJoinInputToRoomName(teacherJoinCode)}</strong>?
+                        {t('¿Crear una sala nueva llamada {{name}}?', {
+                          name: normalizeStudentJoinInputToRoomName(teacherJoinCode),
+                        })}
                       </Typography>
                       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                         <Button
@@ -743,12 +747,12 @@ export default function RoomNameScreen({
               </svg>
             </div>
             <div className={classes.cardTitleBlock}>
-              <p className={classes.cardTitle}>Estudiante</p>
-              <p className={classes.cardSubtitle}>Unirme a sala existente</p>
+              <p className={classes.cardTitle}>{t('Estudiante')}</p>
+              <p className={classes.cardSubtitle}>{t('Unirme a sala existente')}</p>
             </div>
           </div>
 
-          <span className={classes.tagBadge}>Acceso de Estudiante</span>
+          <span className={classes.tagBadge}>{t('Acceso de Estudiante')}</span>
 
           {/* Join code field */}
           <div className={classes.fieldBlock}>
@@ -770,7 +774,7 @@ export default function RoomNameScreen({
           {/* Student name field */}
           <div className={classes.fieldBlockInner}>
             <InputLabel shrink htmlFor="input-student-name" className={classes.fieldLabel}>
-              Tu nombre o alias
+              {t('Tu nombre o alias')}
             </InputLabel>
             <TextField
               id="input-student-name"
@@ -792,10 +796,11 @@ export default function RoomNameScreen({
                 <SecurityIcon fontSize="small" style={{ color: '#1d6eed', display: 'block' }} />
               </span>
               <div>
-                <p className={classes.privacyTitle}>Aviso de privacidad</p>
+                <p className={classes.privacyTitle}>{t('Aviso de privacidad')}</p>
                 <p className={classes.privacyBody}>
-                  Al unirte aceptas el procesamiento <strong>local</strong> de imagen para análisis de atención. No se
-                  almacenan datos faciales.
+                  {t(
+                    'Al unirte aceptas el procesamiento local de imagen para análisis de atención. No se almacenan datos faciales.'
+                  )}
                 </p>
               </div>
             </div>

@@ -191,9 +191,14 @@ export default function ProfessorRoomShell({
   const handleMarkLegitimate = () => {
     if (proctoringModalAlert) {
       setDismissedIds(prev => new Set(prev).add(proctoringModalAlert.id));
-      enqueueSnackbar(`Alerta de ${stripTeacherSuffix(proctoringModalAlert.identity)} marcada como legítima`, {
-        variant: 'success',
-      });
+      enqueueSnackbar(
+        t('Alerta de {{name}} marcada como legítima', {
+          name: stripTeacherSuffix(proctoringModalAlert.identity),
+        }),
+        {
+          variant: 'success',
+        }
+      );
     }
     setProctoringModalAlert(null);
   };

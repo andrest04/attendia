@@ -1,10 +1,12 @@
 /**
  * English copy keyed by the current Spanish source string.
  * Missing keys fall back to Spanish, so a screen can be migrated one string at a time.
- * Do not put the `[Profesor]` identity suffix here — it is a protocol token, not copy.
+ * Do not translate the brand name Attendia.
+ * `Profesor` is the visible role label. The Twilio identity still ends with `[Profesor]`.
  */
 export const EN: { [spanish: string]: string } = {
   Idioma: 'Language',
+  Profesor: 'Teacher',
   'Soy profesor': "I'm a teacher",
   'Crear y dar clases': 'Create and teach classes',
   'Soy estudiante': "I'm a student",
@@ -596,4 +598,82 @@ export const EN: { [spanish: string]: string } = {
   'Código de error:': 'Error code:',
   'Ajustar foto': 'Adjust photo',
   Zoom: 'Zoom',
+  'Umbral mínimo ({{count}}%)': 'Minimum threshold ({{count}}%)',
+  'Detalle por estudiante': 'Per-student detail',
+  'Cargando el historial…': 'Loading history…',
+  'Cargando el historial...': 'Loading history...',
+  Reintentar: 'Retry',
+  'La contraseña es demasiado débil. Usa al menos {{count}} caracteres.':
+    'The password is too weak. Use at least {{count}} characters.',
+  'Plataforma de Videoconferencia': 'Videoconference platform',
+  'Bienvenido a': 'Welcome to',
+  'Indicador REC visible mientras graba': 'REC indicator visible while recording',
+  'Manual de uso': 'User manual',
+  'Ingresa desde un computador o tablet.': 'Open this on a computer or tablet.',
+  'Todo el procesamiento ocurre en tu dispositivo': 'All processing happens on your device',
+  'Ninguna imagen ni video sale de tu equipo': 'No image or video leaves your device',
+  'Puedes consultar nuestra': 'You can read our',
+  'docente antes de unirte.': 'teacher before joining.',
+  'Estado de dispositivos': 'Device status',
+  'Privacidad de datos faciales': 'Facial data privacy',
+  'El análisis de atención se procesa localmente. No se almacenan datos faciales.':
+    'Attention analysis is processed locally. Facial data is not stored.',
+  'Crear nueva sala de clase': 'Create a new classroom',
+  'Nombre de la sala': 'Room name',
+  'Identidad visible en sala': 'Name visible in the room',
+  Copiado: 'Copied',
+  Copiar: 'Copy',
+  'Esa sala ya está abierta ({{name}}). ¿Quieres entrar?': 'That room is already open ({{name}}). Do you want to join?',
+  'La sala {{name}} no está abierta.': 'The room {{name}} is not open.',
+  'Crear con este nombre': 'Create with this name',
+  '¿Crear una sala nueva llamada {{name}}?': 'Create a new room named {{name}}?',
+  Estudiante: 'Student',
+  'Unirme a sala existente': 'Join an existing room',
+  'Acceso de Estudiante': 'Student access',
+  'Tu nombre o alias': 'Your name or alias',
+  'Aviso de privacidad': 'Privacy notice',
+  'Al unirte aceptas el procesamiento local de imagen para análisis de atención. No se almacenan datos faciales.':
+    'By joining you accept local image processing for attention analysis. Facial data is not stored.',
+  'Paso {{current}} de {{total}}': 'Step {{current}} of {{total}}',
+  'Manos levantadas ({{count}})': 'Raised hands ({{count}})',
+  'Dar turno': 'Grant turn',
+  'Alertas de proctoring ({{count}})': 'Proctoring alerts ({{count}})',
+  'Atención grupal por debajo del umbral ({{count}}%)': 'Group attention below the threshold ({{count}}%)',
+  'Alerta de {{name}} marcada como legítima': 'Alert for {{name}} marked as legitimate',
+  'Centro de seguridad': 'Security center',
+  'Clases programadas': 'Scheduled classes',
+  'Alumnos esperados': 'Expected students',
+  'Horas de clase': 'Class hours',
+  'Nueva clase': 'New class',
+  'Creando…': 'Creating…',
+  'Ya tienes una clase "{{title}}" programada para el {{when}}. Puedes crear esta igual si es una sesión distinta.':
+    'You already have a class "{{title}}" scheduled for {{when}}. You can still create this one if it is a different session.',
+  'Sesiones en curso': 'Sessions in progress',
+  'Sesiones vencidas': 'Overdue sessions',
+  'PANEL DOCENTE': 'TEACHER PANEL',
+  'Disponible hasta {{date}} (7 días)': 'Available until {{date}} (7 days)',
+  'Historial de clases': 'Class history',
+  'Datos simulados': 'Simulated data',
+  'Materiales asociados a clases programadas': 'Materials linked to scheduled classes',
+  'Subiendo… ({{count}})': 'Uploading… ({{count}})',
+  'Cargando recursos…': 'Loading resources…',
+  '¿Eliminar "{{name}}"? Esta acción no se puede deshacer.': 'Delete "{{name}}"? This cannot be undone.',
+  '¿Eliminar el archivo de "{{name}}"? Esta acción no se puede deshacer.':
+    'Delete the file from "{{name}}"? This cannot be undone.',
+  '¿Eliminar los {{count}} archivos de "{{name}}"? Esta acción no se puede deshacer.':
+    'Delete the {{count}} files from "{{name}}"? This cannot be undone.',
+  '¿Eliminar la clase "{{name}}"? Esta acción no se puede deshacer.':
+    'Delete the class "{{name}}"? This cannot be undone.',
+  '¿Eliminar la clase "{{name}}" y su recurso? Esta acción no se puede deshacer.':
+    'Delete the class "{{name}}" and its resource? This cannot be undone.',
+  '¿Eliminar la clase "{{name}}" y sus {{count}} recursos? Esta acción no se puede deshacer.':
+    'Delete the class "{{name}}" and its {{count}} resources? This cannot be undone.',
+  'Reintentar guardado': 'Retry save',
+  '¿Cancelar "{{name}}"? Esta acción no se puede deshacer.': 'Cancel "{{name}}"? This cannot be undone.',
+  '¿Cancelar la clase vencida? Esta acción no se puede deshacer.': 'Cancel the overdue class? This cannot be undone.',
+  '¿Cancelar las {{count}} clases vencidas? Esta acción no se puede deshacer.':
+    'Cancel the {{count}} overdue classes? This cannot be undone.',
+  Perfil: 'Profile',
+  'Administra tu identidad y acceso.': 'Manage your identity and access.',
+  'Nuevo correo:': 'New email:',
 };

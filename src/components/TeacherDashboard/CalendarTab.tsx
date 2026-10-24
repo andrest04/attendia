@@ -304,7 +304,7 @@ export default function CalendarTab({
         <div className={styles.header}>
           <div>
             <div className={styles.title}>{monthLabel}</div>
-            <div className={styles.subtitle}>Clases programadas</div>
+            <div className={styles.subtitle}>{t('Clases programadas')}</div>
           </div>
           <div className={styles.navButtons}>
             <button
@@ -456,15 +456,15 @@ export default function CalendarTab({
         <div className={styles.summaryCard} data-testid="dashboard-calendar-summary">
           <div className={styles.summaryTitle}>{monthLabel.toUpperCase()} · RESUMEN</div>
           <div className={styles.summaryRow}>
-            <span>Clases programadas</span>
+            <span>{t('Clases programadas')}</span>
             <span>{summary.scheduledSessions}</span>
           </div>
           <div className={styles.summaryRow}>
-            <span>Alumnos esperados</span>
+            <span>{t('Alumnos esperados')}</span>
             <span>{summary.expectedStudents}</span>
           </div>
           <div className={styles.summaryRow}>
-            <span>Horas de clase</span>
+            <span>{t('Horas de clase')}</span>
             <span>{summary.classHours}</span>
           </div>
         </div>

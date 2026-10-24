@@ -10,6 +10,7 @@ import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/typ
 import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { attentionStatusColors } from '../../theme';
 import { countOf } from '../../utils/pluralize';
+import { displayIdentity } from '../../i18n/displayIdentity';
 import { t } from '../../i18n/translate';
 
 /*
@@ -637,7 +638,9 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
             </div>
             <div className={classes.legendItem}>
               <div className={classes.legendLineDashed} />
-              <span className={classes.legendLabel}>Umbral mínimo ({attentionThreshold}%)</span>
+              <span className={classes.legendLabel}>
+                {t('Umbral mínimo ({{count}}%)', { count: attentionThreshold })}
+              </span>
             </div>
           </div>
         </div>
@@ -657,7 +660,7 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
 
       {/* ── Per-student table ──────────────────────────────────────── */}
       <div className={classes.tableCard} data-testid="attention-report-table">
-        <Typography className={classes.tableTitle}>Detalle por estudiante</Typography>
+        <Typography className={classes.tableTitle}>{t('Detalle por estudiante')}</Typography>
         <div className={classes.tableScroll}>
           <table className={classes.table}>
             <thead>
@@ -683,7 +686,7 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
                   <td className={classes.nameCell}>
                     <div className={classes.nameCellInner}>
                       <div className={classes.avatar}>{initials(participant.identity)}</div>
-                      <span className={classes.nameText}>{participant.identity}</span>
+                      <span className={classes.nameText}>{displayIdentity(participant.identity)}</span>
                     </div>
                   </td>
 
