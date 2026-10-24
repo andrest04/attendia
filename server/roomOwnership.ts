@@ -49,7 +49,8 @@ import { fetchRoomVia, RoomDetails, RoomDetailsClient } from './twilioGateway';
  *
  * Co-teachers: `roomOwners/{key}.coTeachers` lists the uids admitted while the class was
  * open. They may start/stop recording (/recordingrules) and nothing else owner-only. The
- * owner's re-claims keep the list; a takeover starts without one.
+ * owner's re-claims keep the list only while the room is still open; reopening a closed
+ * room or a takeover starts without one.
  *
  * Like the other route leaves, this module has zero firebase-admin imports: the
  * structural interfaces below are satisfied by the real admin Firestore instance.
@@ -142,8 +143,10 @@ export async function claimRoomOwnership(
     }
     const keepClaimedAt = owner !== undefined && owner.uid === uid && owner.claimedAt !== undefined;
     const claimedAt = keepClaimedAt ? owner!.claimedAt : timestamp();
-    // The owner keeps its co-teachers across refreshes; a takeover starts without any.
-    const coTeachers = keepClaimedAt ? coTeachersOf(owner!) : [];
+    // The owner keeps its co-teachers across refreshes only while the room is still open; reopening
+    // a closed room (or a takeover) starts without any. Twilio is asked only when there is a list.
+    let coTeachers = keepClaimedAt ? coTeachersOf(owner!) : [];
+    if (coTeachers.length > 0 && !(await roomExists(roomName))) coTeachers = [];
     transaction.set(ownerRef, {
       uid,
       roomName,

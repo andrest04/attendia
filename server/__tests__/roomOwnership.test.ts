@@ -162,7 +162,33 @@ describe('claimRoomOwnership', () => {
     expect(owners[roomOwnerKey('clase-1')].coTeachers).toEqual(['uid-0', 'uid-1']);
   });
 
-  it('keeps the co-teachers when the owner re-claims the room, and resets them on a takeover', async () => {
+  it('drops the co-teachers when the owner reopens a closed room, keeping the owner fields', async () => {
+    const ownerDoc = { uid: 'uid-1', roomName: 'clase-1', claimedAt: new Date(1000), claimsHistory: true, coTeachers: ['uid-2'] };
+    const { db, owners } = makeClaimDb({ [roomOwnerKey('clase-1')]: { ...ownerDoc } });
+    const roomExists = jest.fn().mockResolvedValue(false);
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(true);
+    expect(roomExists).toHaveBeenCalledWith('clase-1');
+    expect(owners[roomOwnerKey('clase-1')].coTeachers).toBeUndefined();
+    expect(owners[roomOwnerKey('clase-1')].claimedAt).toEqual(new Date(1000));
+    expect(owners[roomOwnerKey('clase-1')].claimsHistory).toBe(true);
+  });
+
+  it('does not ask Twilio on an owner re-claim without co-teachers', async () => {
+    const ownerDoc = { uid: 'uid-1', roomName: 'clase-1', claimedAt: new Date(1000), claimsHistory: true };
+    const { db } = makeClaimDb({ [roomOwnerKey('clase-1')]: { ...ownerDoc } });
+    const roomExists = jest.fn();
+    expect(await claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).toBe(true);
+    expect(roomExists).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the room lookup fails on an owner re-claim with co-teachers', async () => {
+    const ownerDoc = { uid: 'uid-1', roomName: 'clase-1', claimedAt: new Date(1000), claimsHistory: true, coTeachers: ['uid-2'] };
+    const { db } = makeClaimDb({ [roomOwnerKey('clase-1')]: { ...ownerDoc } });
+    const roomExists = jest.fn().mockRejectedValue(new Error('twilio down'));
+    await expect(claimRoomOwnership(db, 'clase-1', 'uid-1', { roomExists, timestamp })).rejects.toThrow('twilio down');
+  });
+
+  it('keeps the co-teachers when the owner re-claims an open room, and resets them on a takeover', async () => {
     const ownerDoc = { uid: 'uid-1', roomName: 'clase-1', claimedAt: new Date(1000), claimsHistory: true, coTeachers: ['uid-2'] };
     const reclaim = makeClaimDb({ [roomOwnerKey('clase-1')]: { ...ownerDoc } });
     await claimRoomOwnership(reclaim.db, 'clase-1', 'uid-1', { roomExists: jest.fn().mockResolvedValue(true), timestamp });
