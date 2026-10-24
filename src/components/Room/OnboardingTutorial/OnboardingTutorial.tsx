@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import Button from '@material-ui/core/Button';
 import IconButton from '@material-ui/core/IconButton';
@@ -14,6 +14,7 @@ import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import { routes } from '../../../routes';
 import { createStorageSlot } from '../../../utils/createStorageSlot';
 import { t } from '../../../i18n/translate';
+import { getLocale } from '../../../i18n/locale';
 
 // ---------------------------------------------------------------------------
 // "Already seen" flag, kept per browser (a failing storage just shows the tour again)
@@ -331,7 +332,12 @@ interface Props {
 }
 
 export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: Props) {
-  const STEPS = onboardingSteps();
+  // Rebuilt only when the language changes (LocaleProvider re-renders on change), so the hooks below get a stable reference.
+  const locale = getLocale();
+  const STEPS = useMemo(() => {
+    void locale; // the copy comes from t(), which reads the current locale
+    return onboardingSteps();
+  }, [locale]);
   const classes = useStyles();
   const [step, setStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -379,7 +385,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', measure);
     };
-  }, [isVisible, step]);
+  }, [isVisible, step, STEPS]);
 
   const dismiss = useCallback(() => {
     markOnboardingDone();
@@ -392,7 +398,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
     } else {
       dismiss();
     }
-  }, [step, dismiss]);
+  }, [step, dismiss, STEPS.length]);
 
   const goPrev = useCallback(() => {
     setStep(s => Math.max(0, s - 1));

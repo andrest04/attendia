@@ -3,7 +3,6 @@ import { classifyAttention } from './presence';
 import { classifyProctoring, PROCTORING_KINDS, ProctoringKind } from './proctoring';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import { RemoteAttention } from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
-import { t } from '../../i18n/translate';
 
 /**
  * The pure rules behind the live attention data: who counts as "measured", how the group
