@@ -8,6 +8,7 @@ import { useHistory } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import LanguageSwitch from '../LanguageSwitch/LanguageSwitch';
 import { routes } from '../../routes';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -231,7 +232,7 @@ export default function DashboardHeader({
               <IconButton
                 className={classes.bell}
                 data-testid="dashboard-header-notifications"
-                aria-label="Abrir notificaciones"
+                aria-label={t('Abrir notificaciones')}
                 aria-controls={notificationMenuAnchor ? 'dashboard-notification-menu' : undefined}
                 aria-haspopup="true"
                 aria-expanded={Boolean(notificationMenuAnchor)}
@@ -249,13 +250,17 @@ export default function DashboardHeader({
                 onClose={closeNotifications}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{ role: 'dialog', 'aria-label': 'Notificaciones', style: { overflow: 'hidden' } }}
+                PaperProps={{ role: 'dialog', 'aria-label': t('Notificaciones'), style: { overflow: 'hidden' } }}
               >
                 {notificationContent(closeNotifications)}
               </Popover>
             </>
           ) : (
-            <span className={classes.bell} data-testid="dashboard-header-notifications" aria-label="Notificaciones">
+            <span
+              className={classes.bell}
+              data-testid="dashboard-header-notifications"
+              aria-label={t('Notificaciones')}
+            >
               <NotificationsNoneIcon />
             </span>
           ))}
@@ -265,7 +270,7 @@ export default function DashboardHeader({
               className={classes.profile}
               classes={{ label: classes.profileLabel }}
               data-testid="dashboard-header-profile"
-              aria-label="Abrir menú de perfil"
+              aria-label={t('Abrir menú de perfil')}
               aria-controls={profileMenuAnchor ? 'dashboard-profile-menu' : undefined}
               aria-haspopup="true"
               aria-expanded={Boolean(profileMenuAnchor)}

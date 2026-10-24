@@ -44,12 +44,12 @@ export default function RaiseHandButton({
     <Button
       onClick={toggle}
       startIcon={<PanToolIcon />}
-      aria-label={t(handRaised ? 'Bajar la mano' : 'Levantar la mano')}
+      aria-label={t(handRaised ? t('Bajar la mano') : t('Levantar la mano'))}
       aria-pressed={handRaised}
       data-testid="raise-hand-button"
       className={toolbarButtonClass(classes, { active: handRaised, plain, className })}
     >
-      {iconOnly ? null : t(handRaised ? 'Bajar mano' : 'Levantar mano')}
+      {iconOnly ? null : t(handRaised ? t('Bajar mano') : t('Levantar mano'))}
     </Button>
   );
 }

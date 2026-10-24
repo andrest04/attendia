@@ -21,14 +21,14 @@ type PreJoinRole = 'teacher' | 'student';
 const SELF_REGISTER_ROLE_OPTIONS: { role: PreJoinRole; label: string; caption: string; testId: string }[] = [
   {
     role: 'teacher',
-    label: 'Soy profesor',
-    caption: 'Crear y dar clases',
+    label: t('Soy profesor'),
+    caption: t('Crear y dar clases'),
     testId: 'role-option-profesor',
   },
   {
     role: 'student',
-    label: 'Soy estudiante',
-    caption: 'Unirme a clases existentes',
+    label: t('Soy estudiante'),
+    caption: t('Unirme a clases existentes'),
     testId: 'role-option-estudiante',
   },
 ];

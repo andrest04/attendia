@@ -8,6 +8,7 @@ import { RecordingArtifact, RecordingArtifactStatus, StoredAttentionReport } fro
 import { attentionLevelColor, attentionLevelFromPercent } from './dashboardHelpers';
 import { routePath } from '../../routes';
 import { storedReportDate } from '../AttentionReport/storedReportViewData';
+import { t } from '../../i18n/translate';
 
 // How often a pending (enqueued/processing) recording's status is re-checked. Twilio
 // compositions are not instantaneous — this is a UX poll, not a webhook.
@@ -130,12 +131,12 @@ interface Props {
 function formatDate(report: StoredAttentionReport): string {
   const date = storedReportDate(report);
   return isNaN(date.getTime())
-    ? 'Fecha no disponible'
+    ? t('Fecha no disponible')
     : date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function formatDuration(report: StoredAttentionReport): string {
-  if (!Number.isFinite(report.durationMs) || report.durationMs < 0) return 'No disponible';
+  if (!Number.isFinite(report.durationMs) || report.durationMs < 0) return t('No disponible');
   const totalSeconds = Math.floor(report.durationMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -199,7 +200,7 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
   failed: ({ classes, roomSid, isBusy, canRequest, onRequest }) => (
     <>
       <span className={classes.recordingError} data-testid={`dashboard-history-recording-failed-${roomSid}`}>
-        No pudimos generar la grabación.
+        {t('No pudimos generar la grabación.')}
       </span>
       <button
         type="button"
@@ -214,7 +215,7 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
   ),
   expired: ({ classes, roomSid }) => (
     <span className={classes.recordingHint} data-testid={`dashboard-history-recording-expired-${roomSid}`}>
-      La grabación venció — solo está disponible por 7 días.
+      {t('La grabación venció — solo está disponible por 7 días.')}
     </span>
   ),
 };
@@ -272,7 +273,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
     setActionError(null);
     onRequestRecording(roomSid)
       .then(setRecording)
-      .catch(err => setActionError(err.message || 'No pudimos solicitar la grabación.'))
+      .catch(err => setActionError(err.message || t('No pudimos solicitar la grabación.')))
       .finally(() => setIsBusy(false));
   }, [onRequestRecording, roomSid]);
 
@@ -329,7 +330,7 @@ export default function HistoryTab({
       <div className={classes.header}>
         <div>
           <div className={classes.title}>Historial de clases</div>
-          <div className={classes.subtitle}>Reportes guardados al finalizar cada sesión</div>
+          <div className={classes.subtitle}>{t('Reportes guardados al finalizar cada sesión')}</div>
         </div>
         <label className={classes.searchBox} data-testid="dashboard-history-search">
           <SearchIcon style={{ fontSize: 16 }} />
@@ -337,8 +338,8 @@ export default function HistoryTab({
             className={classes.searchInput}
             value={query}
             onChange={event => setQuery(event.target.value)}
-            placeholder="Buscar clase..."
-            aria-label="Buscar clase"
+            placeholder={t('Buscar clase...')}
+            aria-label={t('Buscar clase')}
           />
         </label>
       </div>
@@ -359,11 +360,11 @@ export default function HistoryTab({
           </div>
         ) : !reports || reports.length === 0 ? (
           <div className={classes.state} data-testid="dashboard-history-empty">
-            Todavía no hay reportes guardados.
+            {t('Todavía no hay reportes guardados.')}
           </div>
         ) : filteredReports.length === 0 ? (
           <div className={classes.state} data-testid="dashboard-history-no-results">
-            No encontramos clases con esa búsqueda.
+            {t('No encontramos clases con esa búsqueda.')}
           </div>
         ) : (
           <table className={classes.table}>
@@ -371,10 +372,10 @@ export default function HistoryTab({
               <tr>
                 <th className={classes.th}>CLASE</th>
                 <th className={classes.th}>FECHA</th>
-                <th className={classes.th}>DURACIÓN</th>
+                <th className={classes.th}>{t('DURACIÓN')}</th>
                 <th className={classes.th}>ALUMNOS</th>
-                <th className={classes.th}>ATENCIÓN</th>
-                <th className={classes.th}>GRABACIÓN</th>
+                <th className={classes.th}>{t('ATENCIÓN')}</th>
+                <th className={classes.th}>{t('GRABACIÓN')}</th>
                 <th className={classes.th} />
               </tr>
             </thead>

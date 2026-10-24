@@ -25,6 +25,7 @@ import { ResourceFileKind } from '../../components/TeacherDashboard/types';
 import { ClientApiError, createApiClient, throwOnErrorResponse, withUser } from './apiClient';
 import { acceptLanguageHeader } from '../../i18n/locale';
 import { featureFlags } from '../../utils/featureFlags';
+import { t } from '../../i18n/translate';
 
 // Re-exported so existing importers keep working; the class lives with the API client.
 export { ClientApiError };
@@ -256,7 +257,7 @@ async function uploadResourceRequest(
       }
     };
 
-    xhr.onerror = () => reject(new Error('No pudimos subir el archivo. Intenta de nuevo en unos segundos.'));
+    xhr.onerror = () => reject(new Error(t('No pudimos subir el archivo. Intenta de nuevo en unos segundos.')));
 
     xhr.send(formData);
   });
@@ -473,10 +474,10 @@ export default function useFirebaseAuth() {
 
   const reauthenticate = useCallback(
     async (currentPassword?: string) => {
-      if (!user || !user.email) throw new Error('No hay una sesión activa para confirmar tu identidad.');
+      if (!user || !user.email) throw new Error(t('No hay una sesión activa para confirmar tu identidad.'));
       const hasPasswordProvider = user.providerData.some(provider => provider.providerId === 'password');
       if (hasPasswordProvider) {
-        if (!currentPassword) throw new Error('Ingresa tu contraseña actual para continuar.');
+        if (!currentPassword) throw new Error(t('Ingresa tu contraseña actual para continuar.'));
         await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
         return;
       }
@@ -487,7 +488,7 @@ export default function useFirebaseAuth() {
 
   const updateTeacherProfile = useCallback(
     async (input: { displayName?: string; syncEmail?: true }) => {
-      if (!user) throw new Error('No hay una sesión activa.');
+      if (!user) throw new Error(t('No hay una sesión activa.'));
       const previousDisplayName = user.displayName;
       try {
         if (input.displayName !== undefined) await updateProfile(user, { displayName: input.displayName });
@@ -506,7 +507,7 @@ export default function useFirebaseAuth() {
           } catch (rollbackError) {
             reportProfileFailure(user, 'profile_auth_display_name_rollback', rollbackError);
             throw new Error(
-              'No pudimos guardar el nombre ni restaurar tu identidad. Reintenta el cambio para reconciliarla.'
+              t('No pudimos guardar el nombre ni restaurar tu identidad. Reintenta el cambio para reconciliarla.')
             );
           }
         }
@@ -522,7 +523,7 @@ export default function useFirebaseAuth() {
 
   const changeEmail = useCallback(
     async (email: string, currentPassword?: string) => {
-      if (!user) throw new Error('No hay una sesión activa.');
+      if (!user) throw new Error(t('No hay una sesión activa.'));
       try {
         await reauthenticate(currentPassword);
         await updateEmail(user, email.trim());
@@ -540,7 +541,7 @@ export default function useFirebaseAuth() {
 
   const changePassword = useCallback(
     async (currentPassword: string | undefined, newPassword: string) => {
-      if (!user) throw new Error('No hay una sesión activa.');
+      if (!user) throw new Error(t('No hay una sesión activa.'));
       const hasPasswordProvider = user.providerData.some(provider => provider.providerId === 'password');
       try {
         await reauthenticate(currentPassword);

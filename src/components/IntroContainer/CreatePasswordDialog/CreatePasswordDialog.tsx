@@ -11,6 +11,7 @@ import {
 } from '@material-ui/core';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
 import { useAppState } from '../../../state';
+import { t } from '../../../i18n/translate';
 
 const MIN_PASSWORD_LENGTH = 6;
 const WEAK_PASSWORD_MESSAGE = `La contraseña es demasiado débil. Usa al menos ${MIN_PASSWORD_LENGTH} caracteres.`;
@@ -47,13 +48,13 @@ function getCreatePasswordErrorMessage(error: any): string {
     case 'auth/weak-password':
       return WEAK_PASSWORD_MESSAGE;
     case 'auth/requires-recent-login':
-      return 'Por seguridad, cierra sesión y vuelve a entrar con Google antes de crear tu contraseña.';
+      return t('Por seguridad, cierra sesión y vuelve a entrar con Google antes de crear tu contraseña.');
     case 'auth/provider-already-linked':
     case 'auth/credential-already-in-use':
     case 'auth/email-already-in-use':
-      return 'Esta cuenta ya tiene una contraseña configurada. Inicia sesión con tu correo y contraseña.';
+      return t('Esta cuenta ya tiene una contraseña configurada. Inicia sesión con tu correo y contraseña.');
     default:
-      return 'No se pudo crear la contraseña. Intenta de nuevo.';
+      return t('No se pudo crear la contraseña. Intenta de nuevo.');
   }
 }
 
@@ -91,7 +92,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
     }
 
     if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden.');
+      setError(t('Las contraseñas no coinciden.'));
       return;
     }
 
@@ -110,12 +111,12 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Crear contraseña</DialogTitle>
+      <DialogTitle>{t('Crear contraseña')}</DialogTitle>
       {isSuccess ? (
         <>
           <DialogContent>
             <Typography variant="body1">
-              Contraseña creada. Ya puedes iniciar sesión con tu correo y contraseña.
+              {t('Contraseña creada. Ya puedes iniciar sesión con tu correo y contraseña.')}
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -129,7 +130,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
           <DialogContent>
             <div className={classes.fieldBlock}>
               <label htmlFor="input-new-password" className={classes.fieldLabel}>
-                Contraseña nueva
+                {t('Contraseña nueva')}
               </label>
               <TextField
                 id="input-new-password"
@@ -142,7 +143,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
             </div>
             <div className={classes.fieldBlock}>
               <label htmlFor="input-confirm-password" className={classes.fieldLabel}>
-                Confirmar contraseña
+                {t('Confirmar contraseña')}
               </label>
               <TextField
                 id="input-confirm-password"
@@ -170,7 +171,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
               variant="contained"
               disabled={!password.length || !confirmPassword.length || isSubmitting}
             >
-              Crear contraseña
+              {t('Crear contraseña')}
             </Button>
           </DialogActions>
         </form>

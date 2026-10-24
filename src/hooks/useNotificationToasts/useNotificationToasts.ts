@@ -5,6 +5,7 @@ import { ProctoringAlert } from '../../components/AttentionProvider/types';
 import { PROCTORING_KINDS } from '../../components/AttentionProvider/proctoring';
 import useOnChange from '../useOnChange/useOnChange';
 import useOnIncrease from '../useOnIncrease/useOnIncrease';
+import { t } from '../../i18n/translate';
 
 interface UseNotificationToastsArgs {
   /** Whether the local participant is the professor — drives the curated, role-aware policy. */
@@ -52,33 +53,39 @@ interface ToastPolicy {
 
 /** Student-facing copy for a proctoring warning, specific to the detected condition. */
 function warningMessage(kind: ProctoringAlert['kind'] | null): string {
-  return (kind && PROCTORING_KINDS[kind]?.studentWarning) || 'El profesor te envió una advertencia';
+  const warning = kind && PROCTORING_KINDS[kind]?.studentWarning;
+  return t(warning || 'El profesor te envió una advertencia');
 }
 
 // Professor: students joining/leaving and raising their hand.
 const teacherPolicy: ToastPolicy = {
   participantJoined: identity =>
-    isTeacherIdentity(identity) ? undefined : toast(`${stripTeacherSuffix(identity)} se unió a la sesión`),
+    isTeacherIdentity(identity)
+      ? undefined
+      : toast(t('{{name}} se unió a la sesión', { name: stripTeacherSuffix(identity) })),
   participantLeft: identity =>
-    isTeacherIdentity(identity) ? undefined : toast(`${stripTeacherSuffix(identity)} salió de la sesión`),
-  handRaised: identity => toast(`${stripTeacherSuffix(identity)} levantó la mano`),
+    isTeacherIdentity(identity)
+      ? undefined
+      : toast(t('{{name}} salió de la sesión', { name: stripTeacherSuffix(identity) })),
+  handRaised: identity => toast(t('{{name}} levantó la mano', { name: stripTeacherSuffix(identity) })),
   // The owner may mute or turn off a co-teacher; both teachers read as "El profesor".
-  muted: () => toast('El profesor silenció tu micrófono', 'warning'),
-  cameraTurnedOff: () => toast('El profesor apagó tu cámara', 'warning'),
+  muted: () => toast(t('El profesor silenció tu micrófono'), 'warning'),
+  cameraTurnedOff: () => toast(t('El profesor apagó tu cámara'), 'warning'),
 };
 
 // Student: the professor joining/leaving, "es tu turno", recording on/off, being muted or
 // warned. Classmates joining/leaving go to the panel log, not toasts; the student's own
 // raise-hand is not toasted — it is redundant noise.
 const studentPolicy: ToastPolicy = {
-  participantJoined: identity => (isTeacherIdentity(identity) ? toast('El profesor se unió a la sesión') : undefined),
+  participantJoined: identity =>
+    isTeacherIdentity(identity) ? toast(t('El profesor se unió a la sesión')) : undefined,
   participantLeft: identity =>
-    isTeacherIdentity(identity) ? toast('El profesor salió de la sesión', 'warning') : undefined,
+    isTeacherIdentity(identity) ? toast(t('El profesor salió de la sesión'), 'warning') : undefined,
   recordingChanged: isRecording =>
-    isRecording ? toast('La sesión se está grabando', 'warning') : toast('Se detuvo la grabación', 'default'),
-  turnGranted: () => toast('Es tu turno · el profesor te dio la palabra', 'success'),
-  muted: () => toast('El profesor silenció tu micrófono', 'warning'),
-  cameraTurnedOff: () => toast('El profesor apagó tu cámara', 'warning'),
+    isRecording ? toast(t('La sesión se está grabando'), 'warning') : toast(t('Se detuvo la grabación'), 'default'),
+  turnGranted: () => toast(t('Es tu turno · el profesor te dio la palabra'), 'success'),
+  muted: () => toast(t('El profesor silenció tu micrófono'), 'warning'),
+  cameraTurnedOff: () => toast(t('El profesor apagó tu cámara'), 'warning'),
   warned: kind => toast(warningMessage(kind), 'warning'),
 };
 

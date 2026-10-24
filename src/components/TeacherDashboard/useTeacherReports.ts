@@ -8,6 +8,7 @@ import { buildReportStats, computeTotalHoursTaught } from './reportStats';
 import { getPendingAttentionReports, removePendingAttentionReport } from '../AttentionReport/pendingAttentionReports';
 import { isPermanentClientError } from '../../state/useFirebaseAuth/apiClient';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
+import { t } from '../../i18n/translate';
 
 export interface UseTeacherReportsParams {
   fetchAttentionReports?: StateContextType['fetchAttentionReports'];
@@ -43,7 +44,7 @@ export default function useTeacherReports({
     reload: loadReports,
   } = useReloadableResource<StoredAttentionReport[] | null>(fetchAttentionReports, {
     initial: null,
-    failureMessage: 'No pudimos consultar el historial de clases.',
+    failureMessage: t('No pudimos consultar el historial de clases.'),
     logLabel: 'TeacherDashboard: could not fetch attention reports',
   });
 

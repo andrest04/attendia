@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { t } from '../../i18n/translate';
 
 /**
  * Pre-connect connection quality, derived from the browser's Network Information
@@ -15,9 +16,9 @@ export interface ConnectionQualityInfo {
 }
 
 const QUALITY_LABELS: Record<ConnectionQuality, string> = {
-  good: 'Conexión buena',
-  medium: 'Conexión media',
-  poor: 'Conexión débil',
+  good: t('Conexión buena'),
+  medium: t('Conexión media'),
+  poor: t('Conexión débil'),
   unknown: 'Verificando…',
 };
 
@@ -54,5 +55,5 @@ export default function useConnectionQuality(): ConnectionQualityInfo {
     return () => connection.removeEventListener('change', handleChange);
   }, []);
 
-  return { quality, label: QUALITY_LABELS[quality] };
+  return { quality, label: t(QUALITY_LABELS[quality]) };
 }

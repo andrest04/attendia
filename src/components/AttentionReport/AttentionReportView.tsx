@@ -10,6 +10,7 @@ import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/typ
 import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { attentionStatusColors } from '../../theme';
 import { countOf } from '../../utils/pluralize';
+import { t } from '../../i18n/translate';
 
 /*
  * Presentational core of the attention report so the same light-themed report body
@@ -460,15 +461,15 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
   // show "—" instead of a placeholder 0 that reads as "the group had 0% attention".
   const kpiCards = [
     {
-      label: 'Atención promedio grupal',
+      label: t('Atención promedio grupal'),
       value: hasGroupData ? `${groupAverage}` : '—',
       sub: '/ 100',
       color: KPI_COLORS.group,
     },
     {
-      label: 'Estudiantes monitoreados',
+      label: t('Estudiantes monitoreados'),
       value: `${participants.length}`,
-      sub: 'participantes',
+      sub: t('participantes'),
       color: KPI_COLORS.students,
     },
     {
@@ -585,14 +586,14 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
           <div className={classes.iconWrap}>
             <DescriptionIcon className={classes.headerIcon} />
           </div>
-          <Typography className={classes.titleText}>Reporte de Atención</Typography>
+          <Typography className={classes.titleText}>{t('Reporte de Atención')}</Typography>
         </div>
 
         <p className={classes.sessionLine}>
-          {'Sesión: '}
+          {t('Sesión: ')}
           <strong>{sessionName}</strong>
           {' — '}
-          {countOf(studentCount, 'estudiante')}
+          {countOf(studentCount, t('estudiante'))}
         </p>
 
         <div className={classes.chipsRow}>
@@ -628,11 +629,11 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
       {/* ── Timeline chart ─────────────────────────────────────────── */}
       <div className={classes.chartCard} data-testid="attention-report-timeline">
         <div className={classes.chartHead}>
-          <Typography className={classes.chartTitle}>Evolución de atención grupal</Typography>
+          <Typography className={classes.chartTitle}>{t('Evolución de atención grupal')}</Typography>
           <div className={classes.chartLegend}>
             <div className={classes.legendItem}>
               <div className={classes.legendLineSolid} />
-              <span className={classes.legendLabel}>Atención grupo</span>
+              <span className={classes.legendLabel}>{t('Atención grupo')}</span>
             </div>
             <div className={classes.legendItem}>
               <div className={classes.legendLineDashed} />
@@ -661,7 +662,14 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
           <table className={classes.table}>
             <thead>
               <tr className={classes.headRow}>
-                {['Nombre del Estudiante', 'Índice Prom.', 'Mínimo', 'Máximo', 'Alertas Proctoring', 'Nivel'].map(h => (
+                {[
+                  t('Nombre del Estudiante'),
+                  t('Índice Prom.'),
+                  t('Mínimo'),
+                  t('Máximo'),
+                  'Alertas Proctoring',
+                  'Nivel',
+                ].map(h => (
                   <th key={h} className={classes.th}>
                     {h}
                   </th>

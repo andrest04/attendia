@@ -14,6 +14,7 @@ import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import DoneIcon from '@material-ui/icons/Done';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import goBackFromStandalonePage from '../../utils/goBackFromStandalonePage';
+import { t } from '../../i18n/translate';
 
 interface CardAccent {
   topBar: string;
@@ -46,80 +47,90 @@ const sections: ManualSection[] = [
     id: 'controls',
     icon: <VideocamIcon style={{ fontSize: 20 }} />,
     accent: accentBlue,
-    categoryPill: 'BARRA DE HERRAMIENTAS',
-    title: 'Controles de cámara y micrófono',
-    description:
-      'Gestiona tu cámara, micrófono y pantalla desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.',
-    bullets: ['Silenciar o activar tu micrófono', 'Iniciar o detener tu cámara', 'Compartir tu pantalla con la sala'],
+    categoryPill: t('BARRA DE HERRAMIENTAS'),
+    title: t('Controles de cámara y micrófono'),
+    description: t(
+      'Gestiona tu cámara, micrófono y pantalla desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.'
+    ),
+    bullets: [
+      t('Silenciar o activar tu micrófono'),
+      t('Iniciar o detener tu cámara'),
+      t('Compartir tu pantalla con la sala'),
+    ],
   },
   {
     id: 'panel',
     icon: <ChatIcon style={{ fontSize: 20 }} />,
     accent: accentGreen,
     categoryPill: 'PANEL DERECHO',
-    title: 'Atención, detalle individual y chat',
-    description:
-      'El panel derecho reúne la información de la sesión. El profesor ve la atención del grupo, el detalle por estudiante y el chat; el estudiante ve el chat de la sesión.',
+    title: t('Atención, detalle individual y chat'),
+    description: t(
+      'El panel derecho reúne la información de la sesión. El profesor ve la atención del grupo, el detalle por estudiante y el chat; el estudiante ve el chat de la sesión.'
+    ),
     bullets: [
-      'Atención del grupo en tiempo real',
-      'Detalle individual por estudiante (vista del profesor)',
-      'Chat con el profesor y la lista de participantes',
+      t('Atención del grupo en tiempo real'),
+      t('Detalle individual por estudiante (vista del profesor)'),
+      t('Chat con el profesor y la lista de participantes'),
     ],
   },
   {
     id: 'attention',
     icon: <TrackChangesIcon style={{ fontSize: 20 }} />,
     accent: accentAmber,
-    categoryPill: 'ANÁLISIS LOCAL',
-    title: 'Detección de atención',
-    description:
-      'El análisis de atención se ejecuta de forma local en tu navegador a partir de la mirada y la orientación de la cabeza. Ninguna imagen sale de tu dispositivo: solo se comparte un índice numérico. Está deshabilitado de forma predeterminada y requiere tu consentimiento.',
+    categoryPill: t('ANÁLISIS LOCAL'),
+    title: t('Detección de atención'),
+    description: t(
+      'El análisis de atención se ejecuta de forma local en tu navegador a partir de la mirada y la orientación de la cabeza. Ninguna imagen sale de tu dispositivo: solo se comparte un índice numérico. Está deshabilitado de forma predeterminada y requiere tu consentimiento.'
+    ),
     bullets: [
-      'El procesamiento corre en tu dispositivo, nunca sale de él',
-      'Solo se transmite un índice de atención, nunca imágenes',
-      'Deshabilitado por defecto; requiere consentimiento del participante',
+      t('El procesamiento corre en tu dispositivo, nunca sale de él'),
+      t('Solo se transmite un índice de atención, nunca imágenes'),
+      t('Deshabilitado por defecto; requiere consentimiento del participante'),
     ],
   },
   {
     id: 'raise-hand',
     icon: <PanToolIcon style={{ fontSize: 20 }} />,
     accent: accentNavy,
-    categoryPill: 'PARTICIPACIÓN',
-    title: 'Levantar la mano y turnos',
-    description:
-      'Pide la palabra con el botón "Levantar mano". El profesor ve la cola de manos levantadas y puede otorgar el turno; cuando es tu turno recibes un aviso.',
+    categoryPill: t('PARTICIPACIÓN'),
+    title: t('Levantar la mano y turnos'),
+    description: t(
+      'Pide la palabra con el botón "Levantar mano". El profesor ve la cola de manos levantadas y puede otorgar el turno; cuando es tu turno recibes un aviso.'
+    ),
     bullets: [
-      'Botón "Levantar mano" en la barra de herramientas',
-      'El profesor ve la cola y otorga el turno',
-      'Aviso "es tu turno" cuando el profesor te habilita',
+      t('Botón "Levantar mano" en la barra de herramientas'),
+      t('El profesor ve la cola y otorga el turno'),
+      t('Aviso "es tu turno" cuando el profesor te habilita'),
     ],
   },
   {
     id: 'recording',
     icon: <FiberManualRecordIcon style={{ fontSize: 20 }} />,
     accent: accentRed,
-    categoryPill: 'SOLO PROFESOR',
-    title: 'Grabación de la sesión',
-    description:
-      'El profesor puede grabar la sesión desde el control "Grabar". Mientras la grabación está activa, un indicador REC es visible para todos los participantes.',
+    categoryPill: t('SOLO PROFESOR'),
+    title: t('Grabación de la sesión'),
+    description: t(
+      'El profesor puede grabar la sesión desde el control "Grabar". Mientras la grabación está activa, un indicador REC es visible para todos los participantes.'
+    ),
     bullets: [
-      'Disponible solo para el profesor',
+      t('Disponible solo para el profesor'),
       'Indicador REC visible mientras graba',
-      'No disponible en salas peer-to-peer / go',
+      t('No disponible en salas peer-to-peer / go'),
     ],
   },
   {
     id: 'rejoin',
     icon: <RefreshIcon style={{ fontSize: 20 }} />,
     accent: accentBlue,
-    categoryPill: 'RECONEXIÓN',
-    title: 'Si recargas la página',
-    description:
-      'Un refresco del navegador no te saca de la clase: la sesión se reconecta automáticamente con tu misma identidad. Solo el botón "Salir" termina la sesión de forma intencional.',
+    categoryPill: t('RECONEXIÓN'),
+    title: t('Si recargas la página'),
+    description: t(
+      'Un refresco del navegador no te saca de la clase: la sesión se reconecta automáticamente con tu misma identidad. Solo el botón "Salir" termina la sesión de forma intencional.'
+    ),
     bullets: [
-      'Recargar la página reconecta a la misma sala',
-      'Se conserva tu identidad y tu rol',
-      '"Salir" cierra la sesión y no reconecta',
+      t('Recargar la página reconecta a la misma sala'),
+      t('Se conserva tu identidad y tu rol'),
+      t('"Salir" cierra la sesión y no reconecta'),
     ],
   },
 ];
@@ -394,7 +405,7 @@ export default function ManualPage() {
             Manual de uso
           </Typography>
           <p className={classes.subtitle}>
-            Guía completa de las funciones de la sala de clase: controles, participación, atención y reconexión.
+            {t('Guía completa de las funciones de la sala de clase: controles, participación, atención y reconexión.')}
           </p>
         </div>
 

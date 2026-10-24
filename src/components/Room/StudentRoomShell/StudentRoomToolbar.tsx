@@ -84,7 +84,7 @@ export default function StudentRoomToolbar({
         onClick={() => onParticipantsToggle?.()}
         startIcon={<PeopleAltIcon style={{ color: participantsOpen ? '#1d6eed' : 'rgba(255,255,255,0.5)' }} />}
         className={chip}
-        aria-label="Participantes"
+        aria-label={t('Participantes')}
         data-testid="student-toolbar-participants"
         aria-pressed={participantsOpen}
       />

@@ -5,6 +5,7 @@ import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import { DashboardTabId } from './types';
 import { dashboardTabIcon, dashboardTabLabel } from './dashboardHelpers';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // This theme's `sm` boundary is 960px. A fixed rail leaves too little room for
@@ -166,7 +167,7 @@ export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankC
               data-testid={`dashboard-sidebar-tab-${tab}`}
             >
               <Icon style={{ fontSize: 20 }} />
-              {dashboardTabLabel[tab]}
+              {t(dashboardTabLabel[tab])}
             </button>
           );
         })}
@@ -186,11 +187,11 @@ export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankC
           className={classes.signOutLink}
           onClick={onSignOut}
           disabled={!onSignOut}
-          title={onSignOut ? undefined : 'Cerrar sesión no está disponible en este modo'}
+          title={onSignOut ? undefined : t('Cerrar sesión no está disponible en este modo')}
           data-testid="dashboard-sidebar-sign-out"
         >
           <ExitToAppIcon style={{ fontSize: 16 }} />
-          Cerrar sesión
+          {t('Cerrar sesión')}
         </button>
       </div>
     </nav>

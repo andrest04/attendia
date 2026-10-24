@@ -22,6 +22,7 @@ import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import FlipCameraIcon from '../../../icons/FlipCameraIcon';
 import useFlipCameraToggle from '../../../hooks/useFlipCameraToggle/useFlipCameraToggle';
 import { VideoRoomMonitor } from '@twilio/video-room-monitor';
+import { t } from '../../../i18n/translate';
 
 export const IconContainer = styled('div')({
   display: 'flex',
@@ -64,7 +65,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <MoreIcon />
         ) : (
           <>
-            Más
+            {t('Más')}
             <ExpandMoreIcon />
           </>
         )}
@@ -86,7 +87,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <IconContainer>
             <SettingsIcon />
           </IconContainer>
-          <Typography variant="body1">Configuración de audio y video</Typography>
+          <Typography variant="body1">{t('Configuración de audio y video')}</Typography>
         </MenuItem>
 
         {isSupported && (
@@ -100,7 +101,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             <IconContainer>
               <BackgroundIcon />
             </IconContainer>
-            <Typography variant="body1">Fondos</Typography>
+            <Typography variant="body1">{t('Fondos')}</Typography>
           </MenuItem>
         )}
 
@@ -109,7 +110,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             <IconContainer>
               <FlipCameraIcon />
             </IconContainer>
-            <Typography variant="body1">Girar cámara</Typography>
+            <Typography variant="body1">{t('Girar cámara')}</Typography>
           </MenuItem>
         )}
 
@@ -123,7 +124,7 @@ export default function Menu(props: { buttonClassName?: string }) {
             data-cy-recording-button
           >
             <IconContainer>{isRecording ? <StopRecordingIcon /> : <StartRecordingIcon />}</IconContainer>
-            <Typography variant="body1">{isRecording ? 'Detener grabación' : 'Iniciar grabación'}</Typography>
+            <Typography variant="body1">{isRecording ? t('Detener grabación') : t('Iniciar grabación')}</Typography>
           </MenuItem>
         )}
 
@@ -136,7 +137,7 @@ export default function Menu(props: { buttonClassName?: string }) {
           <IconContainer>
             <SearchIcon style={{ fill: '#707578', width: '0.9em' }} />
           </IconContainer>
-          <Typography variant="body1">Monitor de sala</Typography>
+          <Typography variant="body1">{t('Monitor de sala')}</Typography>
         </MenuItem>
 
         <MenuItem
@@ -152,14 +153,14 @@ export default function Menu(props: { buttonClassName?: string }) {
               <GridViewIcon style={{ fill: '#707578', width: '0.9em' }} />
             )}
           </IconContainer>
-          <Typography variant="body1">{isGalleryViewActive ? 'Vista de orador' : 'Vista de galería'}</Typography>
+          <Typography variant="body1">{isGalleryViewActive ? t('Vista de orador') : t('Vista de galería')}</Typography>
         </MenuItem>
 
         <MenuItem onClick={() => setAboutOpen(true)}>
           <IconContainer>
             <InfoIconOutlined />
           </IconContainer>
-          <Typography variant="body1">Acerca de</Typography>
+          <Typography variant="body1">{t('Acerca de')}</Typography>
         </MenuItem>
       </MenuContainer>
       <AboutDialog

@@ -30,6 +30,7 @@ import SmallCheckIcon from '../../../icons/SmallCheckIcon';
 import InfoIconOutlined from '../../../icons/InfoIconOutlined';
 import { featureFlags } from '../../../utils/featureFlags';
 import { selectCameraTrack } from '../../../utils/trackSelectors';
+import { t } from '../../../i18n/translate';
 
 // Pre-join check states share one icon vocabulary across the device list.
 // 'unavailable' = the check can't run right now and that's expected (e.g. the
@@ -37,9 +38,9 @@ import { selectCameraTrack } from '../../../utils/trackSelectors';
 type CheckState = 'ok' | 'fail' | 'pending' | 'unavailable';
 
 const CONNECTION_QUALITY_LABEL: Record<ConnectionQuality, string> = {
-  good: 'Conexión buena',
-  medium: 'Conexión media',
-  poor: 'Conexión pobre',
+  good: t('Conexión buena'),
+  medium: t('Conexión media'),
+  poor: t('Conexión pobre'),
   unknown: 'Verificando…',
 };
 
@@ -492,11 +493,11 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
   // never the positive copy next to a warning icon.
   const deviceChecks: Array<{ label: string; state: CheckState }> = [
     {
-      label: hasAudioInputDevices ? 'Micrófono detectado' : 'Micrófono no detectado',
+      label: hasAudioInputDevices ? t('Micrófono detectado') : t('Micrófono no detectado'),
       state: hasAudioInputDevices ? 'ok' : 'fail',
     },
     {
-      label: hasVideoInputDevices ? 'Cámara detectada' : 'Cámara no detectada',
+      label: hasVideoInputDevices ? t('Cámara detectada') : t('Cámara no detectada'),
       state: hasVideoInputDevices ? 'ok' : 'fail',
     },
     {
@@ -505,12 +506,12 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
     },
     {
       label: isCameraOff
-        ? 'Iluminación (cámara apagada)'
+        ? t('Iluminación (cámara apagada)')
         : isVideoMuted
-        ? 'Iluminación (cámara bloqueada)'
+        ? t('Iluminación (cámara bloqueada)')
         : lightingState === 'fail'
-        ? 'Iluminación insuficiente'
-        : 'Iluminación adecuada',
+        ? t('Iluminación insuficiente')
+        : t('Iluminación adecuada'),
       state: lightingState,
     },
   ];
@@ -594,7 +595,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
           </div>
           <div>
             <Typography variant="body2" style={{ fontWeight: 'bold', fontSize: '16px' }}>
-              Uniéndose a la reunión
+              {t('Uniéndose a la reunión')}
             </Typography>
           </div>
         </Grid>
@@ -619,22 +620,22 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
           too dark. Suppressed when the camera isn't delivering frames, since the
           reading would be invalid. */}
       {lighting.status === 'low' && !isCameraUnavailable && !lightingDismissed && (
-        <div className={classes.lightingBanner} role="note" aria-label="Verificación de iluminación">
+        <div className={classes.lightingBanner} role="note" aria-label={t('Verificación de iluminación')}>
           <div className={classes.lightingBannerIconWrap}>
             <WarningIcon style={{ fontSize: 17, color: '#ffb800' }} />
           </div>
           <div className={classes.lightingBannerBody}>
             <div className={classes.lightingBannerTitle}>
-              Condiciones de iluminación insuficientes para análisis de atención
+              {t('Condiciones de iluminación insuficientes para análisis de atención')}
             </div>
             <div className={classes.lightingBannerSub}>
-              Mejora la iluminación de tu entorno para que el sistema pueda analizar tu atención correctamente.
+              {t('Mejora la iluminación de tu entorno para que el sistema pueda analizar tu atención correctamente.')}
             </div>
           </div>
           <button
             type="button"
             className={classes.lightingBannerClose}
-            aria-label="Cerrar aviso"
+            aria-label={t('Cerrar aviso')}
             onClick={() => setLightingDismissed(true)}
           >
             ×
@@ -668,9 +669,9 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
               style={{ marginTop: '1em' }}
             >
               <div className={classes.toolTipContainer}>
-                <Typography variant="subtitle2">Cancelación de ruido</Typography>
+                <Typography variant="subtitle2">{t('Cancelación de ruido')}</Typography>
                 <Tooltip
-                  title="Suprime el ruido de fondo de tu micrófono"
+                  title={t('Suprime el ruido de fondo de tu micrófono')}
                   interactive
                   leaveDelay={250}
                   leaveTouchDelay={15000}
@@ -710,11 +711,11 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
         {/* "Verificación previa" panel — real device, connection, and lighting status. */}
         <Grid item md={4} sm={12} xs={12}>
           <div className={classes.panel}>
-            <Typography className={classes.panelTitle}>Verificación previa</Typography>
+            <Typography className={classes.panelTitle}>{t('Verificación previa')}</Typography>
 
             {/* Connection quality section */}
             <div className={classes.panelGroup}>
-              <span className={classes.sectionLabel}>Calidad de conexión</span>
+              <span className={classes.sectionLabel}>{t('Calidad de conexión')}</span>
               <div className={classes.connectionPill}>
                 <WifiIcon style={{ fontSize: 15, color: CONNECTION_BAR_COLOR[connection.quality] }} />
                 <span className={classes.connectionLabel}>{CONNECTION_QUALITY_LABEL[connection.quality]}</span>
@@ -755,7 +756,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
                 faciales.
               </Typography>
               <a href="/security" className={classes.privacyLink}>
-                Política de privacidad →
+                {t('Política de privacidad →')}
               </a>
             </div>
 

@@ -12,6 +12,7 @@ import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import DoneIcon from '@material-ui/icons/Done';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import goBackFromStandalonePage from '../../utils/goBackFromStandalonePage';
+import { t } from '../../i18n/translate';
 
 interface CardAccent {
   topBar: string;
@@ -64,13 +65,14 @@ const sections: SecuritySection[] = [
     icon: <LockIcon style={{ fontSize: 20 }} />,
     accent: accentBlue,
     categoryPill: 'SRTP · TLS',
-    title: 'Cifrado de transmisión',
-    description:
-      'Todos los flujos de audio, video y datos se cifran mediante SRTP (Secure Real-time Transport Protocol) y TLS (Transport Layer Security), garantizando la confidencialidad e integridad de los medios en tránsito a través de la infraestructura Twilio Video.',
+    title: t('Cifrado de transmisión'),
+    description: t(
+      'Todos los flujos de audio, video y datos se cifran mediante SRTP (Secure Real-time Transport Protocol) y TLS (Transport Layer Security), garantizando la confidencialidad e integridad de los medios en tránsito a través de la infraestructura Twilio Video.'
+    ),
     bullets: [
-      'SRTP para todos los flujos de audio y video',
-      'TLS para señalización y datos de control',
-      'Claves de sesión negociadas por DTLS-SRTP',
+      t('SRTP para todos los flujos de audio y video'),
+      t('TLS para señalización y datos de control'),
+      t('Claves de sesión negociadas por DTLS-SRTP'),
     ],
   },
   {
@@ -78,13 +80,14 @@ const sections: SecuritySection[] = [
     icon: <VpnKeyIcon style={{ fontSize: 20 }} />,
     accent: accentGreen,
     categoryPill: 'JWT · SESSION',
-    title: 'Tokens de acceso de sesión',
-    description:
-      'El acceso a cada sala de clase se gestiona mediante tokens JWT únicos generados por el servidor. Cada token es específico para cada sesión y participante, expirando automáticamente al cerrar la sesión o transcurrido el período de tiempo configurado.',
+    title: t('Tokens de acceso de sesión'),
+    description: t(
+      'El acceso a cada sala de clase se gestiona mediante tokens JWT únicos generados por el servidor. Cada token es específico para cada sesión y participante, expirando automáticamente al cerrar la sesión o transcurrido el período de tiempo configurado.'
+    ),
     bullets: [
-      'Tokens firmados con algoritmos RS256',
-      'Expiración automática configurable (default: 4h)',
-      'Invalidación inmediata al cerrar sesión',
+      t('Tokens firmados con algoritmos RS256'),
+      t('Expiración automática configurable (default: 4h)'),
+      t('Invalidación inmediata al cerrar sesión'),
     ],
   },
   {
@@ -93,12 +96,13 @@ const sections: SecuritySection[] = [
     accent: accentAmber,
     categoryPill: 'LOCAL ONLY',
     title: 'Datos faciales — Procesamiento local',
-    description:
-      'El análisis de atención basado en visión por computadora (detección de rostro, detección de parpadeo, dirección de mirada) se realiza exclusivamente en el dispositivo del usuario mediante MediaPipe FaceLandmarker. Ningún dato facial se transmite a servidores externos.',
+    description: t(
+      'El análisis de atención basado en visión por computadora (detección de rostro, detección de parpadeo, dirección de mirada) se realiza exclusivamente en el dispositivo del usuario mediante MediaPipe FaceLandmarker. Ningún dato facial se transmite a servidores externos.'
+    ),
     bullets: [
-      'MediaPipe FaceLandmarker ejecutado en el navegador del usuario',
-      'El procesamiento de IA nunca abandona el dispositivo',
-      'Solo se transmiten índices numéricos agregados de atención',
+      t('MediaPipe FaceLandmarker ejecutado en el navegador del usuario'),
+      t('El procesamiento de IA nunca abandona el dispositivo'),
+      t('Solo se transmiten índices numéricos agregados de atención'),
     ],
   },
   {
@@ -106,13 +110,14 @@ const sections: SecuritySection[] = [
     icon: <LanguageIcon style={{ fontSize: 20 }} />,
     accent: accentNavy,
     categoryPill: 'GLOBAL SFU',
-    title: 'Disponibilidad del servicio',
-    description:
-      'La plataforma garantiza disponibilidad del 99.95% para usuarios activos, apoyada en la infraestructura global de Twilio Video. En caso de degradación, el sistema ajusta adaptativamente la calidad del video para mantener la continuidad del servicio.',
+    title: t('Disponibilidad del servicio'),
+    description: t(
+      'La plataforma garantiza disponibilidad del 99.95% para usuarios activos, apoyada en la infraestructura global de Twilio Video. En caso de degradación, el sistema ajusta adaptativamente la calidad del video para mantener la continuidad del servicio.'
+    ),
     bullets: [
-      'SFU distribuido en múltiples regiones globales',
-      'Reconexión automática con backoff exponencial',
-      'Reducción adaptativa de bitrate ante pérdida de paquetes',
+      t('SFU distribuido en múltiples regiones globales'),
+      t('Reconexión automática con backoff exponencial'),
+      t('Reducción adaptativa de bitrate ante pérdida de paquetes'),
     ],
   },
 ];
@@ -502,7 +507,7 @@ export default function SecurityPage() {
               Seguridad y Privacidad
             </Typography>
             <p className={classes.subtitle}>
-              Información sobre las medidas de seguridad, privacidad de datos y disponibilidad del servicio
+              {t('Información sobre las medidas de seguridad, privacidad de datos y disponibilidad del servicio')}
               implementadas en attendia.
             </p>
           </div>
@@ -520,9 +525,9 @@ export default function SecurityPage() {
               </div>
               <p className={classes.footerText}>
                 <strong className={classes.footerBrand}>attendia</strong>
-                {
+                {t(
                   ' no almacena imágenes, video ni datos biométricos en ningún servidor. Todos los datos de análisis de atención son procesados localmente y solo se reportan índices numéricos agregados por sesión.'
-                }
+                )}
               </p>
             </div>
           </div>

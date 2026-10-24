@@ -7,6 +7,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import { routes } from '../../routes';
 import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
+import { t } from '../../i18n/translate';
 
 /**
  * The lobby is tinted by role: teacher keeps the default blue palette; the student flow swaps the
@@ -441,7 +442,7 @@ const IntroContainer = (props: IntroContainerProps) => {
           props.headerRoomName ? (
             <span className={classes.presessionPill}>
               <span className={classes.presessionDot} />
-              Pre-sesión
+              {t('Pre-sesión')}
             </span>
           ) : (
             undefined
@@ -456,12 +457,12 @@ const IntroContainer = (props: IntroContainerProps) => {
                     setCreatePasswordOpen(true);
                   }}
                 >
-                  Crear contraseña
+                  {t('Crear contraseña')}
                 </MenuItem>
               )}
               {isStudent && (
                 <MenuItem onClick={() => signOut?.()} data-testid="student-header-sign-out">
-                  Cerrar sesión
+                  {t('Cerrar sesión')}
                 </MenuItem>
               )}
             </>
@@ -487,7 +488,7 @@ const IntroContainer = (props: IntroContainerProps) => {
               Bienvenido a <span className={classes.heroTitleAccent}>attendia</span>
             </Typography>
             <p className={classes.heroSubtitle}>
-              Videoconferencia síncrona para aulas híbridas con detección de atención en tiempo real.
+              {t('Videoconferencia síncrona para aulas híbridas con detección de atención en tiempo real.')}
             </p>
           </div>
         )}

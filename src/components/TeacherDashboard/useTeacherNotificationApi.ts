@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useAppState } from '../../state';
 import { TeacherNotificationApi } from './useTeacherNotifications';
+import { t } from '../../i18n/translate';
 
-const unavailable = () => Promise.reject(new Error('Las notificaciones no están disponibles.'));
+const unavailable = () => Promise.reject(new Error(t('Las notificaciones no están disponibles.')));
 
 /** Stands in for the API when the session has none, so nothing has to null-check or assert it. */
 const UNAVAILABLE_API: TeacherNotificationApi = {

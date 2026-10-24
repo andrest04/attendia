@@ -10,6 +10,7 @@ import packageJSON from '../../../package.json';
 
 import Video from 'twilio-video';
 import { useAppState } from '../../state';
+import { t } from '../../i18n/translate';
 
 interface AboutDialogProps {
   open: boolean;
@@ -20,15 +21,29 @@ function AboutDialog({ open, onClose }: PropsWithChildren<AboutDialogProps>) {
   const { roomType } = useAppState();
   return (
     <Dialog open={open} onClose={onClose} fullWidth={true} maxWidth="xs">
-      <DialogTitle>Acerca de</DialogTitle>
+      <DialogTitle>{t('Acerca de')}</DialogTitle>
       <Divider />
       <DialogContent>
-        <DialogContentText>Navegador compatible: {String(Video.isSupported)}</DialogContentText>
-        <DialogContentText>Versión del SDK: {Video.version}</DialogContentText>
-        <DialogContentText>Versión de la app: {packageJSON.version}</DialogContentText>
-        <DialogContentText>Tag desplegado: {process.env.REACT_APP_GIT_TAG || 'N/A'}</DialogContentText>
-        <DialogContentText>Hash del commit desplegado: {process.env.REACT_APP_GIT_COMMIT || 'N/A'}</DialogContentText>
-        {roomType && <DialogContentText>Tipo de sala: {roomType}</DialogContentText>}
+        <DialogContentText>
+          {t('Navegador compatible:')} {String(Video.isSupported)}
+        </DialogContentText>
+        <DialogContentText>
+          {t('Versión del SDK:')} {Video.version}
+        </DialogContentText>
+        <DialogContentText>
+          {t('Versión de la app:')} {packageJSON.version}
+        </DialogContentText>
+        <DialogContentText>
+          {t('Tag desplegado:')} {process.env.REACT_APP_GIT_TAG || 'N/A'}
+        </DialogContentText>
+        <DialogContentText>
+          {t('Hash del commit desplegado:')} {process.env.REACT_APP_GIT_COMMIT || 'N/A'}
+        </DialogContentText>
+        {roomType && (
+          <DialogContentText>
+            {t('Tipo de sala:')} {roomType}
+          </DialogContentText>
+        )}
       </DialogContent>
       <Divider />
       <DialogActions>

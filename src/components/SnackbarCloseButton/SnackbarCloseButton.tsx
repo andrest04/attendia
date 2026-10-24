@@ -2,6 +2,7 @@ import React from 'react';
 import { IconButton } from '@material-ui/core';
 import CloseIcon from '@material-ui/icons/Close';
 import { SnackbarKey, useSnackbar } from 'notistack';
+import { t } from '../../i18n/translate';
 
 export default function SnackbarCloseButton({ snackbarKey }: { snackbarKey: SnackbarKey }) {
   const { closeSnackbar } = useSnackbar();
@@ -9,7 +10,7 @@ export default function SnackbarCloseButton({ snackbarKey }: { snackbarKey: Snac
   return (
     <IconButton
       size="small"
-      aria-label="Cerrar notificación"
+      aria-label={t('Cerrar notificación')}
       onClick={() => closeSnackbar(snackbarKey)}
       data-testid="snackbar-close-button"
     >

@@ -18,7 +18,7 @@ export default function ToggleVideoButton(props: {
   const lastClickTimeRef = useRef(0);
   const { hasVideoInputDevices } = useDevices();
   const classes = useToolbarButtonStyles();
-  const label = t(!hasVideoInputDevices ? 'Sin video' : isVideoEnabled ? 'Detener video' : 'Iniciar video');
+  const label = t(!hasVideoInputDevices ? 'Sin video' : isVideoEnabled ? t('Detener video') : t('Iniciar video'));
   const isActive = hasVideoInputDevices && isVideoEnabled;
 
   const toggleVideo = useCallback(() => {

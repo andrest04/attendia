@@ -13,6 +13,7 @@ import MenuBookIcon from '@material-ui/icons/MenuBook';
 import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import { routes } from '../../../routes';
 import { createStorageSlot } from '../../../utils/createStorageSlot';
+import { t } from '../../../i18n/translate';
 
 // ---------------------------------------------------------------------------
 // "Already seen" flag, kept per browser (a failing storage just shows the tour again)
@@ -57,20 +58,22 @@ const STEPS: StepDef[] = [
   {
     accentColor: '#1d6eed', // primary blue
     icon: <CameraAltIcon style={{ fontSize: 20 }} />,
-    title: 'Controles de cámara y micrófono',
-    body:
-      'Gestiona tu cámara y micrófono desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.',
-    callout: 'El área resaltada en la parte inferior es la barra de herramientas principal.',
+    title: t('Controles de cámara y micrófono'),
+    body: t(
+      'Gestiona tu cámara y micrófono desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.'
+    ),
+    callout: t('El área resaltada en la parte inferior es la barra de herramientas principal.'),
     calloutIcon: CameraAltIcon,
     anchorTestId: 'professor-room-shell-toolbar-slot',
   },
   {
     accentColor: '#10b981', // success green
     icon: <MenuBookIcon style={{ fontSize: 20 }} />,
-    title: 'Chat y participantes',
-    body:
-      'Abre el panel derecho con estos botones de la barra de herramientas para ver la lista de participantes y comunicarte por el chat.',
-    callout: 'Los botones resaltados abren los paneles de participantes y de chat.',
+    title: t('Chat y participantes'),
+    body: t(
+      'Abre el panel derecho con estos botones de la barra de herramientas para ver la lista de participantes y comunicarte por el chat.'
+    ),
+    callout: t('Los botones resaltados abren los paneles de participantes y de chat.'),
     calloutIcon: MenuBookIcon,
     // Anchors to the toolbar buttons that OPEN the panel (not the panel itself):
     // the side rails start collapsed, so the rail element is not in the DOM when
@@ -80,10 +83,11 @@ const STEPS: StepDef[] = [
   {
     accentColor: '#ffb800', // warning amber
     icon: <MemoryIcon style={{ fontSize: 20 }} />,
-    title: 'Detección de atención',
-    body:
-      'El sistema analiza tu nivel de atención de forma local en tu dispositivo. Estos datos ayudan al profesor a entender el compromiso del grupo.',
-    callout: 'Los datos faciales NO se almacenan ni se envían a servidores externos.',
+    title: t('Detección de atención'),
+    body: t(
+      'El sistema analiza tu nivel de atención de forma local en tu dispositivo. Estos datos ayudan al profesor a entender el compromiso del grupo.'
+    ),
+    callout: t('Los datos faciales NO se almacenan ni se envían a servidores externos.'),
     calloutIcon: MemoryIcon,
     // No spotlight: the Figma copy here is about data privacy, not a highlighted
     // room zone, so this step intentionally points at nothing.
@@ -91,10 +95,11 @@ const STEPS: StepDef[] = [
   {
     accentColor: '#1d2f6f', // secondary navy
     icon: <SecurityIcon style={{ fontSize: 20 }} />,
-    title: 'Privacidad y seguridad',
-    body:
-      'Toda la comunicación está cifrada con SRTP. Los tokens de sesión se generan automáticamente y expiran al cerrar la sesión.',
-    callout: 'Consulta la política de privacidad desde el pie de página.',
+    title: t('Privacidad y seguridad'),
+    body: t(
+      'Toda la comunicación está cifrada con SRTP. Los tokens de sesión se generan automáticamente y expiran al cerrar la sesión.'
+    ),
+    callout: t('Consulta la política de privacidad desde el pie de página.'),
     calloutIcon: SecurityIcon,
   },
 ];
@@ -476,7 +481,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
               size="small"
               className={classes.closeBtn}
               onClick={dismiss}
-              aria-label="Cerrar tutorial"
+              aria-label={t('Cerrar tutorial')}
               data-testid="onboarding-close"
             >
               <CloseIcon fontSize="small" />
@@ -545,7 +550,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
             <button
               className={classes.manualLink}
               onClick={() => window.open(routes.manual, '_blank', 'noopener')}
-              aria-label="Acceder al manual completo"
+              aria-label={t('Acceder al manual completo')}
               data-testid="onboarding-manual"
             >
               <MenuBookIcon style={{ fontSize: 18 }} />

@@ -13,6 +13,7 @@ import ProfessorRightRail from './ProfessorRightRail';
 import ProctoringAlertModal from './ProctoringAlertModal';
 import LiveReportModal from './LiveReportModal';
 import { ProfessorRightTab } from './professorShellHelpers';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles(() => ({
   center: {
@@ -91,8 +92,8 @@ export default function ProfessorRoomShell({
   onRightTabChange,
   rightPanel = null,
   participants = [],
-  sessionLabel = 'Sesión Twilio en vivo',
-  sessionName = 'Sesión Twilio en vivo',
+  sessionLabel = t('Sesión Twilio en vivo'),
+  sessionName = t('Sesión Twilio en vivo'),
   participantCount = 0,
   recording = false,
   handsRaised = [],

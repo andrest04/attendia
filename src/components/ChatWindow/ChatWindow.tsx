@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import MessageList from './MessageList/MessageList';
 import useChatContext from '../../hooks/useChatContext/useChatContext';
 import { featureFlags } from '../../utils/featureFlags';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -80,7 +81,7 @@ export function BaseChatWindow({ embedded = false, isVisible = true }: ChatWindo
   }, [embedded, isVisible, setIsChatWindowOpen]);
 
   const unavailableMessage = isConversationsDisabled
-    ? 'El chat no está disponible en esta sesión.'
+    ? t('El chat no está disponible en esta sesión.')
     : 'Conectando chat...';
 
   return (

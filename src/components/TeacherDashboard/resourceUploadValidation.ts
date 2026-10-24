@@ -1,3 +1,4 @@
+import { t } from '../../i18n/translate';
 /*
  * Client-side mirror of the upload rules enforced server-side in
  * server/resources.ts (MAX_FILE_SIZE_BYTES, PRESENTATION_MIME_TYPES,
@@ -75,10 +76,12 @@ function isSupportedResourceMimeType(mimetype: string): boolean {
 /** Returns a user-facing Spanish error, or null if the file is upload-eligible. */
 export function validateResourceFile(file: File): string | null {
   if (file.size > MAX_RESOURCE_FILE_SIZE_BYTES) {
-    return 'El archivo supera el tamaño máximo permitido (25 MB).';
+    return t('El archivo supera el tamaño máximo permitido (25 MB).');
   }
   if (!isSupportedResourceMimeType(file.type)) {
-    return 'Tipo de archivo no admitido. Solo se aceptan PDFs, presentaciones, documentos de Word, archivos ZIP y videos.';
+    return t(
+      'Tipo de archivo no admitido. Solo se aceptan PDFs, presentaciones, documentos de Word, archivos ZIP y videos.'
+    );
   }
   return null;
 }

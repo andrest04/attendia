@@ -3,6 +3,7 @@ import Cropper, { Area } from 'react-easy-crop';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Typography } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { cropToBudgetedBlob } from './avatarCropUtils';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   cropArea: {
@@ -44,8 +45,8 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
     try {
       const blob = await cropToBudgetedBlob(imageSrc, croppedAreaPixels);
       onConfirm(blob);
-    } catch (error: any) {
-      onError(error?.message || 'No pudimos ajustar la imagen.');
+    } catch (error) {
+      onError(error?.message || t('No pudimos ajustar la imagen.'));
     } finally {
       setIsCropping(false);
     }

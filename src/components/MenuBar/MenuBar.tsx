@@ -17,6 +17,7 @@ import RaiseHandButton from '../Buttons/RaiseHandButton/RaiseHandButton';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import { useSessionEndApi } from '../../hooks/useSessionEnd/sessionEndContext';
 import { featureFlags } from '../../utils/featureFlags';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -81,8 +82,8 @@ export default function MenuBar() {
     <>
       {isSharingScreen && (
         <Grid container justifyContent="center" alignItems="center" className={classes.screenShareBanner}>
-          <Typography variant="h6">Estás compartiendo tu pantalla</Typography>
-          <Button onClick={() => toggleScreenShare()}>Dejar de compartir</Button>
+          <Typography variant="h6">{t('Estás compartiendo tu pantalla')}</Typography>
+          <Button onClick={() => toggleScreenShare()}>{t('Dejar de compartir')}</Button>
         </Grid>
       )}
       <footer className={classes.container}>

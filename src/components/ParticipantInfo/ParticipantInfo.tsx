@@ -20,6 +20,7 @@ import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classS
 import RoleBadge from '../RoleBadge/RoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
+import { t } from '../../i18n/translate';
 
 const borderWidth = 2;
 
@@ -260,7 +261,7 @@ export default function ParticipantInfo({
             {attention.multiface && (
               <span
                 className={classes.multifacePill}
-                title="Múltiples rostros detectados"
+                title={t('Múltiples rostros detectados')}
                 data-testid="participant-multiface-flag"
               >
                 Multi-rostro

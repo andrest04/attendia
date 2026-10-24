@@ -2,6 +2,7 @@ import React from 'react';
 import { FormControl, MenuItem, Typography, Select } from '@material-ui/core';
 import { useAppState } from '../../../state';
 import useDevices from '../../../hooks/useDevices/useDevices';
+import { t } from '../../../i18n/translate';
 
 export default function AudioOutputList() {
   const { audioOutputDevices } = useDevices();
@@ -13,7 +14,7 @@ export default function AudioOutputList() {
       {audioOutputDevices.length > 1 ? (
         <FormControl fullWidth>
           <Typography variant="subtitle2" gutterBottom>
-            Audio Output
+            {t('Salida de audio')}
           </Typography>
           <Select onChange={e => setActiveSinkId(e.target.value as string)} value={activeSinkId} variant="outlined">
             {audioOutputDevices.map(device => (

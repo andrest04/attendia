@@ -9,6 +9,7 @@ import { buildMockClassesView, buildRealClassesView } from './classSessionsView'
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
 import { countOf } from '../../utils/pluralize';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
+import { t } from '../../i18n/translate';
 
 export interface UseTeacherClassesParams {
   fetchClasses?: StateContextType['fetchClasses'];
@@ -115,7 +116,7 @@ export default function useTeacherClasses({
     reload: loadClasses,
   } = useReloadableResource<ClassRecord[]>(fetchClasses, {
     initial: [],
-    failureMessage: 'No pudimos consultar las clases programadas.',
+    failureMessage: t('No pudimos consultar las clases programadas.'),
     logLabel: 'TeacherDashboard: could not fetch classes',
   });
   const [cancellingClassId, setCancellingClassId] = useState<string | null>(null);
@@ -151,7 +152,7 @@ export default function useTeacherClasses({
         refreshNotifications();
       })
       .catch(err => {
-        setCancelError(err.message || 'No pudimos cancelar la clase.');
+        setCancelError(err.message || t('No pudimos cancelar la clase.'));
         cancelRetrySessionRef.current = session;
       })
       .finally(() => setCancellingClassId(null));
@@ -202,7 +203,9 @@ export default function useTeacherClasses({
           setRealClasses(current => current.filter(c => !deletedIds.includes(c.id)));
         }
         if (failedCount > 0) {
-          setCancelExpiredError(`No pudimos cancelar ${countOf(failedCount, 'clase vencida', 'clases vencidas')}.`);
+          setCancelExpiredError(
+            `No pudimos cancelar ${countOf(failedCount, t('clase vencida'), t('clases vencidas'))}.`
+          );
         }
         setIsCancellingExpired(false);
       }
@@ -228,13 +231,15 @@ export default function useTeacherClasses({
         return;
       }
       setStartClassError(
-        'Ya hay una sesión activa con este nombre de sala. Si es de otro profesor, entra con su código desde "Iniciar clase".'
+        t(
+          'Ya hay una sesión activa con este nombre de sala. Si es de otro profesor, entra con su código desde "Iniciar clase".'
+        )
       );
       return;
     }
     startClass!(classId, roomName)
       .then(() => onStartClass({ roomName, name: toClassSessionDisplayName(professorName, 'teacher'), classId }))
-      .catch(err => setStartClassError(err.message || 'No pudimos iniciar la clase programada.'))
+      .catch(err => setStartClassError(err.message || t('No pudimos iniciar la clase programada.')))
       .finally(() => setIsStartingClass(false));
   };
 

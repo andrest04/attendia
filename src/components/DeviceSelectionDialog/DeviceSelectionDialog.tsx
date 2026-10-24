@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
+import { t } from '../../i18n/translate';
 import VideoInputList from './VideoInputList/VideoInputList';
 import MaxGalleryViewParticipants from './MaxGalleryViewParticipants/MaxGalleryViewParticipants';
 import { useKrispToggle } from '../../hooks/useKrispToggle/useKrispToggle';
@@ -81,28 +82,28 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
 
   return (
     <Dialog open={open} onClose={onClose} classes={{ paper: classes.paper }}>
-      <DialogTitle>Audio and Video Settings</DialogTitle>
+      <DialogTitle>{t('Configuración de audio y video')}</DialogTitle>
       <Divider />
       <DialogContent className={classes.container}>
         <div className={classes.listSection}>
           <Typography variant="h6" className={classes.headline}>
-            Video
+            {t('Video')}
           </Typography>
           <VideoInputList />
         </div>
         <Divider />
         <div className={classes.listSection}>
           <Typography variant="h6" className={classes.headline}>
-            Audio
+            {t('Audio')}
           </Typography>
 
           {isKrispInstalled && (
             <div className={classes.noiseCancellationContainer}>
               <div className={classes.krispContainer}>
-                <Typography variant="subtitle2">Noise Cancellation powered by </Typography>
+                <Typography variant="subtitle2">{t('Cancelación de ruido con')} </Typography>
                 <KrispLogo />
                 <Tooltip
-                  title="Suppress background noise from your microphone"
+                  title={t('Suprime el ruido de fondo de tu micrófono.')}
                   interactive
                   leaveDelay={250}
                   leaveTouchDelay={15000}
@@ -122,7 +123,7 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
                     onClick={toggleKrisp}
                   />
                 }
-                label={isKrispEnabled ? 'Enabled' : 'Disabled'}
+                label={isKrispEnabled ? t('Activado') : t('Desactivado')}
                 style={{ marginRight: 0 }}
                 disabled={isAcquiringLocalTracks}
               />
@@ -130,7 +131,7 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
           )}
           {isKrispInstalled && (
             <Typography variant="body1" color="textSecondary" className={classes.krispInfoText}>
-              Suppress background noise from your microphone.
+              {t('Suprime el ruido de fondo de tu micrófono.')}
             </Typography>
           )}
 
