@@ -4,6 +4,7 @@ import { shallow } from 'enzyme';
 import { Button, TextField } from '@material-ui/core';
 import { useAppState } from '../../../state';
 import { createDefaultClassSessionDraft } from '../../../classSession/classSessionTypes';
+import RoleBadge from '../../RoleBadge/RoleBadge';
 
 jest.mock('../../../state');
 const mockUseAppState = useAppState as jest.Mock<any>;
@@ -199,7 +200,10 @@ describe('the RoomNameScreen component', () => {
     );
 
     expect(wrapper.text()).toContain('Identidad visible en sala');
-    expect(wrapper.text()).toContain('Andres Torres [Profesor]');
+    // The role is a badge (same look as in the room), never the raw `[Profesor]` suffix.
+    expect(wrapper.text()).toContain('Andres Torres');
+    expect(wrapper.text()).not.toContain('[Profesor]');
+    expect(wrapper.find(RoleBadge).exists()).toBe(true);
     expect(wrapper.text()).toContain('Nombre de la sala');
     expect(wrapper.text()).toContain('session-1');
     expect(wrapper.text()).not.toContain('Link para compartir');
@@ -255,6 +259,24 @@ describe('the RoomNameScreen component', () => {
 
     copyButtons.at(0).simulate('click');
     expect(writeText).toHaveBeenCalledWith('session-1');
+  });
+
+  it('shows no role badge in the created card when the visible name carries no teacher suffix', () => {
+    mockUseAppState.mockImplementationOnce(() => ({ user: { displayName: 'Teacher Name' } }));
+    const wrapper = shallow(
+      <RoomNameScreen
+        {...baseProps}
+        teacherDisplayName="Andres Torres"
+        classSessionAccess={{
+          roomName: 'session-1',
+          joinCode: 'session-1',
+          joinLink: 'https://example.org/room/session-1',
+        }}
+      />
+    );
+
+    expect(wrapper.text()).toContain('Andres Torres');
+    expect(wrapper.find(RoleBadge).exists()).toBe(false);
   });
 
   it('keeps teacher creation disabled without session name', () => {

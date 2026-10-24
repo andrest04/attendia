@@ -9,9 +9,11 @@ import {
   ClassSessionDraft,
   ClassSessionRole,
   isClassSessionDraftReady,
+  isTeacherIdentity,
   normalizeStudentJoinInputToRoomName,
+  stripTeacherSuffix,
 } from '../../../classSession/classSessionTypes';
-import { displayIdentity } from '../../../i18n/displayIdentity';
+import RoleBadge from '../../RoleBadge/RoleBadge';
 import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -304,6 +306,12 @@ const useStyles = makeStyles((theme: Theme) => ({
     color: theme.palette.text.secondary,
     display: 'block',
   },
+  createdIdentity: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing(1),
+  },
 
   // ── Role-switch link ───────────────────────────────────────────────────────────
   roleSwitchRow: {
@@ -557,7 +565,10 @@ export default function RoomNameScreen({
                   <Typography variant="caption" className={classes.createdLabel}>
                     {t('Identidad visible en sala')}
                   </Typography>
-                  <Typography variant="body2">{displayIdentity(teacherDisplayName)}</Typography>
+                  <div className={classes.createdIdentity}>
+                    <Typography variant="body2">{stripTeacherSuffix(teacherDisplayName)}</Typography>
+                    {isTeacherIdentity(teacherDisplayName) && <RoleBadge />}
+                  </div>
                 </div>
               </div>
 
