@@ -523,7 +523,7 @@ export default function RoomNameScreen({
           {!hasUsername && (
             <div className={classes.fieldBlockInner}>
               <InputLabel shrink htmlFor="input-user-name" className={classes.fieldLabel}>
-                Tu nombre
+                {t('Tu nombre')}
               </InputLabel>
               <TextField
                 id="input-user-name"
@@ -715,7 +715,7 @@ export default function RoomNameScreen({
                           onClick={() => setConfirmingCreate(false)}
                           style={{ textTransform: 'none' }}
                         >
-                          Cancelar
+                          {t('Cancelar')}
                         </Button>
                       </div>
                     </div>
@@ -851,7 +851,7 @@ export default function RoomNameScreen({
               onClick={() => handleSwitchRole('student')}
               data-testid="switch-to-student"
             >
-              Unirse como estudiante
+              {t('Unirse como estudiante')}
             </button>
           ) : (
             <button

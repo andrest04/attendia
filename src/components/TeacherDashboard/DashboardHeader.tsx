@@ -215,7 +215,7 @@ export default function DashboardHeader({
   return (
     <header className={classes.root} data-testid="dashboard-header">
       {onLogoClick ? (
-        <button type="button" className={classes.logoButton} onClick={onLogoClick} aria-label="Ir al inicio">
+        <button type="button" className={classes.logoButton} onClick={onLogoClick} aria-label={t('Ir al inicio')}>
           {logo}
         </button>
       ) : (
@@ -297,7 +297,7 @@ export default function DashboardHeader({
             >
               {showProfileLink && (
                 <MenuItem onClick={openProfile} data-testid="dashboard-profile-menu-item">
-                  Perfil
+                  {t('Perfil')}
                 </MenuItem>
               )}
               {extraMenuItems}

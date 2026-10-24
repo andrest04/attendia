@@ -31,7 +31,7 @@ describe('the AudioOutputList component', () => {
     ).toBe('mock device');
   });
 
-  it('should display "System Default Audio Output" when no audio output devices are available', () => {
+  it('should display "Salida de audio predeterminada del sistema" when no audio output devices are available', () => {
     mockUseDevices.mockImplementation(() => ({ audioOutputDevices: [] }));
     const wrapper = shallow(<AudioOutputList />);
     expect(wrapper.find(Select).exists()).toBe(false);
@@ -40,7 +40,7 @@ describe('the AudioOutputList component', () => {
         .find(Typography)
         .at(1)
         .text()
-    ).toBe('System Default Audio Output');
+    ).toBe('Salida de audio predeterminada del sistema');
   });
 
   it('should display a Select menu when multiple audio output devices are available', () => {

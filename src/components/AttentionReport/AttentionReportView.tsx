@@ -474,15 +474,15 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
       color: KPI_COLORS.students,
     },
     {
-      label: 'Alertas de proctoring',
+      label: t('Alertas de proctoring'),
       value: `${totalAlerts}`,
-      sub: 'eventos detectados',
+      sub: t('eventos detectados'),
       color: KPI_COLORS.alerts,
     },
     {
-      label: 'Umbral superado',
+      label: t('Umbral superado'),
       value: hasGroupData ? `${percentAboveThreshold}%` : '—',
-      sub: 'del tiempo total',
+      sub: t('del tiempo total'),
       color: KPI_COLORS.threshold,
     },
   ];

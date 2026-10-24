@@ -426,7 +426,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
       className={classes.backdrop}
       role="dialog"
       aria-modal="true"
-      aria-label="Tutorial de bienvenida"
+      aria-label={t('Tutorial de bienvenida')}
       data-testid="onboarding-backdrop"
     >
       {anchorRect &&
@@ -519,7 +519,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
           {/* Footer */}
           <div className={classes.footer}>
             <button className={classes.skipLink} onClick={dismiss} data-testid="onboarding-skip">
-              Saltar tutorial
+              {t('Saltar tutorial')}
             </button>
 
             <div className={classes.navButtons}>
@@ -531,7 +531,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
                   onClick={goPrev}
                   data-testid="onboarding-prev"
                 >
-                  ← Anterior
+                  {t('← Anterior')}
                 </Button>
               )}
               <Button
@@ -542,7 +542,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
                 onClick={goNext}
                 data-testid="onboarding-next"
               >
-                {isLast ? 'Comenzar' : 'Siguiente →'}
+                {isLast ? t('Comenzar') : t('Siguiente →')}
               </Button>
             </div>
           </div>
@@ -557,7 +557,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
               data-testid="onboarding-manual"
             >
               <MenuBookIcon style={{ fontSize: 18 }} />
-              Acceder al manual completo
+              {t('Acceder al manual completo')}
             </button>
           </div>
         </div>

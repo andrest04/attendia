@@ -241,7 +241,7 @@ export default function ProfessorRightRail({
           aria-pressed={rightTab === 'grupo'}
           onClick={() => onRightTabChange?.('grupo')}
         >
-          Grupo
+          {t('Grupo')}
         </button>
         <button
           type="button"
@@ -250,7 +250,7 @@ export default function ProfessorRightRail({
           aria-pressed={rightTab === 'individual'}
           onClick={() => onRightTabChange?.('individual')}
         >
-          Individual
+          {t('Individual')}
         </button>
         <button
           type="button"
@@ -259,7 +259,7 @@ export default function ProfessorRightRail({
           aria-pressed={rightTab === 'chat'}
           onClick={() => onRightTabChange?.('chat')}
         >
-          Chat
+          {t('Chat')}
         </button>
         {onClose && (
           <RailCloseButton
@@ -317,7 +317,7 @@ export default function ProfessorRightRail({
               data-testid="professor-room-shell-view-report"
               onClick={onOpenReport}
             >
-              <VisibilityIcon style={{ fontSize: 16 }} /> Ver reporte
+              <VisibilityIcon style={{ fontSize: 16 }} /> {t('Ver reporte')}
             </button>
           </>
         ) : rightTab === 'individual' ? (

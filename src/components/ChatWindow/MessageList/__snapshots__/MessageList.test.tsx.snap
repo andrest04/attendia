@@ -250,8 +250,7 @@ exports[`the messageList component should render correctly 1`] = `
             <p
               class="makeStyles-size-20"
             >
-              120.56 KB
-               - Click to open
+              120.56 KB - Haz clic para abrir
             </p>
           </div>
         </div>
@@ -278,8 +277,7 @@ exports[`the messageList component should render correctly 1`] = `
                 />
               </svg>
             </span>
-            0
-             new message
+            0 mensaje nuevo
           </span>
           <span
             class="MuiTouchRipple-root"

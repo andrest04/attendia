@@ -156,7 +156,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.text()).not.toContain('Recording');
+    expect(wrapper.text()).not.toContain('Grabando');
   });
 
   it('should render the recording indicator when isRecording is true', () => {
@@ -164,7 +164,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.text()).toContain('Recording');
+    expect(wrapper.text()).toContain('Grabando');
   });
 
   it('renders a raised-hand badge when the main participant is raising their hand', () => {

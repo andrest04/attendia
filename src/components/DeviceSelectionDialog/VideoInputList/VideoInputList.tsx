@@ -53,7 +53,7 @@ export default function VideoInputList() {
       {videoInputDevices.length > 1 ? (
         <FormControl fullWidth>
           <Typography variant="subtitle2" gutterBottom>
-            Video Input
+            {t('Entrada de video')}
           </Typography>
           <Select
             onChange={e => replaceTrack(e.target.value as string)}
@@ -70,7 +70,7 @@ export default function VideoInputList() {
       ) : (
         <>
           <Typography variant="subtitle2" gutterBottom>
-            Video Input
+            {t('Entrada de video')}
           </Typography>
           <Typography>{localVideoTrack?.mediaStreamTrack.label || t('Sin video local')}</Typography>
         </>

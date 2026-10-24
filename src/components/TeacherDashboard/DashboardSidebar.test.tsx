@@ -1,8 +1,11 @@
 import React from 'react';
 import { mount, shallow } from 'enzyme';
 import DashboardSidebar from './DashboardSidebar';
+import { setLocale } from '../../i18n/locale';
 
 describe('DashboardSidebar', () => {
+  afterEach(() => setLocale('es'));
+
   it('calls onTabChange with the clicked tab', () => {
     const onTabChange = jest.fn();
     const wrapper = shallow(
@@ -33,6 +36,20 @@ describe('DashboardSidebar', () => {
     wrapper.find('[data-testid="dashboard-sidebar-start-class"]').simulate('click');
 
     expect(onStartBlankClass).toHaveBeenCalled();
+  });
+
+  it('translates the start-class button to English', () => {
+    setLocale('en');
+    const wrapper = shallow(
+      <DashboardSidebar
+        activeTab="clases"
+        onTabChange={jest.fn()}
+        onStartBlankClass={jest.fn()}
+        onSignOut={jest.fn()}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-sidebar-start-class"]').text()).toContain('Start class');
   });
 
   it('calls onSignOut when "Cerrar sesión" is clicked and it is available', () => {

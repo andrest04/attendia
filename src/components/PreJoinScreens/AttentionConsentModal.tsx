@@ -165,10 +165,10 @@ export default function AttentionConsentModal({ open, onAccept, onDecline }: Att
 
       <DialogActions className={classes.actions}>
         <Button variant="outlined" color="primary" onClick={onDecline} data-cy-consent-decline>
-          Volver
+          {t('Volver')}
         </Button>
         <Button className={classes.acceptButton} onClick={onAccept} data-cy-consent-accept>
-          Aceptar y unirme
+          {t('Aceptar y unirme')}
         </Button>
       </DialogActions>
     </Dialog>

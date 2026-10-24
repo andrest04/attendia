@@ -2,6 +2,7 @@ import React from 'react';
 import Video from 'twilio-video';
 import { Container, Link, Typography, Paper, Grid } from '@material-ui/core';
 import { makeStyles } from '@material-ui/core/styles';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles({
   container: {
@@ -25,28 +26,28 @@ export default function UnsupportedBrowserWarning({ children }: { children: Reac
           <Grid item xs={12} sm={6}>
             <Paper className={classes.paper}>
               <Typography variant="h4" className={classes.heading}>
-                Browser or context not supported
+                {t('Navegador o contexto no compatible')}
               </Typography>
               <Typography>
-                Please open this application in one of the{' '}
+                {t('Abre esta aplicación en uno de los')}{' '}
                 <Link
                   href="https://www.twilio.com/docs/video/javascript#supported-browsers"
                   target="_blank"
                   rel="noopener"
                 >
-                  supported browsers
+                  {t('navegadores compatibles')}
                 </Link>
                 .
                 <br />
-                If you are using a supported browser, please ensure that this app is served over a{' '}
+                {t('Si usas un navegador compatible, asegúrate de que esta aplicación se sirva en un')}{' '}
                 <Link
                   href="https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts"
                   target="_blank"
                   rel="noopener"
                 >
-                  secure context
+                  {t('contexto seguro')}
                 </Link>{' '}
-                (e.g. https or localhost).
+                {t('(p. ej., https o localhost).')}
               </Typography>
             </Paper>
           </Grid>

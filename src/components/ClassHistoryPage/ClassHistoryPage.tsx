@@ -232,7 +232,7 @@ export default function ClassHistoryPage() {
           icon={<ChevronLeftIcon style={{ fontSize: 16 }} />}
           testId="class-history-back-to-lobby"
         >
-          Volver
+          {t('Volver')}
         </PageNavButton>
       }
     >
@@ -244,7 +244,7 @@ export default function ClassHistoryPage() {
               icon={<ChevronLeftIcon style={{ fontSize: 16 }} />}
               testId="class-history-detail-back"
             >
-              Volver al historial
+              {t('Volver al historial')}
             </PageNavButton>
           </div>
           <AttentionReportView data={toViewData(selected)} />
@@ -256,7 +256,7 @@ export default function ClassHistoryPage() {
               <HistoryIcon style={{ fontSize: 22 }} />
             </div>
             <Typography variant="h1" className={classes.h1}>
-              Historial de clases
+              {t('Historial de clases')}
             </Typography>
           </div>
           <Typography className={classes.subtitle}>
@@ -301,7 +301,7 @@ export default function ClassHistoryPage() {
                 >
                   <div className={classes.reportTitleRow}>
                     <span className={classes.reportTitle}>{report.roomName}</span>
-                    {report.source === 'mock' && <span className={classes.mockTag}>{MOCK_TAG}</span>}
+                    {report.source === 'mock' && <span className={classes.mockTag}>{t(MOCK_TAG)}</span>}
                   </div>
                   <div className={classes.reportMeta}>{endReasonLabel[report.endReason] || report.endReason}</div>
                   <div className={classes.chipsRow}>
@@ -313,8 +313,10 @@ export default function ClassHistoryPage() {
                       <PeopleAltIcon className={classes.chipIcon} />
                       {countOf(report.studentCount, t('estudiante'))}
                     </span>
-                    <span className={classes.chip}>Promedio {report.groupAverage} / 100</span>
-                    <span className={classes.chip}>{countOf((report.proctoringAlerts || []).length, 'alerta')}</span>
+                    <span className={classes.chip}>
+                      {t('Promedio {{value}} / 100', { value: report.groupAverage })}
+                    </span>
+                    <span className={classes.chip}>{countOf((report.proctoringAlerts || []).length, t('alerta'))}</span>
                   </div>
                 </button>
               ))}

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppState } from '../../state';
 import { ClassRecord, ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { countOf } from '../../utils/pluralize';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
 import { routePath } from '../../routes';
 import { MAX_FILES_PER_UPLOAD, validateResourceFile } from './resourceUploadValidation';
@@ -198,7 +197,9 @@ export default function useTeacherResources({
 
     if (files.length > MAX_FILES_PER_UPLOAD) {
       setErrorMessage(
-        `Puedes subir hasta ${MAX_FILES_PER_UPLOAD} archivos a la vez. Selecciona menos archivos e intenta de nuevo.`
+        t('Puedes subir hasta {{max}} archivos a la vez. Selecciona menos archivos e intenta de nuevo.', {
+          max: MAX_FILES_PER_UPLOAD,
+        })
       );
       return;
     }
@@ -287,7 +288,11 @@ export default function useTeacherResources({
           setResources(current => current.filter(r => !deletedIds.includes(r.id)));
         }
         if (failedCount > 0) {
-          setBulkDeleteError(`No pudimos eliminar ${countOf(failedCount, 'recurso')}.`);
+          setBulkDeleteError(
+            failedCount === 1
+              ? t('No pudimos eliminar 1 recurso.')
+              : t('No pudimos eliminar {{count}} recursos.', { count: failedCount })
+          );
         }
         // A cancelled pill's doc is already gone — its files were the only thing left
         // to delete, so it only disappears once every one of them is actually gone; a

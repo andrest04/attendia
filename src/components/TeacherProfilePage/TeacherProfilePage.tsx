@@ -302,7 +302,7 @@ export default function TeacherProfilePage() {
                 variant="contained"
                 data-testid="student-room-entry"
               >
-                Volver a ingresar a una sala
+                {t('Volver a ingresar a una sala')}
               </Button>
             )}
           </div>
@@ -310,7 +310,7 @@ export default function TeacherProfilePage() {
             <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-photo">
               <section className={classes.section} aria-labelledby="photo-heading">
                 <Typography id="photo-heading" variant="h6">
-                  Foto
+                  {t('Foto')}
                 </Typography>
                 <div className={classes.avatarRow}>
                   <span
@@ -367,7 +367,7 @@ export default function TeacherProfilePage() {
                         {savingAction === 'restorePhoto' ? (
                           <CircularProgress size={18} color="inherit" />
                         ) : (
-                          'Usar foto de Google'
+                          t('Usar foto de Google')
                         )}
                       </Button>
                     )
@@ -377,7 +377,7 @@ export default function TeacherProfilePage() {
             </Paper>
             <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-name">
               <form className={classes.section} onSubmit={saveName} noValidate>
-                <Typography variant="h6">Nombre</Typography>
+                <Typography variant="h6">{t('Nombre')}</Typography>
                 <TextField
                   label={t('Nombre')}
                   value={name}
@@ -400,7 +400,7 @@ export default function TeacherProfilePage() {
             </Paper>
             <Paper className={classes.panel} elevation={0} data-testid="teacher-profile-email">
               <form className={classes.section} onSubmit={saveEmail} noValidate>
-                <Typography variant="h6">Correo</Typography>
+                <Typography variant="h6">{t('Correo')}</Typography>
                 <TextField
                   label={t('Nuevo correo')}
                   type="email"
@@ -526,7 +526,7 @@ export default function TeacherProfilePage() {
                 {t('Cancelar')}
               </Button>
               <Button onClick={confirmSaveEmail} color="primary" variant="contained" data-testid="email-confirm-accept">
-                Confirmar
+                {t('Confirmar')}
               </Button>
             </DialogActions>
           </Dialog>

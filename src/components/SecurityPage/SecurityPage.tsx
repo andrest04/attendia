@@ -507,11 +507,12 @@ export default function SecurityPage() {
         <Container className={classes.page} maxWidth={false}>
           <div className={classes.pageHeading}>
             <Typography variant="h1" className={classes.h1}>
-              Seguridad y Privacidad
+              {t('Seguridad y Privacidad')}
             </Typography>
             <p className={classes.subtitle}>
-              {t('Información sobre las medidas de seguridad, privacidad de datos y disponibilidad del servicio')}
-              implementadas en attendia.
+              {t(
+                'Información sobre las medidas de seguridad, privacidad de datos y disponibilidad del servicio implementadas en Attendia.'
+              )}
             </p>
           </div>
 

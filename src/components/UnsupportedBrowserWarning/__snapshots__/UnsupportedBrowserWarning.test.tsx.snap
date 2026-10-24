@@ -19,31 +19,31 @@ exports[`the UnsupportedBrowserWarning component should render correctly when is
           className="makeStyles-heading-3"
           variant="h4"
         >
-          Browser or context not supported
+          Navegador o contexto no compatible
         </WithStyles(ForwardRef(Typography))>
         <WithStyles(ForwardRef(Typography))>
-          Please open this application in one of the
+          Abre esta aplicación en uno de los
            
           <WithStyles(ForwardRef(Link))
             href="https://www.twilio.com/docs/video/javascript#supported-browsers"
             rel="noopener"
             target="_blank"
           >
-            supported browsers
+            navegadores compatibles
           </WithStyles(ForwardRef(Link))>
           .
           <br />
-          If you are using a supported browser, please ensure that this app is served over a
+          Si usas un navegador compatible, asegúrate de que esta aplicación se sirva en un
            
           <WithStyles(ForwardRef(Link))
             href="https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts"
             rel="noopener"
             target="_blank"
           >
-            secure context
+            contexto seguro
           </WithStyles(ForwardRef(Link))>
            
-          (e.g. https or localhost).
+          (p. ej., https o localhost).
         </WithStyles(ForwardRef(Typography))>
       </WithStyles(ForwardRef(Paper))>
     </WithStyles(ForwardRef(Grid))>

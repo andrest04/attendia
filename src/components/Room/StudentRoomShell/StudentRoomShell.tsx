@@ -386,7 +386,7 @@ export default function StudentRoomShell({
           {/* Participants heading — logo now lives in the top SessionStatusBar */}
           <div className={classes.leftHeader}>
             <div className={classes.participantsRow}>
-              <span className={classes.participantsLabel}>Participantes</span>
+              <span className={classes.participantsLabel}>{t('Participantes')}</span>
               <div className={classes.participantsRow} style={{ gap: 8 }}>
                 <span className={classes.participantsBadge}>
                   {participants ? participants.length : participantCount}
@@ -408,7 +408,7 @@ export default function StudentRoomShell({
               participants.map(p => <RosterItem key={p.identity} participant={p} classes={classes} />)
             ) : (
               <div className={classes.rosterItem} data-testid="student-room-shell-participant-count">
-                <span className={classes.countText}>{participantCount} en sala</span>
+                <span className={classes.countText}>{t('{{participantCount}} en sala', { participantCount })}</span>
               </div>
             )}
           </div>
@@ -450,7 +450,7 @@ export default function StudentRoomShell({
           <div className={classes.rightTabs} data-testid="student-room-shell-right-tabs">
             <span className={clsx(classes.tab, classes.tabActive)} data-testid="student-room-shell-tab-chat">
               <ChatIcon className={classes.tabIcon} />
-              Chat
+              {t('Chat')}
             </span>
             {onCloseRight && (
               <RailCloseButton

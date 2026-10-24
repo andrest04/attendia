@@ -32,7 +32,7 @@ function formatTimeLabel(date: Date): string {
 }
 
 function formatDayLabel(sessionDate: Date, now: Date): string {
-  if (isSameCalendarDay(sessionDate, now)) return 'Hoy';
+  if (isSameCalendarDay(sessionDate, now)) return t('Hoy');
   if (isNextCalendarDay(sessionDate, now)) return t('Mañana');
   return sessionDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 }
@@ -40,9 +40,9 @@ function formatDayLabel(sessionDate: Date, now: Date): string {
 function formatRelativeLabel(scheduledAtMs: number, nowMs: number, sessionDate: Date, now: Date): string {
   const diffMinutes = Math.round((scheduledAtMs - nowMs) / 60000);
 
-  if (diffMinutes <= 0) return 'Ahora';
-  if (diffMinutes < 60) return `En ${diffMinutes} min`;
-  if (isSameCalendarDay(sessionDate, now)) return `En ${Math.floor(diffMinutes / 60)}h`;
+  if (diffMinutes <= 0) return t('Ahora');
+  if (diffMinutes < 60) return t('En {{n}} min', { n: diffMinutes });
+  if (isSameCalendarDay(sessionDate, now)) return t('En {{n}}h', { n: Math.floor(diffMinutes / 60) });
   if (isNextCalendarDay(sessionDate, now)) return t('Mañana');
   return formatDayLabel(sessionDate, now);
 }
@@ -89,10 +89,10 @@ function toUpcomingSession(
 
 function formatOverdueLabel(scheduledAtMs: number, nowMs: number): string {
   const diffMinutes = Math.max(0, Math.round((nowMs - scheduledAtMs) / 60000));
-  if (diffMinutes < 60) return `Venció hace ${diffMinutes} min`;
+  if (diffMinutes < 60) return t('Venció hace {{n}} min', { n: diffMinutes });
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `Venció hace ${diffHours}h`;
-  return `Venció hace ${Math.floor(diffHours / 24)}d`;
+  if (diffHours < 24) return t('Venció hace {{n}}h', { n: diffHours });
+  return t('Venció hace {{n}}d', { n: Math.floor(diffHours / 24) });
 }
 
 /**

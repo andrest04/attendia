@@ -16,7 +16,7 @@ describe('the ToggleCaptionsButton component', () => {
       setIsCaptionsEnabled: mockSetIsCaptionsEnabled,
     }));
     const wrapper = shallow(<ToggleCaptionsButton />);
-    const button = wrapper.find('[aria-label="Toggle Captions"]');
+    const button = wrapper.find('[aria-label="Alternar subtítulos"]');
     expect(button.prop('startIcon')).toEqual(<CaptionsIcon />);
     expect(button.text()).toBe('Subtítulos');
   });
@@ -28,7 +28,7 @@ describe('the ToggleCaptionsButton component', () => {
       setIsCaptionsEnabled: mockSetIsCaptionsEnabled,
     }));
     const wrapper = shallow(<ToggleCaptionsButton />);
-    const button = wrapper.find('[aria-label="Toggle Captions"]');
+    const button = wrapper.find('[aria-label="Alternar subtítulos"]');
     expect(button.prop('startIcon')).toEqual(<CaptionsOffIcon />);
     expect(button.text()).toBe('Subtítulos');
   });
@@ -40,7 +40,7 @@ describe('the ToggleCaptionsButton component', () => {
       setIsCaptionsEnabled: mockSetIsCaptionsEnabled,
     }));
     const wrapper = shallow(<ToggleCaptionsButton />);
-    const button = wrapper.find('[aria-label="Toggle Captions"]');
+    const button = wrapper.find('[aria-label="Alternar subtítulos"]');
     button.simulate('click');
     expect(mockSetIsCaptionsEnabled).toHaveBeenCalled();
   });
@@ -52,7 +52,7 @@ describe('the ToggleCaptionsButton component', () => {
       setIsCaptionsEnabled: mockSetIsCaptionsEnabled,
     }));
     const wrapper = shallow(<ToggleCaptionsButton disabled={true} />);
-    const button = wrapper.find('[aria-label="Toggle Captions"]');
+    const button = wrapper.find('[aria-label="Alternar subtítulos"]');
     expect(button.prop('disabled')).toBe(true);
   });
 
@@ -63,7 +63,7 @@ describe('the ToggleCaptionsButton component', () => {
       setIsCaptionsEnabled: mockSetIsCaptionsEnabled,
     }));
     const wrapper = shallow(<ToggleCaptionsButton className="test-class" />);
-    const button = wrapper.find('[aria-label="Toggle Captions"]');
+    const button = wrapper.find('[aria-label="Alternar subtítulos"]');
     expect(button.prop('className')).toContain('test-class');
   });
 
@@ -75,7 +75,7 @@ describe('the ToggleCaptionsButton component', () => {
     }));
     const wrapper = shallow(<ToggleCaptionsButton />);
     const tooltip = wrapper.find('[data-testid="captions-tooltip"]');
-    expect(tooltip.prop('title')).toBe('Requires Real-Time Transcriptions to be enabled in the Twilio Console');
+    expect(tooltip.prop('title')).toBe('Requiere habilitar las transcripciones en tiempo real en la consola de Twilio');
   });
 
   it('should not show tooltip when captions are enabled', () => {

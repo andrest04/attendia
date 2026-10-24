@@ -38,9 +38,9 @@ import { t } from '../../../i18n/translate';
 type CheckState = 'ok' | 'fail' | 'pending' | 'unavailable';
 
 const CONNECTION_QUALITY_LABEL: Record<ConnectionQuality, string> = {
-  good: t('Conexión buena'),
-  medium: t('Conexión media'),
-  poor: t('Conexión pobre'),
+  good: 'Conexión buena',
+  medium: 'Conexión media',
+  poor: 'Conexión pobre',
   unknown: 'Verificando…',
 };
 
@@ -501,7 +501,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
       state: hasVideoInputDevices ? 'ok' : 'fail',
     },
     {
-      label: audioOutputDevices.length > 0 ? 'Altavoces funcionando' : 'Altavoces no detectados',
+      label: audioOutputDevices.length > 0 ? t('Altavoces funcionando') : t('Altavoces no detectados'),
       state: audioOutputDevices.length > 0 ? 'ok' : 'fail',
     },
     {
@@ -608,10 +608,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
       {/* Page heading */}
       <div className={classes.titleBlock}>
         <Typography className={classes.pageTitle} component="h1">
-          Sala de Espera
+          {t('Sala de Espera')}
         </Typography>
         <Typography className={classes.subtitle}>
-          Verifica tus dispositivos antes de entrar · Clase:{' '}
+          {t('Verifica tus dispositivos antes de entrar · Clase:')}{' '}
           <strong className={classes.subtitleBold}>{roomName}</strong>
         </Typography>
       </div>
@@ -692,7 +692,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
                     onClick={toggleKrisp}
                   />
                 }
-                label={isKrispEnabled ? 'Activado' : 'Desactivado'}
+                label={isKrispEnabled ? t('Activado') : t('Desactivado')}
                 style={{ marginRight: 0 }}
                 // Prevents <Switch /> from being temporarily enabled (and then quickly disabled) in unsupported browsers after
                 // isAcquiringLocalTracks becomes false:
@@ -718,7 +718,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
               <span className={classes.sectionLabel}>{t('Calidad de conexión')}</span>
               <div className={classes.connectionPill}>
                 <WifiIcon style={{ fontSize: 15, color: CONNECTION_BAR_COLOR[connection.quality] }} />
-                <span className={classes.connectionLabel}>{CONNECTION_QUALITY_LABEL[connection.quality]}</span>
+                <span className={classes.connectionLabel}>{t(CONNECTION_QUALITY_LABEL[connection.quality])}</span>
                 <ConnectionBars quality={connection.quality} color={CONNECTION_BAR_COLOR[connection.quality]} />
               </div>
             </div>
@@ -767,10 +767,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
                 onClick={handleJoin}
                 disabled={disableButtons}
               >
-                Entrar a la sala →
+                {t('Entrar a la sala →')}
               </button>
               <Button variant="outlined" color="primary" className={classes.cancelButton} onClick={handleCancel}>
-                Cancelar
+                {t('Cancelar')}
               </Button>
             </div>
           </div>

@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { Message } from '@twilio/conversations';
 import throttle from 'lodash.throttle';
 import { withStyles, WithStyles, createStyles } from '@material-ui/core/styles';
+import { t } from '../../../../i18n/translate';
 
 const styles = createStyles({
   outerContainer: {
@@ -151,8 +152,9 @@ export class MessageListScrollContainer extends React.Component<
               variant="contained"
               data-cy-new-message-button
             >
-              {this.state.messageNotificationCount} new message
-              {this.state.messageNotificationCount > 1 && 's'}
+              {this.state.messageNotificationCount > 1
+                ? t('{{count}} mensajes nuevos', { count: this.state.messageNotificationCount })
+                : t('{{count}} mensaje nuevo', { count: this.state.messageNotificationCount })}
             </Button>
           </div>
         </div>

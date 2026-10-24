@@ -72,7 +72,7 @@ export default function SessionEndedScreen() {
         onClick={() => setSessionEndedByProfessor(false)}
         data-testid="session-ended-home"
       >
-        Volver al inicio
+        {t('Volver al inicio')}
       </Button>
     </div>
   );

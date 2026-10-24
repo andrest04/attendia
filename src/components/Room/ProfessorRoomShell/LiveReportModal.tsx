@@ -99,7 +99,7 @@ export default function LiveReportModal({ data, onClose }: LiveReportModalProps)
             data-testid="professor-live-report-modal-close"
           >
             <CloseIcon style={{ fontSize: 16 }} />
-            Cerrar
+            {t('Cerrar')}
           </button>
         </div>
         <div className={classes.modalBody}>

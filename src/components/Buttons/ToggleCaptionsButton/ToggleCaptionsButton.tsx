@@ -16,7 +16,9 @@ export default function ToggleCaptionsButton(props: { disabled?: boolean; classN
     setIsCaptionsEnabled(enabled => !enabled);
   }, [setIsCaptionsEnabled]);
 
-  const tooltipTitle = isCaptionsEnabled ? '' : 'Requires Real-Time Transcriptions to be enabled in the Twilio Console';
+  const tooltipTitle = isCaptionsEnabled
+    ? ''
+    : t('Requiere habilitar las transcripciones en tiempo real en la consola de Twilio');
 
   return (
     <Tooltip title={tooltipTitle} placement="top" data-testid="captions-tooltip">
@@ -27,7 +29,7 @@ export default function ToggleCaptionsButton(props: { disabled?: boolean; classN
           disabled={props.disabled}
           startIcon={isCaptionsEnabled ? <CaptionsIcon /> : <CaptionsOffIcon />}
           data-cy="toggle-captions"
-          aria-label="Toggle Captions"
+          aria-label={t('Alternar subtítulos')}
         >
           {isCaptionsEnabled ? t('Subtítulos') : t('Subtítulos')}
         </Button>

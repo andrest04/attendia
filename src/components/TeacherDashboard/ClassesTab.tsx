@@ -575,7 +575,7 @@ export default function ClassesTab({
           data-testid="dashboard-rejoin-session-button"
         >
           <MeetingRoomIcon style={{ fontSize: 18 }} />
-          {isStartingClass ? 'Verificando…' : t('Volver a entrar')}
+          {isStartingClass ? t('Verificando…') : t('Volver a entrar')}
         </button>
       );
     }
@@ -593,7 +593,7 @@ export default function ClassesTab({
             data-testid="dashboard-restart-session-button"
           >
             <PlayArrowIcon style={{ fontSize: 16 }} />
-            {isStartingClass ? 'Verificando…' : t('Iniciar de nuevo')}
+            {isStartingClass ? t('Verificando…') : t('Iniciar de nuevo')}
           </button>
         </>
       );
@@ -606,7 +606,7 @@ export default function ClassesTab({
           disabled
           data-testid="dashboard-checking-session-button"
         >
-          Verificando sala…
+          {t('Verificando sala…')}
         </button>
       );
     }
@@ -666,7 +666,7 @@ export default function ClassesTab({
       {statsAreMock && (
         <div className={classes.statsGridHeader}>
           <span className={classes.mockTag} data-testid="dashboard-stats-mock-tag">
-            Datos simulados
+            {t('Datos simulados')}
           </span>
         </div>
       )}
@@ -693,7 +693,7 @@ export default function ClassesTab({
             {t('Próximas sesiones')}
             {sessionsAreMock && (
               <span className={classes.mockTag} data-testid="dashboard-sessions-mock-tag">
-                Datos simulados
+                {t('Datos simulados')}
               </span>
             )}
           </div>
@@ -710,8 +710,10 @@ export default function ClassesTab({
             >
               <EventBusyIcon style={{ fontSize: 18 }} />
               {isCancellingExpired
-                ? 'Cancelando…'
-                : `Cancelar ${expiredClassesCount === 1 ? 'vencida' : `${expiredClassesCount} vencidas`}`}
+                ? t('Cancelando…')
+                : expiredClassesCount === 1
+                ? t('Cancelar vencida')
+                : t('Cancelar {{count}} vencidas', { count: expiredClassesCount })}
             </button>
           )}
           <button
@@ -721,7 +723,7 @@ export default function ClassesTab({
             data-testid="dashboard-new-class-button"
           >
             <AddIcon style={{ fontSize: 18 }} />
-            Nueva clase
+            {t('Nueva clase')}
           </button>
         </div>
       </div>
@@ -750,7 +752,7 @@ export default function ClassesTab({
             <MuiPickersUtilsProvider utils={DateFnsUtils} locale={esLocale}>
               <div className={classes.newClassField}>
                 <label className={classes.newClassLabel} htmlFor="new-class-date">
-                  Fecha
+                  {t('Fecha')}
                 </label>
                 <KeyboardDatePicker
                   id="new-class-date"
@@ -762,7 +764,7 @@ export default function ClassesTab({
                   inputVariant="outlined"
                   margin="none"
                   format="dd/MM/yyyy"
-                  placeholder="dd/mm/aaaa"
+                  placeholder={t('dd/mm/aaaa')}
                   value={dateValue}
                   onChange={setDateValue}
                   InputProps={{ classes: { input: classes.newClassPickerInput } }}
@@ -772,7 +774,7 @@ export default function ClassesTab({
 
               <div className={classes.newClassField}>
                 <label className={classes.newClassLabel} htmlFor="new-class-time">
-                  Hora
+                  {t('Hora')}
                 </label>
                 <MuiThemeProvider theme={meetTimePickerTheme}>
                   <KeyboardTimePicker
@@ -797,7 +799,7 @@ export default function ClassesTab({
 
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-student-count">
-                Alumnos esperados
+                {t('Alumnos esperados')}
               </label>
               <input
                 id="new-class-student-count"
@@ -886,7 +888,7 @@ export default function ClassesTab({
                   data-testid="dashboard-start-session-button"
                 >
                   <PlayArrowIcon style={{ fontSize: 18 }} />
-                  {isStartingClass ? 'Verificando…' : t('Iniciar sesión')}
+                  {isStartingClass ? t('Verificando…') : t('Iniciar sesión')}
                 </button>
               ) : onCancelClass ? (
                 <button
@@ -897,12 +899,12 @@ export default function ClassesTab({
                   data-testid="dashboard-cancel-session-button"
                 >
                   <DeleteIcon style={{ fontSize: 16 }} />
-                  {cancellingClassId === session.id ? 'Cancelando…' : t('Cancelar')}
+                  {cancellingClassId === session.id ? t('Cancelando…') : t('Cancelar')}
                 </button>
               ) : (
                 <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">
                   <OpenInNewIcon style={{ fontSize: 16 }} />
-                  Ver detalles
+                  {t('Ver detalles')}
                 </button>
               ))}
           </div>
@@ -919,7 +921,7 @@ export default function ClassesTab({
               onClick={onRefreshRooms}
               data-testid="dashboard-refresh-rooms-button"
             >
-              Actualizar
+              {t('Actualizar')}
             </button>
           )}
           <div className={classes.sessionsGrid}>
@@ -940,7 +942,7 @@ export default function ClassesTab({
                     data-testid="dashboard-start-session-button"
                   >
                     <PlayArrowIcon style={{ fontSize: 18 }} />
-                    {isStartingClass ? 'Verificando…' : t('Iniciar sesión')}
+                    {isStartingClass ? t('Verificando…') : t('Iniciar sesión')}
                   </button>
                 )}
               </div>
@@ -984,7 +986,7 @@ export default function ClassesTab({
                     data-testid="dashboard-cancel-expired-session-button"
                   >
                     <DeleteIcon style={{ fontSize: 16 }} />
-                    {cancellingClassId === session.id ? 'Cancelando…' : t('Cancelar')}
+                    {cancellingClassId === session.id ? t('Cancelando…') : t('Cancelar')}
                   </button>
                 )}
               </div>

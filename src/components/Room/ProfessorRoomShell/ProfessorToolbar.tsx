@@ -131,7 +131,7 @@ export default function ProfessorToolbar({
     },
     {
       testId: 'professor-toolbar-record',
-      label: isRecording ? t('Detener grabación') : 'Grabar',
+      label: isRecording ? t('Detener grabación') : t('Grabar'),
       icon: <FiberManualRecordIcon style={{ fontSize: 18 }} />,
       checked: isRecording,
       tone: 'recording',
@@ -141,7 +141,7 @@ export default function ProfessorToolbar({
     },
     {
       testId: 'professor-toolbar-proctoring',
-      label: proctoringEnabled ? 'Proctoring activo' : 'Proctoring',
+      label: proctoringEnabled ? t('Proctoring activo') : t('Proctoring'),
       icon: <VisibilityIcon style={{ fontSize: 18 }} />,
       checked: proctoringEnabled,
       tone: 'accent',
@@ -182,7 +182,7 @@ export default function ProfessorToolbar({
             </div>
           }
           className={chip}
-          aria-label="Chat"
+          aria-label={t('Chat')}
           data-testid="professor-toolbar-chat"
           aria-pressed={chatOpen}
         />

@@ -9,6 +9,7 @@ import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { buildCalendarDays, calendarSummary, mondayLeadingBlanks, monthStart } from './calendarView';
+import { getLocale } from '../../i18n/locale';
 import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -226,6 +227,10 @@ interface Props {
   expiredClassIds?: Set<string>;
 }
 
+function dateLocale(): string {
+  return getLocale() === 'en' ? 'en-US' : 'es-AR';
+}
+
 function formatTime(value: number | null): string {
   return value === null
     ? t('Horario no disponible')
@@ -260,7 +265,7 @@ export default function CalendarTab({
     setVisibleMonth(monthStart(today));
     setSelectedDay(today.getDate());
   };
-  const monthLabel = visibleMonth.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' });
+  const monthLabel = visibleMonth.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
 
   const effectiveDay = selectedDay > days.length ? 1 : selectedDay;
   const effectiveSelected = days.find(day => day.day === effectiveDay) || days[0];
@@ -274,7 +279,7 @@ export default function CalendarTab({
   if (isLoading)
     return (
       <div className={styles.state} data-testid="dashboard-calendar-loading">
-        <CircularProgress size={24} /> Cargando calendario...
+        <CircularProgress size={24} /> {t('Cargando calendario...')}
       </div>
     );
   if (error)
@@ -282,7 +287,7 @@ export default function CalendarTab({
       <div className={styles.state} data-testid="dashboard-calendar-error">
         {error}
         <div>
-          <Button onClick={onRetry}>Reintentar</Button>
+          <Button onClick={onRetry}>{t('Reintentar')}</Button>
         </div>
       </div>
     );
@@ -313,11 +318,11 @@ export default function CalendarTab({
               onClick={goToToday}
               data-testid="dashboard-calendar-today"
             >
-              Hoy
+              {t('Hoy')}
             </button>
             <button
               type="button"
-              aria-label="Mes anterior"
+              aria-label={t('Mes anterior')}
               className={styles.navButton}
               onClick={() => changeMonth(-1)}
               data-testid="dashboard-calendar-prev-month"
@@ -326,7 +331,7 @@ export default function CalendarTab({
             </button>
             <button
               type="button"
-              aria-label="Mes siguiente"
+              aria-label={t('Mes siguiente')}
               className={styles.navButton}
               onClick={() => changeMonth(1)}
               data-testid="dashboard-calendar-next-month"
@@ -352,7 +357,7 @@ export default function CalendarTab({
             <button
               key={day.day}
               type="button"
-              aria-label={`${day.day} de ${monthLabel}`}
+              aria-label={t('{{day}} de {{month}}', { day: day.day, month: monthLabel })}
               onClick={() => setSelectedDay(day.day)}
               className={clsx(styles.dayCell, { [styles.dayCellSelected]: day.day === effectiveDay })}
               data-testid={`dashboard-calendar-day-${day.day}`}
@@ -381,7 +386,10 @@ export default function CalendarTab({
       <div className={styles.sidePanel}>
         <div>
           <div className={styles.sideTitle}>
-            {effectiveDay} de {visibleMonth.toLocaleDateString('es-AR', { month: 'long' })}
+            {t('{{day}} de {{month}}', {
+              day: effectiveDay,
+              month: visibleMonth.toLocaleDateString(dateLocale(), { month: 'long' }),
+            })}
           </div>
           <div className={styles.sideSubtitle}>
             {(() => {
@@ -406,7 +414,7 @@ export default function CalendarTab({
                     className={styles.badgeExpired}
                     data-testid={`dashboard-calendar-expired-badge-${classRecord.id}`}
                   >
-                    Vencida
+                    {t('Vencida')}
                   </span>
                 )}
                 <div className={styles.sessionTitle}>{classRecord.title}</div>
@@ -417,7 +425,7 @@ export default function CalendarTab({
                   </span>
                   <span className={styles.metaItem}>
                     <PeopleAltIcon style={{ fontSize: 14 }} />
-                    {classRecord.studentCount} alumnos
+                    {t('{{count}} alumnos', { count: classRecord.studentCount })}
                   </span>
                 </div>
                 <div className={styles.sessionActions}>
@@ -427,7 +435,7 @@ export default function CalendarTab({
                     onClick={() => onStartClass(classRecord)}
                     data-testid={`dashboard-calendar-start-${classRecord.id}`}
                   >
-                    Iniciar
+                    {t('Iniciar')}
                   </button>
                   {onCancelClass && (
                     <button
@@ -438,7 +446,7 @@ export default function CalendarTab({
                       data-testid={`dashboard-calendar-cancel-${classRecord.id}`}
                     >
                       <DeleteIcon style={{ fontSize: 16 }} />
-                      {cancellingClassId === classRecord.id ? 'Cancelando…' : t('Cancelar')}
+                      {cancellingClassId === classRecord.id ? t('Cancelando…') : t('Cancelar')}
                     </button>
                   )}
                 </div>
@@ -454,7 +462,7 @@ export default function CalendarTab({
           )}
         </div>
         <div className={styles.summaryCard} data-testid="dashboard-calendar-summary">
-          <div className={styles.summaryTitle}>{monthLabel.toUpperCase()} · RESUMEN</div>
+          <div className={styles.summaryTitle}>{t('{{month}} · RESUMEN', { month: monthLabel.toUpperCase() })}</div>
           <div className={styles.summaryRow}>
             <span>{t('Clases programadas')}</span>
             <span>{summary.scheduledSessions}</span>

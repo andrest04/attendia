@@ -169,7 +169,7 @@ export default function NotificationDropdown(props: Props) {
   return (
     <div className={classes.root} data-testid="notification-dropdown">
       <div className={classes.header}>
-        <Typography className={classes.heading}>Notificaciones</Typography>
+        <Typography className={classes.heading}>{t('Notificaciones')}</Typography>
         <IconButton
           size="small"
           aria-label={t('Más opciones de notificaciones')}
@@ -183,7 +183,7 @@ export default function NotificationDropdown(props: Props) {
             {t('Marcar todas como leídas')}
           </MenuItem>
           <MenuItem onClick={handleClearAll} disabled={notifications.length === 0 || mutationPending}>
-            Vaciar notificaciones
+            {t('Vaciar notificaciones')}
           </MenuItem>
         </Menu>
       </div>
@@ -233,7 +233,7 @@ export default function NotificationDropdown(props: Props) {
       </div>
       {hasConfirmedState && unreadCount > 0 && (
         <Typography className={classes.warning} variant="caption">
-          Tienes notificaciones sin leer
+          {t('Tienes notificaciones sin leer')}
         </Typography>
       )}
       {hasConfirmedState && hasMore && (

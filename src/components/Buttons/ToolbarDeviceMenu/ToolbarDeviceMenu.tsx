@@ -187,7 +187,7 @@ export default function ToolbarDeviceMenu({ kind, disabled, ...rest }: ToolbarDe
             devices: audioOutputDevices,
             activeDeviceId: activeSinkId,
             onSelect: setActiveSinkId,
-            fallbackLabel: 'Salida de audio del sistema',
+            fallbackLabel: t('Salida de audio del sistema'),
           },
         ]
       : [

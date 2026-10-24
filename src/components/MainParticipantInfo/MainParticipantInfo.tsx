@@ -19,6 +19,7 @@ import TileModerationMenu from '../Room/ModerationMenu/TileModerationMenu';
 import RoleBadge from '../RoleBadge/RoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   container: {
@@ -166,13 +167,15 @@ export default function MainParticipantInfo({ participant, children }: MainParti
         </div>
         {isRecording && (
           <Tooltip
-            title="All participants' audio and video is currently being recorded. Visit the app settings to stop recording."
+            title={t(
+              'Se está grabando el audio y el video de todos los participantes. Ve a la configuración de la app para detener la grabación.'
+            )}
             placement="top"
           >
             <div className={classes.recordingIndicator}>
               <div className={classes.circle}></div>
               <Typography variant="body1" color="inherit" data-cy-recording-indicator>
-                Recording
+                {t('Grabando')}
               </Typography>
             </div>
           </Tooltip>
