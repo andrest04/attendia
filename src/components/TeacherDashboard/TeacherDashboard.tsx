@@ -148,7 +148,14 @@ export default function TeacherDashboard({
   // The sidebar's "Iniciar clase" only opens this in-dashboard panel (sidebar/navbar stay put);
   // it navigates away to the standalone device-selection prejoin only once a room name is
   // confirmed (see handleQuickStartCreate below).
-  const [isQuickStartOpen, setIsQuickStartOpen] = useState(false);
+  // The quick-start panel is local state that outranks the route in `content`, so it remembers the
+  // route it was opened on and closes itself when the route changes (e.g. header -> "Perfil").
+  // Adjusting state during render is React's sanctioned way to derive this without an effect.
+  const routeKey = showProfile ? 'profile' : activeTab;
+  const [quickStartRoute, setQuickStartRoute] = useState<string | null>(null);
+  if (quickStartRoute !== null && quickStartRoute !== routeKey) setQuickStartRoute(null);
+  const isQuickStartOpen = quickStartRoute !== null;
+  const setIsQuickStartOpen = (open: boolean) => setQuickStartRoute(open ? routeKey : null);
   const data = mockDashboardData;
   const professorName = profile?.displayName || user?.displayName || data.professorName;
   const professorInitials = getProfessorInitials(professorName);

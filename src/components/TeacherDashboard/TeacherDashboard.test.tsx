@@ -315,6 +315,32 @@ describe('TeacherDashboard', () => {
     expect(wrapper.find(ClassesTab).exists()).toBe(false);
   });
 
+  it('leaves the quick-start panel when the route changes to the profile, and does not bring it back', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="clases" />);
+    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
+    wrapper.update();
+    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(true);
+
+    wrapper.setProps({ showProfile: true });
+    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
+    expect(wrapper.find(TeacherProfilePage).exists()).toBe(true);
+
+    wrapper.setProps({ showProfile: false });
+    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
+    expect(wrapper.find(ClassesTab).exists()).toBe(true);
+  });
+
+  it('leaves the quick-start panel when another tab route becomes active', () => {
+    const wrapper = shallow(<TeacherDashboard onStartClass={jest.fn()} activeTab="clases" />);
+    wrapper.find(DashboardSidebar).prop('onStartBlankClass')();
+    wrapper.update();
+
+    wrapper.setProps({ activeTab: 'historial' });
+
+    expect(wrapper.find(QuickStartClassPanel).exists()).toBe(false);
+    expect(wrapper.find(HistoryTab).exists()).toBe(true);
+  });
+
   it('only calls onStartClass (real navigation) once the quick-start panel is submitted with a room name', () => {
     const onStartClass = jest.fn();
     const wrapper = shallow(<TeacherDashboard onStartClass={onStartClass} />);
