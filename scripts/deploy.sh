@@ -1,27 +1,31 @@
 #!/bin/sh
 # Manual deploy to Azure Container Apps. Run from the repo root, from a machine
-# with `az login` and `docker` already set up (no service principal — the UPC
-# student tenant blocks app registration, so this can't run unattended in
-# GitHub Actions).
+# with `az login` already set up (no service principal — the UPC student tenant
+# blocks app registration, so this can't run unattended in GitHub Actions).
 #
-# Builds LOCALLY with Docker and pushes to ACR, then creates/updates the
-# Container App. This does the build+push step itself instead of delegating
-# to ACR Tasks (`az containerapp up --source`) because that remote-build path
-# hits a reproducible `az` CLI crash on Windows: ACR Tasks streams the build
-# log back to the console, and colorama (the CLI's ANSI-color layer) tries to
-# encode any non-ASCII character — e.g. patch-package's checkmark — using the
-# console's legacy codepage (cp1252) instead of UTF-8, which raises
-# UnicodeEncodeError and aborts the whole command. See
-# https://github.com/Azure/azure-cli/issues for the upstream bug. Building
-# locally sidesteps that streaming code path entirely.
+# Builds REMOTELY by default with ACR Tasks (`az acr build`) and then creates/updates
+# the Container App. Pushing a ~1 GB image layer from a home network to ACR kept timing
+# out, and a remote build needs no local Docker: only the (.dockerignore-filtered)
+# source context is uploaded, and the image is built and stored inside Azure. The build
+# log is streamed (ACR_BUILD_LOGS=0 passes --no-logs; the command still waits).
+# The REACT_APP_* build args are public client config, but they do appear in the ACR
+# run record.
+#
+# DEPLOY_BUILD=local falls back to the previous path: `az acr login` + a local
+# `docker build` + `docker push` (retried). Use it when ACR Tasks is blocked on the
+# subscription — free/student tiers fail with `TasksOperationsNotAllowed`.
+#
+# Before building, a preflight runs lint (CI=true, as in the Docker build, so warnings
+# fail), the client and server type-checks, so a broken tree fails in seconds instead of
+# well into a build. SKIP_PREFLIGHT=1 skips it.
 #
 # Also reconciles Gotenberg as a private sidecar in the same revision as Attendia.
 # It shares Attendia's scale-to-zero lifecycle and is reached through localhost — see
 # server/gotenbergDocumentConverter.ts.
 #
-# Refuses to run with uncommitted changes (ALLOW_DIRTY=1 overrides), retries a failed
-# push, and only reports success once the new revision is ready, runs the image just
-# pushed and the public URL answers 200 — a non-zero exit means it is NOT live.
+# Refuses to run with uncommitted changes (ALLOW_DIRTY=1 overrides), and only reports
+# success once the new revision is ready, runs the image just pushed and the public URL
+# answers 200 — a non-zero exit means it is NOT live.
 set -e
 
 CONFIG_FILE="scripts/deploy.config"
@@ -43,6 +47,25 @@ if [ -n "$(git status --porcelain)" ] && [ "${ALLOW_DIRTY:-0}" != "1" ]; then
   echo "Uncommitted changes in the working tree — commit them, or rerun with ALLOW_DIRTY=1." >&2
   exit 1
 fi
+DEPLOY_BUILD="${DEPLOY_BUILD:-remote}"
+case "$DEPLOY_BUILD" in
+  remote|local) ;;
+  *)
+    echo "DEPLOY_BUILD must be 'remote' or 'local' (got '$DEPLOY_BUILD')." >&2
+    exit 1
+    ;;
+esac
+
+# The Docker build runs with CI=true, where lint warnings fail it; these fail fast instead.
+if [ "${SKIP_PREFLIGHT:-0}" != "1" ]; then
+  echo "==> Preflight: lint..."
+  CI=true npm run lint || { echo "Preflight failed: lint — nothing was built or deployed." >&2; exit 1; }
+  echo "==> Preflight: client type-check..."
+  npx tsc --noEmit -p tsconfig.json || { echo "Preflight failed: client type-check (tsc) — nothing was built or deployed." >&2; exit 1; }
+  echo "==> Preflight: server type-check..."
+  npm run typescript:server || { echo "Preflight failed: server type-check — nothing was built or deployed." >&2; exit 1; }
+fi
+
 GIT_COMMIT=$(git rev-parse HEAD)
 
 ACR_LOGIN_SERVER="${AZURE_ACR_NAME}.azurecr.io"
@@ -50,14 +73,10 @@ ACR_LOGIN_SERVER="${AZURE_ACR_NAME}.azurecr.io"
 TAG="v$(date -u +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
 IMAGE="${ACR_LOGIN_SERVER}/${AZURE_CONTAINERAPP_NAME}:${TAG}"
 
-echo "==> az acr login..."
-az acr login --name "$AZURE_ACR_NAME"
-
-echo "==> docker build ($IMAGE)..."
 # GENERATE_SOURCEMAP=false is set in the Dockerfile itself (production build
-# memory footprint matters here — Docker Desktop defaults can be as low as
-# ~2GB, and CRA's production build with source maps can OOM inside that).
-docker build \
+# memory footprint matters here — CRA's production build with source maps can OOM
+# on small builders).
+set -- \
   --build-arg REACT_APP_FIREBASE_API_KEY="$REACT_APP_FIREBASE_API_KEY" \
   --build-arg REACT_APP_FIREBASE_AUTH_DOMAIN="$REACT_APP_FIREBASE_AUTH_DOMAIN" \
   --build-arg REACT_APP_FIREBASE_DATABASE_URL="$REACT_APP_FIREBASE_DATABASE_URL" \
@@ -69,22 +88,39 @@ docker build \
   --build-arg REACT_APP_TOKEN_ENDPOINT="$REACT_APP_TOKEN_ENDPOINT" \
   --build-arg REACT_APP_COMPLETE_ROOM_ENDPOINT="$REACT_APP_COMPLETE_ROOM_ENDPOINT" \
   --build-arg REACT_APP_GIT_TAG="$TAG" \
-  --build-arg REACT_APP_GIT_COMMIT="$GIT_COMMIT" \
-  -t "$IMAGE" .
+  --build-arg REACT_APP_GIT_COMMIT="$GIT_COMMIT"
 
-# Layers that already reached ACR are skipped on a retry, so a dropped upload costs only
-# the layer that failed.
-PUSH_ATTEMPTS=3
-attempt=1
-until docker push "$IMAGE"; do
-  if [ "$attempt" -ge "$PUSH_ATTEMPTS" ]; then
-    echo "docker push failed $PUSH_ATTEMPTS times — nothing was deployed." >&2
-    exit 1
+if [ "$DEPLOY_BUILD" = "remote" ]; then
+  echo "==> az acr build ($IMAGE, remote build in ACR Tasks)..."
+  if [ "${ACR_BUILD_LOGS:-1}" = "0" ]; then
+    set -- --no-logs "$@"
   fi
-  attempt=$((attempt + 1))
-  echo "==> docker push failed, retrying ($attempt/$PUSH_ATTEMPTS) in 15s..."
-  sleep 15
-done
+  az acr build \
+    --registry "$AZURE_ACR_NAME" \
+    --image "${AZURE_CONTAINERAPP_NAME}:${TAG}" \
+    "$@" \
+    . || { echo "remote build failed — nothing was deployed." >&2; exit 1; }
+else
+  echo "==> az acr login..."
+  az acr login --name "$AZURE_ACR_NAME"
+
+  echo "==> docker build ($IMAGE)..."
+  docker build "$@" -t "$IMAGE" .
+
+  # Layers that already reached ACR are skipped on a retry, so a dropped upload costs only
+  # the layer that failed.
+  PUSH_ATTEMPTS=3
+  attempt=1
+  until docker push "$IMAGE"; do
+    if [ "$attempt" -ge "$PUSH_ATTEMPTS" ]; then
+      echo "docker push failed $PUSH_ATTEMPTS times — nothing was deployed." >&2
+      exit 1
+    fi
+    attempt=$((attempt + 1))
+    echo "==> docker push failed, retrying ($attempt/$PUSH_ATTEMPTS) in 15s..."
+    sleep 15
+  done
+fi
 
 if az containerapp show --name "$AZURE_CONTAINERAPP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" >/dev/null 2>&1; then
   # The image is rolled out below together with the env vars, in ONE revision, after the
@@ -210,15 +246,17 @@ if [ "$STATUS" != "200" ]; then
   exit 1
 fi
 
-# Every deploy pushes a new timestamped tag, so images pile up both locally
-# (~2GB each) and in ACR (billed storage). Keep only the newest KEEP_IMAGES of
-# each. Tags sort newest-first, so the image just deployed is always kept, and
+# Every deploy pushes a new timestamped tag, so images pile up in ACR (billed storage)
+# and, with DEPLOY_BUILD=local, on this machine (~2GB each). Keep only the newest
+# KEEP_IMAGES of each. Tags sort newest-first, so the image just deployed is always kept, and
 # a cleanup failure must never fail an otherwise successful deploy.
 KEEP_IMAGES="${KEEP_IMAGES:-3}"
 echo "==> Pruning old images (keeping the newest $KEEP_IMAGES)..."
 # tr -d '\r': on Windows the docker/az CLIs emit CRLF, and a trailing \r turns
 # every tag into one that does not exist.
-docker images "$ACR_LOGIN_SERVER/$AZURE_CONTAINERAPP_NAME" --format "{{.Repository}}:{{.Tag}}" | tr -d '\r' | sort -r | tail -n +"$((KEEP_IMAGES + 1))" | xargs -r docker rmi || true
+if [ "$DEPLOY_BUILD" = "local" ]; then
+  docker images "$ACR_LOGIN_SERVER/$AZURE_CONTAINERAPP_NAME" --format "{{.Repository}}:{{.Tag}}" | tr -d '\r' | sort -r | tail -n +"$((KEEP_IMAGES + 1))" | xargs -r docker rmi || true
+fi
 az acr repository show-tags --name "$AZURE_ACR_NAME" --repository "$AZURE_CONTAINERAPP_NAME" --orderby time_desc -o tsv | tr -d '\r' | tail -n +"$((KEEP_IMAGES + 1))" | while read -r OLD_TAG; do
   az acr repository delete --name "$AZURE_ACR_NAME" --image "$AZURE_CONTAINERAPP_NAME:$OLD_TAG" --yes >/dev/null || true
 done
