@@ -46,7 +46,7 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
       const blob = await cropToBudgetedBlob(imageSrc, croppedAreaPixels);
       onConfirm(blob);
     } catch (error) {
-      onError(error?.message || t('No pudimos ajustar la imagen.'));
+      onError((error as Error)?.message || t('No pudimos ajustar la imagen.'));
     } finally {
       setIsCropping(false);
     }
