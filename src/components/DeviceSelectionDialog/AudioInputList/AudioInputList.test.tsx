@@ -59,7 +59,7 @@ describe('the AudioInputList component', () => {
         .find(Typography)
         .at(1)
         .text()
-    ).toBe('No Local Audio');
+    ).toBe('Sin audio local');
   });
 
   it('should render a Select menu when there are multiple audio input devices', () => {
