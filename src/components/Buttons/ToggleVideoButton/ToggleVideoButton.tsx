@@ -5,6 +5,7 @@ import VideoOnIcon from '../../../icons/VideoOnIcon';
 import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useDevices from '../../../hooks/useDevices/useDevices';
 import useLocalVideoToggle from '../../../hooks/useLocalVideoToggle/useLocalVideoToggle';
+import { t } from '../../../i18n/translate';
 
 export default function ToggleVideoButton(props: {
   disabled?: boolean;
@@ -17,7 +18,7 @@ export default function ToggleVideoButton(props: {
   const lastClickTimeRef = useRef(0);
   const { hasVideoInputDevices } = useDevices();
   const classes = useToolbarButtonStyles();
-  const label = !hasVideoInputDevices ? 'Sin video' : isVideoEnabled ? 'Detener video' : 'Iniciar video';
+  const label = t(!hasVideoInputDevices ? 'Sin video' : isVideoEnabled ? 'Detener video' : 'Iniciar video');
   const isActive = hasVideoInputDevices && isVideoEnabled;
 
   const toggleVideo = useCallback(() => {

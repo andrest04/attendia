@@ -5,6 +5,7 @@ import MicOffIcon from '../../../icons/MicOffIcon';
 import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useLocalAudioToggle from '../../../hooks/useLocalAudioToggle/useLocalAudioToggle';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
+import { t } from '../../../i18n/translate';
 
 export default function ToggleAudioButton(props: {
   disabled?: boolean;
@@ -17,7 +18,7 @@ export default function ToggleAudioButton(props: {
   const { localTracks } = useVideoContext();
   const hasAudioTrack = localTracks.some(track => track.kind === 'audio');
   const classes = useToolbarButtonStyles();
-  const label = !hasAudioTrack ? 'Sin audio' : isAudioEnabled ? 'Silenciar' : 'Activar';
+  const label = t(!hasAudioTrack ? 'Sin audio' : isAudioEnabled ? 'Silenciar' : 'Activar');
   const isActive = hasAudioTrack && isAudioEnabled;
 
   return (
