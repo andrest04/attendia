@@ -7,6 +7,7 @@ import {
   PROCTORING_FEED_MAX,
   recordHistory,
   stepProctoring,
+  studentsOnly,
   summarizeGroup,
 } from './liveAttention';
 import { attentionLevelFromScore } from './attentionFormula';
@@ -315,5 +316,17 @@ describe('time labels', () => {
     const { formatTimeLabel, formatTimelineLabel } = await import('./liveAttention');
     expect(formatTimeLabel(date)).toBe('09:04');
     expect(formatTimelineLabel(date)).toBe('09:04:07');
+  });
+});
+
+describe('studentsOnly', () => {
+  it('drops teacher identities (the owner and any co-teacher) and keeps the order of the rest', () => {
+    const rows = [sample('Ana'), sample('Marta [Profesor]'), sample('Luis'), sample('pedro [profesor]')];
+    expect(studentsOnly(rows).map(r => r.identity)).toEqual(['Ana', 'Luis']);
+  });
+
+  it('keeps the same array when there is no teacher (stable identity for memoised consumers)', () => {
+    const rows = [sample('Ana')];
+    expect(studentsOnly(rows)).toBe(rows);
   });
 });

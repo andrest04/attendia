@@ -172,6 +172,23 @@ describe('ProfessorRoomShell', () => {
     expect(bar.text()).toContain('Twilio Video · WebRTC SFU');
   });
 
+  it('does not count a co-teacher (or the professor) as a student in the status bar', () => {
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        participantCount={4}
+        participants={[
+          { identity: 'Marta [Profesor]', isLocal: true },
+          { identity: 'Pedro [Profesor]' },
+          { identity: 'Ana' },
+          { identity: 'Luis' },
+        ]}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="professor-room-shell-session-bar"]').text()).toContain('2 estudiantes');
+  });
+
   it('shows the REC badge only while recording', () => {
     const recording = mount(<ProfessorRoomShell stage={<div>stage</div>} recording />);
     expect(recording.find('[data-testid="professor-room-shell-rec-badge"]').exists()).toBe(true);

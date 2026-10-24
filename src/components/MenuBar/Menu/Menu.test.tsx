@@ -93,12 +93,12 @@ describe('the Menu component', () => {
     describe('for a confirmed co-teacher', () => {
       afterEach(() => mockUseSessionEndApi.mockReset());
 
-      it('should not render the recording button (recording is owner-only)', () => {
+      it('should render the recording button (a co-teacher can record)', () => {
         mockUseSessionEndApi.mockImplementation(() => ({ isCoTeacher: true }));
         mockUseIsRecording.mockImplementation(() => false);
-        const { getByText, queryByText } = render(<Menu />);
+        const { getByText } = render(<Menu />);
         fireEvent.click(getByText('Más'));
-        expect(queryByText('Iniciar grabación')).toBeNull();
+        expect(getByText('Iniciar grabación')).toBeTruthy();
       });
     });
 

@@ -100,6 +100,28 @@ describe('useSessionEnd', () => {
     );
   });
 
+  it('a refused close (403, not the owner) tells nobody: no session-ended broadcast, no ended screen, a clear toast, and it still leaves', async () => {
+    (global as any).fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      json: () => Promise.resolve({ error: { message: 'room not owned', explanation: 'Solo el dueño.' } }),
+    });
+    const { result } = renderHook(() => useSessionEnd());
+
+    await act(async () => {
+      await result.current.endSessionForAll();
+    });
+
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(mockSetEnded).not.toHaveBeenCalled();
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      'Solo el docente a cargo de la clase puede cerrarla para todos. Saliste de la sala y la clase sigue abierta.',
+      expect.objectContaining({ variant: 'info' })
+    );
+    expect(mockDisconnect).toHaveBeenCalled();
+  });
+
   it('does not warn when the room was closed', async () => {
     const { result } = renderHook(() => useSessionEnd());
 
