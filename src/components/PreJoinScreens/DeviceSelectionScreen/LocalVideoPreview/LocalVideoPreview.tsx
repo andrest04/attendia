@@ -6,6 +6,7 @@ import VideoTrack from '../../../VideoTrack/VideoTrack';
 import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
 import { selectCameraTrack } from '../../../../utils/trackSelectors';
 import { stripTeacherSuffix } from '../../../../classSession/classSessionTypes';
+import { displayIdentity } from '../../../../i18n/displayIdentity';
 import { t } from '../../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -182,7 +183,7 @@ export default function LocalVideoPreview({ identity, children }: { identity: st
             <span className={classes.identity}>
               <LocalAudioLevelIndicator />
               <Typography variant="body1" color="inherit" component="span">
-                {identity}
+                {displayIdentity(identity)}
               </Typography>
             </span>
           </div>

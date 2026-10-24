@@ -728,7 +728,7 @@ export default function ClassesTab({
 
       {onCreateClass && isFormOpen && (
         <form className={classes.newClassForm} onSubmit={handleSubmitNewClass}>
-          <div className={classes.newClassFormTitle}>Nueva clase</div>
+          <div className={classes.newClassFormTitle}>{t('Nueva clase')}</div>
           <div className={classes.newClassFormSubtitle}>{t('Completa estos datos para programar la sesión.')}</div>
 
           <div className={classes.newClassFieldGrid}>
@@ -834,18 +834,19 @@ export default function ClassesTab({
               disabled={isSubmitting}
               data-testid="dashboard-new-class-submit-button"
             >
-              {isSubmitting ? 'Creando…' : t('Crear clase')}
+              {isSubmitting ? t('Creando…') : t('Crear clase')}
             </button>
             <button type="button" className={classes.newClassCancelButton} onClick={resetForm}>
-              Cancelar
+              {t('Cancelar')}
             </button>
           </div>
 
           {!formError && duplicateClass && (
             <div className={classes.newClassDuplicateWarning} data-testid="dashboard-new-class-duplicate-warning">
-              Ya tienes una clase "{duplicateClass.title}" programada para el{' '}
-              {formatDuplicateDateLabel(duplicateClass.scheduledAtMs)}. Puedes crear esta igual si es una sesión
-              distinta.
+              {t(
+                'Ya tienes una clase "{{title}}" programada para el {{when}}. Puedes crear esta igual si es una sesión distinta.',
+                { title: duplicateClass.title, when: formatDuplicateDateLabel(duplicateClass.scheduledAtMs) }
+              )}
             </div>
           )}
           {formError && <div className={classes.newClassError}>{formError}</div>}
@@ -910,7 +911,7 @@ export default function ClassesTab({
 
       {inProgressSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-in-progress-section">
-          <div className={classes.expiredSectionTitle}>Sesiones en curso</div>
+          <div className={classes.expiredSectionTitle}>{t('Sesiones en curso')}</div>
           {onRefreshRooms && (
             <button
               type="button"
@@ -950,7 +951,7 @@ export default function ClassesTab({
 
       {expiredSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-expired-sessions-section">
-          <div className={classes.expiredSectionTitle}>Sesiones vencidas</div>
+          <div className={classes.expiredSectionTitle}>{t('Sesiones vencidas')}</div>
           <div className={classes.sessionsGrid}>
             {expiredSessions.map(session => (
               <div

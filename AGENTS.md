@@ -72,7 +72,7 @@ MuiThemeProvider
 
 ## Classroom layer (built on top of the Twilio reference app)
 
-A Spanish-language classroom domain has been built on top of the base Twilio reference app. The base SDK-as-state pattern is untouched; the classroom layer adds a role concept, role-specific room shells, attention telemetry, a classroom prejoin/auto-rejoin flow, a server-side access guard, and dev-only design surfaces. In-room UI copy is Spanish by default and follows the selected language (`es` or `en`) once a string is passed through `t()`. Do not translate the `[Profesor]` identity suffix.
+A Spanish-language classroom domain has been built on top of the base Twilio reference app. The base SDK-as-state pattern is untouched; the classroom layer adds a role concept, role-specific room shells, attention telemetry, a classroom prejoin/auto-rejoin flow, a server-side access guard, and dev-only design surfaces. In-room UI copy is Spanish by default and follows the selected language (`es` or `en`) once a string is passed through `t()`. The Twilio identity suffix `[Profesor]` stays the role token and is not rewritten in tokens or storage; visible labels replace it with the translated role (`Profesor` / `Teacher`). Never translate the brand name `Attendia`.
 
 ### Roles & identity
 - **Role IS the Twilio identity suffix — there is no server-side role field.** A teacher's display name gets the suffix `[Profesor]` appended at prejoin; that display name becomes the Twilio participant identity.

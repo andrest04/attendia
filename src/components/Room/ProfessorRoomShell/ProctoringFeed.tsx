@@ -69,7 +69,9 @@ export default function ProctoringFeed({ visibleAlerts, onAlertClick }: Proctori
 
   return (
     <div className={classes.proctoringFeed} data-testid="professor-room-shell-proctoring-feed">
-      <div className={classes.proctoringFeedTitle}>Alertas de proctoring ({visibleAlerts.length})</div>
+      <div className={classes.proctoringFeedTitle}>
+        {t('Alertas de proctoring ({{count}})', { count: visibleAlerts.length })}
+      </div>
       {visibleAlerts.map(alert => {
         const KindIcon = proctoringKindIcon[alert.kind];
         return (

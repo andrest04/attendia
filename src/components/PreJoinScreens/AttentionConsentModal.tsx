@@ -141,17 +141,15 @@ export default function AttentionConsentModal({ open, onAccept, onDecline }: Att
         <div className={classes.infoBox}>
           <span className={classes.infoBoxTitle}>{t('¿Cómo se protegen tus datos?')}</span>
           <ul className={classes.list}>
-            <li>
-              Todo el procesamiento ocurre <strong>en tu dispositivo</strong> (on-device)
-            </li>
-            <li>Ninguna imagen ni video sale de tu equipo</li>
+            <li>{t('Todo el procesamiento ocurre en tu dispositivo')}</li>
+            <li>{t('Ninguna imagen ni video sale de tu equipo')}</li>
             <li>{t('Solo se transmiten índices numéricos de atención al docente')}</li>
             <li>{t('Los datos son para uso pedagógico exclusivamente')}</li>
           </ul>
         </div>
 
         <Typography className={classes.bodyText}>
-          Puedes consultar nuestra{' '}
+          {t('Puedes consultar nuestra')}{' '}
           <a href="/security" className={classes.privacyLink} target="_blank" rel="noopener noreferrer">
             {t('Política de privacidad →')}
           </a>
@@ -161,7 +159,7 @@ export default function AttentionConsentModal({ open, onAccept, onDecline }: Att
           {t(
             'Si prefieres no participar en el análisis automatizado, existe una alternativa presencial. Consulta a tu'
           )}
-          docente antes de unirte.
+          {t('docente antes de unirte.')}
         </Typography>
       </DialogContent>
 

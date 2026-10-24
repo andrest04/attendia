@@ -290,8 +290,10 @@ export default function TeacherProfilePage() {
       <main className={classes.page} data-testid="teacher-profile-page">
         <Container maxWidth={false} className={classes.container}>
           <div className={classes.header}>
-            <Typography variant="h4">Perfil {profile.role === 'student' ? t('estudiante') : t('docente')}</Typography>
-            <Typography color="textSecondary">Administra tu identidad y acceso.</Typography>
+            <Typography variant="h4">
+              {t('Perfil')} {profile.role === 'student' ? t('estudiante') : t('docente')}
+            </Typography>
+            <Typography color="textSecondary">{t('Administra tu identidad y acceso.')}</Typography>
             {profile.role === 'student' && (
               <Button
                 className={classes.studentRoomEntry}
@@ -508,7 +510,7 @@ export default function TeacherProfilePage() {
           >
             <DialogTitle>{t('¿Confirmar el cambio de correo?')}</DialogTitle>
             <DialogContent>
-              <DialogContentText>Nuevo correo:</DialogContentText>
+              <DialogContentText>{t('Nuevo correo:')}</DialogContentText>
               <DialogContentText>
                 <strong>{email}</strong>
               </DialogContentText>
@@ -521,7 +523,7 @@ export default function TeacherProfilePage() {
             </DialogContent>
             <DialogActions>
               <Button onClick={() => setIsEmailConfirmOpen(false)} data-testid="email-confirm-cancel">
-                Cancelar
+                {t('Cancelar')}
               </Button>
               <Button onClick={confirmSaveEmail} color="primary" variant="contained" data-testid="email-confirm-accept">
                 Confirmar

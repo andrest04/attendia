@@ -725,7 +725,7 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
 
             {/* Device checks section */}
             <div className={classes.panelGroup}>
-              <span className={classes.sectionLabel}>Estado de dispositivos</span>
+              <span className={classes.sectionLabel}>{t('Estado de dispositivos')}</span>
               <div className={classes.checkList}>
                 {deviceChecks.map((item, index) => {
                   // Until this row's turn arrives, show the spinner regardless of
@@ -748,12 +748,10 @@ export default function DeviceSelectionScreen({ name, roomName, setStep }: Devic
             <div className={classes.privacy}>
               <div className={classes.privacyHeader}>
                 <SecurityIcon style={{ fontSize: 15, color: '#1d6eed', marginTop: 1, flexShrink: 0 }} />
-                <span className={classes.privacyTitle}>Privacidad de datos faciales</span>
+                <span className={classes.privacyTitle}>{t('Privacidad de datos faciales')}</span>
               </div>
               <Typography className={classes.privacyText}>
-                El análisis de atención se procesa{' '}
-                <strong style={{ fontWeight: 700, color: '#64748b' }}>localmente</strong>. No se almacenan datos
-                faciales.
+                {t('El análisis de atención se procesa localmente. No se almacenan datos faciales.')}
               </Typography>
               <a href="/security" className={classes.privacyLink}>
                 {t('Política de privacidad →')}

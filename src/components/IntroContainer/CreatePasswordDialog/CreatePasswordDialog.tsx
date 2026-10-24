@@ -14,7 +14,8 @@ import { useAppState } from '../../../state';
 import { t } from '../../../i18n/translate';
 
 const MIN_PASSWORD_LENGTH = 6;
-const WEAK_PASSWORD_MESSAGE = `La contraseña es demasiado débil. Usa al menos ${MIN_PASSWORD_LENGTH} caracteres.`;
+const weakPasswordMessage = () =>
+  t('La contraseña es demasiado débil. Usa al menos {{count}} caracteres.', { count: MIN_PASSWORD_LENGTH });
 
 const useStyles = makeStyles({
   fieldBlock: {
@@ -46,7 +47,7 @@ const useStyles = makeStyles({
 function getCreatePasswordErrorMessage(error: any): string {
   switch (error?.code) {
     case 'auth/weak-password':
-      return WEAK_PASSWORD_MESSAGE;
+      return weakPasswordMessage();
     case 'auth/requires-recent-login':
       return t('Por seguridad, cierra sesión y vuelve a entrar con Google antes de crear tu contraseña.');
     case 'auth/provider-already-linked':
@@ -87,7 +88,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
     setError(null);
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(WEAK_PASSWORD_MESSAGE);
+      setError(weakPasswordMessage());
       return;
     }
 

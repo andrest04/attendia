@@ -272,13 +272,13 @@ export default function ClassHistoryPage() {
           ) : isLoading ? (
             <div className={`${classes.card} ${classes.centerCard}`} data-testid="class-history-loading">
               <CircularProgress size={28} />
-              <Typography className={classes.mutedText}>Cargando el historial…</Typography>
+              <Typography className={classes.mutedText}>{t('Cargando el historial…')}</Typography>
             </div>
           ) : error ? (
             <div className={`${classes.card} ${classes.centerCard}`} data-testid="class-history-error">
               <Typography className={classes.mutedText}>{error}</Typography>
               <Button variant="outlined" className={classes.retryBtn} onClick={load} data-testid="class-history-retry">
-                Reintentar
+                {t('Reintentar')}
               </Button>
             </div>
           ) : !reports || reports.length === 0 ? (

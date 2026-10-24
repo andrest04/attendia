@@ -18,7 +18,7 @@ export default function PhoneBlockedScreen() {
         <Typography variant="h5" className={classes.heading}>
           {t('Esta plataforma no está disponible en celulares')}
         </Typography>
-        <Typography>Ingresa desde un computador o tablet.</Typography>
+        <Typography>{t('Ingresa desde un computador o tablet.')}</Typography>
       </Paper>
     </Container>
   );

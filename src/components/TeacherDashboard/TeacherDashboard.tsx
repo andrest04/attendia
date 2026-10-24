@@ -388,7 +388,7 @@ export default function TeacherDashboard({
                     { count: pendingReports.length }
                   )}
               <Button onClick={retryPendingReports} data-testid="dashboard-retry-pending-reports">
-                Reintentar guardado
+                {t('Reintentar guardado')}
               </Button>
             </div>
           )}
@@ -398,7 +398,9 @@ export default function TeacherDashboard({
       <ConfirmDialog
         open={cancelDialog.isOpen}
         title={t('Cancelar clase')}
-        message={`¿Cancelar "${cancelDialog.target?.title}"? Esta acción no se puede deshacer.`}
+        message={t('¿Cancelar "{{name}}"? Esta acción no se puede deshacer.', {
+          name: cancelDialog.target?.title || '',
+        })}
         confirmLabel={t('Cancelar clase')}
         cancelLabel={t('Volver')}
         isConfirming={cancellingClassId === cancelDialog.target?.id}
@@ -408,9 +410,13 @@ export default function TeacherDashboard({
       <ConfirmDialog
         open={cancelExpiredDialog.isOpen}
         title={t('Cancelar clases vencidas')}
-        message={`¿Cancelar ${
-          expiredClasses.length === 1 ? t('la clase vencida') : `las ${expiredClasses.length} clases vencidas`
-        }? Esta acción no se puede deshacer.`}
+        message={
+          expiredClasses.length === 1
+            ? t('¿Cancelar la clase vencida? Esta acción no se puede deshacer.')
+            : t('¿Cancelar las {{count}} clases vencidas? Esta acción no se puede deshacer.', {
+                count: expiredClasses.length,
+              })
+        }
         confirmLabel={t('Cancelar')}
         cancelLabel={t('Volver')}
         isConfirming={isCancellingExpired}

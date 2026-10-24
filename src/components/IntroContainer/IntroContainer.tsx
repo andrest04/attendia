@@ -482,10 +482,10 @@ const IntroContainer = (props: IntroContainerProps) => {
             </div>
             <div className={classes.heroBadge}>
               <div className={classes.heroBadgeDot} />
-              <span className={classes.heroBadgeText}>Plataforma de Videoconferencia</span>
+              <span className={classes.heroBadgeText}>{t('Plataforma de Videoconferencia')}</span>
             </div>
             <Typography component="h1" className={classes.heroTitle}>
-              Bienvenido a <span className={classes.heroTitleAccent}>attendia</span>
+              {t('Bienvenido a')} <span className={classes.heroTitleAccent}>attendia</span>
             </Typography>
             <p className={classes.heroSubtitle}>
               {t('Videoconferencia síncrona para aulas híbridas con detección de atención en tiempo real.')}

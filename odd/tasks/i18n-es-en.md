@@ -32,3 +32,4 @@ L4. 2026-10-23. User: "no quiero pr, quiero merges."
 L5. 2026-10-24. User: "perfecto dale hasta termina toda la aplicacion el cliente y el servidor dale."
 L6. 2026-10-24. User: "y que esperas ?" Remaining client UI wired through `t()`. Server JSON error explanations were already localized. Notification titles already stored in Firestore stay Spanish (S6 / T6).
 L7. 2026-10-24. Leftover Twilio settings dialogs, the error dialog, and the avatar crop dialog now go through `t()`. Stored notification documents are still not rewritten.
+L8. 2026-10-24. User: "sigue traducien entonces te estroy diciendo que traduzca todo menos Attendia". Remaining visible copy goes through `t()`. The brand Attendia is not translated. The Twilio suffix `[Profesor]` stays the role token.

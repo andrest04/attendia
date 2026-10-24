@@ -361,8 +361,8 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
     <div className={classes.root} data-testid="dashboard-resources-tab">
       <div className={classes.header}>
         <div>
-          <div className={classes.title}>Recursos</div>
-          <div className={classes.subtitle}>Materiales asociados a clases programadas</div>
+          <div className={classes.title}>{t('Recursos')}</div>
+          <div className={classes.subtitle}>{t('Materiales asociados a clases programadas')}</div>
         </div>
         <div className={classes.uploadControls}>
           <button
@@ -373,7 +373,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
             data-testid="dashboard-upload-file-button"
           >
             <AddIcon style={{ fontSize: 18 }} />
-            {activeUploadCount > 0 ? `Subiendo… (${activeUploadCount})` : t('Subir archivo')}
+            {activeUploadCount > 0 ? t('Subiendo… ({{count}})', { count: activeUploadCount }) : t('Subir archivo')}
           </button>
           <input
             ref={fileInputRef}
@@ -387,7 +387,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
         </div>
       </div>
 
-      {isLoading && <div className={classes.statusMessage}>Cargando recursos…</div>}
+      {isLoading && <div className={classes.statusMessage}>{t('Cargando recursos…')}</div>}
       {errorMessage && <div className={clsx(classes.statusMessage, classes.errorMessage)}>{errorMessage}</div>}
 
       {!isLoading && pillOptions.length > 0 && (
@@ -561,14 +561,16 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
             data-testid="dashboard-resources-empty-upload-tile"
           >
             <AddIcon style={{ fontSize: 22 }} />
-            Subir archivo
+            {t('Subir archivo')}
           </button>
         </div>
       )}
       <ConfirmDialog
         open={deleteDialog.isOpen}
         title={t('Eliminar recurso')}
-        message={`¿Eliminar "${deleteDialog.target?.name}"? Esta acción no se puede deshacer.`}
+        message={t('¿Eliminar "{{name}}"? Esta acción no se puede deshacer.', {
+          name: deleteDialog.target?.name || '',
+        })}
         confirmLabel={t('Eliminar')}
         cancelLabel={t('Volver')}
         isConfirming={isDeletingResource}
@@ -580,14 +582,24 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
         title={activeOption?.cancelled ? t('Eliminar recursos de la clase') : t('Eliminar clase')}
         message={
           activeOption?.cancelled
-            ? `¿Eliminar ${
-                activeGroup?.files.length === 1 ? t('el archivo') : `los ${activeGroup?.files.length} archivos`
-              } de "${activeOption?.label}"? Esta acción no se puede deshacer.`
-            : `¿Eliminar la clase "${activeOption?.label}"${
-                activeGroup && activeGroup.files.length > 0
-                  ? ` y ${activeGroup.files.length === 1 ? 'su recurso' : `sus ${activeGroup.files.length} recursos`}`
-                  : ''
-              }? Esta acción no se puede deshacer.`
+            ? activeGroup?.files.length === 1
+              ? t('¿Eliminar el archivo de "{{name}}"? Esta acción no se puede deshacer.', {
+                  name: activeOption.label,
+                })
+              : t('¿Eliminar los {{count}} archivos de "{{name}}"? Esta acción no se puede deshacer.', {
+                  count: activeGroup?.files.length || 0,
+                  name: activeOption.label,
+                })
+            : !activeGroup || activeGroup.files.length === 0
+            ? t('¿Eliminar la clase "{{name}}"? Esta acción no se puede deshacer.', { name: activeOption?.label || '' })
+            : activeGroup.files.length === 1
+            ? t('¿Eliminar la clase "{{name}}" y su recurso? Esta acción no se puede deshacer.', {
+                name: activeOption?.label || '',
+              })
+            : t('¿Eliminar la clase "{{name}}" y sus {{count}} recursos? Esta acción no se puede deshacer.', {
+                name: activeOption?.label || '',
+                count: activeGroup.files.length,
+              })
         }
         confirmLabel={t('Eliminar todo')}
         cancelLabel={t('Volver')}

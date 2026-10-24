@@ -10,6 +10,7 @@ import { attentionStatusColors } from '../../../theme';
 import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import { presenceView, ProfessorRightTab } from './professorShellHelpers';
+import { displayIdentity } from '../../../i18n/displayIdentity';
 import { t } from '../../../i18n/translate';
 
 // Code-split the timeline chart: it is the only recharts consumer on the professor
@@ -291,7 +292,7 @@ export default function ProfessorRightRail({
             {isGroupBelowThreshold && (
               <div className={classes.banner} data-testid="professor-room-shell-group-banner">
                 <WarningIcon className={classes.bannerIcon} />
-                <span>Atención grupal por debajo del umbral ({attentionThreshold}%)</span>
+                <span>{t('Atención grupal por debajo del umbral ({{count}}%)', { count: attentionThreshold })}</span>
               </div>
             )}
 
@@ -329,7 +330,7 @@ export default function ProfessorRightRail({
                 return (
                   <div key={participant.identity} className={classes.individualRow}>
                     <div className={classes.individualHeader}>
-                      <span>{participant.identity}</span>
+                      <span>{displayIdentity(participant.identity)}</span>
                     </div>
                     <span className={classes.individualCameraOff} data-testid={individualTestId}>
                       <Icon fontSize="inherit" /> {label}
@@ -341,7 +342,7 @@ export default function ProfessorRightRail({
               return (
                 <div key={participant.identity} className={classes.individualRow}>
                   <div className={classes.individualHeader}>
-                    <span>{participant.identity}</span>
+                    <span>{displayIdentity(participant.identity)}</span>
                     <span className={classes.individualScore}>{participant.index}</span>
                   </div>
                   <div className={classes.progressTrack}>

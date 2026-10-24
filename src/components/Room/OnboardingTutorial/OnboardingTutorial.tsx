@@ -54,55 +54,57 @@ interface StepDef {
 // per-step accent color), and only the current segment is filled — matches Figma.
 const PROGRESS_FILL_COLOR = '#1d6eed';
 
-const STEPS: StepDef[] = [
-  {
-    accentColor: '#1d6eed', // primary blue
-    icon: <CameraAltIcon style={{ fontSize: 20 }} />,
-    title: t('Controles de cámara y micrófono'),
-    body: t(
-      'Gestiona tu cámara y micrófono desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.'
-    ),
-    callout: t('El área resaltada en la parte inferior es la barra de herramientas principal.'),
-    calloutIcon: CameraAltIcon,
-    anchorTestId: 'professor-room-shell-toolbar-slot',
-  },
-  {
-    accentColor: '#10b981', // success green
-    icon: <MenuBookIcon style={{ fontSize: 20 }} />,
-    title: t('Chat y participantes'),
-    body: t(
-      'Abre el panel derecho con estos botones de la barra de herramientas para ver la lista de participantes y comunicarte por el chat.'
-    ),
-    callout: t('Los botones resaltados abren los paneles de participantes y de chat.'),
-    calloutIcon: MenuBookIcon,
-    // Anchors to the toolbar buttons that OPEN the panel (not the panel itself):
-    // the side rails start collapsed, so the rail element is not in the DOM when
-    // the tour first runs.
-    anchorTestId: 'professor-toolbar-panels',
-  },
-  {
-    accentColor: '#ffb800', // warning amber
-    icon: <MemoryIcon style={{ fontSize: 20 }} />,
-    title: t('Detección de atención'),
-    body: t(
-      'El sistema analiza tu nivel de atención de forma local en tu dispositivo. Estos datos ayudan al profesor a entender el compromiso del grupo.'
-    ),
-    callout: t('Los datos faciales NO se almacenan ni se envían a servidores externos.'),
-    calloutIcon: MemoryIcon,
-    // No spotlight: the Figma copy here is about data privacy, not a highlighted
-    // room zone, so this step intentionally points at nothing.
-  },
-  {
-    accentColor: '#1d2f6f', // secondary navy
-    icon: <SecurityIcon style={{ fontSize: 20 }} />,
-    title: t('Privacidad y seguridad'),
-    body: t(
-      'Toda la comunicación está cifrada con SRTP. Los tokens de sesión se generan automáticamente y expiran al cerrar la sesión.'
-    ),
-    callout: t('Consulta la política de privacidad desde el pie de página.'),
-    calloutIcon: SecurityIcon,
-  },
-];
+function onboardingSteps(): StepDef[] {
+  return [
+    {
+      accentColor: '#1d6eed', // primary blue
+      icon: <CameraAltIcon style={{ fontSize: 20 }} />,
+      title: t('Controles de cámara y micrófono'),
+      body: t(
+        'Gestiona tu cámara y micrófono desde la barra de herramientas inferior. Puedes activarlos o desactivarlos en cualquier momento durante la sesión.'
+      ),
+      callout: t('El área resaltada en la parte inferior es la barra de herramientas principal.'),
+      calloutIcon: CameraAltIcon,
+      anchorTestId: 'professor-room-shell-toolbar-slot',
+    },
+    {
+      accentColor: '#10b981', // success green
+      icon: <MenuBookIcon style={{ fontSize: 20 }} />,
+      title: t('Chat y participantes'),
+      body: t(
+        'Abre el panel derecho con estos botones de la barra de herramientas para ver la lista de participantes y comunicarte por el chat.'
+      ),
+      callout: t('Los botones resaltados abren los paneles de participantes y de chat.'),
+      calloutIcon: MenuBookIcon,
+      // Anchors to the toolbar buttons that OPEN the panel (not the panel itself):
+      // the side rails start collapsed, so the rail element is not in the DOM when
+      // the tour first runs.
+      anchorTestId: 'professor-toolbar-panels',
+    },
+    {
+      accentColor: '#ffb800', // warning amber
+      icon: <MemoryIcon style={{ fontSize: 20 }} />,
+      title: t('Detección de atención'),
+      body: t(
+        'El sistema analiza tu nivel de atención de forma local en tu dispositivo. Estos datos ayudan al profesor a entender el compromiso del grupo.'
+      ),
+      callout: t('Los datos faciales NO se almacenan ni se envían a servidores externos.'),
+      calloutIcon: MemoryIcon,
+      // No spotlight: the Figma copy here is about data privacy, not a highlighted
+      // room zone, so this step intentionally points at nothing.
+    },
+    {
+      accentColor: '#1d2f6f', // secondary navy
+      icon: <SecurityIcon style={{ fontSize: 20 }} />,
+      title: t('Privacidad y seguridad'),
+      body: t(
+        'Toda la comunicación está cifrada con SRTP. Los tokens de sesión se generan automáticamente y expiran al cerrar la sesión.'
+      ),
+      callout: t('Consulta la política de privacidad desde el pie de página.'),
+      calloutIcon: SecurityIcon,
+    },
+  ];
+}
 
 // ---------------------------------------------------------------------------
 // Styles
@@ -329,6 +331,7 @@ interface Props {
 }
 
 export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: Props) {
+  const STEPS = onboardingSteps();
   const classes = useStyles();
   const [step, setStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
@@ -470,7 +473,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
               </div>
               <div className={classes.headerText}>
                 <span className={classes.stepLabel} data-testid="onboarding-step-label">
-                  Paso {step + 1} de {STEPS.length}
+                  {t('Paso {{current}} de {{total}}', { current: step + 1, total: STEPS.length })}
                 </span>
                 <Typography className={classes.title} data-testid="onboarding-title">
                   {current.title}

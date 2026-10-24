@@ -13,6 +13,7 @@ import useRemoteMedia from '../../../hooks/useRemoteMedia/useRemoteMedia';
 import { useModerationActions } from '../ModerationMenu/moderationActionsContext';
 import { getInitials, presenceView } from './professorShellHelpers';
 import { attentionStatusColors } from '../../../theme';
+import { displayIdentity } from '../../../i18n/displayIdentity';
 import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -220,7 +221,7 @@ function RosterRow({
         {getInitials(participant.identity)}
       </div>
       <div className={classes.rosterNameWrap}>
-        <span className={classes.rosterName} title={participant.identity}>
+        <span className={classes.rosterName} title={displayIdentity(participant.identity)}>
           {stripTeacherSuffix(participant.identity)}
         </span>
         {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" />}
@@ -242,7 +243,7 @@ function RosterRow({
             type="button"
             className={classes.rosterMenuButton}
             data-testid="professor-room-shell-roster-menu-button"
-            aria-label={`Acciones para ${participant.identity}`}
+            aria-label={`Acciones para ${displayIdentity(participant.identity)}`}
             aria-haspopup="true"
             aria-expanded={menuOpen}
             onClick={() => onToggleMenu()}
