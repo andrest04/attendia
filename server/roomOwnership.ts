@@ -14,8 +14,8 @@ import { fetchRoomVia, RoomDetails, RoomDetailsClient } from './twilioGateway';
  *
  * Claimed when a PROFILE-VERIFIED teacher gets a token for the room (see the token guard
  * in roomAccessGuard.ts). A room name is reusable once its class is closed, so another
- * uid's token request while that room is open in Twilio joins as co-teacher (the owner's
- * record and history stay untouched); another uid's claim only blocks while it is fresh and
+ * uid's token request while that room is open in Twilio joins as co-teacher (the uid is
+ * appended to `coTeachers`; the owner fields and history stay untouched); another uid's claim only blocks while it is fresh and
  * the room does not exist yet (FRESH_CLAIM_WINDOW_MS: plugin-rtc creates the room only AFTER
  * the guard, so a just-claimed room may not exist yet); otherwise the newcomer takes it over.
  *
@@ -46,6 +46,10 @@ import { fetchRoomVia, RoomDetails, RoomDetailsClient } from './twilioGateway';
  * and the claims history says this uid owned that room when Twilio created it; first
  * writer wins (`create()`). Recording requests require it, so a teacher cannot request a
  * composition of someone else's class.
+ *
+ * Co-teachers: `roomOwners/{key}.coTeachers` lists the uids admitted while the class was
+ * open. They may start/stop recording (/recordingrules) and nothing else owner-only. The
+ * owner's re-claims keep the list; a takeover starts without one.
  *
  * Like the other route leaves, this module has zero firebase-admin imports: the
  * structural interfaces below are satisfied by the real admin Firestore instance.
@@ -98,6 +102,10 @@ export function roomOwnerKey(roomName: string): string {
   return encodeBase64Url(roomName);
 }
 
+function coTeachersOf(owner: { [key: string]: any }): string[] {
+  return Array.isArray(owner.coTeachers) ? owner.coTeachers.filter((value: unknown) => typeof value === 'string') : [];
+}
+
 function isFreshClaim(owner: { [key: string]: any }, now: number): boolean {
   const times = [timestampMillis(owner.claimedAt), timestampMillis(owner.refreshedAt)].filter(
     (value): value is number => value !== null
@@ -107,7 +115,7 @@ function isFreshClaim(owner: { [key: string]: any }, now: number): boolean {
 
 /**
  * Claims roomOwners for `uid` in one transaction. When another uid owns the name and that
- * room is open right now, `uid` joins as co-teacher (true, nothing written). Refuses (false)
+ * room is open right now, `uid` joins as co-teacher (true; only `coTeachers` gains the uid). Refuses (false)
  * only while another uid's claim is fresh and the room is not open yet; otherwise it takes
  * the closed, stale name over. A Twilio/Firestore failure propagates so the caller fails closed.
  */
@@ -121,16 +129,29 @@ export async function claimRoomOwnership(
   return db.runTransaction(async transaction => {
     const owner = (await transaction.get(ownerRef)).data();
     if (owner && owner.uid !== uid) {
-      // The room is open: join as co-teacher. Nothing is written, so the owner keeps
+      // The room is open: join as co-teacher. Only coTeachers changes, so the owner keeps
       // claimedAt, refreshedAt and the claims history.
-      if (await roomExists(roomName)) return true;
+      if (await roomExists(roomName)) {
+        const coTeachers = coTeachersOf(owner);
+        if (!coTeachers.includes(uid)) transaction.set(ownerRef, { ...owner, coTeachers: [...coTeachers, uid] });
+        return true;
+      }
       // Not open yet but claimed a moment ago: plugin-rtc has not created it, so the
       // other claim is still live (two simultaneous claims cannot both win).
       if (isFreshClaim(owner, now())) return false;
     }
     const keepClaimedAt = owner !== undefined && owner.uid === uid && owner.claimedAt !== undefined;
     const claimedAt = keepClaimedAt ? owner!.claimedAt : timestamp();
-    transaction.set(ownerRef, { uid, roomName, claimedAt, refreshedAt: timestamp(), claimsHistory: true });
+    // The owner keeps its co-teachers across refreshes; a takeover starts without any.
+    const coTeachers = keepClaimedAt ? coTeachersOf(owner!) : [];
+    transaction.set(ownerRef, {
+      uid,
+      roomName,
+      claimedAt,
+      refreshedAt: timestamp(),
+      claimsHistory: true,
+      ...(coTeachers.length > 0 ? { coTeachers } : {}),
+    });
     // A new ownership period (or a pre-history one not yet recorded): append it (auto id).
     if (!keepClaimedAt || owner!.claimsHistory !== true) {
       transaction.set(ownerRef.collection(ROOM_OWNER_CLAIMS_SUBCOLLECTION).doc(), { uid, claimedAt });
@@ -168,6 +189,12 @@ export async function readRoomOwnerUid(db: OwnershipReadDatabase, roomName: stri
 
 export async function isRoomOwner(db: OwnershipReadDatabase, roomName: string, uid: string): Promise<boolean> {
   return (await readOwnerUid(db, ROOM_OWNERS_COLLECTION, roomOwnerKey(roomName))) === uid;
+}
+
+/** The owner, or a co-teacher admitted while the class was open (may start/stop recording). */
+export async function isRoomTeacher(db: OwnershipReadDatabase, roomName: string, uid: string): Promise<boolean> {
+  const owner = await readRoomOwner(db, roomName);
+  return !!owner && (owner.uid === uid || coTeachersOf(owner).includes(uid));
 }
 
 /** `roomSid` must already be validated (ROOM_SID_PATTERN) — it is used as a document id. */
@@ -311,7 +338,7 @@ export function createRoomSessionBinder(
 
 /**
  * Middleware in front of plugin-rtc's recordingrules function (which updates the rules of
- * whatever room_sid it is given): only a teacher who owns the room behind room_sid passes.
+ * whatever room_sid it is given): only the owner or a co-teacher of the room behind room_sid passes.
  */
 export function createRecordingRulesGuard(db: TeacherAuthorizationDatabase, fetchRoom: RoomDetailsFetcher): RequestHandler {
   return teacherHandler(
@@ -333,8 +360,13 @@ export function createRecordingRulesGuard(db: TeacherAuthorizationDatabase, fetc
     },
     async ({ uid, req, res, next }) => {
       const room = await fetchRoom(req.body.room_sid);
-      if (!room || !(await isRoomOwner(db, room.uniqueName, uid))) {
-        sendError(res, 403, 'room not owned', 'Solo el docente a cargo de esta clase puede cambiar su grabación.');
+      if (!room || !(await isRoomTeacher(db, room.uniqueName, uid))) {
+        sendError(
+          res,
+          403,
+          'room not owned',
+          'Solo el docente a cargo o un co-docente de esta clase puede cambiar su grabación.'
+        );
         return;
       }
       next();

@@ -8,7 +8,7 @@ import { isFromTeacher, SessionEndedMessage } from '../useClassDataChannel/class
 import { useAppState } from '../../state';
 import { leaveClass } from '../../components/PreJoinScreens/leaveClass';
 import { ReportEndReason } from '../../components/AttentionProvider/reportTypes';
-import { createApiClient } from '../../state/useFirebaseAuth/apiClient';
+import { ClientApiError, createApiClient } from '../../state/useFirebaseAuth/apiClient';
 
 /**
  * "End the session for everyone" signaling for the classroom flow.
@@ -111,8 +111,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
     const identity = room?.localParticipant?.identity;
     const roomName = room?.name;
     setIsEnding(true);
-    // Announce first so students see the ended screen even before completion disconnects them.
-    sendRef.current({ type: 'session-ended' });
+    let notOwner = false;
     try {
       // Snapshot before anything can tear the room down: the attention report's
       // source data is cleared by the provider the moment the room disconnects.
@@ -126,16 +125,32 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
         // completed for the other participants.
         await createApiClient(user).send(endpoint, { method: 'POST', json: body });
       }
-    } catch {
+      // Announce before leaving; a room completion that beats it still reaches the students
+      // as RoomCompletedError, which they treat as the same ended state.
+      sendRef.current({ type: 'session-ended' });
+    } catch (error) {
+      // A co-teacher cannot close the class: the server refuses (403). Nothing was announced,
+      // so the students stay; this teacher just leaves.
+      if (error instanceof ClientApiError && error.status === 403) {
+        notOwner = true;
+        enqueueSnackbar(
+          'Solo el docente a cargo de la clase puede cerrarla para todos. Saliste de la sala y la clase sigue abierta.',
+          { variant: 'info' }
+        );
+        return;
+      }
+      // Announce anyway: the room is probably still open and the students must be told.
+      sendRef.current({ type: 'session-ended' });
       // Even if completion fails (offline, transient), we still leave and show the
-      // ended screen locally — the broadcast already told the connected students. The
+      // ended screen locally — the broadcast tells the connected students. The
       // professor must know the room may still be open, so surface it.
       enqueueSnackbar('No se pudo cerrar la sala en el servidor. Los estudiantes podrían seguir conectados.', {
         variant: 'warning',
       });
     } finally {
       setIsEnding(false);
-      leaveAsEnded();
+      if (notOwner) leaveClass(room);
+      else leaveAsEnded();
     }
   }, [room, user, leaveAsEnded, onProfessorEndRef, enqueueSnackbar, isCoTeacher, leaveWithoutEnding]);
 

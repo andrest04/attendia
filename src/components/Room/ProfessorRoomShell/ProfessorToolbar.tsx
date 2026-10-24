@@ -69,7 +69,7 @@ interface ProfessorToolbarProps {
   onLeave?: () => void;
   /** True while "end for everyone" is in flight (disables the end-call dialog actions). */
   isEnding?: boolean;
-  /** Confirmed co-teacher: recording is owner-only, so the "Grabar" item is hidden. */
+  /** Confirmed co-teacher. Only end-for-all differs for them (hidden via `onEndForAll`); recording stays available. */
   isCoTeacher?: boolean;
 }
 
@@ -85,7 +85,6 @@ export default function ProfessorToolbar({
   onEndForAll,
   onLeave,
   isEnding,
-  isCoTeacher = false,
 }: ProfessorToolbarProps = {}) {
   const classes = useStyles();
   const { classes: toolbar, chip, endCallChip } = useToolbarChipStyles();
@@ -135,7 +134,7 @@ export default function ProfessorToolbar({
       checked: isRecording,
       tone: 'recording',
       disabled: isRecordingBusy || !room,
-      hidden: !supportsRecording || isCoTeacher,
+      hidden: !supportsRecording,
       onSelect: toggleRecording,
     },
     {

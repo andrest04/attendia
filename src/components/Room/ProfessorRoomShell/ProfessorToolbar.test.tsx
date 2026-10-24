@@ -228,10 +228,10 @@ describe('ProfessorToolbar', () => {
       expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
     });
 
-    it('hides the record item for a co-teacher (recording is owner-only)', () => {
+    it('keeps the record item for a co-teacher (they can start and stop a recording)', () => {
       const wrapper = shallow(<ProfessorToolbar isCoTeacher />);
       const menu = openMore(wrapper);
-      expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
+      expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(true);
       expect(menu.find('[data-testid="professor-toolbar-attention"]').exists()).toBe(true);
     });
 
