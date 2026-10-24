@@ -18,6 +18,8 @@ import {
 import RaiseHandButton from '../../Buttons/RaiseHandButton/RaiseHandButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
 import OverflowMenu, { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
+import LanguageSwitch from '../../LanguageSwitch/LanguageSwitch';
+import { t } from '../../../i18n/translate';
 import useToolbarChipStyles from '../ToolbarParts/useToolbarChipStyles';
 
 interface StudentRoomToolbarProps {
@@ -54,7 +56,7 @@ export default function StudentRoomToolbar({
   const moreItems: OverflowMenuItem[] = [
     {
       testId: 'student-toolbar-screenshare',
-      label: lockedByTeacher ? SHARE_LOCKED_TEXT : isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT,
+      label: t(lockedByTeacher ? SHARE_LOCKED_TEXT : isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT),
       icon: isSharingScreen ? (
         <StopScreenShareIcon style={{ fontSize: 18 }} />
       ) : (
@@ -109,6 +111,7 @@ export default function StudentRoomToolbar({
 
       <OverflowMenu items={moreItems} testIdPrefix="student-toolbar" chipClassName={chip} />
 
+      <LanguageSwitch tone="dark" />
       <div className={classes.divider} />
       <EndCallButton dark iconOnly className={endCallChip} />
     </div>

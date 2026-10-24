@@ -6,6 +6,7 @@ import ScreenShareIcon from '../../../icons/ScreenShareIcon';
 import Tooltip from '@material-ui/core/Tooltip';
 import { toolbarButtonClass, useToolbarButtonStyles } from '../toolbarButtonStyles';
 import useScreenShareControl from '../../../hooks/useScreenShareControl/useScreenShareControl';
+import { t } from '../../../i18n/translate';
 
 export const SCREEN_SHARE_TEXT = 'Compartir pantalla';
 export const STOP_SCREEN_SHARE_TEXT = 'Dejar de compartir';
@@ -55,7 +56,7 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
 
   return (
     <Tooltip
-      title={tooltipMessage}
+      title={tooltipMessage ? t(tooltipMessage) : ''}
       placement="top"
       PopperProps={{ disablePortal: true }}
       style={{ cursor: isDisabled ? 'not-allowed' : 'pointer' }}
@@ -71,10 +72,10 @@ export default function ToggleScreenShareButton(props: { disabled?: boolean; cla
           onClick={toggleScreenShare}
           disabled={isDisabled}
           startIcon={<ScreenShareIcon />}
-          aria-label={props.iconOnly ? (isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir') : undefined}
+          aria-label={props.iconOnly ? t(isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir') : undefined}
           data-cy-share-screen
         >
-          {props.iconOnly ? null : isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir'}
+          {props.iconOnly ? null : t(isSharingScreen ? STOP_SCREEN_SHARE_TEXT : 'Compartir')}
         </Button>
       </span>
     </Tooltip>

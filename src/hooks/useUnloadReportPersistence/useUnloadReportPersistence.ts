@@ -4,6 +4,7 @@ import { savePendingAttentionReport } from '../../components/AttentionReport/pen
 import useAttentionReportSaver from '../useAttentionReportSaver/useAttentionReportSaver';
 import useCachedIdToken from '../useCachedIdToken/useCachedIdToken';
 import useLatest from '../useLatest/useLatest';
+import { acceptLanguageHeader } from '../../i18n/locale';
 
 /**
  * Teacher-only beforeunload/pagehide safety net for the attention report.
@@ -87,7 +88,7 @@ export default function useUnloadReportPersistence(
       fetch('/reports', {
         method: 'POST',
         keepalive: true,
-        headers: { 'Content-Type': 'application/json', Authorization: idToken },
+        headers: { 'Content-Type': 'application/json', Authorization: idToken, ...acceptLanguageHeader() },
         body,
       }).catch(() => {
         // Swallowed: the pending-report queue is the source of truth for retry.

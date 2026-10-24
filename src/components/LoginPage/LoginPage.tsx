@@ -14,6 +14,7 @@ import PersonIcon from '@material-ui/icons/Person';
 
 import { makeStyles } from '@material-ui/core/styles';
 import { useLocation, useHistory, Link } from 'react-router-dom';
+import { t } from '../../i18n/translate';
 
 type PreJoinRole = 'teacher' | 'student';
 
@@ -317,7 +318,8 @@ const GENERIC_AUTH_ERROR_MESSAGE = 'No pudimos completar la operación. Intenta 
 
 export function getFirebaseAuthErrorMessage(error: any): string {
   const code: unknown = error?.code;
-  return (typeof code === 'string' && FIREBASE_AUTH_ERROR_MESSAGES[code]) || GENERIC_AUTH_ERROR_MESSAGE;
+  const spanish = (typeof code === 'string' && FIREBASE_AUTH_ERROR_MESSAGES[code]) || GENERIC_AUTH_ERROR_MESSAGE;
+  return t(spanish);
 }
 
 /** A labelled outlined text input, the field every auth form is made of. */
@@ -398,8 +400,8 @@ function RoleSelector({ value, onChange }: { value: PreJoinRole; onChange: (role
             )}
           </div>
           <div>
-            <div className={classes.roleLabel}>{option.label}</div>
-            <div className={classes.roleCaption}>{option.caption}</div>
+            <div className={classes.roleLabel}>{t(option.label)}</div>
+            <div className={classes.roleCaption}>{t(option.caption)}</div>
           </div>
         </div>
       ))}
@@ -509,28 +511,28 @@ export default function LoginPage() {
     completion: () => (
       <>
         <Typography variant="h5" className={classes.formTitle}>
-          ¿Cómo vas a usar Attendia?
+          {t('¿Cómo vas a usar Attendia?')}
         </Typography>
         <Typography className={classes.formSubtitle}>
-          Selecciona tu rol para terminar de configurar tu cuenta.
+          {t('Selecciona tu rol para terminar de configurar tu cuenta.')}
         </Typography>
         <Typography className={classes.signedInAs}>
-          Conectado como <span className={classes.signedInAsEmail}>{user?.displayName || user?.email}</span>
+          {t('Conectado como')} <span className={classes.signedInAsEmail}>{user?.displayName || user?.email}</span>
         </Typography>
         <form onSubmit={handleCompleteProfile}>
           <RoleSelector value={completionRole} onChange={setCompletionRole} />
           <AuthErrorMessage error={authError} />
           <Button variant="contained" type="submit" disabled={isSubmitting} className={classes.primaryButton}>
-            Confirmar y continuar
+            {t('Confirmar y continuar')}
           </Button>
           <Button
             type="button"
             onClick={handleAbandonCompletion}
             disabled={isSubmitting}
             className={classes.completionCancelButton}
-            aria-label="Cancelar la configuración y cerrar sesión"
+            aria-label={t('Cancelar la configuración y cerrar sesión')}
           >
-            Cancelar y cerrar sesión
+            {t('Cancelar y cerrar sesión')}
           </Button>
         </form>
       </>
@@ -538,12 +540,18 @@ export default function LoginPage() {
     login: () => (
       <>
         <Typography variant="h5" className={classes.formTitle}>
-          Iniciar sesión
+          {t('Iniciar sesión')}
         </Typography>
-        <Typography className={classes.formSubtitle}>Accede con tu cuenta para entrar a tus clases.</Typography>
+        <Typography className={classes.formSubtitle}>{t('Accede con tu cuenta para entrar a tus clases.')}</Typography>
         <form onSubmit={handleEmailLogin}>
-          <AuthField id="input-email" label="Correo electrónico" type="email" value={email} onChange={setEmail} />
-          <AuthField id="input-password" label="Contraseña" type="password" value={password} onChange={setPassword} />
+          <AuthField id="input-email" label={t('Correo electrónico')} type="email" value={email} onChange={setEmail} />
+          <AuthField
+            id="input-password"
+            label={t('Contraseña')}
+            type="password"
+            value={password}
+            onChange={setPassword}
+          />
           <AuthErrorMessage error={authError} />
           <Button
             variant="contained"
@@ -551,11 +559,11 @@ export default function LoginPage() {
             disabled={!email.length || !password.length || isSubmitting}
             className={classes.primaryButton}
           >
-            Iniciar sesión
+            {t('Iniciar sesión')}
           </Button>
         </form>
         <div className={classes.divider}>
-          <span className={classes.dividerText}>o</span>
+          <span className={classes.dividerText}>{t('o')}</span>
         </div>
         <Button
           variant="contained"
@@ -564,12 +572,12 @@ export default function LoginPage() {
           disabled={isSubmitting}
           startIcon={<GoogleLogo />}
         >
-          Continuar con Google
+          {t('Continuar con Google')}
         </Button>
         <div className={classes.switchRow}>
-          ¿No tienes cuenta?
+          {t('¿No tienes cuenta?')}
           <button type="button" className={classes.switchLink} onClick={() => switchView('register')}>
-            Crear cuenta
+            {t('Crear cuenta')}
           </button>
         </div>
       </>
@@ -577,21 +585,23 @@ export default function LoginPage() {
     register: () => (
       <>
         <Typography variant="h5" className={classes.formTitle}>
-          Crear cuenta
+          {t('Crear cuenta')}
         </Typography>
-        <Typography className={classes.formSubtitle}>Regístrate para crear o unirte a clases en Attendia.</Typography>
+        <Typography className={classes.formSubtitle}>
+          {t('Regístrate para crear o unirte a clases en Attendia.')}
+        </Typography>
         <form onSubmit={handleRegister}>
-          <AuthField id="input-name" label="Nombre completo" value={fullName} onChange={setFullName} />
+          <AuthField id="input-name" label={t('Nombre completo')} value={fullName} onChange={setFullName} />
           <AuthField
             id="input-register-email"
-            label="Correo electrónico"
+            label={t('Correo electrónico')}
             type="email"
             value={email}
             onChange={setEmail}
           />
           <AuthField
             id="input-register-password"
-            label="Contraseña"
+            label={t('Contraseña')}
             type="password"
             value={password}
             onChange={setPassword}
@@ -604,13 +614,13 @@ export default function LoginPage() {
             disabled={!fullName.trim().length || !email.length || !password.length || isSubmitting}
             className={classes.primaryButton}
           >
-            Crear cuenta
+            {t('Crear cuenta')}
           </Button>
         </form>
         <div className={classes.switchRow}>
-          ¿Ya tienes cuenta?
+          {t('¿Ya tienes cuenta?')}
           <button type="button" className={classes.switchLink} onClick={() => switchView('login')}>
-            Iniciar sesión
+            {t('Iniciar sesión')}
           </button>
         </div>
       </>
@@ -623,7 +633,7 @@ export default function LoginPage() {
         {stepViews[step]()}
 
         <Link to={routes.security} className={classes.securityLink}>
-          Seguridad y Privacidad
+          {t('Seguridad y Privacidad')}
         </Link>
       </div>
     </IntroContainer>

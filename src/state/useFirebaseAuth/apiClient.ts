@@ -11,6 +11,8 @@
  * and the server — depend on their exact shape.
  */
 
+import { acceptLanguageHeader } from '../../i18n/locale';
+
 const ClientApiErrorBase = Error as new (message?: string) => { name: string; message: string; stack?: string };
 
 export class ClientApiError extends ClientApiErrorBase {
@@ -70,7 +72,7 @@ export function createApiClient(user: IdTokenSource): ApiClient {
   async function raw(path: string, options: ApiRequestOptions = {}): Promise<Response> {
     const idToken = options.forceRefresh ? await user.getIdToken(true) : await user.getIdToken();
 
-    const headers: { [name: string]: string } = { Authorization: idToken };
+    const headers: { [name: string]: string } = { Authorization: idToken, ...acceptLanguageHeader() };
     if (options.json !== undefined) headers['content-type'] = 'application/json';
     Object.assign(headers, options.headers);
 

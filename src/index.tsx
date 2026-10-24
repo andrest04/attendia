@@ -21,6 +21,7 @@ import UnsupportedBrowserWarning from './components/UnsupportedBrowserWarning/Un
 import PhoneGate from './components/PhoneBlockedScreen/PhoneGate';
 import { routes, videoAppPaths } from './routes';
 import SnackbarCloseButton from './components/SnackbarCloseButton/SnackbarCloseButton';
+import LocaleProvider from './i18n/LocaleProvider';
 
 // Standalone pages (outside the room) are code-split so their weight — recharts,
 // page-only UI — stays out of the main bundle. VideoApp stays eager: it is the
@@ -119,20 +120,22 @@ export const AppRoutes = () => (
 export const ReactApp = () => (
   <MuiThemeProvider theme={theme}>
     <CssBaseline />
-    <UnsupportedBrowserWarning>
-      <Router>
-        <PhoneGate>
-          <AppStateProvider>
-            {/* Single boundary for the lazy standalone pages. The fallback is
+    <LocaleProvider>
+      <UnsupportedBrowserWarning>
+        <Router>
+          <PhoneGate>
+            <AppStateProvider>
+              {/* Single boundary for the lazy standalone pages. The fallback is
               intentionally empty: these pages own the full viewport, so there is
               no surrounding layout to jank while the chunk loads. */}
-            <Suspense fallback={null}>
-              <AppRoutes />
-            </Suspense>
-          </AppStateProvider>
-        </PhoneGate>
-      </Router>
-    </UnsupportedBrowserWarning>
+              <Suspense fallback={null}>
+                <AppRoutes />
+              </Suspense>
+            </AppStateProvider>
+          </PhoneGate>
+        </Router>
+      </UnsupportedBrowserWarning>
+    </LocaleProvider>
   </MuiThemeProvider>
 );
 

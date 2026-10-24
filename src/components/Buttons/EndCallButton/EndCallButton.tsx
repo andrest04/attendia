@@ -5,6 +5,7 @@ import { Button, Dialog, DialogActions, DialogContent, DialogContentText, Dialog
 import ExitToAppIcon from '@material-ui/icons/ExitToApp';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import { leaveClass } from '../../PreJoinScreens/leaveClass';
+import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) =>
   createStyles({
@@ -118,10 +119,10 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
           { [classes.iconOnly]: props.iconOnly },
           props.className
         )}
-        aria-label={props.iconOnly ? props.label ?? 'Salir' : undefined}
+        aria-label={props.iconOnly ? props.label ?? t('Salir') : undefined}
         data-cy-disconnect
       >
-        {props.iconOnly ? null : props.label ?? 'Salir'}
+        {props.iconOnly ? null : props.label ?? t('Salir')}
       </Button>
 
       <Dialog
@@ -129,19 +130,20 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
         onClose={() => !props.isEnding && setIsDialogOpen(false)}
         data-testid="end-call-dialog"
       >
-        <DialogTitle>¿Terminar la sesión?</DialogTitle>
+        <DialogTitle>{t('¿Terminar la sesión?')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Puedes salir tú solo y dejar la clase abierta para que los estudiantes continúen, o terminar la sesión para
-            todos y cerrar la sala.
+            {t(
+              'Puedes salir tú solo y dejar la clase abierta para que los estudiantes continúen, o terminar la sesión para todos y cerrar la sala.'
+            )}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsDialogOpen(false)} disabled={props.isEnding} data-testid="end-call-cancel">
-            Cancelar
+            {t('Cancelar')}
           </Button>
           <Button onClick={handleLeaveFromDialog} disabled={props.isEnding} data-testid="end-call-leave">
-            Salir sin cerrar
+            {t('Salir sin cerrar')}
           </Button>
           <Button
             onClick={handleEndForAll}
@@ -149,7 +151,7 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
             className={classes.endForAll}
             data-testid="end-call-end-for-all"
           >
-            {props.isEnding ? 'Terminando…' : 'Terminar para todos'}
+            {t(props.isEnding ? 'Terminando…' : 'Terminar para todos')}
           </Button>
         </DialogActions>
       </Dialog>

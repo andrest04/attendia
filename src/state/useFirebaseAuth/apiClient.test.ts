@@ -1,4 +1,5 @@
 import { ClientApiError, createApiClient, throwOnErrorResponse, withUser } from './apiClient';
+import { setLocale } from '../../i18n/locale';
 
 const mockFetch = jest.fn();
 window.fetch = mockFetch;
@@ -16,14 +17,28 @@ const response = (status: number, body: any = {}, extra: any = {}) => ({
 
 describe('createApiClient', () => {
   beforeEach(() => mockFetch.mockReset());
+  afterEach(() => window.localStorage.clear());
 
-  it('sends a GET with only the Authorization header (no method key)', async () => {
+  it('sends the selected language on Accept-Language', async () => {
+    setLocale('en');
+    mockFetch.mockResolvedValueOnce(response(200, {}));
+
+    await createApiClient(makeUser()).send('/thing');
+
+    expect(mockFetch).toHaveBeenCalledWith('/thing', {
+      headers: { Authorization: 'idToken', 'Accept-Language': 'en' },
+    });
+  });
+
+  it('sends a GET with the Authorization and Accept-Language headers (no method key)', async () => {
     const user = makeUser();
     mockFetch.mockResolvedValueOnce(response(200, { a: 1 }));
 
     await expect(createApiClient(user).json('/thing')).resolves.toEqual({ a: 1 });
 
-    expect(mockFetch).toHaveBeenCalledWith('/thing', { headers: { Authorization: 'idToken' } });
+    expect(mockFetch).toHaveBeenCalledWith('/thing', {
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
+    });
     expect(user.getIdToken).toHaveBeenCalledWith();
   });
 
@@ -34,7 +49,7 @@ describe('createApiClient', () => {
 
     expect(mockFetch).toHaveBeenCalledWith('/thing', {
       method: 'POST',
-      headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'content-type': 'application/json' },
       body: '{"b":2}',
     });
   });
@@ -47,7 +62,7 @@ describe('createApiClient', () => {
 
     expect(mockFetch).toHaveBeenCalledWith('/upload', {
       method: 'POST',
-      headers: { Authorization: 'idToken' },
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
       body: form,
     });
   });
@@ -62,7 +77,7 @@ describe('createApiClient', () => {
 
     expect(mockFetch).toHaveBeenCalledWith('/notifications', {
       method: 'DELETE',
-      headers: { Authorization: 'idToken', 'Idempotency-Key': 'k1' },
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'Idempotency-Key': 'k1' },
     });
   });
 

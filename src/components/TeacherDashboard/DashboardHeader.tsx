@@ -6,6 +6,7 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import PersonIcon from '@material-ui/icons/Person';
 import { useHistory } from 'react-router-dom';
 import AttendiaLogo from '../Brand/AttendiaLogo';
+import LanguageSwitch from '../LanguageSwitch/LanguageSwitch';
 import { routes } from '../../routes';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -221,6 +222,7 @@ export default function DashboardHeader({
       )}
       {centerLabel && <span className={classes.centerLabel}>{centerLabel}</span>}
       <div className={classes.right}>
+        <LanguageSwitch />
         {badge}
         {showProfile &&
           showNotifications &&

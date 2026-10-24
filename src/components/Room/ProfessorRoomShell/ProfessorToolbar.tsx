@@ -23,6 +23,8 @@ import {
 } from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
 import OverflowMenu, { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
+import LanguageSwitch from '../../LanguageSwitch/LanguageSwitch';
+import { t } from '../../../i18n/translate';
 import useToolbarChipStyles from '../ToolbarParts/useToolbarChipStyles';
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -106,7 +108,7 @@ export default function ProfessorToolbar({
     // Screen share moved out of the primary bar; the kebab is its only entry point.
     {
       testId: 'professor-toolbar-screenshare',
-      label: isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT,
+      label: t(isSharingScreen ? STOP_SCREEN_SHARE_TEXT : SCREEN_SHARE_TEXT),
       icon: isSharingScreen ? (
         <StopScreenShareIcon style={{ fontSize: 18 }} />
       ) : (
@@ -188,11 +190,12 @@ export default function ProfessorToolbar({
 
       <OverflowMenu items={moreItems} testIdPrefix="professor-toolbar" chipClassName={chip} />
 
+      <LanguageSwitch tone="dark" />
       <span className={toolbar.divider} />
       <EndCallButton
         dark
         startIcon={<CallEndIcon />}
-        label="Terminar sesión"
+        label={t('Terminar sesión')}
         iconOnly
         className={endCallChip}
         onEndForAll={onEndForAll}
