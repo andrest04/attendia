@@ -14,6 +14,8 @@ import useParticipantTile from '../../hooks/useParticipantTile/useParticipantTil
 import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
+import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
+import TileModerationMenu from '../Room/ModerationMenu/TileModerationMenu';
 import RoleBadge from '../RoleBadge/RoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
@@ -135,6 +137,8 @@ export default function MainParticipantInfo({ participant, children }: MainParti
   const isVideoEnabled = Boolean(videoTrack);
 
   const isRecording = useIsRecording();
+  // Teachers only (provided by Room); never on the local participant's own stage.
+  const moderationActions = useModerationActions();
 
   return (
     <div
@@ -145,6 +149,9 @@ export default function MainParticipantInfo({ participant, children }: MainParti
       })}
     >
       <div className={classes.infoContainer}>
+        {moderationActions && !isLocal && (
+          <TileModerationMenu identity={participant.identity} handlers={moderationActions} corner="right" />
+        )}
         <div style={{ display: 'flex' }}>
           <div className={classes.identity}>
             <AudioLevelIndicator audioTrack={audioTrack} />
