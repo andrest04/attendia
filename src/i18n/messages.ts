@@ -561,6 +561,7 @@ export const EN: { [spanish: string]: string } = {
   'Hash del commit desplegado:': 'Deployed commit:',
   'Tipo de sala:': 'Room type:',
   Activado: 'Enabled',
+  Desactivado: 'Disabled',
   'Sin video local': 'No local video',
   'Sin audio local': 'No local audio',
   Video: 'Video',
@@ -591,4 +592,8 @@ export const EN: { [spanish: string]: string } = {
   'Déjalo en blanco para no poner límite': 'Leave blank for no limit',
   Listo: 'Done',
   'Verificando…': 'Checking…',
+  Error: 'Error',
+  'Código de error:': 'Error code:',
+  'Ajustar foto': 'Adjust photo',
+  Zoom: 'Zoom',
 };

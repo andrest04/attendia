@@ -19,7 +19,7 @@ S9. User: "perfecto dale hasta termina toda la aplicacion el cliente y el servid
 - T1 (S1, S4, S5, S8) inline: client locale runtime, language control, `Accept-Language` on API calls. done `5cf6dfc`
 - T2 (S2, S4, S7) inline: server localizes `explanation` in `sendError`, English catalog for every current explanation. done `5cf6dfc`
 - T3 (S1) inline: login copy follows the selected language. done `5cf6dfc`
-- T4 (S1) inline: remaining client UI (prejoin, room chrome, dashboard, dialogs, pages). done on `feat/i18n-remaining-ui`. Visible copy goes through `t()`; English catalog covers that copy.
+- T4 (S1) inline: remaining client UI (prejoin, room chrome, dashboard, dialogs, pages, leftover Twilio settings dialogs). done on `feat/i18n-remaining-ui`. Visible copy goes through `t()`; English catalog covers that copy.
 - T5 (S3) inline: confirm `[Profesor]` is not passed through the translator. done `5cf6dfc`
 - T6 (S2, S6) inline: server localizes notification titles and messages in the JSON response from `eventType`. Stored Firestore copy stays Spanish. done on `feat/i18n-remaining-ui`.
 
@@ -31,3 +31,4 @@ L3. 2026-10-23. Assumption recorded: Spanish default; browser `localStorage` key
 L4. 2026-10-23. User: "no quiero pr, quiero merges."
 L5. 2026-10-24. User: "perfecto dale hasta termina toda la aplicacion el cliente y el servidor dale."
 L6. 2026-10-24. User: "y que esperas ?" Remaining client UI wired through `t()`. Server JSON error explanations were already localized. Notification titles already stored in Firestore stay Spanish (S6 / T6).
+L7. 2026-10-24. Leftover Twilio settings dialogs, the error dialog, and the avatar crop dialog now go through `t()`. Stored notification documents are still not rewritten.

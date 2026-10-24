@@ -54,7 +54,7 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
 
   return (
     <Dialog open={Boolean(imageSrc)} onClose={onCancel} maxWidth="xs" fullWidth data-testid="avatar-crop-dialog">
-      <DialogTitle>Ajustar foto</DialogTitle>
+      <DialogTitle>{t('Ajustar foto')}</DialogTitle>
       <DialogContent>
         <div className={classes.cropArea}>
           {imageSrc && (
@@ -72,7 +72,7 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
           )}
         </div>
         <div className={classes.zoomRow}>
-          <Typography variant="body2">Zoom</Typography>
+          <Typography variant="body2">{t('Zoom')}</Typography>
           <Slider
             value={zoom}
             min={1}
@@ -85,7 +85,7 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} disabled={isSaving || isCropping} data-testid="avatar-crop-cancel">
-          Cancelar
+          {t('Cancelar')}
         </Button>
         <Button
           onClick={handleConfirm}
@@ -94,7 +94,7 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
           disabled={isSaving || isCropping || !croppedAreaPixels}
           data-testid="avatar-crop-confirm"
         >
-          Listo
+          {t('Listo')}
         </Button>
       </DialogActions>
     </Dialog>
