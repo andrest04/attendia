@@ -14,6 +14,8 @@ const makeRes = () => {
   res.json = jest.fn(() => res);
   res.send = jest.fn(() => res);
   res.redirect = jest.fn(() => res);
+  res.set = jest.fn(() => res);
+  res.type = jest.fn(() => res);
   return res;
 };
 
@@ -600,6 +602,109 @@ describe('createDownloadRecordingHandler', () => {
     const { downloadUrl } = res.json.mock.calls[0][0];
     return extractTicket(downloadUrl);
   }
+
+  it('renders a safe English navigation error for an invalid SID', async () => {
+    const { db } = makeDb();
+    const { client } = makeClient();
+    const res = makeRes();
+    await createDownloadRecordingHandler(db, client, SECRET)(
+      { params: { roomSid: '<script>' }, query: { presentation: 'html', lang: 'en' } } as any, res, jest.fn()
+    );
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.send.mock.calls[0][0]).toContain('Invalid room identifier');
+    expect(res.send.mock.calls[0][0]).not.toContain('<script>');
+    expect(res.set).toHaveBeenCalledWith('Cache-Control', 'no-store');
+    expect(res.set).toHaveBeenCalledWith('Referrer-Policy', 'no-referrer');
+    expect(res.set).toHaveBeenCalledWith('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    expect(res.set).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+  });
+
+  it.each([
+    ['en', 'The download link is no longer valid'],
+    ['es', 'El enlace de descarga ya no es válido'],
+    ['<script>', 'El enlace de descarga ya no es válido'],
+  ])('localizes invalid tickets safely for language %s', async (lang, expected) => {
+    const { db, reportGet } = makeDb();
+    const { client, request: twilioRequest } = makeClient();
+    const res = makeRes();
+    await createDownloadRecordingHandler(db, client, SECRET)(
+      { params: { roomSid: VALID_ROOM_SID }, query: { ticket: '<script>', presentation: 'html', lang } } as any, res, jest.fn()
+    );
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.send.mock.calls[0][0]).toContain(expected);
+    expect(res.send.mock.calls[0][0]).not.toContain('<script>');
+    expect(reportGet).not.toHaveBeenCalled();
+    expect(twilioRequest).not.toHaveBeenCalled();
+  });
+
+  it.each(['expired', 'room mismatch'])('rejects a signed %s ticket in HTML mode', async scenario => {
+    const { db, userGet, reportGet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    reportGet.mockResolvedValue({ data: () => ({ recording: { status: 'completed', compositionSid: 'CJxxx' } }) });
+    const ticket = await issueTicket(db);
+    reportGet.mockClear();
+    const { client, request: twilioRequest } = makeClient();
+    const res = makeRes();
+    const clock = scenario === 'expired' ? jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 6 * 60 * 1000) : null;
+    try {
+      await createDownloadRecordingHandler(db, client, SECRET)(
+        { params: { roomSid: scenario === 'room mismatch' ? 'RM00000000000000000000000000000def' : VALID_ROOM_SID },
+          query: { ticket, presentation: 'html', lang: 'en' } } as any, res, jest.fn()
+      );
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.send.mock.calls[0][0]).toContain('The download link is no longer valid');
+      expect(res.json).not.toHaveBeenCalled();
+      expect(reportGet).not.toHaveBeenCalled();
+      expect(twilioRequest).not.toHaveBeenCalled();
+    } finally {
+      if (clock) clock.mockRestore();
+    }
+  });
+
+  it('keeps default errors JSON even with an unrecognized presentation', async () => {
+    const { db } = makeDb();
+    const { client } = makeClient();
+    const res = makeRes();
+    await createDownloadRecordingHandler(db, client, SECRET)(
+      { params: { roomSid: VALID_ROOM_SID }, query: { presentation: 'other', lang: 'en' } } as any, res, jest.fn()
+    );
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: { message: 'invalid or expired ticket', explanation: 'El enlace de descarga ya no es válido. Solicitalo de nuevo.' } });
+  });
+
+  it('preserves authorization, redirect and localized errors in navigation mode', async () => {
+    const { db, userGet, reportGet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    reportGet.mockResolvedValue({ data: () => ({ recording: { status: 'completed', compositionSid: 'CJxxx' } }) });
+    const ticket = await issueTicket(db);
+    const { client, request: twilioRequest } = makeClient();
+    const handler = createDownloadRecordingHandler(db, client, SECRET);
+    const req = { params: { roomSid: VALID_ROOM_SID }, query: { ticket, presentation: 'html', lang: 'en' } } as any;
+    twilioRequest.mockResolvedValue({ body: { redirect_to: 'https://media.test/signed' }, headers: {} });
+    const success = makeRes();
+    await handler(req, success, jest.fn());
+    expect(success.redirect).toHaveBeenCalledWith(302, 'https://media.test/signed');
+    expect(success.set).toHaveBeenCalledWith('Referrer-Policy', 'no-referrer');
+    expect(success.set).toHaveBeenCalledWith('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    expect(success.set).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    reportGet.mockResolvedValueOnce({ data: () => undefined });
+    const missing = makeRes();
+    await handler(req, missing, jest.fn());
+    expect(missing.status).toHaveBeenCalledWith(404);
+    expect(missing.send.mock.calls[0][0]).toContain('The recording is not ready');
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    twilioRequest.mockRejectedValueOnce(new Error('<script>secret</script>'));
+    const failure = makeRes();
+    await handler(req, failure, jest.fn());
+    expect(failure.status).toHaveBeenCalledWith(503);
+    expect(failure.send.mock.calls[0][0]).toContain('We could not download the recording');
+    expect(failure.send.mock.calls[0][0]).not.toContain('secret');
+    log.mockRestore();
+    const unconfigured = makeRes();
+    await createDownloadRecordingHandler(db, client, undefined)(req, unconfigured, jest.fn());
+    expect(unconfigured.status).toHaveBeenCalledWith(503);
+    expect(unconfigured.send.mock.calls[0][0]).toContain('not configured');
+  });
 
   it('returns 400 for a malformed roomSid', async () => {
     const { db } = makeDb();

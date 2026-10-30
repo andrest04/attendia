@@ -193,8 +193,44 @@ describe('RecordingViewerPage', () => {
       await flushPromises();
 
       expect(fetchRecordingDownloadUrl).toHaveBeenCalledTimes(2);
-      expect(openSpy).toHaveBeenCalledWith('https://media.test/ticket-2', '_blank', 'noopener');
+      expect(openSpy).toHaveBeenCalledWith('https://media.test/ticket-2?presentation=html&lang=es', '_blank', 'noopener,noreferrer');
       openSpy.mockRestore();
+    });
+
+    it('preserves ticket query parameters and uses the current language for the next download', async () => {
+      const fetchRecordingDownloadUrl = jest.fn()
+        .mockResolvedValueOnce('/playback?ticket=playback')
+        .mockResolvedValueOnce('/download?ticket=first%2Bvalue&extra=keep')
+        .mockResolvedValueOnce('/download?ticket=second%2Bvalue&extra=keep');
+      mockUseAppState.mockImplementation(() => ({ fetchRecordingDownloadUrl }));
+      const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+      const wrapper = mountPage();
+      try {
+        await flushPromises(); wrapper.update();
+        wrapper.find('[data-testid="recording-viewer-page-download"]').simulate('click');
+        await flushPromises(); wrapper.update();
+        await act(async () => { await i18n.changeLanguage('en'); });
+        wrapper.update();
+        wrapper.find('[data-testid="recording-viewer-page-download"]').simulate('click');
+        await flushPromises(); wrapper.update();
+        expect(openSpy).toHaveBeenCalledTimes(2);
+        const first = new URL(openSpy.mock.calls[0][0] as string);
+        const second = new URL(openSpy.mock.calls[1][0] as string);
+        expect(first.searchParams.get('ticket')).toBe('first+value');
+        expect(second.searchParams.get('ticket')).toBe('second+value');
+        for (const url of [first, second]) {
+          expect(url.searchParams.get('extra')).toBe('keep');
+          expect(url.searchParams.get('presentation')).toBe('html');
+        }
+        expect(first.searchParams.get('lang')).toBe('es');
+        expect(second.searchParams.get('lang')).toBe('en');
+        expect(wrapper.find('video').prop('src')).toBe('/playback?ticket=playback');
+        expect(fetchRecordingDownloadUrl).toHaveBeenCalledTimes(3);
+      } finally {
+        openSpy.mockRestore();
+        wrapper.unmount(); mounted = [];
+        await act(async () => { await i18n.changeLanguage('es'); });
+      }
     });
 
     it('disables the button while the new ticket is being requested', async () => {

@@ -42,7 +42,7 @@ const useStyles = makeStyles(() => ({
 }));
 
 export default function RecordingViewerPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const classes = useStyles();
   const { roomSid } = useParams<{ roomSid: string }>();
   const { fetchRecordingDownloadUrl } = useAppState();
@@ -69,7 +69,12 @@ export default function RecordingViewerPage() {
     setIsDownloading(true);
     setDownloadFailure(null);
     fetchRecordingDownloadUrl(roomSid)
-      .then(ticketUrl => window.open(ticketUrl, '_blank', 'noopener'))
+      .then(ticketUrl => {
+        const url = new URL(ticketUrl, window.location.href);
+        url.searchParams.set('presentation', 'html');
+        url.searchParams.set('lang', i18n.language.toLowerCase().startsWith('en') ? 'en' : 'es');
+        window.open(url.toString(), '_blank', 'noopener,noreferrer');
+      })
       .catch(err => setDownloadFailure({ reason: err }))
       .finally(() => setIsDownloading(false));
   };

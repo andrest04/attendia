@@ -17,6 +17,14 @@ Finish the existing i18n feature for production user-facing application text.
 
 ## Log
 
+- Server-error trace found recording download opens a ticket URL directly, so endpoint failures can display Spanish JSON in an English browser tab outside the localized API client. Static trace only; scoped implementation underway using explicit presentation flag with unchanged authentication, redirect and default JSON. Risk item 2: ticket-authorized download path. Independent verifier found no definite defect and identified missing test proof; added expired/mismatched ticket, query preservation, language switch and security-header coverage. Independent re-verification passed 2 suites/61 tests; integrated full Jest, client/server typechecks, lint and build passed (existing lint and bundle-size warnings). Real HTTP/browser navigation, redirect and playback remain unverified.
+
+- Bounded dynamic-key trace checked proctoring kinds/messages, chat upload errors, connection quality, onboarding, backgrounds, and manual/security section keys. No confirmed missing key found. Locale parity cannot detect keys missing in both languages or incorrect namespaces; runtime and exhaustive dynamic call coverage remain unproven.
+
+- English dictionary static audit read all 11 `src/i18n/locales/*.en.ts` modules and `en.ts`: no obvious Spanish prose found. Missing-key fallback, hard-coded UI and external responses remain outside this audit; no runtime verification.
+
+- Spanish interface terminology work unit committed as `facb656`; English locale audit running; T6 remains open.
+
 - Spanish locale terminology audit reviewed 12 Spanish modules and identified `app/apps`, `tablet` and `Tag` in visible copy. Replaced with Spanish equivalents, retaining technical Git `commit`/`hash`; worker observed RED and updated one matching snapshot. Parent integration passed 6 suites/52 tests/1 snapshot, client typecheck and lint with the existing GalleryView warning; browser verification absent.
 
 - Supervision wording work unit committed as `eb8db0b`; T6 remains open while remaining terminology audit runs.
