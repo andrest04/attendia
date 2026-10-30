@@ -2,8 +2,31 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import TileModerationMenu from './TileModerationMenu';
 import OverflowMenu from '../ToolbarParts/OverflowMenu';
+import useRemoteMedia from '../../../hooks/useRemoteMedia/useRemoteMedia';
+
+jest.mock('../../../hooks/useRemoteMedia/useRemoteMedia');
+const mockUseRemoteMedia = useRemoteMedia as jest.Mock;
 
 describe('TileModerationMenu', () => {
+  beforeEach(() => mockUseRemoteMedia.mockReset());
+
+  it('shows only the action that fits the student’s current mic and camera', () => {
+    mockUseRemoteMedia.mockReturnValue({ micOn: false, cameraOn: false });
+    const handlers = {
+      onMuteParticipant: jest.fn(),
+      onRequestUnmute: jest.fn(),
+      onMuteVideo: jest.fn(),
+      onRequestVideo: jest.fn(),
+    };
+    const wrapper = shallow(<TileModerationMenu identity="Ana" handlers={handlers} />);
+    expect(
+      wrapper
+        .find(OverflowMenu)
+        .prop('items')
+        .map(i => i.label)
+    ).toEqual(['Pedir activar micrófono', 'Sugerir cámara']);
+  });
+
   it('renders the shared student moderation items inside an OverflowMenu', () => {
     const onMuteVideo = jest.fn();
     const wrapper = shallow(

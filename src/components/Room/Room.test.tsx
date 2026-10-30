@@ -296,7 +296,7 @@ describe('the Room component', () => {
       }));
     afterEach(() => mockUseIsRoomOwner.mockImplementation(() => 'unknown'));
 
-    it('keeps end-for-all, recording and the unload report for an unknown owner status (never hide on a failed lookup)', () => {
+    it('keeps end-for-all and the unload report for an unknown owner status (never hide on a failed lookup)', () => {
       asTeacher();
       const toolbar = shallow(<Room />)
         .find('ProfessorRoomShell')
@@ -306,7 +306,7 @@ describe('the Room component', () => {
       expect(mockUseUnloadReportPersistence).toHaveBeenLastCalledWith(true, expect.any(Function));
     });
 
-    it('hides end-for-all and recording and skips the unload report for a confirmed co-teacher', () => {
+    it('hides end-for-all and skips the unload report for a confirmed co-teacher', () => {
       mockUseIsRoomOwner.mockImplementation(() => 'co-teacher');
       asTeacher();
       const toolbar = shallow(<Room />)

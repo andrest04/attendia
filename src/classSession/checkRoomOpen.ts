@@ -13,12 +13,14 @@
  *            back to letting the student proceed; the POST /token room-access guard is
  *            the real gate and will still block a genuinely closed room.
  */
+import { acceptLanguageHeader } from '../i18n/locale';
+
 export async function checkRoomOpen(roomName: string): Promise<boolean | null> {
   if (!roomName) return null;
 
   try {
     const response = await fetch(`/rooms/${encodeURIComponent(roomName)}/open`, {
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', ...acceptLanguageHeader() },
     });
 
     if (!response.ok) return null;

@@ -1,5 +1,6 @@
 import { FormControl, MenuItem, Typography, Select, Grid } from '@material-ui/core';
 import { useAppState } from '../../../state';
+import { t } from '../../../i18n/translate';
 
 const MAX_PARTICIPANT_OPTIONS = [6, 12, 24];
 
@@ -9,7 +10,7 @@ export default function MaxGalleryViewParticipants() {
   return (
     <div>
       <Typography variant="subtitle2" gutterBottom>
-        Max Gallery View Participants
+        {t('Máximo de participantes en la vista de galería')}
       </Typography>
       <Grid container alignItems="center" justifyContent="space-between">
         <div className="inputSelect">

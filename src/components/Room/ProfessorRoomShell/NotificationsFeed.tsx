@@ -81,7 +81,7 @@ export default function NotificationsFeed({ notifications }: NotificationsFeedPr
           {notifications.map(notification => (
             <div key={notification.id} className={classes.notificationPill}>
               <span className={classes.notificationEmoji} aria-hidden="true">
-                {notificationEmoji(notification.event)}
+                {notificationEmoji(notification.event || notification.text)}
               </span>
               <span className={classes.notificationText}>{notification.text}</span>
             </div>

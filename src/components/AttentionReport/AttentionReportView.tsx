@@ -10,6 +10,9 @@ import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/typ
 import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { attentionStatusColors } from '../../theme';
 import { countOf } from '../../utils/pluralize';
+import { displayIdentity } from '../../i18n/displayIdentity';
+import { dateLocale } from '../../i18n/locale';
+import { t } from '../../i18n/translate';
 
 /*
  * Presentational core of the attention report so the same light-themed report body
@@ -460,27 +463,27 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
   // show "—" instead of a placeholder 0 that reads as "the group had 0% attention".
   const kpiCards = [
     {
-      label: 'Atención promedio grupal',
+      label: t('Atención promedio grupal'),
       value: hasGroupData ? `${groupAverage}` : '—',
       sub: '/ 100',
       color: KPI_COLORS.group,
     },
     {
-      label: 'Estudiantes monitoreados',
+      label: t('Estudiantes monitoreados'),
       value: `${participants.length}`,
-      sub: 'participantes',
+      sub: t('participantes'),
       color: KPI_COLORS.students,
     },
     {
-      label: 'Alertas de proctoring',
+      label: t('Alertas de proctoring'),
       value: `${totalAlerts}`,
-      sub: 'eventos detectados',
+      sub: t('eventos detectados'),
       color: KPI_COLORS.alerts,
     },
     {
-      label: 'Umbral superado',
+      label: t('Umbral superado'),
       value: hasGroupData ? `${percentAboveThreshold}%` : '—',
-      sub: 'del tiempo total',
+      sub: t('del tiempo total'),
       color: KPI_COLORS.threshold,
     },
   ];
@@ -585,24 +588,24 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
           <div className={classes.iconWrap}>
             <DescriptionIcon className={classes.headerIcon} />
           </div>
-          <Typography className={classes.titleText}>Reporte de Atención</Typography>
+          <Typography className={classes.titleText}>{t('Reporte de Atención')}</Typography>
         </div>
 
         <p className={classes.sessionLine}>
-          {'Sesión: '}
+          {t('Sesión: ')}
           <strong>{sessionName}</strong>
           {' — '}
-          {countOf(studentCount, 'estudiante')}
+          {countOf(studentCount, t('estudiante'))}
         </p>
 
         <div className={classes.chipsRow}>
           <span className={classes.chip}>
             <EventIcon className={classes.chipIcon} />
-            {reportDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {reportDate.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
           <span className={classes.chip}>
             <AccessTimeIcon className={classes.chipIcon} />
-            {reportDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+            {reportDate.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
           </span>
           {source === 'mock' && <span className={classes.mockTag}>{MOCK_DISCLOSURE}</span>}
         </div>
@@ -628,15 +631,17 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
       {/* ── Timeline chart ─────────────────────────────────────────── */}
       <div className={classes.chartCard} data-testid="attention-report-timeline">
         <div className={classes.chartHead}>
-          <Typography className={classes.chartTitle}>Evolución de atención grupal</Typography>
+          <Typography className={classes.chartTitle}>{t('Evolución de atención grupal')}</Typography>
           <div className={classes.chartLegend}>
             <div className={classes.legendItem}>
               <div className={classes.legendLineSolid} />
-              <span className={classes.legendLabel}>Atención grupo</span>
+              <span className={classes.legendLabel}>{t('Atención grupo')}</span>
             </div>
             <div className={classes.legendItem}>
               <div className={classes.legendLineDashed} />
-              <span className={classes.legendLabel}>Umbral mínimo ({attentionThreshold}%)</span>
+              <span className={classes.legendLabel}>
+                {t('Umbral mínimo ({{count}}%)', { count: attentionThreshold })}
+              </span>
             </div>
           </div>
         </div>
@@ -656,12 +661,19 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
 
       {/* ── Per-student table ──────────────────────────────────────── */}
       <div className={classes.tableCard} data-testid="attention-report-table">
-        <Typography className={classes.tableTitle}>Detalle por estudiante</Typography>
+        <Typography className={classes.tableTitle}>{t('Detalle por estudiante')}</Typography>
         <div className={classes.tableScroll}>
           <table className={classes.table}>
             <thead>
               <tr className={classes.headRow}>
-                {['Nombre del Estudiante', 'Índice Prom.', 'Mínimo', 'Máximo', 'Alertas Proctoring', 'Nivel'].map(h => (
+                {[
+                  t('Nombre del Estudiante'),
+                  t('Índice Prom.'),
+                  t('Mínimo'),
+                  t('Máximo'),
+                  'Alertas Proctoring',
+                  'Nivel',
+                ].map(h => (
                   <th key={h} className={classes.th}>
                     {h}
                   </th>
@@ -675,7 +687,7 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
                   <td className={classes.nameCell}>
                     <div className={classes.nameCellInner}>
                       <div className={classes.avatar}>{initials(participant.identity)}</div>
-                      <span className={classes.nameText}>{participant.identity}</span>
+                      <span className={classes.nameText}>{displayIdentity(participant.identity)}</span>
                     </div>
                   </td>
 

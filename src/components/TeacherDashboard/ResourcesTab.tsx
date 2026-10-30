@@ -13,6 +13,8 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import ConfirmDialog from './ConfirmDialog';
 import { RESOURCE_FILE_ACCEPT } from './resourceUploadValidation';
 import useTeacherResources from './useTeacherResources';
+import { dateLocale } from '../../i18n/locale';
+import { t } from '../../i18n/translate';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -297,7 +299,7 @@ function formatSizeLabel(bytes: number): string {
 
 function formatDateLabel(ms: number | null): string {
   if (ms === null) return '';
-  return new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return new Date(ms).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
 }
 
 /** "Recursos" tab: real per-class file lists, backed by useAppState (Firestore + Storage). */
@@ -348,9 +350,9 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
   if (!isAvailable) {
     return (
       <div className={classes.root} data-testid="dashboard-resources-tab">
-        <div className={classes.title}>Recursos</div>
+        <div className={classes.title}>{t('Recursos')}</div>
         <div className={classes.statusMessage}>
-          Los recursos reales solo están disponibles con el modo de autenticación Firebase.
+          {t('Los recursos reales solo están disponibles con el modo de autenticación Firebase.')}
         </div>
       </div>
     );
@@ -360,8 +362,8 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
     <div className={classes.root} data-testid="dashboard-resources-tab">
       <div className={classes.header}>
         <div>
-          <div className={classes.title}>Recursos</div>
-          <div className={classes.subtitle}>Materiales asociados a clases programadas</div>
+          <div className={classes.title}>{t('Recursos')}</div>
+          <div className={classes.subtitle}>{t('Materiales asociados a clases programadas')}</div>
         </div>
         <div className={classes.uploadControls}>
           <button
@@ -372,7 +374,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
             data-testid="dashboard-upload-file-button"
           >
             <AddIcon style={{ fontSize: 18 }} />
-            {activeUploadCount > 0 ? `Subiendo… (${activeUploadCount})` : 'Subir archivo'}
+            {activeUploadCount > 0 ? t('Subiendo… ({{count}})', { count: activeUploadCount }) : t('Subir archivo')}
           </button>
           <input
             ref={fileInputRef}
@@ -386,7 +388,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
         </div>
       </div>
 
-      {isLoading && <div className={classes.statusMessage}>Cargando recursos…</div>}
+      {isLoading && <div className={classes.statusMessage}>{t('Cargando recursos…')}</div>}
       {errorMessage && <div className={clsx(classes.statusMessage, classes.errorMessage)}>{errorMessage}</div>}
 
       {!isLoading && pillOptions.length > 0 && (
@@ -410,7 +412,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   className={classes.pillCancelledTag}
                   data-testid={`dashboard-resources-pill-cancelled-${option.classId}`}
                 >
-                  (clase cancelada)
+                  {t('(clase cancelada)')}
                 </span>
               )}
               {!option.cancelled && option.expired && (
@@ -418,7 +420,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   className={classes.pillCancelledTag}
                   data-testid={`dashboard-resources-pill-expired-${option.classId}`}
                 >
-                  (clase vencida)
+                  {t('(clase vencida)')}
                 </span>
               )}
               {!option.cancelled && !option.expired && option.completed && (
@@ -426,7 +428,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   className={classes.pillCancelledTag}
                   data-testid={`dashboard-resources-pill-completed-${option.classId}`}
                 >
-                  (clase finalizada)
+                  {t('(clase finalizada)')}
                 </span>
               )}
             </button>
@@ -435,7 +437,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
       )}
 
       {!isLoading && pillOptions.length === 0 && (
-        <div className={classes.statusMessage}>Todavía no tienes clases programadas para asociar recursos.</div>
+        <div className={classes.statusMessage}>{t('Todavía no tienes clases programadas para asociar recursos.')}</div>
       )}
 
       {!isLoading && canCleanupActive && (
@@ -448,10 +450,10 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
           >
             <DeleteIcon style={{ fontSize: 16 }} />
             {activeOption!.cancelled
-              ? `Eliminar ${
-                  activeGroup!.files.length === 1 ? 'el recurso' : `los ${activeGroup!.files.length} recursos`
-                } de esta clase`
-              : 'Eliminar clase'}
+              ? activeGroup!.files.length === 1
+                ? t('Eliminar el recurso de esta clase')
+                : t('Eliminar los {{count}} recursos de esta clase', { count: activeGroup!.files.length })
+              : t('Eliminar clase')}
           </button>
         </div>
       )}
@@ -478,7 +480,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                     type="button"
                     className={classes.kebab}
                     onClick={() => handleDelete(file)}
-                    aria-label="Eliminar recurso"
+                    aria-label={t('Eliminar recurso')}
                     data-testid="dashboard-resource-delete"
                   >
                     <DeleteIcon style={{ fontSize: 20 }} />
@@ -499,7 +501,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                       data-testid="dashboard-resource-view"
                     >
                       <OpenInNewIcon style={{ fontSize: 14 }} />
-                      Ver
+                      {t('Ver')}
                     </button>
                   )}
                   <button
@@ -508,7 +510,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                     onClick={() => handleDownload(file)}
                     data-testid="dashboard-resource-download"
                   >
-                    Descargar
+                    {t('Descargar')}
                   </button>
                 </div>
               </div>
@@ -525,7 +527,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   type="button"
                   className={classes.dismissUploadButton}
                   onClick={() => removeUploadEntry(upload.id)}
-                  aria-label="Descartar"
+                  aria-label={t('Descartar')}
                   data-testid={`dashboard-resources-uploading-dismiss-${upload.id}`}
                 >
                   <CloseIcon style={{ fontSize: 18 }} />
@@ -548,7 +550,9 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   <div className={classes.progressBarTrack}>
                     <div className={classes.progressBarFill} style={{ width: `${upload.progress}%` }} />
                   </div>
-                  <div className={classes.progressLabel}>Subiendo… {upload.progress}%</div>
+                  <div className={classes.progressLabel}>
+                    {t('Subiendo…')} {upload.progress}%
+                  </div>
                 </>
               )}
             </div>
@@ -560,36 +564,48 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
             data-testid="dashboard-resources-empty-upload-tile"
           >
             <AddIcon style={{ fontSize: 22 }} />
-            Subir archivo
+            {t('Subir archivo')}
           </button>
         </div>
       )}
       <ConfirmDialog
         open={deleteDialog.isOpen}
-        title="Eliminar recurso"
-        message={`¿Eliminar "${deleteDialog.target?.name}"? Esta acción no se puede deshacer.`}
-        confirmLabel="Eliminar"
-        cancelLabel="Volver"
+        title={t('Eliminar recurso')}
+        message={t('¿Eliminar "{{name}}"? Esta acción no se puede deshacer.', {
+          name: deleteDialog.target?.name || '',
+        })}
+        confirmLabel={t('Eliminar')}
+        cancelLabel={t('Volver')}
         isConfirming={isDeletingResource}
         onConfirm={confirmDelete}
         onCancel={deleteDialog.close}
       />
       <ConfirmDialog
         open={bulkDeleteDialog.isOpen}
-        title={activeOption?.cancelled ? 'Eliminar recursos de la clase' : 'Eliminar clase'}
+        title={activeOption?.cancelled ? t('Eliminar recursos de la clase') : t('Eliminar clase')}
         message={
           activeOption?.cancelled
-            ? `¿Eliminar ${
-                activeGroup?.files.length === 1 ? 'el archivo' : `los ${activeGroup?.files.length} archivos`
-              } de "${activeOption?.label}"? Esta acción no se puede deshacer.`
-            : `¿Eliminar la clase "${activeOption?.label}"${
-                activeGroup && activeGroup.files.length > 0
-                  ? ` y ${activeGroup.files.length === 1 ? 'su recurso' : `sus ${activeGroup.files.length} recursos`}`
-                  : ''
-              }? Esta acción no se puede deshacer.`
+            ? activeGroup?.files.length === 1
+              ? t('¿Eliminar el archivo de "{{name}}"? Esta acción no se puede deshacer.', {
+                  name: activeOption.label,
+                })
+              : t('¿Eliminar los {{count}} archivos de "{{name}}"? Esta acción no se puede deshacer.', {
+                  count: activeGroup?.files.length || 0,
+                  name: activeOption.label,
+                })
+            : !activeGroup || activeGroup.files.length === 0
+            ? t('¿Eliminar la clase "{{name}}"? Esta acción no se puede deshacer.', { name: activeOption?.label || '' })
+            : activeGroup.files.length === 1
+            ? t('¿Eliminar la clase "{{name}}" y su recurso? Esta acción no se puede deshacer.', {
+                name: activeOption?.label || '',
+              })
+            : t('¿Eliminar la clase "{{name}}" y sus {{count}} recursos? Esta acción no se puede deshacer.', {
+                name: activeOption?.label || '',
+                count: activeGroup.files.length,
+              })
         }
-        confirmLabel="Eliminar todo"
-        cancelLabel="Volver"
+        confirmLabel={t('Eliminar todo')}
+        cancelLabel={t('Volver')}
         isConfirming={isBulkDeleting}
         onConfirm={confirmBulkDelete}
         onCancel={bulkDeleteDialog.close}

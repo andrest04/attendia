@@ -10,6 +10,7 @@ import ToggleVideoButton from '../../Buttons/ToggleVideoButton/ToggleVideoButton
 import ToggleAudioButton from '../../Buttons/ToggleAudioButton/ToggleAudioButton';
 import useLightingCheck from '../../../hooks/useLightingCheck/useLightingCheck';
 import { setImmediate } from 'timers';
+import { getLocale, setLocale, Locale } from '../../../i18n/locale';
 
 jest.mock('../../../hooks/useLightingCheck/useLightingCheck');
 const mockUseLightingCheck = useLightingCheck as jest.Mock;
@@ -38,11 +39,17 @@ mockUseVideoContext.mockImplementation(() => ({
 }));
 
 describe('the DeviceSelectionScreen component', () => {
+  let previousLocale: Locale;
   beforeEach(() => {
+    previousLocale = getLocale();
+    setLocale('es');
     process.env.REACT_APP_DISABLE_TWILIO_CONVERSATIONS = 'false';
     jest.clearAllMocks();
     // Default: jsdom has no canvas frame, so the real hook reports 'analyzing'.
     mockUseLightingCheck.mockReturnValue({ status: 'analyzing', luminance: null });
+  });
+  afterEach(() => {
+    setLocale(previousLocale);
   });
 
   it('dismisses the lighting warning banner when the × close button is clicked', () => {

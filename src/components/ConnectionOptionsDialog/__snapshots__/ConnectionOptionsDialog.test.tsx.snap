@@ -11,7 +11,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
   open={true}
 >
   <WithStyles(ForwardRef(DialogTitle))>
-    Connection Settings
+    Configuración de conexión
   </WithStyles(ForwardRef(DialogTitle))>
   <WithStyles(ForwardRef(Divider)) />
   <WithStyles(ForwardRef(DialogContent))
@@ -29,7 +29,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           hidden={false}
           variant="body2"
         >
-          These settings cannot be changed when connected to a room.
+          Estos ajustes no se pueden cambiar mientras estás en una sala.
         </WithStyles(ForwardRef(Typography))>
       </WithStyles(ForwardRef(Grid))>
       <WithStyles(ForwardRef(Grid))
@@ -43,7 +43,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           <WithStyles(ForwardRef(InputLabel))
             id="dominantSpeakerPriority"
           >
-            Dominant Speaker Priority:
+            Prioridad del orador principal:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -56,22 +56,22 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             <WithStyles(ForwardRef(MenuItem))
               value="low"
             >
-              Low
+              Baja
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="standard"
             >
-              Standard
+              Estándar
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="high"
             >
-              High
+              Alta
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Server Default
+              Predeterminado del servidor
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -81,7 +81,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           <WithStyles(ForwardRef(InputLabel))
             id="trackSwitchOffMode"
           >
-            Track Switch Off Mode:
+            Modo de apagado de pista:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -94,22 +94,22 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             <WithStyles(ForwardRef(MenuItem))
               value="predicted"
             >
-              Predicted
+              Predicho
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="detected"
             >
-              Detected
+              Detectado
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="disabled"
             >
-              Disabled
+              Desactivado
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Server Default
+              Predeterminado del servidor
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -119,7 +119,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           <WithStyles(ForwardRef(InputLabel))
             id="bandwidthProfileMode"
           >
-            Mode:
+            Modo:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -132,22 +132,22 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             <WithStyles(ForwardRef(MenuItem))
               value="grid"
             >
-              Grid
+              Cuadrícula
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="collaboration"
             >
-              Collaboration
+              Colaboración
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="presentation"
             >
-              Presentation
+              Presentación
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Server Default
+              Predeterminado del servidor
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -163,7 +163,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           <WithStyles(ForwardRef(InputLabel))
             id="clientTrackSwitchOffControl"
           >
-            Client Track Switch Off Control:
+            Control de apagado de pista del cliente:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -176,7 +176,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             <WithStyles(ForwardRef(MenuItem))
               value="auto"
             >
-              Auto
+              Automático
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="manual"
@@ -186,7 +186,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Default
+              Predeterminado
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -196,7 +196,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           <WithStyles(ForwardRef(InputLabel))
             id="contentPreferencesMode"
           >
-            Content Preferences Mode:
+            Modo de preferencias de contenido:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -209,7 +209,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             <WithStyles(ForwardRef(MenuItem))
               value="auto"
             >
-              Auto
+              Automático
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="manual"
@@ -219,7 +219,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Default
+              Predeterminado
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -230,10 +230,10 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             disabled={true}
             fullWidth={true}
             id="maxAudioBitrate"
-            label="Max Audio Bitrate"
+            label="Bitrate máximo de audio"
             name="maxAudioBitrate"
             onChange={[Function]}
-            placeholder="Leave blank for no limit"
+            placeholder="Déjalo en blanco para no poner límite"
             value=""
           />
         </WithStyles(ForwardRef(FormControl))>
@@ -248,7 +248,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
       onClick={[Function]}
       variant="contained"
     >
-      Done
+      Listo
     </WithStyles(ForwardRef(Button))>
   </WithStyles(ForwardRef(DialogActions))>
 </WithStyles(ForwardRef(Dialog))>
@@ -265,7 +265,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
   open={true}
 >
   <WithStyles(ForwardRef(DialogTitle))>
-    Connection Settings
+    Configuración de conexión
   </WithStyles(ForwardRef(DialogTitle))>
   <WithStyles(ForwardRef(Divider)) />
   <WithStyles(ForwardRef(DialogContent))
@@ -283,7 +283,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           hidden={false}
           variant="body2"
         >
-          These settings cannot be changed when connected to a room.
+          Estos ajustes no se pueden cambiar mientras estás en una sala.
         </WithStyles(ForwardRef(Typography))>
       </WithStyles(ForwardRef(Grid))>
       <WithStyles(ForwardRef(Grid))
@@ -297,7 +297,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           <WithStyles(ForwardRef(InputLabel))
             id="dominantSpeakerPriority"
           >
-            Dominant Speaker Priority:
+            Prioridad del orador principal:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -310,22 +310,22 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             <WithStyles(ForwardRef(MenuItem))
               value="low"
             >
-              Low
+              Baja
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="standard"
             >
-              Standard
+              Estándar
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="high"
             >
-              High
+              Alta
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Server Default
+              Predeterminado del servidor
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -335,7 +335,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           <WithStyles(ForwardRef(InputLabel))
             id="trackSwitchOffMode"
           >
-            Track Switch Off Mode:
+            Modo de apagado de pista:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -348,22 +348,22 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             <WithStyles(ForwardRef(MenuItem))
               value="predicted"
             >
-              Predicted
+              Predicho
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="detected"
             >
-              Detected
+              Detectado
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="disabled"
             >
-              Disabled
+              Desactivado
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Server Default
+              Predeterminado del servidor
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -373,7 +373,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           <WithStyles(ForwardRef(InputLabel))
             id="bandwidthProfileMode"
           >
-            Mode:
+            Modo:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -386,22 +386,22 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             <WithStyles(ForwardRef(MenuItem))
               value="grid"
             >
-              Grid
+              Cuadrícula
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="collaboration"
             >
-              Collaboration
+              Colaboración
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="presentation"
             >
-              Presentation
+              Presentación
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Server Default
+              Predeterminado del servidor
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -417,7 +417,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           <WithStyles(ForwardRef(InputLabel))
             id="clientTrackSwitchOffControl"
           >
-            Client Track Switch Off Control:
+            Control de apagado de pista del cliente:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -430,7 +430,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             <WithStyles(ForwardRef(MenuItem))
               value="auto"
             >
-              Auto
+              Automático
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="manual"
@@ -440,7 +440,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Default
+              Predeterminado
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -450,7 +450,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           <WithStyles(ForwardRef(InputLabel))
             id="contentPreferencesMode"
           >
-            Content Preferences Mode:
+            Modo de preferencias de contenido:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
             disabled={true}
@@ -463,7 +463,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             <WithStyles(ForwardRef(MenuItem))
               value="auto"
             >
-              Auto
+              Automático
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="manual"
@@ -473,7 +473,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             <WithStyles(ForwardRef(MenuItem))
               value="default"
             >
-              Default
+              Predeterminado
             </WithStyles(ForwardRef(MenuItem))>
           </WithStyles(ForwardRef(Select))>
         </WithStyles(ForwardRef(FormControl))>
@@ -484,10 +484,10 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             disabled={true}
             fullWidth={true}
             id="maxAudioBitrate"
-            label="Max Audio Bitrate"
+            label="Bitrate máximo de audio"
             name="maxAudioBitrate"
             onChange={[Function]}
-            placeholder="Leave blank for no limit"
+            placeholder="Déjalo en blanco para no poner límite"
             value=""
           />
         </WithStyles(ForwardRef(FormControl))>
@@ -502,7 +502,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
       onClick={[Function]}
       variant="contained"
     >
-      Done
+      Listo
     </WithStyles(ForwardRef(Button))>
   </WithStyles(ForwardRef(DialogActions))>
 </WithStyles(ForwardRef(Dialog))>

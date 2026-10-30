@@ -1,4 +1,6 @@
 import React from 'react';
+import TileModerationMenu from '../Room/ModerationMenu/TileModerationMenu';
+import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 
 import MainParticipantInfo from './MainParticipantInfo';
 import AvatarIcon from '../../icons/AvatarIcon';
@@ -14,6 +16,7 @@ import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecti
 import usePublications from '../../hooks/usePublications/usePublications';
 import useTrack from '../../hooks/useTrack/useTrack';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import i18n from '../../i18n';
 
 jest.mock('../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel', () => () => 4);
 jest.mock('../../hooks/usePublications/usePublications');
@@ -23,6 +26,8 @@ jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../../hooks/useParticipantIsReconnecting/useParticipantIsReconnecting');
 jest.mock('../../hooks/useIsRecording/useIsRecording');
 jest.mock('../../hooks/useRaiseHand/raisedHandsContext', () => ({ useRaisedHand: jest.fn() }));
+jest.mock('../Room/ModerationMenu/moderationActionsContext', () => ({ useModerationActions: jest.fn() }));
+const mockUseModerationActions = useModerationActions as jest.Mock<any>;
 
 const mockUsePublications = usePublications as jest.Mock<any>;
 const mockUseIsTrackSwitchedOff = useIsTrackSwitchedOff as jest.Mock<any>;
@@ -33,6 +38,10 @@ const mockUseIsRecording = useIsRecording as jest.Mock<boolean>;
 const mockUseRaisedHand = useRaisedHand as jest.Mock<boolean>;
 
 describe('the MainParticipantInfo component', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('es');
+  });
+
   beforeEach(jest.clearAllMocks);
 
   beforeEach(() => {
@@ -178,5 +187,38 @@ describe('the MainParticipantInfo component', () => {
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
     expect(wrapper.find(RaisedHandBadge).exists()).toBe(false);
+  });
+
+  describe('moderation menu', () => {
+    const handlers = { onMuteVideo: jest.fn() };
+    const render = (participant: any) =>
+      shallow(<MainParticipantInfo participant={participant}>mock children</MainParticipantInfo>);
+
+    it('renders the kebab leaf for a remote participant when a teacher provides handlers', () => {
+      mockUseModerationActions.mockImplementation(() => handlers);
+      const menu = render({ identity: 'Ana' }).find(TileModerationMenu);
+      expect(menu.prop('identity')).toBe('Ana');
+      expect(menu.prop('handlers')).toBe(handlers);
+    });
+
+    it('does not render it without handlers', () => {
+      mockUseModerationActions.mockImplementation(() => null);
+      expect(
+        render({ identity: 'Ana' })
+          .find(TileModerationMenu)
+          .exists()
+      ).toBe(false);
+    });
+
+    it('does not render it on the local participant', () => {
+      mockUseModerationActions.mockImplementation(() => handlers);
+      const local = { identity: 'Me [Profesor]' };
+      mockUseVideoContext.mockImplementation(() => ({ room: { localParticipant: local } }));
+      expect(
+        render(local)
+          .find(TileModerationMenu)
+          .exists()
+      ).toBe(false);
+    });
   });
 });

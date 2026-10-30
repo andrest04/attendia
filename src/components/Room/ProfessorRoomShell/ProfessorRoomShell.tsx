@@ -3,7 +3,7 @@ import { makeStyles } from '@material-ui/core';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
 import { useAttention } from '../../AttentionProvider';
-import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
+import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { ProctoringAlert } from '../../AttentionProvider/types';
 import { ShellNotification } from '../shellNotification';
 import { buildReportViewData } from '../../AttentionReport/buildReportViewData';
@@ -136,7 +136,11 @@ export default function ProfessorRoomShell({
   // Attention decoration for real participants — identities the pipeline does not know
   // about simply render without a badge (same defensive approach as GalleryView).
   const attentionByIdentity = new Map(attentionParticipants.map(p => [p.identity, p]));
-  const studentCount = Math.max(0, participantCount - 1);
+  // Teachers (including co-teachers) are not students; fall back when no roster is available.
+  const studentCount =
+    participants.length > 0
+      ? participants.filter(p => !isTeacherIdentity(p.identity)).length
+      : Math.max(0, participantCount - 1);
   const resolvedSessionName = sessionName ?? String(t('session.defaultName'));
 
   // Live report modal (Feature 3): reopens the full AttentionReportView in-room,

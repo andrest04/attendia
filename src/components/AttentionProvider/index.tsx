@@ -59,11 +59,12 @@ import { AttentionReport } from './reportTypes';
 import { AttentionSeed, seedFromReport } from './liveSnapshot';
 import { ATTENTION_RANGES, ATTENTION_THRESHOLD, attentionLevelFromScore } from './attentionFormula';
 import { isLiveAttentionMode, resolveAttentionMode } from './attentionMode';
-import { buildParticipants, summarizeGroup } from './liveAttention';
+import { buildParticipants, studentsOnly, summarizeGroup } from './liveAttention';
 import useAttendanceRoster from './useAttendanceRoster';
 import useGroupTimeline from './useGroupTimeline';
 import useProctoringFeed from './useProctoringFeed';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import useParticipants from '../../hooks/useParticipants/useParticipants';
 import useAttentionCapture from '../../hooks/useAttentionCapture/useAttentionCapture';
 import useAttentionTelemetry from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
@@ -159,7 +160,15 @@ export const AttentionProvider: React.FC = ({ children }) => {
     (identity: string, samples: unknown) => mergeBackfillRef.current(identity, samples),
     []
   );
-  const remoteAttention = useAttentionTelemetry(captureResult, localCameraOff, isMobileUnsupported, isLive, onBackfill);
+  const allRemoteAttention = useAttentionTelemetry(
+    captureResult,
+    localCameraOff,
+    isMobileUnsupported,
+    isLive,
+    onBackfill
+  );
+  // Co-teachers publish telemetry too; attention is about students only.
+  const remoteAttention = useMemo(() => studentsOnly(allRemoteAttention), [allRemoteAttention]);
 
   // Latest-value ref: the sampling intervals are created once (per isLive) and would otherwise
   // close over the telemetry from the render where isLive flipped true — empty at that instant.
@@ -184,11 +193,15 @@ export const AttentionProvider: React.FC = ({ children }) => {
     setSeed(null);
   }, [isLive]);
 
-  const attended = useAttendanceRoster(room, seed ? seed.attended : null);
+  const allAttended = useAttendanceRoster(room, seed ? seed.attended : null);
+  const attended = useMemo<ReadonlySet<string>>(
+    () => new Set(Array.from(allAttended).filter(identity => !isTeacherIdentity(identity))),
+    [allAttended]
+  );
   // Who is in the room right now: a connected student with no telemetry is "no reading yet",
   // not "camera off" (that is only ever the student's own explicit report).
   const remoteParticipants = useParticipants();
-  const connected = useMemo<ReadonlySet<string>>(() => new Set(remoteParticipants.map(p => p.identity)), [
+  const connected = useMemo<ReadonlySet<string>>(() => new Set(studentsOnly(remoteParticipants).map(p => p.identity)), [
     remoteParticipants,
   ]);
   const { timeline, fullTimeline, history, mergeBackfill } = useGroupTimeline(remoteAttentionRef, isLive, seed);

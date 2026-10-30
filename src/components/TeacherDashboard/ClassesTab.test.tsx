@@ -2,8 +2,32 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import ClassesTab from './ClassesTab';
 import { mockDashboardData } from './mockDashboardData';
+import { setLocale } from '../../i18n/locale';
 
 describe('ClassesTab', () => {
+  afterEach(() => setLocale('es'));
+
+  it('translates the stat card labels to English', () => {
+    setLocale('en');
+    const wrapper = shallow(
+      <ClassesTab
+        stats={mockDashboardData.stats}
+        dateLabel={mockDashboardData.upcomingSessionsDateLabel}
+        sessions={mockDashboardData.upcomingSessions}
+        professorName={mockDashboardData.professorName}
+        onStartClass={jest.fn()}
+      />
+    );
+
+    const labels = mockDashboardData.stats.map(stat =>
+      wrapper.find(`[data-testid="dashboard-stat-${stat.id}"]`).text()
+    );
+    expect(labels.join('|')).toContain('Sessions this week');
+    expect(labels.join('|')).toContain('Active students');
+    expect(labels.join('|')).toContain('Average attention');
+    expect(labels.join('|')).toContain('Hours taught');
+  });
+
   it('renders every stat card and upcoming session card', () => {
     const wrapper = shallow(
       <ClassesTab

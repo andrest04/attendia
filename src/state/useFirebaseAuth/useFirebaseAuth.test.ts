@@ -1,4 +1,5 @@
 import useFirebaseAuth from './useFirebaseAuth';
+import { getLocale, setLocale, Locale } from '../../i18n/locale';
 import { act, renderHook } from '@testing-library/react-hooks';
 import {
   createUserWithEmailAndPassword,
@@ -97,7 +98,13 @@ let mockXhrInstances: MockXHR[] = [];
 window.XMLHttpRequest = MockXHR;
 
 describe('the useFirebaseAuth hook', () => {
+  let previousLocale: Locale;
+  beforeEach(() => {
+    previousLocale = getLocale();
+    setLocale('es');
+  });
   afterEach(() => {
+    setLocale(previousLocale);
     jest.clearAllMocks();
     window.localStorage.clear();
     mockUser.displayName = 'Test User';
@@ -118,7 +125,9 @@ describe('the useFirebaseAuth hook', () => {
     expect(result.current.isAuthReady).toBe(true);
     expect(result.current.user).toBe(mockUser);
     expect(result.current.profile).toEqual(mockProfile);
-    expect(mockFetch).toHaveBeenCalledWith('/profile', { headers: { Authorization: 'idToken' } });
+    expect(mockFetch).toHaveBeenCalledWith('/profile', {
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
+    });
   });
 
   it('should keep the profile null when GET /profile returns 404 (needs role completion)', async () => {
@@ -234,7 +243,7 @@ describe('the useFirebaseAuth hook', () => {
     expect(updateProfile).toHaveBeenCalledWith(mockUser, { displayName: 'New Teacher' });
     expect(mockFetch).toHaveBeenCalledWith('/profile', {
       method: 'POST',
-      headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'content-type': 'application/json' },
       body: JSON.stringify({ displayName: 'New Teacher', role: 'teacher' }),
     });
     expect(result.current.user).toBe(mockUser);
@@ -279,7 +288,7 @@ describe('the useFirebaseAuth hook', () => {
 
     expect(mockFetch).toHaveBeenLastCalledWith('/profile', {
       method: 'POST',
-      headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'content-type': 'application/json' },
       body: JSON.stringify({ displayName: 'Test User', role: 'student' }),
     });
     expect(result.current.profile).toEqual(createdProfile);
@@ -322,7 +331,7 @@ describe('the useFirebaseAuth hook', () => {
     expect(updateProfile).toHaveBeenCalledWith(mockUser, { displayName: 'Updated teacher' });
     expect(mockFetch).toHaveBeenLastCalledWith('/profile', {
       method: 'PATCH',
-      headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'content-type': 'application/json' },
       body: JSON.stringify({ displayName: 'Updated teacher' }),
     });
     expect(result.current.profile).toEqual(updatedProfile);
@@ -348,7 +357,7 @@ describe('the useFirebaseAuth hook', () => {
     const [url, init] = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
     expect(url).toBe('/profile/avatar');
     expect(init.method).toBe('POST');
-    expect(init.headers).toEqual({ Authorization: 'idToken' });
+    expect(init.headers).toEqual({ Authorization: 'idToken', 'Accept-Language': 'es' });
     expect(init.body).toBeInstanceOf(FormData);
     expect(init.body.get('file')).toBe(file);
   });
@@ -382,7 +391,7 @@ describe('the useFirebaseAuth hook', () => {
     expect(result.current.profile).toEqual(updatedProfile);
     expect(mockFetch).toHaveBeenLastCalledWith('/profile/avatar', {
       method: 'DELETE',
-      headers: { Authorization: 'idToken' },
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
     });
   });
 
@@ -508,7 +517,7 @@ describe('the useFirebaseAuth hook', () => {
     expect(updateEmail).toHaveBeenCalledWith(mockUser, 'new@example.com');
     expect(mockFetch).toHaveBeenCalledWith('/profile', {
       method: 'PATCH',
-      headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+      headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'content-type': 'application/json' },
       body: JSON.stringify({ syncEmail: true }),
     });
     expect(updatePassword).toHaveBeenCalledWith(mockUser, 'new-password');
@@ -601,7 +610,9 @@ describe('the useFirebaseAuth hook', () => {
 
       const resources = await result.current.fetchResources();
 
-      expect(mockFetch).toHaveBeenLastCalledWith('/resources', { headers: { Authorization: 'idToken' } });
+      expect(mockFetch).toHaveBeenLastCalledWith('/resources', {
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
+      });
       expect(resources).toEqual([mockResource]);
     });
 
@@ -630,7 +641,7 @@ describe('the useFirebaseAuth hook', () => {
       const xhr = mockXhrInstances[mockXhrInstances.length - 1];
       expect(xhr.method).toBe('POST');
       expect(xhr.url).toBe('/resources');
-      expect(xhr.requestHeaders).toEqual({ Authorization: 'idToken' });
+      expect(xhr.requestHeaders).toEqual({ Authorization: 'idToken', 'Accept-Language': 'es' });
       expect(xhr.body).toBeInstanceOf(FormData);
       expect(xhr.body.get('classId')).toBe('class-1');
       expect(xhr.body.get('file')).toBe(file);
@@ -681,7 +692,7 @@ describe('the useFirebaseAuth hook', () => {
       const download = await result.current.fetchResourceDownloadUrl('res-1');
 
       expect(mockFetch).toHaveBeenLastCalledWith('/resources/res-1/download', {
-        headers: { Authorization: 'idToken' },
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
       });
       expect(download).toBe(blob);
     });
@@ -702,7 +713,7 @@ describe('the useFirebaseAuth hook', () => {
       const preview = await result.current.fetchResourcePreviewUrl('res-1');
 
       expect(mockFetch).toHaveBeenLastCalledWith('/resources/res-1/preview', {
-        headers: { Authorization: 'idToken' },
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
       });
       expect(preview).toBe(blob);
     });
@@ -723,7 +734,7 @@ describe('the useFirebaseAuth hook', () => {
 
       expect(mockFetch).toHaveBeenLastCalledWith('/resources/res-1', {
         method: 'DELETE',
-        headers: { Authorization: 'idToken' },
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
       });
     });
 
@@ -753,7 +764,7 @@ describe('the useFirebaseAuth hook', () => {
 
       await expect(result.current.fetchNotifications('generation/1+older')).resolves.toEqual(page);
       expect(mockFetch).toHaveBeenLastCalledWith('/notifications?cursor=generation%2F1%2Bolder', {
-        headers: { Authorization: 'idToken' },
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
       });
 
       mockFetch.mockResolvedValueOnce({
@@ -785,7 +796,7 @@ describe('the useFirebaseAuth hook', () => {
       await expect(result.current.markNotificationRead('item/1')).resolves.toEqual(response);
       expect(mockFetch).toHaveBeenLastCalledWith('/notifications/item%2F1/read', {
         method: 'PATCH',
-        headers: { Authorization: 'idToken' },
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es' },
       });
     });
 
@@ -795,14 +806,22 @@ describe('the useFirebaseAuth hook', () => {
         .mockResolvedValueOnce(profileResponse(200, { acceptedAtMs: 700, unreadCount: 0 }))
         .mockResolvedValueOnce(profileResponse(200, { acceptedAtMs: 800, unreadCount: 0 }));
 
-      await expect(result.current.markAllNotificationsRead('mark/key')).resolves.toEqual({ acceptedAtMs: 700, unreadCount: 0 });
+      await expect(result.current.markAllNotificationsRead('mark/key')).resolves.toEqual({
+        acceptedAtMs: 700,
+        unreadCount: 0,
+      });
       expect(mockFetch).toHaveBeenLastCalledWith('/notifications/mark-all-read', {
-        method: 'POST', headers: { Authorization: 'idToken', 'Idempotency-Key': 'mark/key' },
+        method: 'POST',
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'Idempotency-Key': 'mark/key' },
       });
 
-      await expect(result.current.clearNotifications('clear/key')).resolves.toEqual({ acceptedAtMs: 800, unreadCount: 0 });
+      await expect(result.current.clearNotifications('clear/key')).resolves.toEqual({
+        acceptedAtMs: 800,
+        unreadCount: 0,
+      });
       expect(mockFetch).toHaveBeenLastCalledWith('/notifications', {
-        method: 'DELETE', headers: { Authorization: 'idToken', 'Idempotency-Key': 'clear/key' },
+        method: 'DELETE',
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'Idempotency-Key': 'clear/key' },
       });
     });
 
@@ -811,10 +830,13 @@ describe('the useFirebaseAuth hook', () => {
       const claims = [{ reportId: 'RM123', failureEpisodeId: 'episode_12345678', firstFailedAtMs: 12 }];
       mockFetch.mockResolvedValueOnce(profileResponse(200, { unreadCount: 4, changed: true }));
 
-      await expect(result.current.reconcileNotifications('all', claims)).resolves.toEqual({ unreadCount: 4, changed: true });
+      await expect(result.current.reconcileNotifications('all', claims)).resolves.toEqual({
+        unreadCount: 4,
+        changed: true,
+      });
       expect(mockFetch).toHaveBeenLastCalledWith('/notifications/reconcile', {
         method: 'POST',
-        headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'content-type': 'application/json' },
         body: JSON.stringify({ scope: 'all', pendingReportFailures: claims }),
       });
     });
@@ -827,7 +849,7 @@ describe('the useFirebaseAuth hook', () => {
       await expect(result.current.requestRecordingArtifact('RM123', 'manual_12345678')).resolves.toEqual(recording);
       expect(mockFetch).toHaveBeenLastCalledWith('/reports/RM123/recording', {
         method: 'POST',
-        headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'content-type': 'application/json' },
         body: JSON.stringify({ manualRequestId: 'manual_12345678' }),
       });
 
@@ -835,7 +857,7 @@ describe('the useFirebaseAuth hook', () => {
       await result.current.saveAttentionReport(report, 'episode_12345678');
       expect(mockFetch).toHaveBeenLastCalledWith('/reports', {
         method: 'POST',
-        headers: { Authorization: 'idToken', 'content-type': 'application/json' },
+        headers: { Authorization: 'idToken', 'Accept-Language': 'es', 'content-type': 'application/json' },
         body: JSON.stringify({ ...report, failureEpisodeId: 'episode_12345678' }),
       });
     });
@@ -860,5 +882,4 @@ describe('the useFirebaseAuth hook', () => {
       expect(recordingCalls[1][1].body).toBe(recordingCalls[0][1].body);
     });
   });
-
 });

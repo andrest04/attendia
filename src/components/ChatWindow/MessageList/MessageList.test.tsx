@@ -1,6 +1,7 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import MessageList from './MessageList';
+import { getLocale, setLocale, Locale } from '../../../i18n/locale';
 
 jest.mock('../../../hooks/useVideoContext/useVideoContext', () => () => ({
   room: { localParticipant: { identity: 'olivia' } },
@@ -71,8 +72,17 @@ const messages: any = [
 ];
 
 describe('the messageList component', () => {
+  let previousLocale: Locale;
+  beforeEach(() => {
+    previousLocale = getLocale();
+    setLocale('es');
+  });
+  afterEach(() => {
+    setLocale(previousLocale);
+  });
   it('should render correctly', () => {
-    const { container } = render(<MessageList messages={messages} />);
+    const { container, unmount } = render(<MessageList messages={messages} />);
     expect(container).toMatchSnapshot();
+    unmount();
   });
 });

@@ -21,6 +21,7 @@ import ToolbarDeviceMenu from '../../Buttons/ToolbarDeviceMenu/ToolbarDeviceMenu
 import { SCREEN_SHARE_KEY, STOP_SCREEN_SHARE_KEY } from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
 import OverflowMenu, { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
+import LanguageSwitch from '../../LanguageSwitch/LanguageSwitch';
 import useToolbarChipStyles from '../ToolbarParts/useToolbarChipStyles';
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -67,7 +68,7 @@ interface ProfessorToolbarProps {
   onLeave?: () => void;
   /** True while "end for everyone" is in flight (disables the end-call dialog actions). */
   isEnding?: boolean;
-  /** Confirmed co-teacher: recording is owner-only, so the record item is hidden. */
+  /** Confirmed co-teacher. End-for-all is hidden via `onEndForAll`; recording stays available. */
   isCoTeacher?: boolean;
 }
 
@@ -83,7 +84,6 @@ export default function ProfessorToolbar({
   onEndForAll,
   onLeave,
   isEnding,
-  isCoTeacher = false,
 }: ProfessorToolbarProps = {}) {
   const { t } = useTranslation('toolbar');
   const classes = useStyles();
@@ -134,7 +134,7 @@ export default function ProfessorToolbar({
       checked: isRecording,
       tone: 'recording',
       disabled: isRecordingBusy || !room,
-      hidden: !supportsRecording || isCoTeacher,
+      hidden: !supportsRecording,
       onSelect: toggleRecording,
     },
     {
@@ -188,6 +188,7 @@ export default function ProfessorToolbar({
 
       <OverflowMenu items={moreItems} testIdPrefix="professor-toolbar" chipClassName={chip} />
 
+      <LanguageSwitch tone="dark" />
       <span className={toolbar.divider} />
       <EndCallButton
         dark

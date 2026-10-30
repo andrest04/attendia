@@ -1,7 +1,8 @@
 import React from 'react';
 import AboutDialog from './AboutDialog';
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { useAppState } from '../../state';
+import { getLocale, setLocale, Locale } from '../../i18n/locale';
 
 jest.mock('twilio-video', () => ({ version: '1.2', isSupported: true }));
 jest.mock('../../state');
@@ -11,6 +12,14 @@ const mockUseAppState = useAppState as jest.Mock<any>;
 mockUseAppState.mockImplementation(() => ({ roomType: undefined }));
 
 describe('the AboutDialog component', () => {
+  let previousLocale: Locale;
+  beforeEach(() => {
+    previousLocale = getLocale();
+    act(() => setLocale('es'));
+  });
+  afterEach(() => {
+    act(() => setLocale(previousLocale));
+  });
   it('should display Video.isSupported', () => {
     const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
     expect(getByText('Navegador compatible: true')).toBeTruthy();

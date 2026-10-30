@@ -8,6 +8,7 @@ import { useHistory } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import LanguageSelector from '../LanguageSelector/LanguageSelector';
 import AttendiaLogo from '../Brand/AttendiaLogo';
+import LanguageSwitch from '../LanguageSwitch/LanguageSwitch';
 import { routes } from '../../routes';
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -92,6 +93,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     flexShrink: 0,
   },
   avatarPhoto: {
+    // Neutral while the photo downloads, so the chip does not flash the brand blue as if there were none.
+    backgroundColor: '#e2ecf9',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
   },
@@ -227,8 +230,8 @@ export default function DashboardHeader({
       )}
       {centerLabel && <span className={classes.centerLabel}>{centerLabel}</span>}
       <div className={classes.right}>
+        {showLanguageSelector ? <LanguageSelector /> : <LanguageSwitch />}
         {badge}
-        {showLanguageSelector && <LanguageSelector />}
         {showProfile &&
           showNotifications &&
           (notificationContent ? (

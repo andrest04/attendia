@@ -70,7 +70,9 @@ export default function App() {
   const activeTabFromRoute = (Object.keys(dashboardTabPath) as DashboardTabId[]).find(
     tab => dashboardTabPath[tab] === location.pathname
   );
-  const isDashboardTabRoute = activeTabFromRoute !== undefined;
+  const isQuickStartRoute = location.pathname === routes.dashboardQuickStart;
+  // Any /dashboard/* route: a tab, or the quick-start panel.
+  const isDashboardTabRoute = activeTabFromRoute !== undefined || isQuickStartRoute;
   const activeTab: DashboardTabId = activeTabFromRoute ?? 'clases';
   const navigateToDashboardTab = (tab: DashboardTabId) => history.push(dashboardTabPath[tab]);
   // Starting a class must also leave whichever /dashboard/* tab route is active — otherwise
@@ -98,6 +100,8 @@ export default function App() {
         <TeacherDashboard
           onStartClass={startClass}
           showProfile={isProfileRoute}
+          showQuickStart={isQuickStartRoute}
+          onOpenQuickStart={() => history.push(routes.dashboardQuickStart)}
           activeTab={activeTab}
           onTabChange={navigateToDashboardTab}
           onNotificationNavigate={history.push}

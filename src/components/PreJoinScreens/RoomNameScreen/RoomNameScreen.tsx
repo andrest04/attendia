@@ -11,8 +11,11 @@ import {
   ClassSessionDraft,
   ClassSessionRole,
   isClassSessionDraftReady,
+  isTeacherIdentity,
   normalizeStudentJoinInputToRoomName,
+  stripTeacherSuffix,
 } from '../../../classSession/classSessionTypes';
+import RoleBadge from '../../RoleBadge/RoleBadge';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // ── Single-card wrapper ───────────────────────────────────────────────────────
@@ -95,6 +98,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 12,
     color: '#64748b',
     lineHeight: '18px',
+    margin: 0,
   },
 
   // ── Tag badge (EP01...) ────────────────────────────────────────────────────────
@@ -228,7 +232,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 12,
     color: '#1d2f6f',
     lineHeight: '18px',
-    marginBottom: 3,
+    margin: '0 0 3px',
   },
   privacyBody: {
     fontFamily: 'Inter, sans-serif',
@@ -236,6 +240,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     fontSize: 11,
     color: '#64748b',
     lineHeight: '17.05px',
+    margin: 0,
     '& strong': {
       fontWeight: 700,
     },
@@ -301,6 +306,12 @@ const useStyles = makeStyles((theme: Theme) => ({
   createdLabel: {
     color: theme.palette.text.secondary,
     display: 'block',
+  },
+  createdIdentity: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing(1),
   },
 
   // ── Role-switch link ───────────────────────────────────────────────────────────
@@ -556,7 +567,10 @@ export default function RoomNameScreen({
                   <Typography variant="caption" className={classes.createdLabel}>
                     {t('roomName.teacher.visibleIdentity')}
                   </Typography>
-                  <Typography variant="body2">{teacherDisplayName}</Typography>
+                  <div className={classes.createdIdentity}>
+                    <Typography variant="body2">{stripTeacherSuffix(teacherDisplayName)}</Typography>
+                    {isTeacherIdentity(teacherDisplayName) && <RoleBadge />}
+                  </div>
                 </div>
               </div>
 

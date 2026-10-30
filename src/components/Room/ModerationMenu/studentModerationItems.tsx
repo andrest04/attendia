@@ -9,6 +9,7 @@ import { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
 import { isTeacherIdentity } from '../../../classSession/classSessionTypes';
 import { canModerate, ModerationActorRole } from '../../../hooks/useClassDataChannel/classProtocol';
 import spanishTranslator from '../../../i18n/spanishTranslator';
+import { RemoteMedia } from '../../../hooks/useRemoteMedia/useRemoteMedia';
 
 /** What a teacher can do to one student. A missing handler removes its menu item. */
 export interface StudentModerationHandlers {
@@ -34,35 +35,46 @@ export function buildStudentModerationItems(
   identity: string,
   handlers: StudentModerationHandlers,
   testIdPrefix: string,
-  t: TFunction = spanishTranslator
+  mediaOrTranslator?: RemoteMedia | TFunction,
+  translator: TFunction = spanishTranslator
 ): OverflowMenuItem[] {
+  const media = typeof mediaOrTranslator === 'function' ? undefined : mediaOrTranslator;
+  const t = typeof mediaOrTranslator === 'function' ? mediaOrTranslator : translator;
   const { onMuteParticipant, onRequestUnmute, onMuteVideo, onRequestVideo, onSetScreenShareGrant } = handlers;
   const isSharingAllowed = (handlers.screenShareGrants || []).includes(identity);
+  // Each device is ONE entry whose label, icon and action follow its state: force it off while
+  // it is on, suggest it while it is off. An unknown state (not in the room) reads as "on".
+  const micEntry: OverflowMenuItem | undefined =
+    media?.micOn === false
+      ? onRequestUnmute && {
+          testId: `${testIdPrefix}-request-unmute`,
+          label: t('room:moderation.requestUnmute'),
+          icon: <MicIcon style={ICON_STYLE} />,
+          onSelect: () => onRequestUnmute(identity),
+        }
+      : onMuteParticipant && {
+          testId: `${testIdPrefix}-mute`,
+          label: t('room:moderation.mute'),
+          icon: <MicOffIcon style={ICON_STYLE} />,
+          onSelect: () => onMuteParticipant(identity),
+        };
+  const cameraEntry: OverflowMenuItem | undefined =
+    media?.cameraOn === false
+      ? onRequestVideo && {
+          testId: `${testIdPrefix}-request-video`,
+          label: t('room:moderation.requestVideo'),
+          icon: <VideocamIcon style={ICON_STYLE} />,
+          onSelect: () => onRequestVideo(identity),
+        }
+      : onMuteVideo && {
+          testId: `${testIdPrefix}-mute-video`,
+          label: t('room:moderation.muteVideo'),
+          icon: <VideocamOffIcon style={ICON_STYLE} />,
+          onSelect: () => onMuteVideo(identity),
+        };
   const items: Array<OverflowMenuItem | undefined> = [
-    onMuteParticipant && {
-      testId: `${testIdPrefix}-mute`,
-      label: t('room:moderation.mute'),
-      icon: <MicOffIcon style={ICON_STYLE} />,
-      onSelect: () => onMuteParticipant(identity),
-    },
-    onRequestUnmute && {
-      testId: `${testIdPrefix}-request-unmute`,
-      label: t('room:moderation.requestUnmute'),
-      icon: <MicIcon style={ICON_STYLE} />,
-      onSelect: () => onRequestUnmute(identity),
-    },
-    onMuteVideo && {
-      testId: `${testIdPrefix}-mute-video`,
-      label: t('room:moderation.muteVideo'),
-      icon: <VideocamOffIcon style={ICON_STYLE} />,
-      onSelect: () => onMuteVideo(identity),
-    },
-    onRequestVideo && {
-      testId: `${testIdPrefix}-request-video`,
-      label: t('room:moderation.requestVideo'),
-      icon: <VideocamIcon style={ICON_STYLE} />,
-      onSelect: () => onRequestVideo(identity),
-    },
+    micEntry,
+    cameraEntry,
     onSetScreenShareGrant && {
       testId: `${testIdPrefix}-screenshare`,
       label: isSharingAllowed ? t('room:moderation.revokeScreenShare') : t('room:moderation.allowScreenShare'),
@@ -78,7 +90,7 @@ export function buildStudentModerationItems(
  * A teacher target never gets the screen-share grant: only forced-off actions and suggestions.
  */
 export function buildModerationItemsForTarget(
-  target: { identity: string; isLocal: boolean },
+  target: { identity: string; isLocal: boolean; media?: RemoteMedia },
   handlers: StudentModerationHandlers,
   testIdPrefix: string,
   actorRole: ModerationActorRole | undefined = handlers.actorRole,
@@ -87,5 +99,5 @@ export function buildModerationItemsForTarget(
   const isTeacher = isTeacherIdentity(target.identity);
   if (!canModerate(actorRole, { isTeacher, isLocal: target.isLocal })) return [];
   const allowed = isTeacher ? { ...handlers, onSetScreenShareGrant: undefined } : handlers;
-  return buildStudentModerationItems(target.identity, allowed, testIdPrefix, t);
+  return buildStudentModerationItems(target.identity, allowed, testIdPrefix, target.media, t);
 }

@@ -17,6 +17,7 @@ import { useAppState } from '../../state';
 import { AttentionContext } from '../AttentionProvider';
 import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
+import { t } from '../../i18n/translate';
 
 const CONTAINER_GUTTER = '50px';
 // On a narrow desktop/tablet window the fixed 50px gutter eats a disproportionate
@@ -158,7 +159,10 @@ export function GalleryView() {
     <div className={classes.container}>
       {isTeacher && totalStudentCount > 0 && (
         <div className={classes.studentCount} data-testid="gallery-student-count">
-          Mostrando {visibleStudentCount} / {totalStudentCount} estudiantes
+          {t('Mostrando {{visible}} / {{total}} estudiantes', {
+            visible: visibleStudentCount,
+            total: totalStudentCount,
+          })}
         </div>
       )}
       <div className={clsx(classes.buttonContainer, classes.buttonContainerLeft)}>

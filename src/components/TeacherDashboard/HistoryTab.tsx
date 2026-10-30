@@ -8,6 +8,8 @@ import { RecordingArtifact, RecordingArtifactStatus, StoredAttentionReport } fro
 import { attentionLevelColor, attentionLevelFromPercent } from './dashboardHelpers';
 import { routePath } from '../../routes';
 import { storedReportDate } from '../AttentionReport/storedReportViewData';
+import { dateLocale } from '../../i18n/locale';
+import { t } from '../../i18n/translate';
 
 // How often a pending (enqueued/processing) recording's status is re-checked. Twilio
 // compositions are not instantaneous — this is a UX poll, not a webhook.
@@ -130,12 +132,12 @@ interface Props {
 function formatDate(report: StoredAttentionReport): string {
   const date = storedReportDate(report);
   return isNaN(date.getTime())
-    ? 'Fecha no disponible'
-    : date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+    ? t('Fecha no disponible')
+    : date.toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function formatDuration(report: StoredAttentionReport): string {
-  if (!Number.isFinite(report.durationMs) || report.durationMs < 0) return 'No disponible';
+  if (!Number.isFinite(report.durationMs) || report.durationMs < 0) return t('No disponible');
   const totalSeconds = Math.floor(report.durationMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -161,7 +163,7 @@ interface RecordingViewContext {
 
 const renderPending = ({ classes, roomSid }: RecordingViewContext) => (
   <span className={classes.noRecording} data-testid={`dashboard-history-recording-pending-${roomSid}`}>
-    <CircularProgress size={12} /> Procesando...
+    <CircularProgress size={12} /> {t('Procesando...')}
   </span>
 );
 
@@ -178,7 +180,7 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
       disabled={isBusy || !canRequest}
       data-testid={`dashboard-history-recording-request-${roomSid}`}
     >
-      {isBusy && <CircularProgress size={12} />} Solicitar grabación
+      {isBusy && <CircularProgress size={12} />} {t('Solicitar grabación')}
     </button>
   ),
   enqueued: renderPending,
@@ -191,7 +193,7 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
         onClick={onView}
         data-testid={`dashboard-history-recording-view-${roomSid}`}
       >
-        <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> Ver grabación
+        <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> {t('Ver grabación')}
       </button>
       {expiryHint && <span className={classes.recordingHint}>{expiryHint}</span>}
     </>
@@ -199,7 +201,7 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
   failed: ({ classes, roomSid, isBusy, canRequest, onRequest }) => (
     <>
       <span className={classes.recordingError} data-testid={`dashboard-history-recording-failed-${roomSid}`}>
-        No pudimos generar la grabación.
+        {t('No pudimos generar la grabación.')}
       </span>
       <button
         type="button"
@@ -208,13 +210,13 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
         disabled={isBusy || !canRequest}
         data-testid={`dashboard-history-recording-retry-${roomSid}`}
       >
-        Reintentar
+        {t('Reintentar')}
       </button>
     </>
   ),
   expired: ({ classes, roomSid }) => (
     <span className={classes.recordingHint} data-testid={`dashboard-history-recording-expired-${roomSid}`}>
-      La grabación venció — solo está disponible por 7 días.
+      {t('La grabación venció — solo está disponible por 7 días.')}
     </span>
   ),
 };
@@ -272,7 +274,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
     setActionError(null);
     onRequestRecording(roomSid)
       .then(setRecording)
-      .catch(err => setActionError(err.message || 'No pudimos solicitar la grabación.'))
+      .catch(err => setActionError(err.message || t('No pudimos solicitar la grabación.')))
       .finally(() => setIsBusy(false));
   }, [onRequestRecording, roomSid]);
 
@@ -281,14 +283,16 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
   }, [roomSid]);
 
   if (!report.recordingWasActiveAtEnd) {
-    return <span className={classes.noRecording}>No disponible</span>;
+    return <span className={classes.noRecording}>{t('No disponible')}</span>;
   }
 
   const expiryHint = recording?.mediaExpiresAt
-    ? `Disponible hasta ${new Date(recording.mediaExpiresAt).toLocaleDateString('es-AR', {
-        day: 'numeric',
-        month: 'short',
-      })} (7 días)`
+    ? t('Disponible hasta {{date}} (7 días)', {
+        date: new Date(recording.mediaExpiresAt).toLocaleDateString(dateLocale(), {
+          day: 'numeric',
+          month: 'short',
+        }),
+      })
     : null;
 
   return (
@@ -328,8 +332,8 @@ export default function HistoryTab({
     <div className={classes.root} data-testid="dashboard-history-tab">
       <div className={classes.header}>
         <div>
-          <div className={classes.title}>Historial de clases</div>
-          <div className={classes.subtitle}>Reportes guardados al finalizar cada sesión</div>
+          <div className={classes.title}>{t('Historial de clases')}</div>
+          <div className={classes.subtitle}>{t('Reportes guardados al finalizar cada sesión')}</div>
         </div>
         <label className={classes.searchBox} data-testid="dashboard-history-search">
           <SearchIcon style={{ fontSize: 16 }} />
@@ -337,8 +341,8 @@ export default function HistoryTab({
             className={classes.searchInput}
             value={query}
             onChange={event => setQuery(event.target.value)}
-            placeholder="Buscar clase..."
-            aria-label="Buscar clase"
+            placeholder={t('Buscar clase...')}
+            aria-label={t('Buscar clase')}
           />
         </label>
       </div>
@@ -346,35 +350,35 @@ export default function HistoryTab({
       <div className={classes.tableWrap}>
         {isLoading ? (
           <div className={classes.state} data-testid="dashboard-history-loading">
-            <CircularProgress size={24} /> <div>Cargando el historial...</div>
+            <CircularProgress size={24} /> <div>{t('Cargando el historial...')}</div>
           </div>
         ) : error ? (
           <div className={classes.state} data-testid="dashboard-history-error">
             {error}
             <div>
               <Button onClick={onRetry} data-testid="dashboard-history-retry">
-                Reintentar
+                {t('Reintentar')}
               </Button>
             </div>
           </div>
         ) : !reports || reports.length === 0 ? (
           <div className={classes.state} data-testid="dashboard-history-empty">
-            Todavía no hay reportes guardados.
+            {t('Todavía no hay reportes guardados.')}
           </div>
         ) : filteredReports.length === 0 ? (
           <div className={classes.state} data-testid="dashboard-history-no-results">
-            No encontramos clases con esa búsqueda.
+            {t('No encontramos clases con esa búsqueda.')}
           </div>
         ) : (
           <table className={classes.table}>
             <thead>
               <tr>
-                <th className={classes.th}>CLASE</th>
-                <th className={classes.th}>FECHA</th>
-                <th className={classes.th}>DURACIÓN</th>
-                <th className={classes.th}>ALUMNOS</th>
-                <th className={classes.th}>ATENCIÓN</th>
-                <th className={classes.th}>GRABACIÓN</th>
+                <th className={classes.th}>{t('CLASE')}</th>
+                <th className={classes.th}>{t('FECHA')}</th>
+                <th className={classes.th}>{t('DURACIÓN')}</th>
+                <th className={classes.th}>{t('ALUMNOS')}</th>
+                <th className={classes.th}>{t('ATENCIÓN')}</th>
+                <th className={classes.th}>{t('GRABACIÓN')}</th>
                 <th className={classes.th} />
               </tr>
             </thead>
@@ -386,7 +390,7 @@ export default function HistoryTab({
                   <tr key={report.roomSid} data-testid={`dashboard-history-row-${report.roomSid}`}>
                     <td className={classes.td}>
                       {report.roomName}
-                      {report.source === 'mock' && <span className={classes.mockTag}>Datos simulados</span>}
+                      {report.source === 'mock' && <span className={classes.mockTag}>{t('Datos simulados')}</span>}
                     </td>
                     <td className={classes.td}>{formatDate(report)}</td>
                     <td className={classes.td}>{formatDuration(report)}</td>
@@ -419,7 +423,7 @@ export default function HistoryTab({
                         data-testid="dashboard-history-report"
                       >
                         <BarChartIcon style={{ fontSize: 14 }} />
-                        Reporte
+                        {t('Reporte')}
                       </button>
                     </td>
                   </tr>

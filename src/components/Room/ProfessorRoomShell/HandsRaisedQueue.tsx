@@ -1,6 +1,7 @@
 import React from 'react';
 import { makeStyles, Theme } from '@material-ui/core';
 import { useTranslation } from 'react-i18next';
+import { displayIdentity } from '../../../i18n/displayIdentity';
 
 const useStyles = makeStyles((theme: Theme) => ({
   handsQueue: {
@@ -91,8 +92,8 @@ export default function HandsRaisedQueue({ handsRaised, onGrantTurn }: HandsRais
         <div key={identity} className={classes.handRow}>
           <div className={classes.handIdentityWrapper}>
             <div className={classes.handDot} />
-            <span className={classes.handIdentity} title={identity}>
-              {identity}
+            <span className={classes.handIdentity} title={displayIdentity(identity)}>
+              {displayIdentity(identity)}
             </span>
           </div>
           <button type="button" className={classes.grantTurnButton} onClick={() => onGrantTurn?.(identity)}>

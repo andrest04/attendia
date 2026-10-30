@@ -15,10 +15,10 @@ const handlers = () => ({
 describe('student moderation items in English', () => {
   it('labels every item with the given translator', () => {
     const items = buildStudentModerationItems('Ana', handlers(), 'menu', t);
-    expect(items.map(item => item.label)).toEqual([
-      'Mute',
+    expect(items.map(item => item.label)).toEqual(['Mute', 'Turn off camera', 'Allow screen sharing']);
+    const offItems = buildStudentModerationItems('Ana', handlers(), 'menu', { micOn: false, cameraOn: false }, t);
+    expect(offItems.map(item => item.label)).toEqual([
       'Ask to turn on microphone',
-      'Turn off camera',
       'Suggest camera',
       'Allow screen sharing',
     ]);

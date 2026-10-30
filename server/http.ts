@@ -1,4 +1,5 @@
 import { ErrorRequestHandler, RequestHandler } from 'express';
+import { localizeExplanation } from './errorCopy';
 
 /**
  * Shared HTTP plumbing for the Firestore-backed route modules. Before this module each
@@ -26,7 +27,7 @@ export function getVerifiedUser(res: ExpressResponse): VerifiedFirebaseUser | un
 }
 
 export function sendError(res: ExpressResponse, status: number, message: string, explanation: string): void {
-  res.status(status).json({ error: { message, explanation } });
+  res.status(status).json({ error: { message, explanation: localizeExplanation(res.req, explanation) } });
 }
 
 export function sendBadRequest(res: ExpressResponse, message: string, explanation: string): void {

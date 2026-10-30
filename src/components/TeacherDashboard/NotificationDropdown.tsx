@@ -16,6 +16,7 @@ import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { useTranslation } from 'react-i18next';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { notificationText } from './notificationCopy';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -127,7 +128,7 @@ interface Props {
   onClearAll(): void;
 }
 
-// Which prop raises which message (a key under notificationDropdown.errors).
+// Translate on render so errors follow language changes.
 const errorCopy: Array<{ key: keyof Props; copyKey: string }> = [
   { key: 'refreshError', copyKey: 'errors.refresh' },
   { key: 'paginationError', copyKey: 'errors.pagination' },
@@ -216,8 +217,8 @@ export default function NotificationDropdown(props: Props) {
                 />
               )}
               <ListItemText
-                primary={notification.title}
-                secondary={<span className={classes.message}>{notification.message}</span>}
+                primary={notificationText(notification).title}
+                secondary={<span className={classes.message}>{notificationText(notification).message}</span>}
               />
             </ListItem>
           ))}

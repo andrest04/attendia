@@ -11,6 +11,7 @@ import { attentionStatusColors } from '../../../theme';
 import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
 import GroupAttentionGauge from './GroupAttentionGauge';
 import { presenceView, ProfessorRightTab } from './professorShellHelpers';
+import { displayIdentity } from '../../../i18n/displayIdentity';
 
 // Code-split the timeline chart: it is the only recharts consumer on the professor
 // room path, so lazy-loading it keeps recharts out of the main bundle. The chunk is
@@ -330,7 +331,7 @@ export default function ProfessorRightRail({
                 return (
                   <div key={participant.identity} className={classes.individualRow}>
                     <div className={classes.individualHeader}>
-                      <span>{participant.identity}</span>
+                      <span>{displayIdentity(participant.identity)}</span>
                     </div>
                     <span className={classes.individualCameraOff} data-testid={individualTestId}>
                       <Icon fontSize="inherit" /> {t(labelKey)}
@@ -342,7 +343,7 @@ export default function ProfessorRightRail({
               return (
                 <div key={participant.identity} className={classes.individualRow}>
                   <div className={classes.individualHeader}>
-                    <span>{participant.identity}</span>
+                    <span>{displayIdentity(participant.identity)}</span>
                     <span className={classes.individualScore}>{participant.index}</span>
                   </div>
                   <div className={classes.progressTrack}>

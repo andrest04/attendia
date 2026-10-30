@@ -6,6 +6,7 @@ import DialogActions from '@material-ui/core/DialogActions';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import enhanceMessage from './enhanceMessage';
+import { t as translateSpanish } from '../../i18n/translate';
 import { TwilioError } from 'twilio-video';
 import { useTranslation } from 'react-i18next';
 
@@ -32,7 +33,7 @@ function ErrorDialog({ dismissError, error }: PropsWithChildren<ErrorDialogProps
       </DialogContent>
       <DialogActions>
         <Button onClick={() => dismissError()} color="primary" autoFocus>
-          OK
+          {translateSpanish('Aceptar')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -51,7 +51,7 @@ describe('useUnloadReportPersistence', () => {
     expect(fetchMock).toHaveBeenCalledWith('/reports', {
       method: 'POST',
       keepalive: true,
-      headers: { 'Content-Type': 'application/json', Authorization: 'cached-token' },
+      headers: { 'Content-Type': 'application/json', Authorization: 'cached-token', 'Accept-Language': 'es' },
       body: JSON.stringify(report),
     });
   });

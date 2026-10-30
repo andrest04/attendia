@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 import SchoolIcon from '@material-ui/icons/School';
+import { t } from '../../i18n/translate';
 
 /**
  * Visual marker for the teacher role. The role is encoded as the `[Profesor]`
@@ -51,7 +52,7 @@ export default function RoleBadge({ size = 'md', className }: RoleBadgeProps) {
       data-testid="role-badge-teacher"
     >
       <SchoolIcon />
-      Profesor
+      {t('Profesor')}
     </span>
   );
 }

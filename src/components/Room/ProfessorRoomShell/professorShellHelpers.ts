@@ -80,16 +80,21 @@ export function proctoringKindMessage(kind: ProctoringKind, name: string, detect
   return t(`room:proctoring.message.${kind}`, { name, detectedAt });
 }
 
-/** Emoji cue per notification event: adding an event is adding a row. */
 const NOTIFICATION_EMOJI: Record<ShellNotificationEvent, string> = {
   hand: '✋',
   joined: '🔔',
   left: '👋',
 };
 
-/** Emoji cue for a notification pill; unknown/legacy entries get the bell. */
-export function notificationEmoji(event?: ShellNotificationEvent): string {
-  return (event && NOTIFICATION_EMOJI[event]) || '🔔';
+/** Prefer event identifiers; retain the legacy text fallback for older notifications. */
+export function notificationEmoji(eventOrText?: string): string {
+  if (!eventOrText) return '🔔';
+  if (Object.prototype.hasOwnProperty.call(NOTIFICATION_EMOJI, eventOrText)) {
+    return NOTIFICATION_EMOJI[eventOrText as ShellNotificationEvent];
+  }
+  if (/levantó|raised their hand/.test(eventOrText)) return '✋';
+  if (/salió|\bleft\b/.test(eventOrText)) return '👋';
+  return '🔔';
 }
 
 export { getInitials } from '../roomIdentity';

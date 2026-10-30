@@ -65,7 +65,7 @@ describe('the VideoInputList component', () => {
           .find(Typography)
           .at(1)
           .text()
-      ).toBe('No Local Video');
+      ).toBe('Sin video local');
     });
   });
 

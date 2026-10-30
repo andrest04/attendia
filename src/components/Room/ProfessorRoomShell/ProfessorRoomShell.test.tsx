@@ -3,8 +3,11 @@ import { mount } from 'enzyme';
 
 import ProfessorRoomShell from './ProfessorRoomShell';
 import { useAttention } from '../../AttentionProvider';
+import useRemoteMedia from '../../../hooks/useRemoteMedia/useRemoteMedia';
 
 jest.mock('../../AttentionProvider');
+jest.mock('../../../hooks/useRemoteMedia/useRemoteMedia');
+const mockUseRemoteMedia = useRemoteMedia as jest.Mock;
 // recharts' ResponsiveContainer needs a measurable parent; stub it out for jsdom.
 // (AttentionTimelineChart, the live "Grupo" tab chart, still uses recharts.)
 jest.mock('recharts', () => {
@@ -172,6 +175,23 @@ describe('ProfessorRoomShell', () => {
     expect(bar.text()).toContain('Twilio Video · WebRTC SFU');
   });
 
+  it('does not count a co-teacher (or the professor) as a student in the status bar', () => {
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        participantCount={4}
+        participants={[
+          { identity: 'Marta [Profesor]', isLocal: true },
+          { identity: 'Pedro [Profesor]' },
+          { identity: 'Ana' },
+          { identity: 'Luis' },
+        ]}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="professor-room-shell-session-bar"]').text()).toContain('2 estudiantes');
+  });
+
   it('shows the REC badge only while recording', () => {
     const recording = mount(<ProfessorRoomShell stage={<div>stage</div>} recording />);
     expect(recording.find('[data-testid="professor-room-shell-rec-badge"]').exists()).toBe(true);
@@ -331,6 +351,7 @@ describe('ProfessorRoomShell', () => {
   });
 
   it('asks a student to turn the mic on from the roster kebab menu', () => {
+    mockUseRemoteMedia.mockReturnValue({ micOn: false, cameraOn: true });
     const onRequestUnmute = jest.fn();
     const wrapper = mount(
       <ProfessorRoomShell
@@ -354,6 +375,7 @@ describe('ProfessorRoomShell', () => {
   });
 
   it('turns a student camera off or suggests it on from the roster kebab menu', () => {
+    mockUseRemoteMedia.mockReturnValue({ micOn: true, cameraOn: true });
     const onMuteVideo = jest.fn();
     const onRequestVideo = jest.fn();
     const wrapper = mount(
@@ -375,6 +397,9 @@ describe('ProfessorRoomShell', () => {
     off.simulate('click');
     expect(onMuteVideo).toHaveBeenCalledWith('Ana García');
 
+    // Once the camera is off, the same entry becomes the suggestion.
+    mockUseRemoteMedia.mockReturnValue({ micOn: true, cameraOn: false });
+    wrapper.setProps({});
     wrapper
       .find('button[data-testid="professor-room-shell-roster-menu-button"]')
       .first()
@@ -384,6 +409,28 @@ describe('ProfessorRoomShell', () => {
     expect(suggest.text()).toContain('Sugerir cámara');
     suggest.simulate('click');
     expect(onRequestVideo).toHaveBeenCalledWith('Ana García');
+  });
+
+  it('offers one action per device matching its state in the roster kebab menu', () => {
+    mockUseRemoteMedia.mockReturnValue({ micOn: false, cameraOn: true });
+    const wrapper = mount(
+      <ProfessorRoomShell
+        stage={<div>stage</div>}
+        onMuteParticipant={jest.fn()}
+        onRequestUnmute={jest.fn()}
+        onMuteVideo={jest.fn()}
+        onRequestVideo={jest.fn()}
+        participants={[{ identity: 'Ana García' }]}
+      />
+    );
+    wrapper
+      .find('button[data-testid="professor-room-shell-roster-menu-button"]')
+      .first()
+      .simulate('click');
+    wrapper.update();
+    const labels = wrapper.find('button[role="menuitem"]').map(item => item.text().trim());
+    expect(labels).toEqual(['Pedir activar micrófono', 'Apagar cámara']);
+    mockUseRemoteMedia.mockReset();
   });
 
   it('grants and revokes screen sharing from the roster kebab, reflecting the granted state', () => {

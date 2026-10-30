@@ -30,7 +30,7 @@ describe('the RecordingNotification component', () => {
         .find({ open: true })
         .first()
         .prop('headline')
-    ).toMatchInlineSnapshot(`"Recording is in progress."`);
+    ).toMatchInlineSnapshot(`"La grabación está en curso."`);
   });
 
   it('should display "Recording Started" Snackbar when a recording is started after a user joins a room', () => {
@@ -48,7 +48,7 @@ describe('the RecordingNotification component', () => {
         .find({ open: true })
         .first()
         .prop('headline')
-    ).toMatchInlineSnapshot(`"Recording has started."`);
+    ).toMatchInlineSnapshot(`"La grabación ha comenzado."`);
   });
 
   it('should display "Recording Complete" Snackbar when a recording stops ', () => {
@@ -65,6 +65,6 @@ describe('the RecordingNotification component', () => {
         .find({ open: true })
         .first()
         .prop('headline')
-    ).toMatchInlineSnapshot(`"Recording Complete"`);
+    ).toMatchInlineSnapshot(`"Grabación completa"`);
   });
 });

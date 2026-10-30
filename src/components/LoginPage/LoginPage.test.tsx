@@ -1,6 +1,7 @@
 import React from 'react';
 import LoginPage from './LoginPage';
-import { act, fireEvent, render, waitForElement } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitForElement } from '@testing-library/react';
+import { getLocale, setLocale, Locale } from '../../i18n/locale';
 import { useAppState } from '../../state';
 import { useLocation, useHistory } from 'react-router-dom';
 import { setImmediate } from 'timers';
@@ -26,9 +27,16 @@ mockUseLocation.mockImplementation(() => ({ pathname: '/login' }));
 const mockProfile = { displayName: 'Test User', email: 'test@example.com', role: 'student' };
 
 describe('the LoginPage component', () => {
+  let previousLocale: Locale;
   beforeEach(() => {
+    previousLocale = getLocale();
+    setLocale('es');
     jest.clearAllMocks();
     mockUseLocation.mockImplementation(() => ({ pathname: '/login' }));
+  });
+  afterEach(() => {
+    cleanup();
+    setLocale(previousLocale);
   });
 
   describe('with firebase auth enabled', () => {

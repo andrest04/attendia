@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { makeStyles } from '@material-ui/core/styles';
 import Participant from '../../Participant/Participant';
+import { useModerationActions } from '../ModerationMenu/moderationActionsContext';
 import useSpeakerViewTiles from '../../../hooks/useSpeakerViewTiles/useSpeakerViewTiles';
 
 // Tile dimensions: 16:9 aspect ratio, ~120px tall.
@@ -60,6 +61,8 @@ const useStyles = makeStyles(() => ({
 export default function ParticipantStrip() {
   const classes = useStyles();
   const { localParticipant, tiles } = useSpeakerViewTiles();
+  // Provided only to teachers; the local tile never gets the menu.
+  const moderationActions = useModerationActions();
 
   // Match ParticipantList: don't render when there are no remote participants.
   if (tiles.length === 0) return null;
@@ -73,7 +76,13 @@ export default function ParticipantStrip() {
 
       {tiles.map(({ participant, isSelected, hidden, select }) => (
         <div key={participant.sid} className={clsx(classes.tile, { [classes.tileHidden]: hidden })}>
-          <Participant participant={participant} isSelected={isSelected} onClick={select} hideParticipant={hidden} />
+          <Participant
+            participant={participant}
+            isSelected={isSelected}
+            onClick={select}
+            hideParticipant={hidden}
+            moderation={moderationActions || undefined}
+          />
         </div>
       ))}
     </div>

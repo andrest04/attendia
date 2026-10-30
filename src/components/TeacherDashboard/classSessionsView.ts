@@ -1,5 +1,6 @@
 import { formatLongDateWithWeekday, formatShortDate, formatTime } from '../../i18n/format';
-import spanishTranslator from '../../i18n/spanishTranslator';
+import { getLocale } from '../../i18n/locale';
+import { t as translateSource } from '../../i18n/translate';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { DashboardData, UpcomingSession } from './types';
 
@@ -14,7 +15,23 @@ export interface ViewLocale {
   language: string;
 }
 
-const DEFAULT_LOCALE: ViewLocale = { t: spanishTranslator, language: 'es' };
+const SOURCE_LABELS: { [key: string]: string } = {
+  'classSessions:today': 'Hoy',
+  'classSessions:tomorrow': 'Mañana',
+  'classSessions:now': 'Ahora',
+  'classSessions:inMinutes': 'En {{n}} min',
+  'classSessions:inHours': 'En {{n}}h',
+  'classSessions:overdueMinutes': 'Venció hace {{n}} min',
+  'classSessions:overdueHours': 'Venció hace {{n}}h',
+  'classSessions:overdueDays': 'Venció hace {{n}}d',
+};
+
+function defaultLocale(): ViewLocale {
+  return {
+    language: getLocale(),
+    t: (key, options) => translateSource(SOURCE_LABELS[key] || key, { n: Number(options?.count || 0) }),
+  };
+}
 
 function isSameCalendarDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -110,7 +127,7 @@ function formatOverdueLabel(scheduledAtMs: number, nowMs: number, locale: ViewLo
 export function buildExpiredSessions(
   classes: ClassRecord[],
   nowMs: number,
-  locale: ViewLocale = DEFAULT_LOCALE
+  locale: ViewLocale = defaultLocale()
 ): UpcomingSession[] {
   const now = new Date(nowMs);
 
@@ -136,7 +153,7 @@ export function buildExpiredSessions(
 export function buildUpcomingSessions(
   classes: ClassRecord[],
   nowMs: number,
-  locale: ViewLocale = DEFAULT_LOCALE
+  locale: ViewLocale = defaultLocale()
 ): UpcomingSession[] {
   const now = new Date(nowMs);
 
@@ -177,7 +194,7 @@ export interface ClassesView {
 export function buildRealClassesView(
   classes: ClassRecord[],
   nowMs: number,
-  locale: ViewLocale = DEFAULT_LOCALE
+  locale: ViewLocale = defaultLocale()
 ): ClassesView {
   return {
     sessions: buildUpcomingSessions(classes, nowMs, locale),

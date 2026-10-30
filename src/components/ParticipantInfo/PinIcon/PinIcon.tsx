@@ -1,10 +1,11 @@
 import React from 'react';
 import Tooltip from '@material-ui/core/Tooltip';
 import SvgIcon from '@material-ui/core/SvgIcon';
+import { t } from '../../../i18n/translate';
 
 export default function PinIcon() {
   return (
-    <Tooltip title="Participant is pinned. Click to un-pin." placement="top">
+    <Tooltip title={t('Participante fijado. Haz clic para desfijar.')} placement="top">
       <SvgIcon
         style={{ float: 'right', background: 'rgba(0, 0, 0, 0.5)', padding: '0.1em', boxSizing: 'content-box' }}
         width="26"

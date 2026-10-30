@@ -24,6 +24,12 @@ describe('videoAppPaths', () => {
     expect(videoAppPaths).toEqual(expect.arrayContaining(['/', '/profile', ...Object.values(dashboardTabPath)]));
   });
 
+  it('covers the quick-start route, which lives under /dashboard but is not a tab', () => {
+    expect(routes.dashboardQuickStart).toBe('/dashboard/iniciar-clase');
+    expect(videoAppPaths).toContain(routes.dashboardQuickStart);
+    expect(Object.values(dashboardTabPath)).not.toContain(routes.dashboardQuickStart);
+  });
+
   it('does not claim the standalone pages that live outside the room app', () => {
     [routes.login, routes.security, routes.manual, routes.history, routes.resourceViewer].forEach(path =>
       expect(videoAppPaths).not.toContain(path)

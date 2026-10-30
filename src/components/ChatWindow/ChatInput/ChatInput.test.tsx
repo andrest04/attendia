@@ -1,5 +1,6 @@
 import React from 'react';
 import { mount, shallow } from 'enzyme';
+import { act } from 'react-dom/test-utils';
 import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 
 import ChatInput from '../ChatInput/ChatInput';
@@ -8,18 +9,25 @@ import FileAttachmentIcon from '../../../icons/FileAttachmentIcon';
 import Snackbar from '../../Snackbar/Snackbar';
 import * as utils from '../../../utils';
 import { setImmediate } from 'timers';
+import { getLocale, setLocale, Locale } from '../../../i18n/locale';
 
 jest.mock('@material-ui/core/useMediaQuery');
 
 const mockHandleSendMessage = jest.fn<any, (string | FormData)[]>(() => Promise.resolve());
 
 describe('the ChatInput component', () => {
+  let previousLocale: Locale;
   beforeEach(() => {
+    previousLocale = getLocale();
+    act(() => setLocale('es'));
     // @ts-ignore
     utils.isMobile = false;
   });
 
-  afterEach(jest.clearAllMocks);
+  afterEach(() => {
+    act(() => setLocale(previousLocale));
+    jest.clearAllMocks();
+  });
 
   it('should enable the send message button when user types a valid message', () => {
     const wrapper = shallow(

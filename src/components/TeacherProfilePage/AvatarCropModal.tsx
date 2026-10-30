@@ -46,8 +46,8 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
     try {
       const blob = await cropToBudgetedBlob(imageSrc, croppedAreaPixels, t);
       onConfirm(blob);
-    } catch (error: any) {
-      onError(error?.message || t('crop.failed'));
+    } catch (error) {
+      onError((error as Error)?.message || t('crop.failed'));
     } finally {
       setIsCropping(false);
     }

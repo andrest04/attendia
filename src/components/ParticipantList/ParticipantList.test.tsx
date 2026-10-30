@@ -1,4 +1,5 @@
 import EventEmitter from 'events';
+import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 import React from 'react';
 import ParticipantList from './ParticipantList';
 import { shallow } from 'enzyme';
@@ -13,6 +14,8 @@ jest.mock('../../hooks/useVideoContext/useVideoContext');
 jest.mock('../VideoProvider/useSelectedParticipant/useSelectedParticipant');
 jest.mock('../../hooks/useMainParticipant/useMainParticipant');
 jest.mock('../../hooks/useScreenShareParticipant/useScreenShareParticipant');
+jest.mock('../Room/ModerationMenu/moderationActionsContext', () => ({ useModerationActions: jest.fn() }));
+const mockUseModerationActions = useModerationActions as jest.Mock<any>;
 
 const mockParticipantContext = useParticipantContext as jest.Mock<any>;
 const mockedVideoContext = useVideoContext as jest.Mock<any>;
@@ -126,5 +129,20 @@ describe('the ParticipantList component', () => {
         .at(1)
         .prop('hideParticipant')
     ).toBe(false);
+  });
+
+  it('passes the moderation handlers to remote tiles only, and only for a teacher', () => {
+    const handlers = { onMuteVideo: jest.fn() };
+    mockedVideoContext.mockImplementation(() => ({ room: mockRoom }));
+    mockParticipantContext.mockImplementation(() => ({ speakerViewParticipants: [{ sid: 1 }] }));
+
+    mockUseModerationActions.mockImplementation(() => handlers);
+    let tiles = shallow(<ParticipantList />).find('Memo(Participant)');
+    expect(tiles.at(0).prop('moderation')).toBeUndefined();
+    expect(tiles.at(1).prop('moderation')).toBe(handlers);
+
+    mockUseModerationActions.mockImplementation(() => null);
+    tiles = shallow(<ParticipantList />).find('Memo(Participant)');
+    expect(tiles.at(1).prop('moderation')).toBeUndefined();
   });
 });

@@ -1,10 +1,11 @@
 import React from 'react';
-import { mount, shallow } from 'enzyme';
+import { mount, shallow, ReactWrapper } from 'enzyme';
 import { act } from 'react-dom/test-utils';
 import { Redirect } from 'react-router-dom';
 import TeacherProfilePage from './TeacherProfilePage';
 import { useAppState } from '../../state';
 import DashboardHeader from '../TeacherDashboard/DashboardHeader';
+import { getLocale, setLocale, Locale } from '../../i18n/locale';
 
 jest.mock('../../state');
 jest.mock('react-router-dom', () => ({
@@ -48,8 +49,62 @@ function button(wrapper: any, label: string) {
 }
 
 describe('TeacherProfilePage', () => {
+  let previousLocale: Locale;
+  let mounted: ReactWrapper | undefined;
   beforeEach(() => {
+    previousLocale = getLocale();
+    setLocale('es');
     mockEnqueueSnackbar.mockClear();
+  });
+
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+    window.localStorage.clear();
+    setLocale(previousLocale);
+  });
+
+  const stylesFor = (className: string) => {
+    const css = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+    const match = css.match(new RegExp(`\\.${className}\\s*\\{([^}]*)\\}`));
+    return match ? match[1] : '';
+  };
+
+  it('paints a neutral circle, not the brand blue, while the photo is still loading', () => {
+    mockUseAppState.mockReturnValue(teacherState());
+    const wrapper = shallow(<TeacherProfilePage />);
+    const [, photoClass] = (wrapper.find('[data-testid="teacher-profile-avatar"]').prop('className') as string).split(
+      ' '
+    );
+
+    expect(stylesFor(photoClass)).toMatch(/background-color:\s*#e2ecf9/);
+  });
+
+  it('packs the photo card content at the top instead of stretching the gap under the title', () => {
+    mockUseAppState.mockReturnValue(teacherState());
+    const wrapper = shallow(<TeacherProfilePage />);
+    const panelClass = (wrapper.find('[data-testid="teacher-profile-photo"]').prop('className') as string).split(
+      ' '
+    )[0];
+    const sectionClass = (wrapper.find('[aria-labelledby="photo-heading"]').prop('className') as string).split(' ')[0];
+
+    expect(stylesFor(panelClass)).toMatch(/align-content:\s*start/);
+    expect(stylesFor(sectionClass)).toMatch(/align-content:\s*start/);
+  });
+
+  it('shows the photo controls and their toasts in English when the language is English', async () => {
+    setLocale('en');
+    const state = teacherState();
+    mockUseAppState.mockReturnValue(state);
+    const wrapper = shallow(<TeacherProfilePage />);
+
+    expect(wrapper.text()).toContain('Change photo');
+    expect(wrapper.text()).not.toContain('Cambiar foto');
+
+    await button(wrapper, 'Delete photo').prop('onClick')!({});
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Photo deleted.', { variant: 'success' });
   });
 
   it('renders editable teacher profile fields and the Google photo fallback', () => {
@@ -75,6 +130,7 @@ describe('TeacherProfilePage', () => {
   it('keeps the four profile sections ordered and reachable in both responsive layout modes', () => {
     mockUseAppState.mockReturnValue(teacherState());
     const wrapper = mount(<TeacherProfilePage />);
+    mounted = wrapper;
     const layout = wrapper.find('[data-testid="teacher-profile-layout"]');
     const layoutClass = String(layout.prop('className') || '').split(' ')[0];
     const generatedStyles = Array.from(document.head.querySelectorAll('style'))
@@ -185,9 +241,11 @@ describe('TeacherProfilePage', () => {
 
     expect(state.deleteAvatar).toHaveBeenCalled();
     expect(wrapper.find('[data-testid="teacher-profile-avatar"]').prop('style')).toBeUndefined();
-    expect(wrapper.findWhere((node: any) => typeof node.prop('onClick') === 'function' && node.text() === 'Eliminar foto').exists()).toBe(
-      false
-    );
+    expect(
+      wrapper
+        .findWhere((node: any) => typeof node.prop('onClick') === 'function' && node.text() === 'Eliminar foto')
+        .exists()
+    ).toBe(false);
 
     await button(wrapper, 'Usar foto de Google').prop('onClick')!({});
     wrapper.update();
@@ -393,6 +451,7 @@ describe('TeacherProfilePage', () => {
     const updateTeacherProfile = jest.fn(() => Promise.reject(new Error('Firestore no disponible.')));
     mockUseAppState.mockReturnValue(teacherState({ updateTeacherProfile }));
     const wrapper = mount(<TeacherProfilePage />);
+    mounted = wrapper;
     act(() => {
       const nameField = wrapper.findWhere((node: any) => node.prop('label') === 'Nombre').first();
       (nameField.prop('onChange') as any)({ target: { value: 'Ana Nueva' } });

@@ -3,6 +3,7 @@ import useTeacherClasses, { UseTeacherClassesParams } from './useTeacherClasses'
 import { mockDashboardData } from './mockDashboardData';
 import { checkRoomOpen } from '../../classSession/checkRoomOpen';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { getLocale, setLocale, Locale } from '../../i18n/locale';
 
 jest.mock('../../classSession/checkRoomOpen');
 
@@ -48,7 +49,10 @@ function setup(overrides: Partial<UseTeacherClassesParams> = {}, classes: ClassR
 }
 
 describe('useTeacherClasses', () => {
+  let previousLocale: Locale;
   beforeEach(() => {
+    previousLocale = getLocale();
+    setLocale('es');
     jest.clearAllMocks();
     jest.spyOn(Date, 'now').mockReturnValue(NOW);
     mockCheckRoomOpen.mockResolvedValue(false);
@@ -56,6 +60,7 @@ describe('useTeacherClasses', () => {
 
   afterEach(() => {
     (Date.now as jest.Mock).mockRestore();
+    act(() => setLocale(previousLocale));
   });
 
   describe('without the real classes API (mock mode)', () => {

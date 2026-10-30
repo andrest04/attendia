@@ -7,6 +7,7 @@ import useRoomState from '../../../hooks/useRoomState/useRoomState';
 import useScreenShareParticipant from '../../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import { useAppState } from '../../../state';
+import i18n from '../../../i18n';
 
 jest.mock('../../../hooks/useChatContext/useChatContext');
 jest.mock('../../../hooks/useIsRecording/useIsRecording');
@@ -40,6 +41,10 @@ function openMore(wrapper: ReturnType<typeof shallow>) {
 }
 
 describe('ProfessorToolbar', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('es');
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseChatContext.mockImplementation(() => ({
@@ -228,10 +233,10 @@ describe('ProfessorToolbar', () => {
       expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
     });
 
-    it('hides the record item for a co-teacher (recording is owner-only)', () => {
+    it('keeps the record item for a co-teacher (they can start and stop a recording)', () => {
       const wrapper = shallow(<ProfessorToolbar isCoTeacher />);
       const menu = openMore(wrapper);
-      expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(false);
+      expect(menu.find('[data-testid="professor-toolbar-record"]').exists()).toBe(true);
       expect(menu.find('[data-testid="professor-toolbar-attention"]').exists()).toBe(true);
     });
 

@@ -25,6 +25,7 @@ import {
 } from '../../components/AttentionProvider/reportTypes';
 import { ResourceFileKind } from '../../components/TeacherDashboard/types';
 import { ClientApiError, createApiClient, throwOnErrorResponse, withUser } from './apiClient';
+import { acceptLanguageHeader } from '../../i18n/locale';
 import { featureFlags } from '../../utils/featureFlags';
 import spanishTranslator from '../../i18n/spanishTranslator';
 
@@ -233,6 +234,8 @@ async function uploadResourceRequest(
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/resources');
     xhr.setRequestHeader('Authorization', idToken);
+    const language = acceptLanguageHeader();
+    xhr.setRequestHeader('Accept-Language', language['Accept-Language']);
 
     if (onProgress) {
       xhr.upload.onprogress = event => {

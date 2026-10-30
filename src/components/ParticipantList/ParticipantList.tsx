@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import Participant from '../Participant/Participant';
 import { makeStyles, createStyles, Theme } from '@material-ui/core/styles';
+import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 import useSpeakerViewTiles from '../../hooks/useSpeakerViewTiles/useSpeakerViewTiles';
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -40,6 +41,7 @@ const useStyles = makeStyles((theme: Theme) =>
 export default function ParticipantList() {
   const classes = useStyles();
   const { localParticipant, tiles, isRemoteParticipantScreenSharing } = useSpeakerViewTiles();
+  const moderationActions = useModerationActions();
 
   if (tiles.length === 0) return null; // Don't render this component if there are no remote participants.
 
@@ -59,6 +61,7 @@ export default function ParticipantList() {
               isSelected={isSelected}
               onClick={select}
               hideParticipant={hidden}
+              moderation={moderationActions || undefined}
             />
           ))}
         </div>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from '@material-ui/core';
 import Snackbar from '../Snackbar/Snackbar';
 import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
+import { t } from '../../i18n/translate';
 
 enum Snackbars {
   none,
@@ -46,26 +47,26 @@ export default function RecordingNotifications() {
         open={activeSnackbar === Snackbars.recordingStarted}
         handleClose={() => setActiveSnackbar(Snackbars.none)}
         variant="info"
-        headline="Recording has started."
+        headline={t('La grabación ha comenzado.')}
         message=""
       />
       <Snackbar
         open={activeSnackbar === Snackbars.recordingInProgress}
         handleClose={() => setActiveSnackbar(Snackbars.none)}
         variant="info"
-        headline="Recording is in progress."
+        headline={t('La grabación está en curso.')}
         message=""
       />
       <Snackbar
         open={activeSnackbar === Snackbars.recordingFinished}
-        headline="Recording Complete"
+        headline={t('Grabación completa')}
         message={
           <>
-            You can view the recording in the{' '}
+            {t('Puedes ver la grabación en la')}{' '}
             <Link target="_blank" rel="noopener" href="https://www.twilio.com/console/video/logs/recordings">
-              Twilio Console
+              {t('Consola de Twilio')}
             </Link>
-            . Recordings will be available once this room has ended.
+            {t('. Las grabaciones estarán disponibles cuando esta sala haya terminado.')}
           </>
         }
         variant="info"

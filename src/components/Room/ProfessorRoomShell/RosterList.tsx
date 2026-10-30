@@ -9,9 +9,12 @@ import { ParticipantAttention } from '../../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
 import { classifyAttention } from '../../AttentionProvider/presence';
 import { buildModerationItemsForTarget, StudentModerationHandlers } from '../ModerationMenu/studentModerationItems';
+import { ModerationActorRole } from '../../../hooks/useClassDataChannel/classProtocol';
+import useRemoteMedia from '../../../hooks/useRemoteMedia/useRemoteMedia';
 import { useModerationActions } from '../ModerationMenu/moderationActionsContext';
 import { getInitials, presenceView } from './professorShellHelpers';
 import { attentionStatusColors } from '../../../theme';
+import { displayIdentity } from '../../../i18n/displayIdentity';
 
 const useStyles = makeStyles((theme: Theme) => ({
   rosterRow: {
@@ -180,13 +183,110 @@ function AttentionDecoration({
   );
 }
 
+interface RosterRowProps {
+  participant: { identity: string; isLocal?: boolean };
+  attention?: ParticipantAttention;
+  moderation: StudentModerationHandlers;
+  actorRole?: ModerationActorRole;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  classes: ReturnType<typeof useStyles>;
+}
+
+/** One roster row; its own component so it can follow that participant's mic and camera state. */
+function RosterRow({
+  participant,
+  attention,
+  moderation,
+  actorRole,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu,
+  classes,
+}: RosterRowProps) {
+  const { t } = useTranslation('room');
+  const media = useRemoteMedia(participant.identity);
+  const menuItems = buildModerationItemsForTarget(
+    { identity: participant.identity, isLocal: Boolean(participant.isLocal), media },
+    moderation,
+    'professor-room-shell-roster',
+    actorRole,
+    t
+  );
+  return (
+    <div className={classes.rosterRow}>
+      <div
+        className={clsx(classes.rosterAvatar, {
+          [classes.rosterAvatarSelf]: participant.isLocal,
+        })}
+      >
+        {getInitials(participant.identity)}
+      </div>
+      <div className={classes.rosterNameWrap}>
+        <span className={classes.rosterName} title={displayIdentity(participant.identity)}>
+          {stripTeacherSuffix(participant.identity)}
+        </span>
+        {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" />}
+      </div>
+      {attention?.multiface && (
+        <span
+          className={classes.multifaceWarning}
+          data-testid="professor-room-shell-multiface-flag"
+          title={t('roster.multiface')}
+        >
+          ⚠
+        </span>
+      )}
+      {attention && <AttentionDecoration attention={attention} classes={classes} />}
+      {/* Moderation kebab — students only (never the professor's own row). */}
+      {menuItems.length > 0 && (
+        <div className={classes.rosterMenuWrap}>
+          <button
+            type="button"
+            className={classes.rosterMenuButton}
+            data-testid="professor-room-shell-roster-menu-button"
+            aria-label={t('roster.actionsFor', { name: displayIdentity(participant.identity) })}
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+            onClick={() => onToggleMenu()}
+          >
+            <MoreVertIcon style={{ fontSize: 18 }} />
+          </button>
+          {menuOpen && (
+            <>
+              <div className={classes.rosterMenuBackdrop} onClick={() => onCloseMenu()} />
+              <div className={classes.rosterMenu} data-testid="professor-room-shell-roster-menu" role="menu">
+                {menuItems.map(item => (
+                  <button
+                    key={item.testId}
+                    type="button"
+                    className={classes.rosterMenuItem}
+                    data-testid={item.testId}
+                    role="menuitem"
+                    onClick={() => {
+                      item.onSelect();
+                      onCloseMenu();
+                    }}
+                  >
+                    {item.icon} {item.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * The left-rail participant roster: avatar + name + attention decoration (badge or
  * camera-off / no-measure / unsupported flag) and a per-student moderation kebab.
  * Pins the teacher to the top and owns only the open-menu state.
  */
 export default function RosterList({ participants, attentionByIdentity, moderation = {} }: RosterListProps) {
-  const { t } = useTranslation('room');
   const classes = useStyles();
   // Room provides the actor's role (owner / co-teacher) through the moderation context.
   const actorRole = useModerationActions()?.actorRole;
@@ -201,83 +301,21 @@ export default function RosterList({ participants, attentionByIdentity, moderati
 
   return (
     <div data-testid="professor-room-shell-roster">
-      {orderedParticipants.map(participant => {
-        const attention = attentionByIdentity.get(participant.identity);
-        const menuItems = buildModerationItemsForTarget(
-          { identity: participant.identity, isLocal: Boolean(participant.isLocal) },
-          moderation,
-          'professor-room-shell-roster',
-          actorRole,
-          t
-        );
-        return (
-          <div key={participant.identity} className={classes.rosterRow}>
-            <div
-              className={clsx(classes.rosterAvatar, {
-                [classes.rosterAvatarSelf]: participant.isLocal,
-              })}
-            >
-              {getInitials(participant.identity)}
-            </div>
-            <div className={classes.rosterNameWrap}>
-              <span className={classes.rosterName} title={participant.identity}>
-                {stripTeacherSuffix(participant.identity)}
-              </span>
-              {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" />}
-            </div>
-            {attention?.multiface && (
-              <span
-                className={classes.multifaceWarning}
-                data-testid="professor-room-shell-multiface-flag"
-                title={t('roster.multiface')}
-              >
-                ⚠
-              </span>
-            )}
-            {attention && <AttentionDecoration attention={attention} classes={classes} />}
-            {/* Moderation kebab — students only (never the professor's own row). */}
-            {menuItems.length > 0 && (
-              <div className={classes.rosterMenuWrap}>
-                <button
-                  type="button"
-                  className={classes.rosterMenuButton}
-                  data-testid="professor-room-shell-roster-menu-button"
-                  aria-label={t('roster.actionsFor', { name: participant.identity })}
-                  aria-haspopup="true"
-                  aria-expanded={openMenuIdentity === participant.identity}
-                  onClick={() =>
-                    setOpenMenuIdentity(prev => (prev === participant.identity ? null : participant.identity))
-                  }
-                >
-                  <MoreVertIcon style={{ fontSize: 18 }} />
-                </button>
-                {openMenuIdentity === participant.identity && (
-                  <>
-                    <div className={classes.rosterMenuBackdrop} onClick={() => setOpenMenuIdentity(null)} />
-                    <div className={classes.rosterMenu} data-testid="professor-room-shell-roster-menu" role="menu">
-                      {menuItems.map(item => (
-                        <button
-                          key={item.testId}
-                          type="button"
-                          className={classes.rosterMenuItem}
-                          data-testid={item.testId}
-                          role="menuitem"
-                          onClick={() => {
-                            item.onSelect();
-                            setOpenMenuIdentity(null);
-                          }}
-                        >
-                          {item.icon} {item.label}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {orderedParticipants.map(participant => (
+        <RosterRow
+          key={participant.identity}
+          participant={participant}
+          attention={attentionByIdentity.get(participant.identity)}
+          moderation={moderation}
+          actorRole={actorRole}
+          menuOpen={openMenuIdentity === participant.identity}
+          onToggleMenu={() =>
+            setOpenMenuIdentity(prev => (prev === participant.identity ? null : participant.identity))
+          }
+          onCloseMenu={() => setOpenMenuIdentity(null)}
+          classes={classes}
+        />
+      ))}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
 import { selectCameraTrack } from '../../../../utils/trackSelectors';
 import { stripTeacherSuffix } from '../../../../classSession/classSessionTypes';
 import { useTranslation } from 'react-i18next';
+import { displayIdentity } from '../../../../i18n/displayIdentity';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // Outer card: browser-window chrome + video area
@@ -183,7 +184,7 @@ export default function LocalVideoPreview({ identity, children }: { identity: st
             <span className={classes.identity}>
               <LocalAudioLevelIndicator />
               <Typography variant="body1" color="inherit" component="span">
-                {identity}
+                {displayIdentity(identity)}
               </Typography>
             </span>
           </div>

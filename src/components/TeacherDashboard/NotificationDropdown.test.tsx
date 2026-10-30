@@ -3,6 +3,7 @@ import { shallow } from 'enzyme';
 import { Button, CircularProgress, IconButton, ListItem, ListItemText, MenuItem } from '@material-ui/core';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import NotificationDropdown from './NotificationDropdown';
+import { getLocale, setLocale, Locale } from '../../i18n/locale';
 
 const notification = (id: string, readAtMs: number | null = null): TeacherNotification => ({
   notificationId: id,
@@ -13,8 +14,8 @@ const notification = (id: string, readAtMs: number | null = null): TeacherNotifi
   eventOccurrenceAtMs: 20,
   createdAtMs: 21,
   readAtMs,
-  title: `Título ${id}`,
-  message: `Mensaje ${id}`,
+  title: `Clase próxima: ${id}`,
+  message: `Tu clase "${id}" comienza en 15 minutos.`,
   destination: { kind: 'classes' },
 });
 
@@ -40,7 +41,14 @@ const baseProps = {
 };
 
 describe('NotificationDropdown', () => {
-  beforeEach(jest.clearAllMocks);
+  let previousLocale: Locale;
+
+  beforeEach(() => {
+    previousLocale = getLocale();
+    setLocale('es');
+    jest.clearAllMocks();
+  });
+  afterEach(() => setLocale(previousLocale));
 
   it('shows loading before a confirmed response and only then the exact empty copy', () => {
     const loading = shallow(<NotificationDropdown {...baseProps} hasConfirmedState={false} />);
@@ -58,13 +66,28 @@ describe('NotificationDropdown', () => {
 
     const rows = wrapper.find(ListItem);
     expect(rows.map(row => row.prop('data-testid'))).toEqual(['notification-row-new', 'notification-row-old']);
-    expect(rows.at(0).find(ListItemText).prop('primary')).toBe('Título new');
-    expect(rows.at(1).find(ListItemText).prop('secondary')).toEqual(
-      expect.objectContaining({ props: expect.objectContaining({ children: 'Mensaje old' }) })
+    expect(
+      rows
+        .at(0)
+        .find(ListItemText)
+        .prop('primary')
+    ).toBe('Clase próxima: new');
+    expect(
+      rows
+        .at(1)
+        .find(ListItemText)
+        .prop('secondary')
+    ).toEqual(
+      expect.objectContaining({
+        props: expect.objectContaining({ children: 'Tu clase "old" comienza en 15 minutos.' }),
+      })
     );
 
     rows.at(0).simulate('click');
-    wrapper.find(Button).filterWhere(button => button.text() === 'Cargar más').simulate('click');
+    wrapper
+      .find(Button)
+      .filterWhere(button => button.text() === 'Cargar más')
+      .simulate('click');
     expect(baseProps.onNotificationClick).toHaveBeenCalledWith(items[0]);
     expect(baseProps.onLoadMore).toHaveBeenCalledTimes(1);
   });
@@ -77,8 +100,14 @@ describe('NotificationDropdown', () => {
     expect(wrapper.text()).toContain('Tienes notificaciones sin leer');
     expect(wrapper.find('Dialog').exists()).toBe(false);
     wrapper.find(IconButton).simulate('click', { currentTarget: document.createElement('button') });
-    wrapper.find(MenuItem).filterWhere(item => item.text() === 'Marcar todas como leídas').simulate('click');
-    wrapper.find(MenuItem).filterWhere(item => item.text() === 'Vaciar notificaciones').simulate('click');
+    wrapper
+      .find(MenuItem)
+      .filterWhere(item => item.text() === 'Marcar todas como leídas')
+      .simulate('click');
+    wrapper
+      .find(MenuItem)
+      .filterWhere(item => item.text() === 'Vaciar notificaciones')
+      .simulate('click');
     expect(baseProps.onMarkAllRead).toHaveBeenCalledTimes(1);
     expect(baseProps.onClearAll).toHaveBeenCalledTimes(1);
 
@@ -116,8 +145,23 @@ describe('NotificationDropdown', () => {
       'No pudimos sincronizar las notificaciones.',
     ]);
     expect(wrapper.find('[data-testid="notification-row-kept"]').prop('disabled')).toBe(true);
-    expect(wrapper.find(Button).filterWhere(button => button.text() === 'Cargar más').prop('disabled')).toBe(true);
-    expect(wrapper.find(MenuItem).filterWhere(item => item.text() === 'Marcar todas como leídas').prop('disabled')).toBe(true);
-    expect(wrapper.find(MenuItem).filterWhere(item => item.text() === 'Vaciar notificaciones').prop('disabled')).toBe(true);
+    expect(
+      wrapper
+        .find(Button)
+        .filterWhere(button => button.text() === 'Cargar más')
+        .prop('disabled')
+    ).toBe(true);
+    expect(
+      wrapper
+        .find(MenuItem)
+        .filterWhere(item => item.text() === 'Marcar todas como leídas')
+        .prop('disabled')
+    ).toBe(true);
+    expect(
+      wrapper
+        .find(MenuItem)
+        .filterWhere(item => item.text() === 'Vaciar notificaciones')
+        .prop('disabled')
+    ).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { AttentionLevel, ParticipantAttention, ProctoringAlert } from './types';
 import { classifyAttention } from './presence';
 import { classifyProctoring, PROCTORING_KINDS, ProctoringKind } from './proctoring';
+import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import { RemoteAttention } from '../../hooks/useAttentionTelemetry/useAttentionTelemetry';
 
 /**
@@ -22,6 +23,17 @@ export function isMeasured(sample: {
   faces?: number;
 }): boolean {
   return classifyAttention(sample) === 'measured';
+}
+
+/**
+ * Attention is measured on students only: a co-teacher also publishes telemetry and joins the
+ * roster, but must not count as a participant, attendee or group-average sample. Returns the
+ * same array when there is nothing to drop.
+ */
+export function studentsOnly<T extends { identity: string }>(items: T[]): T[] {
+  return items.some(item => isTeacherIdentity(item.identity))
+    ? items.filter(item => !isTeacherIdentity(item.identity))
+    : items;
 }
 
 /** Rounded mean of the indexes, or null when there is nothing to average. */
@@ -156,7 +168,7 @@ export function buildParticipants(input: {
       multiface: false,
       level: attentionLevel(average),
       cameraOff: true, // honestly excluded from the live group gauge
-      faces: entry ? 1 : 0, // 0 = never measured at all → UI renders "sin medición"
+      faces: entry ? 1 : 0, // 0 = never measured at all → UI renders t("sin medición")
       unsupported: false,
       pending: false,
       ...accumulated,

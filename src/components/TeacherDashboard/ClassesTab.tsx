@@ -21,6 +21,8 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
 import baseTheme from '../../theme';
+import { dateLocale } from '../../i18n/locale';
+import { t } from '../../i18n/translate';
 
 // @material-ui/pickers ships its overridable class keys separately from core's `Overrides` type;
 // this augmentation is required for `theme.overrides.MuiPickers*` below to type-check.
@@ -423,7 +425,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 // (ResourcesTab's formatDateLabel, CalendarTab's day labels).
 function formatDuplicateDateLabel(ms: number | null): string {
   if (ms === null) return 'sin fecha';
-  return new Date(ms).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+  return new Date(ms).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
 }
 
 interface Props {
@@ -574,7 +576,7 @@ export default function ClassesTab({
           data-testid="dashboard-rejoin-session-button"
         >
           <MeetingRoomIcon style={{ fontSize: 18 }} />
-          {isStartingClass ? 'Verificando…' : 'Volver a entrar'}
+          {isStartingClass ? t('Verificando…') : t('Volver a entrar')}
         </button>
       );
     }
@@ -582,7 +584,7 @@ export default function ClassesTab({
       return (
         <>
           <div className={classes.newClassError} data-testid="dashboard-room-closed-note">
-            La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.
+            {t('La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.')}
           </div>
           <button
             type="button"
@@ -592,7 +594,7 @@ export default function ClassesTab({
             data-testid="dashboard-restart-session-button"
           >
             <PlayArrowIcon style={{ fontSize: 16 }} />
-            {isStartingClass ? 'Verificando…' : 'Iniciar de nuevo'}
+            {isStartingClass ? t('Verificando…') : t('Iniciar de nuevo')}
           </button>
         </>
       );
@@ -605,7 +607,7 @@ export default function ClassesTab({
           disabled
           data-testid="dashboard-checking-session-button"
         >
-          Verificando sala…
+          {t('Verificando sala…')}
         </button>
       );
     }
@@ -665,7 +667,7 @@ export default function ClassesTab({
       {statsAreMock && (
         <div className={classes.statsGridHeader}>
           <span className={classes.mockTag} data-testid="dashboard-stats-mock-tag">
-            Datos simulados
+            {t('Datos simulados')}
           </span>
         </div>
       )}
@@ -679,7 +681,7 @@ export default function ClassesTab({
               </span>
               <div>
                 <div className={classes.statValue}>{stat.value}</div>
-                <div className={classes.statLabel}>{stat.label}</div>
+                <div className={classes.statLabel}>{t(stat.label)}</div>
               </div>
             </div>
           );
@@ -689,10 +691,10 @@ export default function ClassesTab({
       <div className={classes.sectionHeader}>
         <div>
           <div className={classes.sectionTitle}>
-            Próximas sesiones
+            {t('Próximas sesiones')}
             {sessionsAreMock && (
               <span className={classes.mockTag} data-testid="dashboard-sessions-mock-tag">
-                Datos simulados
+                {t('Datos simulados')}
               </span>
             )}
           </div>
@@ -709,8 +711,10 @@ export default function ClassesTab({
             >
               <EventBusyIcon style={{ fontSize: 18 }} />
               {isCancellingExpired
-                ? 'Cancelando…'
-                : `Cancelar ${expiredClassesCount === 1 ? 'vencida' : `${expiredClassesCount} vencidas`}`}
+                ? t('Cancelando…')
+                : expiredClassesCount === 1
+                ? t('Cancelar vencida')
+                : t('Cancelar {{count}} vencidas', { count: expiredClassesCount })}
             </button>
           )}
           <button
@@ -720,26 +724,26 @@ export default function ClassesTab({
             data-testid="dashboard-new-class-button"
           >
             <AddIcon style={{ fontSize: 18 }} />
-            Nueva clase
+            {t('Nueva clase')}
           </button>
         </div>
       </div>
 
       {onCreateClass && isFormOpen && (
         <form className={classes.newClassForm} onSubmit={handleSubmitNewClass}>
-          <div className={classes.newClassFormTitle}>Nueva clase</div>
-          <div className={classes.newClassFormSubtitle}>Completa estos datos para programar la sesión.</div>
+          <div className={classes.newClassFormTitle}>{t('Nueva clase')}</div>
+          <div className={classes.newClassFormSubtitle}>{t('Completa estos datos para programar la sesión.')}</div>
 
           <div className={classes.newClassFieldGrid}>
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-title">
-                Título de la clase
+                {t('Título de la clase')}
               </label>
               <input
                 id="new-class-title"
                 type="text"
                 className={classes.newClassInput}
-                placeholder="Ej: Matemáticas — Grupo A"
+                placeholder={t('Ej: Matemáticas — Grupo A')}
                 value={titleInput}
                 onChange={e => setTitleInput(e.target.value)}
                 data-testid="dashboard-new-class-title-input"
@@ -749,7 +753,7 @@ export default function ClassesTab({
             <MuiPickersUtilsProvider utils={DateFnsUtils} locale={esLocale}>
               <div className={classes.newClassField}>
                 <label className={classes.newClassLabel} htmlFor="new-class-date">
-                  Fecha
+                  {t('Fecha')}
                 </label>
                 <KeyboardDatePicker
                   id="new-class-date"
@@ -761,7 +765,7 @@ export default function ClassesTab({
                   inputVariant="outlined"
                   margin="none"
                   format="dd/MM/yyyy"
-                  placeholder="dd/mm/aaaa"
+                  placeholder={t('dd/mm/aaaa')}
                   value={dateValue}
                   onChange={setDateValue}
                   InputProps={{ classes: { input: classes.newClassPickerInput } }}
@@ -771,7 +775,7 @@ export default function ClassesTab({
 
               <div className={classes.newClassField}>
                 <label className={classes.newClassLabel} htmlFor="new-class-time">
-                  Hora
+                  {t('Hora')}
                 </label>
                 <MuiThemeProvider theme={meetTimePickerTheme}>
                   <KeyboardTimePicker
@@ -796,7 +800,7 @@ export default function ClassesTab({
 
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-student-count">
-                Alumnos esperados
+                {t('Alumnos esperados')}
               </label>
               <input
                 id="new-class-student-count"
@@ -811,7 +815,7 @@ export default function ClassesTab({
 
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-duration">
-                Duración (minutos)
+                {t('Duración (minutos)')}
               </label>
               <input
                 id="new-class-duration"
@@ -833,18 +837,19 @@ export default function ClassesTab({
               disabled={isSubmitting}
               data-testid="dashboard-new-class-submit-button"
             >
-              {isSubmitting ? 'Creando…' : 'Crear clase'}
+              {isSubmitting ? t('Creando…') : t('Crear clase')}
             </button>
             <button type="button" className={classes.newClassCancelButton} onClick={resetForm}>
-              Cancelar
+              {t('Cancelar')}
             </button>
           </div>
 
           {!formError && duplicateClass && (
             <div className={classes.newClassDuplicateWarning} data-testid="dashboard-new-class-duplicate-warning">
-              Ya tienes una clase "{duplicateClass.title}" programada para el{' '}
-              {formatDuplicateDateLabel(duplicateClass.scheduledAtMs)}. Puedes crear esta igual si es una sesión
-              distinta.
+              {t(
+                'Ya tienes una clase "{{title}}" programada para el {{when}}. Puedes crear esta igual si es una sesión distinta.',
+                { title: duplicateClass.title, when: formatDuplicateDateLabel(duplicateClass.scheduledAtMs) }
+              )}
             </div>
           )}
           {formError && <div className={classes.newClassError}>{formError}</div>}
@@ -884,7 +889,7 @@ export default function ClassesTab({
                   data-testid="dashboard-start-session-button"
                 >
                   <PlayArrowIcon style={{ fontSize: 18 }} />
-                  {isStartingClass ? 'Verificando…' : 'Iniciar sesión'}
+                  {isStartingClass ? t('Verificando…') : t('Iniciar sesión')}
                 </button>
               ) : onCancelClass ? (
                 <button
@@ -895,12 +900,12 @@ export default function ClassesTab({
                   data-testid="dashboard-cancel-session-button"
                 >
                   <DeleteIcon style={{ fontSize: 16 }} />
-                  {cancellingClassId === session.id ? 'Cancelando…' : 'Cancelar'}
+                  {cancellingClassId === session.id ? t('Cancelando…') : t('Cancelar')}
                 </button>
               ) : (
                 <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">
                   <OpenInNewIcon style={{ fontSize: 16 }} />
-                  Ver detalles
+                  {t('Ver detalles')}
                 </button>
               ))}
           </div>
@@ -909,7 +914,7 @@ export default function ClassesTab({
 
       {inProgressSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-in-progress-section">
-          <div className={classes.expiredSectionTitle}>Sesiones en curso</div>
+          <div className={classes.expiredSectionTitle}>{t('Sesiones en curso')}</div>
           {onRefreshRooms && (
             <button
               type="button"
@@ -917,7 +922,7 @@ export default function ClassesTab({
               onClick={onRefreshRooms}
               data-testid="dashboard-refresh-rooms-button"
             >
-              Actualizar
+              {t('Actualizar')}
             </button>
           )}
           <div className={classes.sessionsGrid}>
@@ -938,7 +943,7 @@ export default function ClassesTab({
                     data-testid="dashboard-start-session-button"
                   >
                     <PlayArrowIcon style={{ fontSize: 18 }} />
-                    {isStartingClass ? 'Verificando…' : 'Iniciar sesión'}
+                    {isStartingClass ? t('Verificando…') : t('Iniciar sesión')}
                   </button>
                 )}
               </div>
@@ -949,7 +954,7 @@ export default function ClassesTab({
 
       {expiredSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-expired-sessions-section">
-          <div className={classes.expiredSectionTitle}>Sesiones vencidas</div>
+          <div className={classes.expiredSectionTitle}>{t('Sesiones vencidas')}</div>
           <div className={classes.sessionsGrid}>
             {expiredSessions.map(session => (
               <div
@@ -982,7 +987,7 @@ export default function ClassesTab({
                     data-testid="dashboard-cancel-expired-session-button"
                   >
                     <DeleteIcon style={{ fontSize: 16 }} />
-                    {cancellingClassId === session.id ? 'Cancelando…' : 'Cancelar'}
+                    {cancellingClassId === session.id ? t('Cancelando…') : t('Cancelar')}
                   </button>
                 )}
               </div>
@@ -995,7 +1000,7 @@ export default function ClassesTab({
         <div className={classes.newClassError} data-testid="dashboard-cancel-error">
           {cancelError}{' '}
           <button type="button" onClick={onRetryCancel} data-testid="dashboard-retry-cancel-button">
-            Reintentar cancelación
+            {t('Reintentar cancelación')}
           </button>
         </div>
       )}

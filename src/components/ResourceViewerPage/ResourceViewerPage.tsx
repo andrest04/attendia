@@ -7,6 +7,7 @@ import StandalonePage, { PageMessageCard, PageNavButton, PageTitle } from '../St
 import useAsyncResource from '../../hooks/useAsyncResource/useAsyncResource';
 import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { t } from '../../i18n/translate';
 
 /*
  * Standalone document viewer, opened in a NEW TAB from the "Ver" button on the
@@ -56,13 +57,14 @@ export default function ResourceViewerPage() {
         ? () =>
             fetchResources!().then(resources => {
               const found = resources.find(r => r.id === resourceId);
-              if (!found) throw new Error('El recurso solicitado no existe.');
+              if (!found) throw new Error(t('El recurso solicitado no existe.'));
               return found;
             })
         : null,
     [isAvailable, fetchResources, resourceId]
   );
-  const { data: resource, error: resourceError } = useAsyncResource(loadResource, { failureMessage: FAILURE_MESSAGE });
+  const failureMessage = t(FAILURE_MESSAGE);
+  const { data: resource, error: resourceError } = useAsyncResource(loadResource, { failureMessage });
 
   // Stage 2: fetch the file as a blob and expose it as an object URL, released with the page.
   const loadFile = useMemo(
@@ -77,11 +79,11 @@ export default function ResourceViewerPage() {
     [resource, isAvailable, fetchResourcePreviewUrl, fetchResourceDownloadUrl]
   );
   const { data: objectUrl, error: fileError } = useAsyncResource(loadFile, {
-    failureMessage: FAILURE_MESSAGE,
+    failureMessage,
     dispose: url => URL.revokeObjectURL(url),
   });
 
-  const error = isAvailable ? resourceError || fileError : 'No pudimos validar tu acceso a este recurso.';
+  const error = isAvailable ? resourceError || fileError : t('No pudimos validar tu acceso a este recurso.');
 
   return (
     <StandalonePage
@@ -94,7 +96,7 @@ export default function ResourceViewerPage() {
           icon={<CloseIcon style={{ fontSize: 16 }} />}
           testId="resource-viewer-page-close"
         >
-          Cerrar
+          {t('Cerrar')}
         </PageNavButton>
       }
     >
@@ -111,7 +113,7 @@ export default function ResourceViewerPage() {
             />
           )
         ) : (
-          <PageMessageCard testId="resource-viewer-empty">{error || 'Cargando el documento...'}</PageMessageCard>
+          <PageMessageCard testId="resource-viewer-empty">{error || t('Cargando el documento...')}</PageMessageCard>
         )}
       </div>
     </StandalonePage>

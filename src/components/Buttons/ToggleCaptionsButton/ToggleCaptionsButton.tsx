@@ -7,6 +7,7 @@ import CaptionsIcon from '../../../icons/CaptionsIcon';
 import CaptionsOffIcon from '../../../icons/CaptionsOffIcon';
 import { useToolbarButtonStyles } from '../toolbarButtonStyles';
 import { useAppState } from '../../../state';
+import { t as translateSpanish } from '../../../i18n/translate';
 
 export default function ToggleCaptionsButton(props: { disabled?: boolean; className?: string }) {
   const { t } = useTranslation('toolbar');
@@ -17,7 +18,9 @@ export default function ToggleCaptionsButton(props: { disabled?: boolean; classN
     setIsCaptionsEnabled(enabled => !enabled);
   }, [setIsCaptionsEnabled]);
 
-  const tooltipTitle = isCaptionsEnabled ? '' : t('captions.requiresTranscriptions');
+  const tooltipTitle = isCaptionsEnabled
+    ? ''
+    : translateSpanish('Requiere habilitar las transcripciones en tiempo real en la consola de Twilio');
 
   return (
     <Tooltip title={tooltipTitle} placement="top" data-testid="captions-tooltip">
@@ -28,7 +31,7 @@ export default function ToggleCaptionsButton(props: { disabled?: boolean; classN
           disabled={props.disabled}
           startIcon={isCaptionsEnabled ? <CaptionsIcon /> : <CaptionsOffIcon />}
           data-cy="toggle-captions"
-          aria-label={t('captions.ariaLabel')}
+          aria-label={translateSpanish('Alternar subtítulos')}
         >
           {t('captions.label')}
         </Button>

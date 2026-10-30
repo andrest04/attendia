@@ -23,6 +23,8 @@ export interface ProctoringKindInfo {
   confidence: number;
 }
 
+// Spanish source strings: the consumers (feed, alert modal, toasts) translate with t() at render, so a
+// language switch applies. Calling t() here would freeze the language the module happened to load in.
 export const PROCTORING_KINDS: Record<ProctoringKind, ProctoringKindInfo> = {
   multiface: {
     label: 'Múltiples rostros',

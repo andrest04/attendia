@@ -1,9 +1,22 @@
 import React from 'react';
-import { mount } from 'enzyme';
+import { mount as enzymeMount } from 'enzyme';
 import StudentRoomShell from './StudentRoomShell';
 import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';
+import { setLocale } from '../../../i18n/locale';
+
+const mounted: Array<ReturnType<typeof enzymeMount>> = [];
+const mount = (node: React.ReactElement) => {
+  const wrapper = enzymeMount(node);
+  mounted.push(wrapper);
+  return wrapper;
+};
 
 describe('StudentRoomShell', () => {
+  afterEach(() => {
+    mounted.splice(0).forEach(wrapper => wrapper.unmount());
+    setLocale('es');
+  });
+
   it('renders the top session status bar without the Ayuda button', () => {
     const wrapper = mount(
       <StudentRoomShell stage={<div>stage</div>} sessionName="Matemáticas — Grupo A" participantCount={5} recording />
@@ -32,6 +45,13 @@ describe('StudentRoomShell', () => {
     expect(wrapper.find('[data-testid="student-room-shell-toolbar-slot"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="student-room-shell-right-tabs"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="student-room-shell-participant-count"]').text()).toContain('3 en sala');
+  });
+
+  it('renders the plain participant count in English', () => {
+    setLocale('en');
+    const wrapper = mount(<StudentRoomShell stage={<div>stage</div>} participantCount={3} />);
+
+    expect(wrapper.find('[data-testid="student-room-shell-participant-count"]').text()).toContain('3 in the room');
   });
 
   it('does not render a notifications panel (notifications are professor-only)', () => {

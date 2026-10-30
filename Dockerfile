@@ -1,11 +1,11 @@
-# syntax=docker/dockerfile:1
+# Keep this file buildable without BuildKit: `az acr build` runs the legacy builder (no cache mounts, no heredocs).
 
 # ---- deps: full install (postinstall needs devDependencies for patch-package/copyfiles) ----
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY patches ./patches
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN npm ci
 
 # ---- build: CRA build (REACT_APP_* is inlined at build time) + server tsc build ----
 FROM deps AS build
@@ -53,7 +53,7 @@ RUN npm run build \
 FROM node:22-alpine AS server-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts
 COPY scripts/server-runtime-deps.js ./scripts/server-runtime-deps.js
 COPY --from=build /app/server-build ./server-build
 RUN node scripts/server-runtime-deps.js /app /app/server-build /out

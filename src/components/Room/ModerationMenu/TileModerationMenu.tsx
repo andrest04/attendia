@@ -1,6 +1,8 @@
 import React from 'react';
+import clsx from 'clsx';
 import { makeStyles } from '@material-ui/core';
 import { useTranslation } from 'react-i18next';
+import useRemoteMedia from '../../../hooks/useRemoteMedia/useRemoteMedia';
 import OverflowMenu from '../ToolbarParts/OverflowMenu';
 import { buildModerationItemsForTarget, StudentModerationHandlers } from './studentModerationItems';
 
@@ -21,28 +23,32 @@ const useStyles = makeStyles(() => ({
     left: 8,
     zIndex: 3,
   },
+  wrapRight: {
+    left: 'auto',
+    right: 8,
+  },
 }));
 
 interface TileModerationMenuProps {
   identity: string;
   handlers: StudentModerationHandlers;
+  /** Corner of the tile; the main stage keeps its name/network row on the left, so it uses `right`. */
+  corner?: 'left' | 'right';
 }
 
 /** The three-dots moderation menu on a remote tile (teacher viewers only; items follow `canModerate`). */
-export default function TileModerationMenu({ identity, handlers }: TileModerationMenuProps) {
+export default function TileModerationMenu({ identity, handlers, corner = 'left' }: TileModerationMenuProps) {
   const { t } = useTranslation();
   const classes = useStyles();
   const testIdPrefix = `participant-moderation-${identity}`;
-  const items = buildModerationItemsForTarget(
-    { identity, isLocal: false },
-    handlers,
-    testIdPrefix,
-    handlers.actorRole,
-    t
-  );
+  const media = useRemoteMedia(identity);
+  const items = buildModerationItemsForTarget({ identity, isLocal: false, media }, handlers, testIdPrefix, handlers.actorRole, t);
   if (items.length === 0) return null;
   return (
-    <div className={classes.wrap} onClick={event => event.stopPropagation()}>
+    <div
+      className={clsx(classes.wrap, { [classes.wrapRight]: corner === 'right' })}
+      onClick={event => event.stopPropagation()}
+    >
       <OverflowMenu items={items} testIdPrefix={testIdPrefix} chipClassName={classes.chip} />
     </div>
   );

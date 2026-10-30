@@ -1,8 +1,11 @@
 import React from 'react';
 import { mount, shallow } from 'enzyme';
 import DashboardSidebar from './DashboardSidebar';
+import { setLocale } from '../../i18n/locale';
 
 describe('DashboardSidebar', () => {
+  afterEach(() => setLocale('es'));
+
   it('calls onTabChange with the clicked tab', () => {
     const onTabChange = jest.fn();
     const wrapper = shallow(
@@ -33,6 +36,58 @@ describe('DashboardSidebar', () => {
     wrapper.find('[data-testid="dashboard-sidebar-start-class"]').simulate('click');
 
     expect(onStartBlankClass).toHaveBeenCalled();
+  });
+
+  it('translates the start-class button to English', () => {
+    setLocale('en');
+    const wrapper = shallow(
+      <DashboardSidebar
+        activeTab="clases"
+        onTabChange={jest.fn()}
+        onStartBlankClass={jest.fn()}
+        onSignOut={jest.fn()}
+      />
+    );
+
+    expect(wrapper.find('[data-testid="dashboard-sidebar-start-class"]').text()).toContain('Start class');
+  });
+
+  it('translates every tab label to English, Calendario included', () => {
+    setLocale('en');
+    const wrapper = shallow(
+      <DashboardSidebar
+        activeTab="clases"
+        onTabChange={jest.fn()}
+        onStartBlankClass={jest.fn()}
+        onSignOut={jest.fn()}
+      />
+    );
+
+    const labels = ['clases', 'historial', 'recursos', 'calendario'].map(tab =>
+      wrapper.find(`[data-testid="dashboard-sidebar-tab-${tab}"]`).text()
+    );
+    expect(labels).toEqual(['Classes', 'History', 'Resources', 'Calendar']);
+  });
+
+  it('pins the compact top strip while a long tab scrolls', () => {
+    const wrapper = mount(
+      <DashboardSidebar
+        activeTab="clases"
+        onTabChange={jest.fn()}
+        onStartBlankClass={jest.fn()}
+        onSignOut={jest.fn()}
+      />
+    );
+    const rootClass = wrapper
+      .find('[data-testid="dashboard-sidebar"]')
+      .first()
+      .prop('className') as string;
+    const css = Array.from(document.head.querySelectorAll('style'))
+      .map(style => style.textContent)
+      .join('\n');
+
+    expect(css).toMatch(new RegExp(`@media[^{]*\\{[^@]*\\.${rootClass.split(' ')[0]}\\s*\\{[^}]*position:\\s*sticky`));
+    wrapper.unmount();
   });
 
   it('calls onSignOut when "Cerrar sesión" is clicked and it is available', () => {

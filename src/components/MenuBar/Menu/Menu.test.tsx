@@ -17,6 +17,7 @@ import useMediaQuery from '@material-ui/core/useMediaQuery';
 import useIsRecording from '../../../hooks/useIsRecording/useIsRecording';
 import { useSessionEndApi } from '../../../hooks/useSessionEnd/sessionEndContext';
 import useLocalVideoToggle from '../../../hooks/useLocalVideoToggle/useLocalVideoToggle';
+import i18n from '../../../i18n';
 
 jest.mock('../../../hooks/useFlipCameraToggle/useFlipCameraToggle');
 jest.mock('@material-ui/core/useMediaQuery');
@@ -52,7 +53,8 @@ describe('the Menu component', () => {
     mockLocalIdentity = 'Ana [Profesor]';
   });
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('es');
     mockUpdateRecordingRules = jest.fn(() => Promise.resolve());
     mockUseAppState.mockImplementation(() => ({
       isFetching: false,
@@ -93,12 +95,12 @@ describe('the Menu component', () => {
     describe('for a confirmed co-teacher', () => {
       afterEach(() => mockUseSessionEndApi.mockReset());
 
-      it('should not render the recording button (recording is owner-only)', () => {
+      it('should render the recording button (a co-teacher can record)', () => {
         mockUseSessionEndApi.mockImplementation(() => ({ isCoTeacher: true }));
         mockUseIsRecording.mockImplementation(() => false);
-        const { getByText, queryByText } = render(<Menu />);
+        const { getByText } = render(<Menu />);
         fireEvent.click(getByText('Más'));
-        expect(queryByText('Iniciar grabación')).toBeNull();
+        expect(getByText('Iniciar grabación')).toBeTruthy();
       });
     });
 

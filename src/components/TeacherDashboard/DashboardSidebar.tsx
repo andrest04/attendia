@@ -27,6 +27,11 @@ const useStyles = makeStyles((theme: Theme) => ({
       borderBottom: '1px solid #e2ecf9',
       padding: theme.spacing(1, 1.5),
       gap: theme.spacing(1),
+      // The dashboard body scrolls as a whole here, so keep the strip (and its start/sign-out
+      // buttons) pinned to the top instead of letting it scroll away with a long tab.
+      position: 'sticky',
+      top: 0,
+      zIndex: 1,
     },
   },
   sectionLabel: {

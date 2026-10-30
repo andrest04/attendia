@@ -2,8 +2,17 @@ import React from 'react';
 import UnsupportedBrowserWarning from './UnsupportedBrowserWarning';
 import Video from 'twilio-video';
 import { shallow } from 'enzyme';
+import { getLocale, setLocale, Locale } from '../../i18n/locale';
 
 describe('the UnsupportedBrowserWarning component', () => {
+  let previousLocale: Locale;
+  beforeEach(() => {
+    previousLocale = getLocale();
+    setLocale('es');
+  });
+  afterEach(() => {
+    setLocale(previousLocale);
+  });
   it('should render correctly when isSupported is false', () => {
     // @ts-ignore
     Video.isSupported = false;
