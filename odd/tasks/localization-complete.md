@@ -17,6 +17,20 @@ Finish the existing i18n feature for production user-facing application text.
 
 ## Log
 
+- Further coverage inventory could not identify a defensible next batch from limited CodeGraph results; historical audit batches lack complete manifests, so production-wide coverage cannot be proven from the log. Browser, screen-reader, live Firebase, real download HTTP/redirect/playback and historical upload-error independent proof remain unavailable or unperformed. Do not mark S1 or T1–T6 complete on this evidence.
+
+- Fully read server/notificationReconciliation.ts, server/recordings.ts, src/components/TeacherDashboard/reportStats.ts and useDashboardRouteSync.ts, and src/components/Room/shellNotification.ts. Canonical notifications are localized at display, recording API errors use translated client or download presentation, remaining files define numeric values/routes/types; no confirmed wrong-language production scenario. Unknown legacy content and exhaustive API consumers excluded.
+
+- Attention registry trace found indexed production UI consumers translate labels separately and use the registries for colors, confidence or membership; no rendering of the Spanish registry literals was established. Dynamic/unindexed consumers and browser behavior remain unverified.
+
+- Remaining component literal audit found no confirmed wrong-language UI in its selected directories but did not cover all requested directories and had a truncated prejoin search; it is not completeness proof. Attention registry Spanish values have no established untranslated display path.
+
+- Room/dashboard literal search found Spanish mock schedule strings in English when class API functions are absent. Follow-up static trace confirmed normal Firebase AppStateProvider always supplies those functions even when requests fail, so fallback is only established for alternate/test contexts; no supported-production defect established. Arbitrary mock fixture titles must not be treated as known translations.
+
+- Direct navigation follow-up traced resource downloads and previews through authenticated API blob handling; no additional confirmed raw Spanish server error in English UI. Search was CodeGraph-guided, not exhaustive or browser-verified.
+
+- Ticket download localization work unit committed separately as `32f76f5` (risk item 2); T6 remains open. Other direct navigation paths under audit.
+
 - Server-error trace found recording download opens a ticket URL directly, so endpoint failures can display Spanish JSON in an English browser tab outside the localized API client. Static trace only; scoped implementation underway using explicit presentation flag with unchanged authentication, redirect and default JSON. Risk item 2: ticket-authorized download path. Independent verifier found no definite defect and identified missing test proof; added expired/mismatched ticket, query preservation, language switch and security-header coverage. Independent re-verification passed 2 suites/61 tests; integrated full Jest, client/server typechecks, lint and build passed (existing lint and bundle-size warnings). Real HTTP/browser navigation, redirect and playback remain unverified.
 
 - Bounded dynamic-key trace checked proctoring kinds/messages, chat upload errors, connection quality, onboarding, backgrounds, and manual/security section keys. No confirmed missing key found. Locale parity cannot detect keys missing in both languages or incorrect namespaces; runtime and exhaustive dynamic call coverage remain unproven.
