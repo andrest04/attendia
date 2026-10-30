@@ -185,6 +185,9 @@ describe('localized API errors', () => {
     ['recording was not active', 'Recording was not active when this class ended.'],
     ['file too large', 'The file exceeds the permitted size.'],
     ['stale_cursor', 'The inbox changed; refresh the first page.'],
+    ['invalid attentionThreshold', 'The attention threshold is invalid.'],
+    ['invalid groupAverage', 'The group average is invalid.'],
+    ['invalid percentAboveThreshold', 'The percentage above the threshold is invalid.'],
   ])('translates actionable code %s without changing retry policy', async (code, expected) => {
     setCurrentLanguage('en');
     const error = await throwOnErrorResponse(response(400, { error: { message: code, explanation: 'Explicación.' } }) as any).catch(e => e);

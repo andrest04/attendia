@@ -24,7 +24,7 @@ describe('AvatarCropModal error provenance', () => {
     }
   });
 
-  it.each(['known', 'unknown'])('preserves %s crop errors through the modal', async kind => {
+  it.each(['known', 'unknown'])('handles %s crop errors through the modal', async kind => {
     const onError = jest.fn();
     const error = kind === 'known'
       ? new cropUtils.AvatarCropError('crop.invalidImage', 'same text')
@@ -37,7 +37,7 @@ describe('AvatarCropModal error provenance', () => {
       act(() => { (wrapper.find('MockCropper').prop('onCropComplete') as any)({}, { x: 0, y: 0, width: 256, height: 256 }); });
       wrapper.update();
       await act(async () => { wrapper.find('[data-testid="avatar-crop-confirm"]').first().prop('onClick')!({} as any); await Promise.resolve(); });
-      expect(onError).toHaveBeenCalledWith(kind === 'known' ? error : { message: 'same text' });
+      expect(onError).toHaveBeenCalledWith(kind === 'known' ? error : { translationKey: 'crop.failed' });
     } finally {
       wrapper.unmount();
       crop.mockRestore();
