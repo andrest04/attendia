@@ -22,6 +22,7 @@ const en = {
   common: {
     ...completeReports,
     ...completePreview,
+    acknowledge: 'OK',
     roleBadgeTeacher: 'Teacher',
     browserSupport: { yes: 'Yes', no: 'No' },
     connectionNotice: { lost: 'Connection Lost:', reconnecting: 'Reconnecting to room...' },

@@ -17,6 +17,8 @@ Finish the existing i18n feature for production user-facing application text.
 
 ## Log
 
+- User continuation: "y si veas algo por al camino de una vez lo vez traduccion asi hasta terminar toda la app, no parez ni me preguntes. solo traduce."
+- Audit resumed on feat/i18n. Confirmed hard-coded dialog acknowledgements; retained identity suffix because the card explicitly displays the protocol identity, and preserved unknown historical notification content. External errors remain conditional and require evidence before changing their semantics. Dialog buttons localized: Spanish RED observed (2 failures, English passed), then 4 suites/32 tests, client typecheck and lint passed; lint retains an existing GalleryView test shadow warning. Native assess unassessable due to untracked file declaration; RDD off.
 - L1: "si si quiero que todo pero todo en la app tiene que tener traduccion asi que dale."
 - Existing feature log: `odd/tasks/i18n.md`; Spanish and English infrastructure exists, T5–T7 remain incomplete. Preserve protocol identifiers and existing Spanish privacy meaning.
 - Six disjoint writers started for T1–T5; all work and checks remain pending until observed and integrated. Shared locale registration belongs to the parent.
