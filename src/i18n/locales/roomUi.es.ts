@@ -91,14 +91,14 @@ const roomUi = {
       close: 'Cerrar',
     },
     proctoring: {
-      caption: 'Proctoring',
+      caption: 'Supervisión',
       close: 'Cerrar',
       studentCaption: 'Estudiante · Sesión activa',
       markLegitimate: 'Marcar como legítimo',
       sendWarning: 'Enviar advertencia',
       markedLegitimate: 'Alerta de {{name}} marcada como legítima',
       warningSent: 'Advertencia enviada a {{name}}',
-      feedTitle: 'Alertas de proctoring ({{count}})',
+      feedTitle: 'Alertas de supervisión ({{count}})',
       kind: {
         multiface: 'Múltiples rostros',
         absent: 'Sin presencia',
@@ -229,8 +229,8 @@ const roomUi = {
       hideAttention: 'Ocultar atención',
       attentionPanel: 'Panel de atención',
       record: 'Grabar',
-      proctoringActive: 'Proctoring activo',
-      proctoring: 'Proctoring',
+      proctoringActive: 'Supervisión activa',
+      proctoring: 'Supervisión',
     },
     unmuteRequest: {
       mic: 'El profesor te pide activar tu micrófono',

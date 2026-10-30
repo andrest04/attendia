@@ -8,11 +8,11 @@ const completeReports = {
     report: {
       title: 'Reporte de Atención', session: 'Sesión:', mock: 'Datos simulados — procesamiento de visión por computadora pendiente',
       groupAverage: 'Atención promedio grupal', monitored: 'Estudiantes monitoreados', participants: 'participantes',
-      proctoring: 'Alertas de proctoring', events: 'eventos detectados', thresholdExceeded: 'Umbral superado',
+      proctoring: 'Alertas de supervisión', events: 'eventos detectados', thresholdExceeded: 'Umbral superado',
       totalTime: 'del tiempo total', evolution: 'Evolución de atención grupal', groupAttention: 'Atención grupo',
       threshold: 'Umbral mínimo ({{threshold}}%)', details: 'Detalle por estudiante',
       name: 'Nombre del Estudiante', average: 'Índice Prom.', minimum: 'Mínimo', maximum: 'Máximo',
-      alerts: 'Alertas Proctoring', level: 'Nivel', high: 'Alto', medium: 'Medio', low: 'Bajo',
+      alerts: 'Alertas de supervisión', level: 'Nivel', high: 'Alto', medium: 'Medio', low: 'Bajo',
     },
     history: {
       back: 'Volver', backToHistory: 'Volver al historial', title: 'Historial de clases',

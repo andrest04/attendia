@@ -573,7 +573,7 @@ describe('ProfessorRoomShell', () => {
 
     const feed = wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]');
     expect(feed.exists()).toBe(true);
-    expect(feed.text()).toContain('Alertas de proctoring (2)');
+    expect(feed.text()).toContain('Alertas de supervisión (2)');
     expect(feed.text()).toContain('María Torres');
     expect(feed.text()).toContain('Múltiples rostros');
     expect(feed.text()).toContain('Distraído');
@@ -654,7 +654,7 @@ describe('ProfessorRoomShell', () => {
     // Modal closes and the handled alert leaves the feed.
     expect(wrapper.find('[data-testid="professor-proctoring-modal"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').text()).toContain(
-      'Alertas de proctoring (0)'
+      'Alertas de supervisión (0)'
     );
   });
 
@@ -675,7 +675,7 @@ describe('ProfessorRoomShell', () => {
     expect(onSendWarning).not.toHaveBeenCalled();
     expect(wrapper.find('[data-testid="professor-proctoring-modal"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').text()).toContain(
-      'Alertas de proctoring (0)'
+      'Alertas de supervisión (0)'
     );
   });
 

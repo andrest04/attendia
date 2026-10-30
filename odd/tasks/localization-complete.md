@@ -17,6 +17,10 @@ Finish the existing i18n feature for production user-facing application text.
 
 ## Log
 
+- Translated six Spanish room, toolbar and report `proctoring` labels consistently as `supervisión`, leaving protocol identifiers and English untouched. Worker observed RED and 3 suites/50 GREEN tests; typecheck and lint passed with existing warning. Full Jest suite, client/server typechecks, lint and production build passed. Lint retained the existing GalleryView test shadow warning; build warned about bundle size. Browser verification absent.
+
+- Security availability wording work unit committed as `93638a3`; T6 remains open.
+
 - Re-reviewed completePages, completePreview, completeBackground and completeNotifications English/Spanish resources. Translated `backoff` and `bitrate` in the security page without changing claims; worker observed RED, and parent verification passed 2 suites/12 tests, client typecheck and lint (existing GalleryView test shadow warning). Browser proof absent.
 
 - Re-reviewed all values in src/i18n/locales/roomUi.en.ts, roomUi.es.ts, dashboard.en.ts, dashboard.es.ts, completeControls.en.ts and completeControls.es.ts: no definite wrong-language copy, excluding brand and technical terminology. Runtime interpolation/fallbacks not checked.

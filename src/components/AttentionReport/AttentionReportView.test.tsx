@@ -57,6 +57,13 @@ describe('AttentionReportView — zoom/scrub timeline (ECharts)', () => {
       await act(async () => { await i18n.changeLanguage('es'); });
     }
   });
+  it('renders supervision alert labels in Spanish', () => {
+    const wrapper = mount(<AttentionReportView data={baseData} />);
+    expect(wrapper.text()).toContain('Alertas de supervisión');
+    expect(wrapper.text()).not.toMatch(/proctoring/i);
+    wrapper.unmount();
+  });
+
   it('wires up both an inside (scroll/pinch) and a slider (drag strip) zoom control', () => {
     const option = readOption(mount(<AttentionReportView data={baseData} />));
     const types = option.dataZoom.map((z: any) => z.type);
