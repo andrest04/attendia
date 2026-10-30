@@ -2,7 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { createStyles, makeStyles, Theme } from '@material-ui/core/styles';
 import SchoolIcon from '@material-ui/icons/School';
-import { t } from '../../i18n/translate';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Visual marker for the teacher role. The role is encoded as the `[Profesor]`
@@ -46,13 +46,14 @@ interface RoleBadgeProps {
 
 export default function RoleBadge({ size = 'md', className }: RoleBadgeProps) {
   const classes = useStyles();
+  const { t } = useTranslation('common');
   return (
     <span
       className={clsx(classes.badge, size === 'sm' ? classes.sm : classes.md, className)}
       data-testid="role-badge-teacher"
     >
       <SchoolIcon />
-      {t('Profesor')}
+      {t('roleBadgeTeacher')}
     </span>
   );
 }

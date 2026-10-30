@@ -1,7 +1,7 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { makeStyles, createStyles } from '@material-ui/core/styles';
 import CloseIcon from '../../../icons/CloseIcon';
-import { t } from '../../../i18n/translate';
 
 const useStyles = makeStyles(() =>
   createStyles({
@@ -33,10 +33,11 @@ interface BackgroundSelectionHeaderProps {
 
 export default function BackgroundSelectionHeader({ onClose }: BackgroundSelectionHeaderProps) {
   const classes = useStyles();
+  const { t } = useTranslation('completeBackground');
   return (
     <div className={classes.container}>
-      <div className={classes.text}>{t('Fondos')}</div>
-      <button className={classes.closeBackgroundSelection} onClick={onClose}>
+      <div className={classes.text}>{t('title')}</div>
+      <button className={classes.closeBackgroundSelection} onClick={onClose} aria-label={t('close')} type="button">
         <CloseIcon />
       </button>
     </div>

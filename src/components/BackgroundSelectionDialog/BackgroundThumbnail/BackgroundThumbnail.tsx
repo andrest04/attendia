@@ -115,6 +115,7 @@ export default function BackgroundThumbnail({ thumbnail, imagePath, name, index 
     <div
       className={classes.thumbContainer}
       role="button"
+      aria-label={name}
       tabIndex={0}
       onClick={selectBackground}
       onKeyDown={event => {

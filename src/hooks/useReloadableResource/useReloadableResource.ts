@@ -29,20 +29,20 @@ export default function useReloadableResource<T>(
 } {
   const [data, setData] = useState<T>(initial);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ reason: { message?: string } | null | undefined } | null>(null);
 
   const reload = useCallback(() => {
     if (!fetch) return;
     setIsLoading(true);
-    setError(null);
+    setFailure(null);
     fetch()
       .then(value => setData(() => value))
       .catch(err => {
         console.error(logLabel, err);
-        setError(err.message || failureMessage);
+        setFailure({ reason: err });
       })
       .finally(() => setIsLoading(false));
-    // `logLabel` and `failureMessage` are constants at every call site.
+    // The failure message is resolved at render time, without triggering another fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetch]);
 
@@ -50,5 +50,6 @@ export default function useReloadableResource<T>(
     reload();
   }, [reload]);
 
+  const error = failure ? (failure.reason && failure.reason.message) || failureMessage : null;
   return { data, setData, isLoading, error, reload };
 }

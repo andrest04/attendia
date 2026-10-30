@@ -165,7 +165,7 @@ describe('CalendarTab in English', () => {
         .find('[data-testid="dashboard-calendar-day-8"]')
         .first()
         .prop('aria-label')
-    ).toBe('July 8, 2026');
+    ).toBe('July 8, 2026, 2 classes scheduled');
     expect(
       wrapper
         .find('[data-testid="dashboard-calendar-today"]')

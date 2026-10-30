@@ -2,6 +2,9 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import AttentionConsentModal from './AttentionConsentModal';
 import { Dialog } from '@material-ui/core';
+import { render } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
+import { createI18n } from '../../i18n/createI18n';
 
 // AttentionConsentModal uses MUI Dialog. With Enzyme shallow(), we get one level
 // deep — the Dialog stub — and can assert on its props and on the children via
@@ -79,5 +82,31 @@ describe('AttentionConsentModal', () => {
     onClose({}, 'backdropClick');
     expect(onAccept).not.toHaveBeenCalled();
     expect(onDecline).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'es',
+      'Todo el procesamiento ocurre en tu dispositivo.',
+      'Ninguna imagen ni video sale de tu equipo',
+      'Solo se transmiten índices numéricos de atención al docente',
+      'Los datos son para uso pedagógico exclusivamente',
+    ],
+    [
+      'en',
+      'All processing happens on your device (on-device)',
+      'No image or video leaves your computer',
+      'Only numeric attention indexes are sent to the teacher',
+      'The data is used for teaching purposes only',
+    ],
+  ])('renders the privacy guarantees in %s', (language, processing, images, indices, purpose) => {
+    const view = render(
+      <I18nextProvider i18n={createI18n({ detect: false, lng: language })}>
+        <AttentionConsentModal {...defaultProps} />
+      </I18nextProvider>
+    );
+    const items = Array.from(view.baseElement.querySelectorAll('li')).map(item => item.textContent);
+    expect(items).toEqual(expect.arrayContaining([processing, images, indices, purpose]));
+    view.unmount();
   });
 });

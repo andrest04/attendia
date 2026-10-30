@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { makeStyles } from '@material-ui/core/styles';
 import CloseIcon from '@material-ui/icons/Close';
 
@@ -7,7 +8,6 @@ import StandalonePage, { PageMessageCard, PageNavButton, PageTitle } from '../St
 import useAsyncResource from '../../hooks/useAsyncResource/useAsyncResource';
 import { useAppState } from '../../state';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { t } from '../../i18n/translate';
 
 /*
  * Standalone document viewer, opened in a NEW TAB from the "Ver" button on the
@@ -42,10 +42,12 @@ function needsConvertedPreview(kind: ResourceRecord['kind']): boolean {
   return kind === 'presentation' || kind === 'word';
 }
 
-const FAILURE_MESSAGE = 'No pudimos cargar el recurso.';
+const FAILURE_MESSAGE = '__resource_preview_failed__';
+const MISSING_MESSAGE = '__resource_preview_missing__';
 
 export default function ResourceViewerPage() {
   const classes = useStyles();
+  const { t } = useTranslation();
   const { resourceId } = useParams<{ resourceId: string }>();
   const { fetchResources, fetchResourceDownloadUrl, fetchResourcePreviewUrl } = useAppState();
   const isAvailable = Boolean(fetchResources && fetchResourceDownloadUrl && fetchResourcePreviewUrl);
@@ -57,13 +59,13 @@ export default function ResourceViewerPage() {
         ? () =>
             fetchResources!().then(resources => {
               const found = resources.find(r => r.id === resourceId);
-              if (!found) throw new Error(t('El recurso solicitado no existe.'));
+              if (!found) throw new Error(MISSING_MESSAGE);
               return found;
             })
         : null,
     [isAvailable, fetchResources, resourceId]
   );
-  const failureMessage = t(FAILURE_MESSAGE);
+  const failureMessage = FAILURE_MESSAGE;
   const { data: resource, error: resourceError } = useAsyncResource(loadResource, { failureMessage });
 
   // Stage 2: fetch the file as a blob and expose it as an object URL, released with the page.
@@ -83,27 +85,34 @@ export default function ResourceViewerPage() {
     dispose: url => URL.revokeObjectURL(url),
   });
 
-  const error = isAvailable ? resourceError || fileError : t('No pudimos validar tu acceso a este recurso.');
+  const loadError = resourceError || fileError;
+  const error = !isAvailable
+    ? t('completePreview.access', 'No pudimos validar tu acceso a este recurso.')
+    : loadError === MISSING_MESSAGE
+    ? t('completePreview.missing', 'El recurso solicitado no existe.')
+    : loadError === FAILURE_MESSAGE
+    ? t('completePreview.failure', 'No pudimos cargar el recurso.')
+    : loadError;
 
   return (
     <StandalonePage
       testId="resource-viewer-page"
       fill
-      navStart={<PageTitle tone="strong">{resource?.name || 'Vista previa'}</PageTitle>}
+      navStart={<PageTitle tone="strong">{resource?.name || t('completePreview.title', 'Vista previa')}</PageTitle>}
       navEnd={
         <PageNavButton
           onClick={() => window.close()}
           icon={<CloseIcon style={{ fontSize: 16 }} />}
           testId="resource-viewer-page-close"
         >
-          {t('Cerrar')}
+          {t('completePreview.close', 'Cerrar')}
         </PageNavButton>
       }
     >
       <div className={classes.body}>
         {objectUrl && resource ? (
           resource.kind === 'video' ? (
-            <video className={classes.video} src={objectUrl} controls autoPlay data-testid="resource-viewer-video" />
+            <video className={classes.video} src={objectUrl} controls autoPlay aria-label={t('completePreview.videoLabel', { name: resource.name, defaultValue: 'Vista previa de video: {{name}}' })} data-testid="resource-viewer-video" />
           ) : (
             <iframe
               className={classes.frame}
@@ -113,7 +122,7 @@ export default function ResourceViewerPage() {
             />
           )
         ) : (
-          <PageMessageCard testId="resource-viewer-empty">{error || t('Cargando el documento...')}</PageMessageCard>
+          <PageMessageCard testId="resource-viewer-empty">{error || t('completePreview.loading', 'Cargando el documento...')}</PageMessageCard>
         )}
       </div>
     </StandalonePage>

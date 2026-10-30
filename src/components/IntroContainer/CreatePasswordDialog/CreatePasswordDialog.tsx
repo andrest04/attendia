@@ -10,10 +10,8 @@ import {
   Typography,
 } from '@material-ui/core';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
-import { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useAppState } from '../../../state';
-import spanishTranslator from '../../../i18n/spanishTranslator';
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -44,18 +42,18 @@ const useStyles = makeStyles({
 
 // Maps Firebase credential-linking error codes to friendly messages.
 // Follows the same local-mapping pattern as LoginPage's getFirebaseAuthErrorMessage.
-function getCreatePasswordErrorMessage(error: any, t: TFunction = spanishTranslator): string {
+function getCreatePasswordErrorKey(error: any): string {
   switch (error?.code) {
     case 'auth/weak-password':
-      return t('auth:createPassword.weak', { min: MIN_PASSWORD_LENGTH });
+      return 'createPassword.weak';
     case 'auth/requires-recent-login':
-      return t('auth:createPassword.requiresRecentLogin');
+      return 'createPassword.requiresRecentLogin';
     case 'auth/provider-already-linked':
     case 'auth/credential-already-in-use':
     case 'auth/email-already-in-use':
-      return t('auth:createPassword.alreadyLinked');
+      return 'createPassword.alreadyLinked';
     default:
-      return t('auth:createPassword.generic');
+      return 'createPassword.generic';
   }
 }
 
@@ -89,12 +87,12 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
     setError(null);
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(t('createPassword.weak', { min: MIN_PASSWORD_LENGTH }));
+      setError('createPassword.weak');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError(t('createPassword.mismatch'));
+      setError('createPassword.mismatch');
       return;
     }
 
@@ -104,7 +102,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
         setIsSuccess(true);
       })
       .catch(err => {
-        setError(getCreatePasswordErrorMessage(err, t));
+        setError(getCreatePasswordErrorKey(err));
       })
       .finally(() => {
         setIsSubmitting(false);
@@ -157,7 +155,7 @@ export default function CreatePasswordDialog({ open, onClose }: CreatePasswordDi
             {error && (
               <Typography variant="caption" className={classes.errorMessage}>
                 <ErrorOutlineIcon />
-                {error}
+                {t(error, { min: MIN_PASSWORD_LENGTH })}
               </Typography>
             )}
           </DialogContent>

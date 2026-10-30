@@ -1,3 +1,8 @@
+import React from 'react';
+import { mount } from 'enzyme';
+import { act as domAct } from 'react-dom/test-utils';
+import { I18nextProvider } from 'react-i18next';
+import { createI18n } from '../../i18n/createI18n';
 import { act, renderHook } from '@testing-library/react-hooks';
 import useSessionEnd from './useSessionEnd';
 import useVideoContext from '../useVideoContext/useVideoContext';
@@ -95,9 +100,10 @@ describe('useSessionEnd', () => {
       await result.current.endSessionForAll();
     });
 
-    expect(mockEnqueue).toHaveBeenCalledWith(
-      'No se pudo cerrar la sala en el servidor. Los estudiantes podrían seguir conectados.',
-      expect.objectContaining({ variant: 'warning' })
+    expect(mockEnqueue).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ variant: 'warning' }));
+    const message = mockEnqueue.mock.calls[0][0];
+    expect(typeof message === 'string' ? message : mount(message).text()).toBe(
+      'No se pudo cerrar la sala en el servidor. Los estudiantes podrían seguir conectados.'
     );
   });
 
@@ -121,6 +127,24 @@ describe('useSessionEnd', () => {
       expect.objectContaining({ variant: 'info' })
     );
     expect(mockDisconnect).toHaveBeenCalled();
+  });
+
+  it('updates the visible failure warning when the language changes without enqueuing again', async () => {
+    const instance = createI18n({ detect: false, lng: 'es' });
+    const wrapper = ({ children }: { children?: React.ReactNode }) =>
+      React.createElement(I18nextProvider, { i18n: instance }, children);
+    (global as any).fetch = jest.fn().mockRejectedValue(new Error('offline'));
+    const { result, unmount } = renderHook(() => useSessionEnd(), { wrapper });
+    await act(async () => { await result.current.endSessionForAll(); });
+    unmount();
+    const message = mount(React.createElement(I18nextProvider, { i18n: instance }, mockEnqueue.mock.calls[0][0]));
+    expect(message.text()).toBe(instance.t('notifications:endSessionFailed'));
+    await domAct(async () => { await instance.changeLanguage('en'); });
+    message.update();
+    expect(message.text()).toBe(instance.t('notifications:endSessionFailed'));
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue.mock.calls[0][1]).toEqual({ variant: 'warning' });
+    message.unmount();
   });
 
   it('does not warn when the room was closed', async () => {

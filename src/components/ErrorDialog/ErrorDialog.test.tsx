@@ -7,6 +7,7 @@ import { Dialog } from '@material-ui/core';
 import DialogContentText from '@material-ui/core/DialogContentText';
 
 import ErrorDialog from './ErrorDialog';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
 
 describe('the ErrorDialog component', () => {
   const message = 'Fake Error message';
@@ -33,9 +34,39 @@ describe('the ErrorDialog component', () => {
   it('should display error message and error code when both are given', () => {
     const error = { message, code } as TwilioError;
     const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
-    expect(wrapper.find(DialogContentText).text()).toBe(message);
+    expect(wrapper.find(DialogContentText).text()).toBe('Ocurrió un error inesperado.');
     expect(wrapper.find('code').exists()).toBe(true);
     expect(wrapper.find('code').text()).toBe(`Código de error: ${code}`);
+  });
+
+  it('preserves an ordinary application error', () => {
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={new Error('Error de aplicación')} />);
+    expect(wrapper.find(DialogContentText).text()).toBe('Error de aplicación');
+  });
+
+  it('hides untranslated server text when no Spanish explanation was provided', () => {
+    const error = new ClientApiError(500, 'Internal server error', 'Internal server error', false);
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
+    expect(wrapper.find(DialogContentText).text()).toBe('No se pudo completar la solicitud.');
+    expect(error.message).toBe('No se pudo completar la solicitud.');
+  });
+
+  it('preserves a string API code without treating it as a numeric Twilio code', () => {
+    const error = new ClientApiError(403, '20101', 'Explicación del servidor.');
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
+    expect(wrapper.find(DialogContentText).text()).toBe('Explicación del servidor.');
+    expect(wrapper.find('code').text()).toBe('Código de error: 20101');
+  });
+
+  it('preserves ordinary application errors even with numeric codes', () => {
+    const error = Object.assign(new Error('Error de aplicación'), { code: 123 });
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
+    expect(wrapper.find(DialogContentText).text()).toBe('Error de aplicación');
+  });
+
+  it('hides unknown browser exception messages', () => {
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={new DOMException('raw', 'UnknownError')} />);
+    expect(wrapper.find(DialogContentText).text()).toBe('Ocurrió un error inesperado.');
   });
 
   it('should display an enhanced error message when error code is 20101', () => {
@@ -59,7 +90,7 @@ describe('the ErrorDialog component', () => {
     const error = { message: 'Failed to allocate videosource', name: 'NotReadableError' } as TwilioError;
     const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
     expect(wrapper.find(DialogContentText).text()).toBe(
-      'No se pudo iniciar la cámara. Cierra otras apps o pestañas que la estén usando y vuelve a intentar.'
+      'No se pudo iniciar la cámara. Cierra otras aplicaciones o pestañas que la estén usando y vuelve a intentar.'
     );
   });
 

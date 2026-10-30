@@ -78,11 +78,14 @@ interface EndCallButtonProps {
   isEnding?: boolean;
 }
 
+let nextDialogId = 0;
+
 export default function EndCallButton(props: EndCallButtonProps = {}) {
   const { t } = useTranslation('toolbar');
   const classes = useStyles();
   const { room } = useVideoContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogTitleId] = useState(() => `end-call-dialog-title-${++nextDialogId}`);
 
   // Leaving on purpose must not auto-rejoin on the next refresh, so drop the saved
   // session here. A page refresh disconnects via 'beforeunload' instead, which does
@@ -128,10 +131,11 @@ export default function EndCallButton(props: EndCallButtonProps = {}) {
 
       <Dialog
         open={isDialogOpen}
+        aria-labelledby={dialogTitleId}
         onClose={() => !props.isEnding && setIsDialogOpen(false)}
         data-testid="end-call-dialog"
       >
-        <DialogTitle>{t('endCall.dialogTitle')}</DialogTitle>
+        <DialogTitle id={dialogTitleId}>{t('endCall.dialogTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>{t('endCall.dialogBody')}</DialogContentText>
         </DialogContent>

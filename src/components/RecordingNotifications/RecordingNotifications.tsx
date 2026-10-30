@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 import Snackbar from '../Snackbar/Snackbar';
 import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
-import { t } from '../../i18n/translate';
 
 enum Snackbars {
   none,
@@ -12,6 +12,7 @@ enum Snackbars {
 }
 
 export default function RecordingNotifications() {
+  const { t } = useTranslation();
   const [activeSnackbar, setActiveSnackbar] = useState(Snackbars.none);
   const prevIsRecording = useRef<boolean | null>(null);
   const isRecording = useIsRecording();
@@ -47,26 +48,26 @@ export default function RecordingNotifications() {
         open={activeSnackbar === Snackbars.recordingStarted}
         handleClose={() => setActiveSnackbar(Snackbars.none)}
         variant="info"
-        headline={t('La grabación ha comenzado.')}
+        headline={t('recordingNotifications.started')}
         message=""
       />
       <Snackbar
         open={activeSnackbar === Snackbars.recordingInProgress}
         handleClose={() => setActiveSnackbar(Snackbars.none)}
         variant="info"
-        headline={t('La grabación está en curso.')}
+        headline={t('recordingNotifications.inProgress')}
         message=""
       />
       <Snackbar
         open={activeSnackbar === Snackbars.recordingFinished}
-        headline={t('Grabación completa')}
+        headline={t('recordingNotifications.complete')}
         message={
           <>
-            {t('Puedes ver la grabación en la')}{' '}
+            {t('recordingNotifications.beforeLink')}{' '}
             <Link target="_blank" rel="noopener" href="https://www.twilio.com/console/video/logs/recordings">
-              {t('Consola de Twilio')}
+              {t('recordingNotifications.link')}
             </Link>
-            {t('. Las grabaciones estarán disponibles cuando esta sala haya terminado.')}
+            {t('recordingNotifications.afterLink')}
           </>
         }
         variant="info"

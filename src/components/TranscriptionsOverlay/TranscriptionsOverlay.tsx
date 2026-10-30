@@ -1,9 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import es from '../../i18n/locales/completeControls.es';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { useAppState } from '../../state';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { useTranscriptions } from '../../hooks/useTranscriptions/useTranscriptions';
-import { t } from '../../i18n/translate';
 
 export type TranscriptionLine = {
   text: string;
@@ -62,6 +63,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 }));
 
 export const TranscriptionsOverlay: React.FC = () => {
+  const { t } = useTranslation('completeControls');
   const classes = useStyles();
   const { isCaptionsEnabled } = useAppState();
   const { room } = useVideoContext();
@@ -79,7 +81,7 @@ export const TranscriptionsOverlay: React.FC = () => {
   if (!hasContent) return null;
 
   return (
-    <div role="region" aria-label={t('Transcripciones en vivo')} className={classes.overlay}>
+    <div role="region" aria-label={t('liveTranscriptions', es.liveTranscriptions)} className={classes.overlay}>
       <div className={classes.container}>
         {recentLines.map((line, idx) => (
           <div

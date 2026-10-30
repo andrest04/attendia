@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`the ConnectionOptionsDialog component when connected to a room should render correctly 1`] = `
+exports[`the ConnectionOptionsDialog component when connected to a room disables the connection controls 1`] = `
 <WithStyles(ForwardRef(Dialog))
   classes={
     {
@@ -29,7 +29,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           hidden={false}
           variant="body2"
         >
-          Estos ajustes no se pueden cambiar mientras estás en una sala.
+          Esta configuración no se puede cambiar mientras estás en una sala.
         </WithStyles(ForwardRef(Typography))>
       </WithStyles(ForwardRef(Grid))>
       <WithStyles(ForwardRef(Grid))
@@ -41,14 +41,20 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="dominantSpeakerPriority"
+            id="connection-options-11-dominant-label"
           >
-            Prioridad del orador principal:
+            Prioridad del participante dominante:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
+            SelectDisplayProps={
+              {
+                "id": "connection-options-11-dominant",
+              }
+            }
             disabled={true}
             fullWidth={true}
             label="dominantSpeakerPriority"
+            labelId="connection-options-11-dominant-label"
             name="dominantSpeakerPriority"
             onChange={[Function]}
             value="standard"
@@ -79,14 +85,20 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="trackSwitchOffMode"
+            id="connection-options-11-switch-label"
           >
-            Modo de apagado de pista:
+            Modo de desactivación de pistas:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
+            SelectDisplayProps={
+              {
+                "id": "connection-options-11-switch",
+              }
+            }
             disabled={true}
             fullWidth={true}
             label="trackSwitchOffMode"
+            labelId="connection-options-11-switch-label"
             name="trackSwitchOffMode"
             onChange={[Function]}
             value="default"
@@ -94,7 +106,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
             <WithStyles(ForwardRef(MenuItem))
               value="predicted"
             >
-              Predicho
+              Previsto
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="detected"
@@ -117,14 +129,20 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="bandwidthProfileMode"
+            id="connection-options-11-mode-label"
           >
             Modo:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
+            SelectDisplayProps={
+              {
+                "id": "connection-options-11-mode",
+              }
+            }
             disabled={true}
             fullWidth={true}
             label="bandwidthProfileMode"
+            labelId="connection-options-11-mode-label"
             name="bandwidthProfileMode"
             onChange={[Function]}
             value="collaboration"
@@ -161,14 +179,20 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="clientTrackSwitchOffControl"
+            id="connection-options-11-client-label"
           >
-            Control de apagado de pista del cliente:
+            Control del cliente de desactivación de pistas:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
+            SelectDisplayProps={
+              {
+                "id": "connection-options-11-client",
+              }
+            }
             disabled={true}
             fullWidth={true}
             label="clientTrackSwitchOffControl"
+            labelId="connection-options-11-client-label"
             name="clientTrackSwitchOffControl"
             onChange={[Function]}
             value="auto"
@@ -194,14 +218,20 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="contentPreferencesMode"
+            id="connection-options-11-content-label"
           >
             Modo de preferencias de contenido:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
+            SelectDisplayProps={
+              {
+                "id": "connection-options-11-content",
+              }
+            }
             disabled={true}
             fullWidth={true}
             label="contentPreferencesMode"
+            labelId="connection-options-11-content-label"
             name="contentPreferencesMode"
             onChange={[Function]}
             value="auto"
@@ -229,11 +259,11 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
           <WithStyles(ForwardRef(TextField))
             disabled={true}
             fullWidth={true}
-            id="maxAudioBitrate"
-            label="Bitrate máximo de audio"
+            id="connection-options-11-max-audio-bitrate"
+            label="Tasa máxima de bits de audio"
             name="maxAudioBitrate"
             onChange={[Function]}
-            placeholder="Déjalo en blanco para no poner límite"
+            placeholder="Dejar vacío para no limitar"
             value=""
           />
         </WithStyles(ForwardRef(FormControl))>
@@ -254,7 +284,7 @@ exports[`the ConnectionOptionsDialog component when connected to a room should r
 </WithStyles(ForwardRef(Dialog))>
 `;
 
-exports[`the ConnectionOptionsDialog component when not connected to a room should render correctly 1`] = `
+exports[`the ConnectionOptionsDialog component when not connected to a room enables the connection controls 1`] = `
 <WithStyles(ForwardRef(Dialog))
   classes={
     {
@@ -280,10 +310,10 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
         xs={12}
       >
         <WithStyles(ForwardRef(Typography))
-          hidden={false}
+          hidden={true}
           variant="body2"
         >
-          Estos ajustes no se pueden cambiar mientras estás en una sala.
+          Esta configuración no se puede cambiar mientras estás en una sala.
         </WithStyles(ForwardRef(Typography))>
       </WithStyles(ForwardRef(Grid))>
       <WithStyles(ForwardRef(Grid))
@@ -295,14 +325,20 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="dominantSpeakerPriority"
+            id="connection-options-7-dominant-label"
           >
-            Prioridad del orador principal:
+            Prioridad del participante dominante:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
-            disabled={true}
+            SelectDisplayProps={
+              {
+                "id": "connection-options-7-dominant",
+              }
+            }
+            disabled={false}
             fullWidth={true}
             label="dominantSpeakerPriority"
+            labelId="connection-options-7-dominant-label"
             name="dominantSpeakerPriority"
             onChange={[Function]}
             value="standard"
@@ -333,14 +369,20 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="trackSwitchOffMode"
+            id="connection-options-7-switch-label"
           >
-            Modo de apagado de pista:
+            Modo de desactivación de pistas:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
-            disabled={true}
+            SelectDisplayProps={
+              {
+                "id": "connection-options-7-switch",
+              }
+            }
+            disabled={false}
             fullWidth={true}
             label="trackSwitchOffMode"
+            labelId="connection-options-7-switch-label"
             name="trackSwitchOffMode"
             onChange={[Function]}
             value="default"
@@ -348,7 +390,7 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
             <WithStyles(ForwardRef(MenuItem))
               value="predicted"
             >
-              Predicho
+              Previsto
             </WithStyles(ForwardRef(MenuItem))>
             <WithStyles(ForwardRef(MenuItem))
               value="detected"
@@ -371,14 +413,20 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="bandwidthProfileMode"
+            id="connection-options-7-mode-label"
           >
             Modo:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
-            disabled={true}
+            SelectDisplayProps={
+              {
+                "id": "connection-options-7-mode",
+              }
+            }
+            disabled={false}
             fullWidth={true}
             label="bandwidthProfileMode"
+            labelId="connection-options-7-mode-label"
             name="bandwidthProfileMode"
             onChange={[Function]}
             value="collaboration"
@@ -415,14 +463,20 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="clientTrackSwitchOffControl"
+            id="connection-options-7-client-label"
           >
-            Control de apagado de pista del cliente:
+            Control del cliente de desactivación de pistas:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
-            disabled={true}
+            SelectDisplayProps={
+              {
+                "id": "connection-options-7-client",
+              }
+            }
+            disabled={false}
             fullWidth={true}
             label="clientTrackSwitchOffControl"
+            labelId="connection-options-7-client-label"
             name="clientTrackSwitchOffControl"
             onChange={[Function]}
             value="auto"
@@ -448,14 +502,20 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(InputLabel))
-            id="contentPreferencesMode"
+            id="connection-options-7-content-label"
           >
             Modo de preferencias de contenido:
           </WithStyles(ForwardRef(InputLabel))>
           <WithStyles(ForwardRef(Select))
-            disabled={true}
+            SelectDisplayProps={
+              {
+                "id": "connection-options-7-content",
+              }
+            }
+            disabled={false}
             fullWidth={true}
             label="contentPreferencesMode"
+            labelId="connection-options-7-content-label"
             name="contentPreferencesMode"
             onChange={[Function]}
             value="auto"
@@ -481,13 +541,13 @@ exports[`the ConnectionOptionsDialog component when not connected to a room shou
           className="makeStyles-formControl-4"
         >
           <WithStyles(ForwardRef(TextField))
-            disabled={true}
+            disabled={false}
             fullWidth={true}
-            id="maxAudioBitrate"
-            label="Bitrate máximo de audio"
+            id="connection-options-7-max-audio-bitrate"
+            label="Tasa máxima de bits de audio"
             name="maxAudioBitrate"
             onChange={[Function]}
-            placeholder="Déjalo en blanco para no poner límite"
+            placeholder="Dejar vacío para no limitar"
             value=""
           />
         </WithStyles(ForwardRef(FormControl))>

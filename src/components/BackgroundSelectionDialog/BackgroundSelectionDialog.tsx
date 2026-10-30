@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import BackgroundSelectionHeader from './BackgroundSelectionHeader/BackgroundSelectionHeader';
 import BackgroundThumbnail from './BackgroundThumbnail/BackgroundThumbnail';
 import Drawer from '@material-ui/core/Drawer';
@@ -22,6 +23,7 @@ const useStyles = makeStyles((theme: Theme) => ({
 
 function BackgroundSelectionDialog() {
   const classes = useStyles();
+  const { t } = useTranslation('completeBackground');
   const { isBackgroundSelectionOpen, setIsBackgroundSelectionOpen } = useVideoContext();
 
   const imageNames = backgroundConfig.imageNames;
@@ -39,15 +41,15 @@ function BackgroundSelectionDialog() {
     >
       <BackgroundSelectionHeader onClose={() => setIsBackgroundSelectionOpen(false)} />
       <div className={classes.thumbnailContainer}>
-        <BackgroundThumbnail thumbnail={'none'} name={'None'} />
-        <BackgroundThumbnail thumbnail={'blur'} name={'Blur'} />
+        <BackgroundThumbnail thumbnail={'none'} name={t('none')} />
+        <BackgroundThumbnail thumbnail={'blur'} name={t('blur')} />
         {images.map((image, index) => (
           <BackgroundThumbnail
             thumbnail={'image'}
-            name={imageNames[index]}
+            name={t(`images.${imageNames[index]}`, { defaultValue: imageNames[index] })}
             index={index}
             imagePath={image}
-            key={image}
+            key={imageNames[index]}
           />
         ))}
       </div>

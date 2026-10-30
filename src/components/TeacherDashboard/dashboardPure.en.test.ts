@@ -72,7 +72,7 @@ describe('dashboard tab labels', () => {
 
 describe('dashboard plural and context keys', () => {
   it.each([
-    [1, 'No pudimos guardar un reporte al cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.'],
+    [1, 'No pudimos guardar un reporte al cerrar la clase. Todavía no se envió. Puedes reintentar ahora.'],
     [3, 'No pudimos guardar 3 reportes al cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.'],
   ])('pendingReports in Spanish with count %i', (count, expected) => {
     expect(es.t('dashboardShell:pendingReports', { count })).toBe(expected);

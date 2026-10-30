@@ -20,7 +20,7 @@ describe('PhoneBlockedScreen', () => {
   it('explains in Spanish that phones are not supported', () => {
     const wrapper = mount(<PhoneBlockedScreen />);
     expect(wrapper.text()).toContain('Esta plataforma no está disponible en celulares');
-    expect(wrapper.text()).toContain('computador o tablet');
+    expect(wrapper.text()).toContain('computador o tableta');
   });
 });
 

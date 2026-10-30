@@ -8,7 +8,10 @@ import Menu from './Menu';
 import MenuContainer from '@material-ui/core/Menu';
 import MoreIcon from '@material-ui/icons/MoreVert';
 import { shallow } from 'enzyme';
-import { render, fireEvent, waitForElement } from '@testing-library/react';
+import { render, fireEvent, waitForElement, cleanup } from '@testing-library/react';
+import { I18nextProvider, setI18n } from 'react-i18next';
+import i18n from '../../../i18n/testInit';
+import { createI18n } from '../../../i18n/createI18n';
 
 import { useAppState } from '../../../state';
 import useChatContext from '../../../hooks/useChatContext/useChatContext';
@@ -17,7 +20,6 @@ import useMediaQuery from '@material-ui/core/useMediaQuery';
 import useIsRecording from '../../../hooks/useIsRecording/useIsRecording';
 import { useSessionEndApi } from '../../../hooks/useSessionEnd/sessionEndContext';
 import useLocalVideoToggle from '../../../hooks/useLocalVideoToggle/useLocalVideoToggle';
-import i18n from '../../../i18n';
 
 jest.mock('../../../hooks/useFlipCameraToggle/useFlipCameraToggle');
 jest.mock('@material-ui/core/useMediaQuery');
@@ -300,6 +302,19 @@ describe('the Menu component', () => {
         flipCameraDisabled: false,
         flipCameraSupported: true,
       }));
+    });
+
+    it.each([['es', 'Más'], ['en', 'More']])('names and opens the mobile menu in %s', (language, label) => {
+      const { getByRole, unmount } = render(
+        <I18nextProvider i18n={createI18n({ detect: false, lng: language })}>
+          <Menu />
+        </I18nextProvider>
+      );
+      fireEvent.click(getByRole('button', { name: label }));
+      expect(getByRole('menu')).toBeTruthy();
+      unmount();
+      cleanup();
+      setI18n(i18n);
     });
 
     it('should render the correct icon', () => {

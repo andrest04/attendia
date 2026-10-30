@@ -1,10 +1,16 @@
 import React from 'react';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
+import { setCurrentLanguage } from '../../i18n/currentLanguage';
 import { act } from 'react-dom/test-utils';
 import { mount, ReactWrapper } from 'enzyme';
 import ClassHistoryPage from './ClassHistoryPage';
 import { useAppState } from '../../state';
+import i18n from '../../i18n/testInit';
+import es from '../../i18n/locales/completeReports.es';
+import en from '../../i18n/locales/completeReports.en';
 
 jest.mock('../../state');
+i18n.on('languageChanged', setCurrentLanguage);
 
 const mockHistoryPush = jest.fn();
 jest.mock('react-router-dom', () => ({
@@ -57,6 +63,68 @@ async function renderPage(): Promise<ReactWrapper> {
 describe('the ClassHistoryPage component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('updates history metadata on language change without refetching', async () => {
+    i18n.addResourceBundle('es', 'common', es, true, true);
+    i18n.addResourceBundle('en', 'common', en, true, true);
+    const mockFetch = jest.fn(() => Promise.resolve([{ ...storedReport, source: 'mock' }]));
+    mockUseAppState.mockImplementation(() => ({ profile: teacherProfile, fetchAttentionReports: mockFetch }));
+    const wrapper = await renderPage();
+    try {
+      expect(wrapper.text()).toContain('3 estudiantes');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Class history');
+      expect(wrapper.text()).toContain('3 students');
+      expect(wrapper.text()).toContain('Simulated data');
+      expect(wrapper.text()).toContain('Session ended for everyone');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      wrapper.unmount();
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
+  });
+
+  it('translates a message-less fetch failure without retrying on language change', async () => {
+    i18n.addResourceBundle('es', 'common', es, true, true);
+    i18n.addResourceBundle('en', 'common', en, true, true);
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const mockFetch = jest.fn(() => Promise.reject(new Error('')));
+    mockUseAppState.mockImplementation(() => ({ profile: teacherProfile, fetchAttentionReports: mockFetch }));
+    const wrapper = await renderPage();
+    try {
+      expect(wrapper.text()).toContain('No pudimos consultar el historial de clases.');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('We could not load class history.');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      wrapper.unmount();
+      consoleError.mockRestore();
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
+  });
+
+  it('updates an API failure without refetching and still retries', async () => {
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const mockFetch = jest.fn().mockRejectedValueOnce(new ClientApiError(503, 'unknown', 'Error del servidor.')).mockResolvedValueOnce([]);
+    mockUseAppState.mockImplementation(() => ({ profile: teacherProfile, fetchAttentionReports: mockFetch }));
+    const wrapper = await renderPage();
+    try {
+      expect(wrapper.text()).toContain('Error del servidor.');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('The request could not be completed.');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      await act(async () => { wrapper.find('[data-testid="class-history-retry"]').first().simulate('click'); });
+      wrapper.update();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(wrapper.find('[data-testid="class-history-empty"]').exists()).toBe(true);
+    } finally {
+      wrapper.unmount(); log.mockRestore();
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
   });
 
   it('lists the stored reports for a teacher', async () => {

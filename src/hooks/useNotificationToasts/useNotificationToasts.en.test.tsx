@@ -1,6 +1,7 @@
 import React from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { renderHook } from '@testing-library/react-hooks';
+import { mount } from 'enzyme';
 import { createI18n } from '../../i18n/createI18n';
 import useNotificationToasts from './useNotificationToasts';
 
@@ -22,7 +23,12 @@ const base = {
   lastWarningKind: null as null | 'multiface' | 'absent' | 'away' | 'camera-off',
 };
 
-const messages = () => mockEnqueue.mock.calls.map(call => call[0]);
+const messages = () => mockEnqueue.mock.calls.map(call => {
+  const view = mount(call[0]);
+  const text = view.text();
+  view.unmount();
+  return text;
+});
 
 describe('useNotificationToasts in English', () => {
   const english = createI18n({ detect: false, lng: 'en' });

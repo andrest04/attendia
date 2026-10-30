@@ -1,5 +1,8 @@
 import React from 'react';
 import { mount } from 'enzyme';
+import { act } from 'react-dom/test-utils';
+import { I18nextProvider } from 'react-i18next';
+import { createI18n } from '../../../i18n/createI18n';
 
 import ProfessorRoomShell from './ProfessorRoomShell';
 import { useAttention } from '../../AttentionProvider';
@@ -617,7 +620,7 @@ describe('ProfessorRoomShell', () => {
 
     const feed = wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]');
     expect(feed.exists()).toBe(true);
-    expect(feed.text()).toContain('Alertas de proctoring (2)');
+    expect(feed.text()).toContain('Alertas de supervisión (2)');
     expect(feed.text()).toContain('María Torres');
     expect(feed.text()).toContain('Múltiples rostros');
     expect(feed.text()).toContain('Distraído');
@@ -698,7 +701,7 @@ describe('ProfessorRoomShell', () => {
     // Modal closes and the handled alert leaves the feed.
     expect(wrapper.find('[data-testid="professor-proctoring-modal"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').text()).toContain(
-      'Alertas de proctoring (0)'
+      'Alertas de supervisión (0)'
     );
   });
 
@@ -719,8 +722,31 @@ describe('ProfessorRoomShell', () => {
     expect(onSendWarning).not.toHaveBeenCalled();
     expect(wrapper.find('[data-testid="professor-proctoring-modal"]').exists()).toBe(false);
     expect(wrapper.find('[data-testid="professor-room-shell-proctoring-feed"]').text()).toContain(
-      'Alertas de proctoring (0)'
+      'Alertas de supervisión (0)'
     );
+  });
+
+  it.each([
+    ['professor-proctoring-modal-warning', 'proctoring.warningSent', 'warning'],
+    ['professor-proctoring-modal-legitimate', 'proctoring.markedLegitimate', 'success'],
+  ])('updates a visible %s notice on language change', async (button, key, variant) => {
+    const instance = createI18n({ detect: false, lng: 'es' });
+    mockUseAttention.mockImplementation(() => multifaceAlertAttention);
+    const onSendWarning = jest.fn();
+    const wrapper = mount(<I18nextProvider i18n={instance}><ProfessorRoomShell stage={<div />} proctoringEnabled onSendWarning={onSendWarning} /></I18nextProvider>);
+    openFirstAlert(wrapper);
+    wrapper.find(`[data-testid="${button}"]`).first().simulate('click');
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(mockEnqueue.mock.calls[0][1]).toEqual({ variant });
+    const message = mount(<I18nextProvider i18n={instance}>{mockEnqueue.mock.calls[0][0]}</I18nextProvider>);
+    expect(message.text()).toBe(instance.t(`room:${key}`, { name: 'María Torres' }));
+    await act(async () => { await instance.changeLanguage('en'); });
+    message.update();
+    expect(message.text()).toBe(instance.t(`room:${key}`, { name: 'María Torres' }));
+    expect(mockEnqueue).toHaveBeenCalledTimes(1);
+    expect(onSendWarning).toHaveBeenCalledTimes(variant === 'warning' ? 1 : 0);
+    message.unmount();
+    wrapper.unmount();
   });
 
   describe('live report modal (Feature 3)', () => {

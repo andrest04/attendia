@@ -1,7 +1,7 @@
 {
   "short_name": "attendia",
   "name": "attendia",
-  "description": "Plataforma de clases en video con telemetría de atención.",
+  "description": "Plataforma de clases en video con telemetría de atención. / Video classroom platform with attention telemetry.",
   "icons": [
     {
       "src": "favicon.ico",

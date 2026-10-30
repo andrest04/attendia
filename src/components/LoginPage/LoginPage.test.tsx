@@ -5,6 +5,7 @@ import { getLocale, setLocale, Locale } from '../../i18n/locale';
 import { useAppState } from '../../state';
 import { useLocation, useHistory } from 'react-router-dom';
 import { setImmediate } from 'timers';
+import i18n from '../../i18n';
 
 jest.mock('react-router-dom', () => {
   return {
@@ -37,6 +38,10 @@ describe('the LoginPage component', () => {
   afterEach(() => {
     cleanup();
     setLocale(previousLocale);
+  });
+
+  afterEach(async () => {
+    await act(async () => { await i18n.changeLanguage('es'); });
   });
 
   describe('with firebase auth enabled', () => {
@@ -74,6 +79,43 @@ describe('the LoginPage component', () => {
       const { container } = render(<LoginPage />);
       expect(mockReplace).not.toHaveBeenCalled();
       expect(container.children[0]).toBe(undefined);
+    });
+
+    it.each([
+      ['login', 'auth/invalid-credential', 'Correo o contraseña incorrectos. Revisa tus datos e intenta de nuevo.', 'Incorrect email or password. Check your details and try again.'],
+      ['register', 'auth/email-already-in-use', 'Ya existe una cuenta con este correo. Inicia sesión para continuar.', 'An account with this email already exists. Sign in to continue.'],
+      ['completion', null, 'No pudimos completar la operación. Intenta de nuevo en unos segundos.', 'We could not complete the operation. Please try again in a few seconds.'],
+    ])('retranslates a %s error without resubmitting', async (step, code, spanish, english) => {
+      await act(async () => { await i18n.changeLanguage('es'); });
+      const action = jest.fn(() => Promise.reject(code ? { code } : null));
+      mockUseAppState.mockImplementation(() => ({
+        user: step === 'completion' ? { displayName: 'Ana García' } : null,
+        profile: null,
+        isAuthReady: true,
+        signInWithEmail: action,
+        register: action,
+        completeProfile: action,
+      }));
+      const ui = render(<LoginPage />);
+      if (step === 'register') fireEvent.click(ui.getByText('Crear cuenta'));
+      if (step !== 'completion') {
+        if (step === 'register') fireEvent.change(ui.getByLabelText('Nombre completo'), { target: { value: 'Ana García' } });
+        fireEvent.change(ui.getByLabelText('Correo electrónico'), { target: { value: 'ana@example.com' } });
+        fireEvent.change(ui.getByLabelText('Contraseña'), { target: { value: 'password1' } });
+        fireEvent.submit(ui.getByLabelText('Contraseña').closest('form')!);
+      } else {
+        fireEvent.submit(ui.getByText('Confirmar y continuar').closest('form')!);
+      }
+      await waitForElement(() => ui.getByText(spanish));
+      fireEvent.change(ui.getByLabelText('Idioma', { selector: 'select' }), { target: { value: 'en' } });
+      expect(ui.getByText(english)).toBeTruthy();
+      expect(ui.queryByText(spanish)).toBeNull();
+      fireEvent.change(ui.getByLabelText('Language', { selector: 'select' }), { target: { value: 'es' } });
+      expect(ui.getByText(spanish)).toBeTruthy();
+      expect(action).toHaveBeenCalledTimes(1);
+      if (step !== 'completion') expect((ui.getByLabelText('Correo electrónico') as HTMLInputElement).value).toBe('ana@example.com');
+      else expect(ui.getByText('Ana García')).toBeTruthy();
+      ui.unmount();
     });
 
     describe('the login view', () => {

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { createTheme, makeStyles, MuiThemeProvider, Theme } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
@@ -12,6 +13,7 @@ import MeetingRoomIcon from '@material-ui/icons/MeetingRoom';
 import { MuiPickersUtilsProvider, KeyboardDatePicker, KeyboardTimePicker } from '@material-ui/pickers';
 import DateFnsUtils from '@date-io/date-fns';
 import esLocale from 'date-fns/locale/es';
+import enLocale from 'date-fns/locale/en-US';
 import { DashboardStat, UpcomingSession } from './types';
 import { statCardIcon } from './dashboardHelpers';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../../classSession/classSessionTypes';
@@ -21,8 +23,6 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
 import baseTheme from '../../theme';
-import { dateLocale } from '../../i18n/locale';
-import { t } from '../../i18n/translate';
 
 // @material-ui/pickers ships its overridable class keys separately from core's `Overrides` type;
 // this augmentation is required for `theme.overrides.MuiPickers*` below to type-check.
@@ -421,11 +421,18 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+const statTranslationKeys: Record<string, string> = {
+  'sessions-week': 'sessionsWeek',
+  'active-students': 'activeStudents',
+  'avg-attention': 'avgAttention',
+  'hours-taught': 'hoursTaught',
+};
+
 // "15 jul" — same day/month-short convention as the rest of the dashboard
 // (ResourcesTab's formatDateLabel, CalendarTab's day labels).
-function formatDuplicateDateLabel(ms: number | null): string {
-  if (ms === null) return 'sin fecha';
-  return new Date(ms).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short' });
+function formatDuplicateDateLabel(ms: number | null, language: string, noDate: string): string {
+  if (ms === null) return noDate;
+  return new Date(ms).toLocaleDateString(language.startsWith('es') ? 'es-AR' : language, { day: 'numeric', month: 'short' });
 }
 
 interface Props {
@@ -512,6 +519,7 @@ export default function ClassesTab({
   onRefreshRooms,
 }: Props) {
   const classes = useStyles();
+  const { t, i18n } = useTranslation(['completeDashboard', 'dashboardShell']);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [titleInput, setTitleInput] = useState('');
@@ -519,7 +527,8 @@ export default function ClassesTab({
   const [timeValue, setTimeValue] = useState<Date | null>(null);
   const [studentCountInput, setStudentCountInput] = useState('0');
   const [durationMinutesInput, setDurationMinutesInput] = useState('60');
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | { message: string } | null>(null);
+  const validationErrorRef = useRef<{ values: Parameters<typeof validateNewClass>[0]; now: number } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const creationIdempotencyKeyRef = useRef<string | null>(null);
 
@@ -559,7 +568,7 @@ export default function ClassesTab({
       classId: classRecord.id,
       studentCount: classRecord.studentCount,
       time: '',
-      dayLabel: 'En curso',
+      dayLabel: t('classes.inProgress'),
       relativeLabel: '',
       highlighted: false,
     }));
@@ -576,7 +585,7 @@ export default function ClassesTab({
           data-testid="dashboard-rejoin-session-button"
         >
           <MeetingRoomIcon style={{ fontSize: 18 }} />
-          {isStartingClass ? t('Verificando…') : t('Volver a entrar')}
+          {isStartingClass ? t('classes.checking') : t('classes.rejoin')}
         </button>
       );
     }
@@ -584,7 +593,7 @@ export default function ClassesTab({
       return (
         <>
           <div className={classes.newClassError} data-testid="dashboard-room-closed-note">
-            {t('La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.')}
+            {t('classes.closed')}
           </div>
           <button
             type="button"
@@ -594,7 +603,7 @@ export default function ClassesTab({
             data-testid="dashboard-restart-session-button"
           >
             <PlayArrowIcon style={{ fontSize: 16 }} />
-            {isStartingClass ? t('Verificando…') : t('Iniciar de nuevo')}
+            {isStartingClass ? t('classes.checking') : t('classes.restart')}
           </button>
         </>
       );
@@ -607,7 +616,7 @@ export default function ClassesTab({
           disabled
           data-testid="dashboard-checking-session-button"
         >
-          {t('Verificando sala…')}
+          {t('classes.checkingRoom')}
         </button>
       );
     }
@@ -618,6 +627,7 @@ export default function ClassesTab({
     if (!onCreateClass) return;
     if (!isFormOpen) creationIdempotencyKeyRef.current = createIdempotencyKey();
     setIsFormOpen(!isFormOpen);
+    validationErrorRef.current = null;
     setFormError(null);
   };
 
@@ -628,6 +638,7 @@ export default function ClassesTab({
     setStudentCountInput('0');
     setDurationMinutesInput('60');
     setIsFormOpen(false);
+    validationErrorRef.current = null;
     setFormError(null);
     creationIdempotencyKeyRef.current = null;
   };
@@ -636,21 +647,22 @@ export default function ClassesTab({
     event.preventDefault();
     if (!onCreateClass) return;
 
-    const validation = validateNewClass(
-      {
-        title: titleInput,
-        date: dateValue,
-        time: timeValue,
-        studentCount: studentCountInput,
-        durationMinutes: durationMinutesInput,
-      },
-      Date.now()
-    );
+    const values = {
+      title: titleInput,
+      date: dateValue,
+      time: timeValue,
+      studentCount: studentCountInput,
+      durationMinutes: durationMinutesInput,
+    };
+    const now = Date.now();
+    const validation = validateNewClass(values, now, t);
     if (!validation.ok) {
+      validationErrorRef.current = { values, now };
       setFormError(validation.message);
       return;
     }
 
+    validationErrorRef.current = null;
     setFormError(null);
     setIsSubmitting(true);
     onCreateClass({
@@ -658,16 +670,19 @@ export default function ClassesTab({
       idempotencyKey: creationIdempotencyKeyRef.current || createIdempotencyKey(),
     })
       .then(() => resetForm())
-      .catch(err => setFormError(err.message))
+      .catch(err => setFormError(err && err.message ? err : null))
       .finally(() => setIsSubmitting(false));
   };
+
+  const translatedValidation = validationErrorRef.current && validateNewClass(validationErrorRef.current.values, validationErrorRef.current.now, t);
+  const visibleFormError = translatedValidation && !translatedValidation.ok ? translatedValidation.message : typeof formError === 'string' ? formError : formError?.message;
 
   return (
     <div className={classes.root} data-testid="dashboard-classes-tab">
       {statsAreMock && (
         <div className={classes.statsGridHeader}>
           <span className={classes.mockTag} data-testid="dashboard-stats-mock-tag">
-            {t('Datos simulados')}
+            {t('classes.mock')}
           </span>
         </div>
       )}
@@ -681,7 +696,9 @@ export default function ClassesTab({
               </span>
               <div>
                 <div className={classes.statValue}>{stat.value}</div>
-                <div className={classes.statLabel}>{t(stat.label)}</div>
+                <div className={classes.statLabel}>
+                  {statTranslationKeys[stat.id] ? t(`dashboardShell:stats.${statTranslationKeys[stat.id]}`) : stat.label}
+                </div>
               </div>
             </div>
           );
@@ -691,10 +708,10 @@ export default function ClassesTab({
       <div className={classes.sectionHeader}>
         <div>
           <div className={classes.sectionTitle}>
-            {t('Próximas sesiones')}
+            {t('classes.upcoming')}
             {sessionsAreMock && (
               <span className={classes.mockTag} data-testid="dashboard-sessions-mock-tag">
-                {t('Datos simulados')}
+                {t('classes.mock')}
               </span>
             )}
           </div>
@@ -711,10 +728,8 @@ export default function ClassesTab({
             >
               <EventBusyIcon style={{ fontSize: 18 }} />
               {isCancellingExpired
-                ? t('Cancelando…')
-                : expiredClassesCount === 1
-                ? t('Cancelar vencida')
-                : t('Cancelar {{count}} vencidas', { count: expiredClassesCount })}
+                ? t('classes.cancelling')
+                : t('classes.cancelExpired', { count: expiredClassesCount })}
             </button>
           )}
           <button
@@ -724,36 +739,36 @@ export default function ClassesTab({
             data-testid="dashboard-new-class-button"
           >
             <AddIcon style={{ fontSize: 18 }} />
-            {t('Nueva clase')}
+            {t('classes.newClass')}
           </button>
         </div>
       </div>
 
       {onCreateClass && isFormOpen && (
         <form className={classes.newClassForm} onSubmit={handleSubmitNewClass}>
-          <div className={classes.newClassFormTitle}>{t('Nueva clase')}</div>
-          <div className={classes.newClassFormSubtitle}>{t('Completa estos datos para programar la sesión.')}</div>
+          <div className={classes.newClassFormTitle}>{t('classes.newClass')}</div>
+          <div className={classes.newClassFormSubtitle}>{t('classes.formSubtitle')}</div>
 
           <div className={classes.newClassFieldGrid}>
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-title">
-                {t('Título de la clase')}
+                {t('classes.title')}
               </label>
               <input
                 id="new-class-title"
                 type="text"
                 className={classes.newClassInput}
-                placeholder={t('Ej: Matemáticas — Grupo A')}
+                placeholder={t('classes.titlePlaceholder')}
                 value={titleInput}
                 onChange={e => setTitleInput(e.target.value)}
                 data-testid="dashboard-new-class-title-input"
               />
             </div>
 
-            <MuiPickersUtilsProvider utils={DateFnsUtils} locale={esLocale}>
+            <MuiPickersUtilsProvider utils={DateFnsUtils} locale={i18n.language.startsWith('es') ? esLocale : enLocale}>
               <div className={classes.newClassField}>
                 <label className={classes.newClassLabel} htmlFor="new-class-date">
-                  {t('Fecha')}
+                  {t('classes.date')}
                 </label>
                 <KeyboardDatePicker
                   id="new-class-date"
@@ -764,8 +779,12 @@ export default function ClassesTab({
                   variant="inline"
                   inputVariant="outlined"
                   margin="none"
-                  format="dd/MM/yyyy"
-                  placeholder={t('dd/mm/aaaa')}
+                  format={i18n.language.startsWith('es') ? 'dd/MM/yyyy' : 'MM/dd/yyyy'}
+                  placeholder={t('classes.datePlaceholder')}
+                  KeyboardButtonProps={{ 'aria-label': t('classes.chooseDate') }}
+                  invalidDateMessage={t('classes.invalidDate')}
+                  minDateMessage={t('classes.datePast')}
+                  maxDateMessage={t('classes.dateFuture')}
                   value={dateValue}
                   onChange={setDateValue}
                   InputProps={{ classes: { input: classes.newClassPickerInput } }}
@@ -775,7 +794,7 @@ export default function ClassesTab({
 
               <div className={classes.newClassField}>
                 <label className={classes.newClassLabel} htmlFor="new-class-time">
-                  {t('Hora')}
+                  {t('classes.time')}
                 </label>
                 <MuiThemeProvider theme={meetTimePickerTheme}>
                   <KeyboardTimePicker
@@ -788,6 +807,8 @@ export default function ClassesTab({
                     margin="none"
                     format="hh:mm a"
                     placeholder="hh:mm a"
+                    KeyboardButtonProps={{ 'aria-label': t('classes.chooseTime') }}
+                    invalidDateMessage={t('classes.invalidTime')}
                     value={timeValue}
                     onChange={setTimeValue}
                     InputProps={{ classes: { input: classes.newClassPickerInput } }}
@@ -800,7 +821,7 @@ export default function ClassesTab({
 
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-student-count">
-                {t('Alumnos esperados')}
+                {t('classes.students')}
               </label>
               <input
                 id="new-class-student-count"
@@ -815,7 +836,7 @@ export default function ClassesTab({
 
             <div className={classes.newClassField}>
               <label className={classes.newClassLabel} htmlFor="new-class-duration">
-                {t('Duración (minutos)')}
+                {t('classes.duration')}
               </label>
               <input
                 id="new-class-duration"
@@ -837,22 +858,19 @@ export default function ClassesTab({
               disabled={isSubmitting}
               data-testid="dashboard-new-class-submit-button"
             >
-              {isSubmitting ? t('Creando…') : t('Crear clase')}
+              {isSubmitting ? t('classes.creating') : t('classes.create')}
             </button>
             <button type="button" className={classes.newClassCancelButton} onClick={resetForm}>
-              {t('Cancelar')}
+              {t('classes.cancel')}
             </button>
           </div>
 
           {!formError && duplicateClass && (
             <div className={classes.newClassDuplicateWarning} data-testid="dashboard-new-class-duplicate-warning">
-              {t(
-                'Ya tienes una clase "{{title}}" programada para el {{when}}. Puedes crear esta igual si es una sesión distinta.',
-                { title: duplicateClass.title, when: formatDuplicateDateLabel(duplicateClass.scheduledAtMs) }
-              )}
+              {t('classes.duplicate', { title: duplicateClass.title, date: formatDuplicateDateLabel(duplicateClass.scheduledAtMs, i18n.language, t('classes.noDate')) })}
             </div>
           )}
-          {formError && <div className={classes.newClassError}>{formError}</div>}
+          {visibleFormError && <div className={classes.newClassError}>{visibleFormError}</div>}
         </form>
       )}
 
@@ -874,7 +892,7 @@ export default function ClassesTab({
                 <AccessTimeIcon style={{ fontSize: 16 }} />
                 {session.time}
               </span>
-              <span className={classes.metaItem}>
+              <span className={classes.metaItem} role="img" aria-label={t('classes.expectedStudentCount', { count: session.studentCount })}>
                 <PeopleAltIcon style={{ fontSize: 16 }} />
                 {session.studentCount}
               </span>
@@ -889,7 +907,7 @@ export default function ClassesTab({
                   data-testid="dashboard-start-session-button"
                 >
                   <PlayArrowIcon style={{ fontSize: 18 }} />
-                  {isStartingClass ? t('Verificando…') : t('Iniciar sesión')}
+                  {isStartingClass ? t('classes.checking') : t('classes.start')}
                 </button>
               ) : onCancelClass ? (
                 <button
@@ -900,12 +918,12 @@ export default function ClassesTab({
                   data-testid="dashboard-cancel-session-button"
                 >
                   <DeleteIcon style={{ fontSize: 16 }} />
-                  {cancellingClassId === session.id ? t('Cancelando…') : t('Cancelar')}
+                  {cancellingClassId === session.id ? t('classes.cancelling') : t('classes.cancel')}
                 </button>
               ) : (
                 <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">
                   <OpenInNewIcon style={{ fontSize: 16 }} />
-                  {t('Ver detalles')}
+                  {t('classes.details')}
                 </button>
               ))}
           </div>
@@ -914,7 +932,7 @@ export default function ClassesTab({
 
       {inProgressSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-in-progress-section">
-          <div className={classes.expiredSectionTitle}>{t('Sesiones en curso')}</div>
+          <div className={classes.expiredSectionTitle}>{t('classes.inProgress')}</div>
           {onRefreshRooms && (
             <button
               type="button"
@@ -922,7 +940,7 @@ export default function ClassesTab({
               onClick={onRefreshRooms}
               data-testid="dashboard-refresh-rooms-button"
             >
-              {t('Actualizar')}
+              {t('classes.refresh')}
             </button>
           )}
           <div className={classes.sessionsGrid}>
@@ -943,7 +961,7 @@ export default function ClassesTab({
                     data-testid="dashboard-start-session-button"
                   >
                     <PlayArrowIcon style={{ fontSize: 18 }} />
-                    {isStartingClass ? t('Verificando…') : t('Iniciar sesión')}
+                    {isStartingClass ? t('classes.checking') : t('classes.start')}
                   </button>
                 )}
               </div>
@@ -954,7 +972,7 @@ export default function ClassesTab({
 
       {expiredSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-expired-sessions-section">
-          <div className={classes.expiredSectionTitle}>{t('Sesiones vencidas')}</div>
+          <div className={classes.expiredSectionTitle}>{t('classes.expired')}</div>
           <div className={classes.sessionsGrid}>
             {expiredSessions.map(session => (
               <div
@@ -973,7 +991,7 @@ export default function ClassesTab({
                     <AccessTimeIcon style={{ fontSize: 16 }} />
                     {session.time}
                   </span>
-                  <span className={classes.metaItem}>
+                  <span className={classes.metaItem} role="img" aria-label={t('classes.expectedStudentCount', { count: session.studentCount })}>
                     <PeopleAltIcon style={{ fontSize: 16 }} />
                     {session.studentCount}
                   </span>
@@ -987,7 +1005,7 @@ export default function ClassesTab({
                     data-testid="dashboard-cancel-expired-session-button"
                   >
                     <DeleteIcon style={{ fontSize: 16 }} />
-                    {cancellingClassId === session.id ? t('Cancelando…') : t('Cancelar')}
+                    {cancellingClassId === session.id ? t('classes.cancelling') : t('classes.cancel')}
                   </button>
                 )}
               </div>
@@ -1000,7 +1018,7 @@ export default function ClassesTab({
         <div className={classes.newClassError} data-testid="dashboard-cancel-error">
           {cancelError}{' '}
           <button type="button" onClick={onRetryCancel} data-testid="dashboard-retry-cancel-button">
-            {t('Reintentar cancelación')}
+            {t('classes.retryCancel')}
           </button>
         </div>
       )}

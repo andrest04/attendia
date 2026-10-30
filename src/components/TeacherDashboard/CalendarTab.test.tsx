@@ -1,5 +1,8 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount, shallow } from 'enzyme';
+import { I18nextProvider } from 'react-i18next';
+import { createI18n } from '../../i18n/createI18n';
+import { formatLongDate } from '../../i18n/format';
 import CalendarTab from './CalendarTab';
 import { buildCalendarDays, calendarSummary, mondayLeadingBlanks } from './calendarView';
 
@@ -51,6 +54,23 @@ describe('CalendarTab', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it.each([
+    ['es', '0 clases programadas', '1 clase programada', '2 clases programadas'],
+    ['en', '0 classes scheduled', '1 class scheduled', '2 classes scheduled'],
+  ])('names each day with its localized date and class count in %s', (language, zero, one, two) => {
+    const singleClass = { ...classes[0], id: 'class-3', scheduledAtMs: new Date(2026, 6, 9, 9).getTime() };
+    const wrapper = mount(
+      <I18nextProvider i18n={createI18n({ detect: false, lng: language })}>
+        <CalendarTab classes={[...classes, singleClass]} isLoading={false} error={null} onRetry={jest.fn()} onStartClass={jest.fn()} />
+      </I18nextProvider>
+    );
+    [[7, zero], [9, one], [8, two]].forEach(([day, count]) => {
+      const button = wrapper.find(`button[data-testid="dashboard-calendar-day-${day}"]`);
+      expect(button.prop('aria-label')).toBe(`${formatLongDate(new Date(2026, 6, Number(day)), language)}, ${count}`);
+    });
+    wrapper.unmount();
   });
 
   it('renders real class cards and starts the selected persisted class', () => {

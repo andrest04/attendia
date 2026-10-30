@@ -59,7 +59,9 @@ export default function useTeacherResources({
 
   const [resources, setResources] = useState<ResourceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<
+    { kind: 'api'; error: { message: string } } | { kind: 'selectClass' | 'tooManyFiles' } | null
+  >(null);
   const [activeClassId, setActiveClassId] = useState<string>('');
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const uploadIdRef = useRef(0);
@@ -67,7 +69,11 @@ export default function useTeacherResources({
   const [isDeletingResource, setIsDeletingResource] = useState(false);
   const bulkDeleteDialog = useConfirmDialog();
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
+  const [bulkDeleteError, setBulkDeleteError] = useState<
+    { kind: 'api'; error: { message: string } } | { kind: 'resources'; count: number } | { kind: 'class' } | null
+  >(null);
+  const [uploadErrors, setUploadErrors] = useState<Record<string, { message: string }>>({});
+  const [invalidFiles, setInvalidFiles] = useState<Record<string, File>>({});
 
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -87,7 +93,7 @@ export default function useTeacherResources({
         setResources(fetched);
       })
       .catch(err => {
-        if (isMountedRef.current) setErrorMessage(err.message);
+        if (isMountedRef.current) setErrorMessage(err && err.message ? { kind: 'api', error: err } : null);
       })
       .finally(() => {
         if (isMountedRef.current) setIsLoading(false);
@@ -154,7 +160,7 @@ export default function useTeacherResources({
 
   const handleUploadClick = () => {
     if (!activeClassId) {
-      setErrorMessage(t('upload.selectClassFirst'));
+      setErrorMessage({ kind: 'selectClass' });
       return;
     }
     fileInputRef.current?.click();
@@ -162,6 +168,8 @@ export default function useTeacherResources({
 
   const removeUploadEntry = (id: string) => {
     setUploadingFiles(current => current.filter(u => u.id !== id));
+    setUploadErrors(current => { const next = { ...current }; delete next[id]; return next; });
+    setInvalidFiles(current => { const next = { ...current }; delete next[id]; return next; });
   };
 
   const startUpload = (file: File, classId: string) => {
@@ -182,6 +190,7 @@ export default function useTeacherResources({
         // Left in the grid (not auto-removed) so the teacher sees which file
         // failed and why; dismissed manually via the card's close button.
         if (isMountedRef.current) {
+          if (err && err.message) setUploadErrors(current => ({ ...current, [id]: err }));
           setUploadingFiles(current => current.map(u => (u.id === id ? { ...u, error: err.message } : u)));
         }
       });
@@ -197,7 +206,7 @@ export default function useTeacherResources({
     setErrorMessage(null);
 
     if (files.length > MAX_FILES_PER_UPLOAD) {
-      setErrorMessage(t('upload.tooManyFiles', { max: MAX_FILES_PER_UPLOAD }));
+      setErrorMessage({ kind: 'tooManyFiles' });
       return;
     }
 
@@ -205,6 +214,7 @@ export default function useTeacherResources({
       const validationError = validateResourceFile(file, t);
       if (validationError) {
         const id = `upload-${uploadIdRef.current++}`;
+        setInvalidFiles(current => ({ ...current, [id]: file }));
         setUploadingFiles(current => [...current, { id, name: file.name, progress: 0, error: validationError }]);
         return;
       }
@@ -223,7 +233,7 @@ export default function useTeacherResources({
         setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
       })
       .catch(err => {
-        if (isMountedRef.current) setErrorMessage(err.message);
+        if (isMountedRef.current) setErrorMessage(err && err.message ? { kind: 'api', error: err } : null);
       });
   };
 
@@ -249,7 +259,7 @@ export default function useTeacherResources({
         if (isMountedRef.current) setResources(current => current.filter(r => r.id !== resource.id));
       })
       .catch(err => {
-        if (isMountedRef.current) setErrorMessage(err.message);
+        if (isMountedRef.current) setErrorMessage(err && err.message ? { kind: 'api', error: err } : null);
       })
       .finally(() => {
         if (isMountedRef.current) {
@@ -285,7 +295,7 @@ export default function useTeacherResources({
           setResources(current => current.filter(r => !deletedIds.includes(r.id)));
         }
         if (failedCount > 0) {
-          setBulkDeleteError(t('upload.deleteResourcesFailed', { count: failedCount }));
+          setBulkDeleteError({ kind: 'resources', count: failedCount });
         }
         // A cancelled pill's doc is already gone — its files were the only thing left
         // to delete, so it only disappears once every one of them is actually gone; a
@@ -304,7 +314,7 @@ export default function useTeacherResources({
         return undefined;
       })
       .catch(err => {
-        if (isMountedRef.current) setBulkDeleteError(err.message || t('upload.deleteClassFailed'));
+        if (isMountedRef.current) setBulkDeleteError(err && err.message ? { kind: 'api', error: err } : { kind: 'class' });
       })
       .finally(() => {
         if (isMountedRef.current) {
@@ -318,19 +328,21 @@ export default function useTeacherResources({
     isAvailable,
     fileInputRef,
     isLoading,
-    errorMessage,
+    errorMessage: !errorMessage ? null : errorMessage.kind === 'api' ? errorMessage.error.message : errorMessage.kind === 'selectClass' ? t('upload.selectClassFirst') : t('upload.tooManyFiles', { max: MAX_FILES_PER_UPLOAD }),
     activeClassId,
     activeGroup,
     activeOption,
     pillOptions,
-    uploadingFiles,
+    uploadingFiles: uploadingFiles.map(upload => invalidFiles[upload.id]
+      ? { ...upload, error: validateResourceFile(invalidFiles[upload.id], t) }
+      : uploadErrors[upload.id] ? { ...upload, error: uploadErrors[upload.id].message } : upload),
     activeUploadCount,
     canCleanupActive,
     deleteDialog,
     isDeletingResource,
     bulkDeleteDialog,
     isBulkDeleting,
-    bulkDeleteError,
+    bulkDeleteError: !bulkDeleteError ? null : bulkDeleteError.kind === 'api' ? bulkDeleteError.error.message : bulkDeleteError.kind === 'resources' ? t('upload.deleteResourcesFailed', { count: bulkDeleteError.count }) : t('upload.deleteClassFailed'),
     handleSelectGroup,
     handleUploadClick,
     removeUploadEntry,

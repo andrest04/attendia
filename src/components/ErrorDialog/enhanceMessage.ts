@@ -1,9 +1,18 @@
 import { TFunction } from 'i18next';
 import spanishTranslator from '../../i18n/spanishTranslator';
+import completeErrorsEn from '../../i18n/locales/completeErrors.en';
+import completeErrorsEs from '../../i18n/locales/completeErrors.es';
 
 // This function is used to provide error messages to the user that are
 // different than the error messages provided by the SDK.
-export default function enhanceMessage(message = '', code?: number, name?: string, t: TFunction = spanishTranslator) {
+export default function enhanceMessage(
+  message = '',
+  code?: number | string,
+  name?: string,
+  t: TFunction = spanishTranslator,
+  language = 'es',
+  external = false
+) {
   // getUserMedia errors are best matched by their (browser-stable) name, with a
   // fallback to the raw message since Twilio/browsers word these differently.
   const permissionDenied = name === 'NotAllowedError' || name === 'PermissionDeniedError';
@@ -26,6 +35,10 @@ export default function enhanceMessage(message = '', code?: number, name?: strin
     case deviceNotFound:
       return t('errors:enhanced.deviceNotFound');
     default:
-      return message;
+      return external || (typeof code === 'number' && code !== 0 && (!name || name === 'TwilioError'))
+        ? language.split('-')[0] === 'en'
+          ? completeErrorsEn.unexpectedExternal
+          : completeErrorsEs.unexpectedExternal
+        : message;
   }
 }

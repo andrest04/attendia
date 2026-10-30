@@ -1,6 +1,10 @@
 import React from 'react';
 import { mount } from 'enzyme';
 import AttentionReportView, { AttentionReportViewData } from './AttentionReportView';
+import { act } from 'react-dom/test-utils';
+import i18n from '../../i18n/testInit';
+import es from '../../i18n/locales/completeReports.es';
+import en from '../../i18n/locales/completeReports.en';
 
 // echarts needs a real canvas/SVG renderer, which jsdom doesn't provide — stub the
 // component so we can inspect the `option` it was given instead of letting echarts
@@ -34,6 +38,32 @@ const readOption = (wrapper: ReturnType<typeof mount>) =>
   JSON.parse(wrapper.find('[data-testid="attention-report-echarts"]').prop('data-option') as string);
 
 describe('AttentionReportView — zoom/scrub timeline (ECharts)', () => {
+  it('changes report copy, mock disclosure, level and date while mounted', async () => {
+    i18n.addResourceBundle('es', 'common', es, true, true);
+    i18n.addResourceBundle('en', 'common', en, true, true);
+    const wrapper = mount(<AttentionReportView data={{ ...baseData, source: 'mock' }} />);
+    try {
+      expect(wrapper.text()).toContain('Datos simulados — procesamiento de visión por computadora pendiente');
+      expect(wrapper.text()).toContain('2 estudiantes');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Simulated data — CV pipeline pending');
+      expect(wrapper.text()).toContain('2 students');
+      expect(wrapper.text()).toContain('Student details');
+      expect(wrapper.text()).toContain('High');
+      expect(wrapper.text()).toContain('June');
+    } finally {
+      wrapper.unmount();
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
+  });
+  it('renders supervision alert labels in Spanish', () => {
+    const wrapper = mount(<AttentionReportView data={baseData} />);
+    expect(wrapper.text()).toContain('Alertas de supervisión');
+    expect(wrapper.text()).not.toMatch(/proctoring/i);
+    wrapper.unmount();
+  });
+
   it('wires up both an inside (scroll/pinch) and a slider (drag strip) zoom control', () => {
     const option = readOption(mount(<AttentionReportView data={baseData} />));
     const types = option.dataZoom.map((z: any) => z.type);

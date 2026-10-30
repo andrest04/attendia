@@ -30,6 +30,18 @@ describe('createI18n', () => {
     expect(fr.t('common:language.label')).toBe('Idioma');
   });
 
+  it('uses Spanish wording for the room sharing hint', () => {
+    const i18n = createI18n({ detect: false, lng: 'es' });
+    expect(i18n.t('prejoin:roomName.teacher.shareHint')).toBe('Comparte el código o el enlace con tus estudiantes.');
+  });
+
+  it('uses Spanish wording for the simulated report label', () => {
+    const i18n = createI18n({ detect: false, lng: 'es' });
+    expect(i18n.t('common:completeReports.report.mock')).toBe(
+      'Datos simulados — procesamiento de visión por computadora pendiente'
+    );
+  });
+
   it('returns the key for missing keys instead of null', () => {
     expect(createI18n({ detect: false }).t('common:missing.key')).toBe('missing.key');
   });

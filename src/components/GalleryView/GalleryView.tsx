@@ -1,4 +1,5 @@
 import React, { useContext, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import ArrowBack from '@material-ui/icons/ArrowBack';
 import ArrowForward from '@material-ui/icons/ArrowForward';
 import clsx from 'clsx';
@@ -17,7 +18,6 @@ import { useAppState } from '../../state';
 import { AttentionContext } from '../AttentionProvider';
 import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
-import { t } from '../../i18n/translate';
 
 const CONTAINER_GUTTER = '50px';
 // On a narrow desktop/tablet window the fixed 50px gutter eats a disproportionate
@@ -118,6 +118,7 @@ const useStyles = makeStyles((theme: Theme) =>
 
 export function GalleryView() {
   const classes = useStyles();
+  const { t } = useTranslation();
   const { maxGalleryViewParticipants } = useAppState();
   const { room } = useVideoContext();
   const { galleryViewParticipants } = useParticipantsContext();
@@ -159,22 +160,19 @@ export function GalleryView() {
     <div className={classes.container}>
       {isTeacher && totalStudentCount > 0 && (
         <div className={classes.studentCount} data-testid="gallery-student-count">
-          {t('Mostrando {{visible}} / {{total}} estudiantes', {
-            visible: visibleStudentCount,
-            total: totalStudentCount,
-          })}
+          {t('room:gallery.students', { visible: visibleStudentCount, total: totalStudentCount })}
         </div>
       )}
       <div className={clsx(classes.buttonContainer, classes.buttonContainerLeft)}>
         {!(currentPage === 1) && (
-          <IconButton className={classes.paginationButton} onClick={() => setCurrentPage(page => page - 1)}>
+          <IconButton aria-label={t('room:gallery.previous')} className={classes.paginationButton} onClick={() => setCurrentPage(page => page - 1)}>
             <ArrowBack />
           </IconButton>
         )}
       </div>
       <div className={clsx(classes.buttonContainer, classes.buttonContainerRight)}>
         {!(currentPage === totalPages) && (
-          <IconButton className={classes.paginationButton} onClick={() => setCurrentPage(page => page + 1)}>
+          <IconButton aria-label={t('room:gallery.next')} className={classes.paginationButton} onClick={() => setCurrentPage(page => page + 1)}>
             <ArrowForward />
           </IconButton>
         )}
@@ -183,6 +181,10 @@ export function GalleryView() {
         {totalPages > 1 && (
           <Pagination
             className={classes.pagination}
+            aria-label={t('room:gallery.navigation')}
+            getItemAriaLabel={(type, page, selected) =>
+              type === 'page' ? t(selected ? 'room:gallery.currentPage' : 'room:gallery.goToPage', { page }) : ''
+            }
             page={currentPage}
             count={totalPages}
             onChange={(_, value) => setCurrentPage(value)}

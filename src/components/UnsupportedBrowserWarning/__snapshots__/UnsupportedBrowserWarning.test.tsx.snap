@@ -33,7 +33,7 @@ exports[`the UnsupportedBrowserWarning component should render correctly when is
           </WithStyles(ForwardRef(Link))>
           .
           <br />
-          Si ya usas un navegador compatible, comprueba que la app se sirva desde un
+          Si ya usas un navegador compatible, comprueba que la aplicación se sirva desde un
            
           <WithStyles(ForwardRef(Link))
             href="https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts"

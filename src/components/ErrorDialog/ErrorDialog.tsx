@@ -6,19 +6,20 @@ import DialogActions from '@material-ui/core/DialogActions';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import enhanceMessage from './enhanceMessage';
-import { t as translateSpanish } from '../../i18n/translate';
 import { TwilioError } from 'twilio-video';
 import { useTranslation } from 'react-i18next';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
 
 interface ErrorDialogProps {
   dismissError: Function;
-  error: TwilioError | Error | null;
+  error: TwilioError | ClientApiError | Error | null;
 }
 
 function ErrorDialog({ dismissError, error }: PropsWithChildren<ErrorDialogProps>) {
-  const { t } = useTranslation('errors');
+  const { t, i18n } = useTranslation('errors');
   const { message, code, name } = error || {};
-  const enhancedMessage = enhanceMessage(message, code, name, t);
+  const external = typeof DOMException !== 'undefined' && error instanceof DOMException;
+  const enhancedMessage = enhanceMessage(message, code, name, t, i18n.language, external);
 
   return (
     <Dialog open={error !== null} onClose={() => dismissError()} fullWidth={true} maxWidth="xs">
@@ -33,7 +34,7 @@ function ErrorDialog({ dismissError, error }: PropsWithChildren<ErrorDialogProps
       </DialogContent>
       <DialogActions>
         <Button onClick={() => dismissError()} color="primary" autoFocus>
-          {translateSpanish('Aceptar')}
+          {t('common:acknowledge')}
         </Button>
       </DialogActions>
     </Dialog>

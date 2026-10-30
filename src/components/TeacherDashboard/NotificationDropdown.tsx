@@ -16,7 +16,7 @@ import CheckCircleOutlineIcon from '@material-ui/icons/CheckCircleOutline';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import { useTranslation } from 'react-i18next';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
-import { notificationText } from './notificationCopy';
+import { localizeNotification } from './notificationLocalization';
 
 const useStyles = makeStyles((theme: Theme) => ({
   root: {
@@ -141,6 +141,7 @@ const errorCopy: Array<{ key: keyof Props; copyKey: string }> = [
 export default function NotificationDropdown(props: Props) {
   const classes = useStyles();
   const { t } = useTranslation('dashboardShell');
+  const { t: notificationT } = useTranslation('completeNotifications');
   const {
     notifications,
     unreadCount,
@@ -201,11 +202,13 @@ export default function NotificationDropdown(props: Props) {
         </div>
       ) : (
         <List disablePadding className={classes.list}>
-          {notifications.map(notification => (
-            <ListItem
+          {notifications.map(notification => {
+            const localized = localizeNotification(notification, notificationT);
+            return <ListItem
               button
               key={notification.notificationId}
               data-testid={`notification-row-${notification.notificationId}`}
+              aria-label={`${localized.title}. ${localized.message}. ${notificationT(notification.readAtMs === null ? 'unread' : 'read')}`}
               className={`${classes.row} ${notification.readAtMs === null ? classes.unread : ''}`}
               disabled={pendingReadId === notification.notificationId || mutationPending}
               onClick={() => onNotificationClick(notification)}
@@ -217,11 +220,11 @@ export default function NotificationDropdown(props: Props) {
                 />
               )}
               <ListItemText
-                primary={notificationText(notification).title}
-                secondary={<span className={classes.message}>{notificationText(notification).message}</span>}
+                primary={localized.title}
+                secondary={<span className={classes.message}>{localized.message}</span>}
               />
-            </ListItem>
-          ))}
+            </ListItem>;
+          })}
         </List>
       )}
       <div className={classes.errors}>

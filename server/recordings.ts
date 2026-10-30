@@ -515,16 +515,32 @@ export function createIssueRecordingDownloadTicketHandler(db: RecordingsDatabase
 export function createDownloadRecordingHandler(db: RecordingsDatabase, twilioClient: RecordingsClient, secret: string | undefined): RequestHandler {
   return async (req, res) => {
     const roomSid = req.params.roomSid;
-    if (!validateRoomSid(res, roomSid)) return;
+    const html = req.query.presentation === 'html';
+    const lang = req.query.lang === 'en' ? 'en' : 'es';
+    if (html) {
+      res.set('Cache-Control', 'no-store');
+      res.set('Referrer-Policy', 'no-referrer');
+      res.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+      res.set('X-Content-Type-Options', 'nosniff');
+    }
+    const fail = (status: number, message: string, es: string, en: string) => {
+      if (!html) return sendError(res, status, message, es);
+      const text = lang === 'en' ? en : es;
+      res.status(status).type('html').send(`<!doctype html><html lang="${lang}"><meta charset="utf-8"><title>${text}</title><body><p>${text}</p></body></html>`);
+    };
+    if (typeof roomSid !== 'string' || !ROOM_SID_PATTERN.test(roomSid)) {
+      fail(400, 'invalid roomSid', 'El identificador de la sala no es válido.', 'Invalid room identifier.');
+      return;
+    }
 
     if (!secret) {
-      sendDownloadNotConfigured(res);
+      fail(503, 'download not configured', 'La descarga de grabaciones no está configurada en el servidor.', 'Recording downloads are not configured on the server.');
       return;
     }
 
     const payload = verifyDownloadTicket(req.query.ticket, secret);
     if (!payload || payload.roomSid !== roomSid) {
-      sendError(res, 401, 'invalid or expired ticket', 'El enlace de descarga ya no es válido. Solicitalo de nuevo.');
+      fail(401, 'invalid or expired ticket', 'El enlace de descarga ya no es válido. Solicitalo de nuevo.', 'The download link is no longer valid. Request a new one.');
       return;
     }
 
@@ -534,7 +550,7 @@ export function createDownloadRecordingHandler(db: RecordingsDatabase, twilioCli
       const data = snapshot.data();
       const recording: RecordingArtifact | undefined = data && data.recording;
       if (!recording || recording.status !== 'completed' || !recording.compositionSid) {
-        sendError(res, 404, 'recording not available', 'La grabación todavía no está lista para descargar.');
+        fail(404, 'recording not available', 'La grabación todavía no está lista para descargar.', 'The recording is not ready to download.');
         return;
       }
 
@@ -561,7 +577,7 @@ export function createDownloadRecordingHandler(db: RecordingsDatabase, twilioCli
       logOperationalFailure({
         event: 'recording_download_failed', operation: 'GET /reports/:roomSid/recording/download', uid: payload.uid, roomSid, error: err,
       });
-      sendError(res, 503, 'recording download failed', 'No pudimos descargar la grabación. Intenta de nuevo en unos segundos.');
+      fail(503, 'recording download failed', 'No pudimos descargar la grabación. Intenta de nuevo en unos segundos.', 'We could not download the recording. Try again in a few seconds.');
     }
   };
 }

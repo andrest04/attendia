@@ -353,7 +353,7 @@ export default function CalendarTab({
             <button
               key={day.day}
               type="button"
-              aria-label={formatLongDate(dateOfDay(day.day), language)}
+              aria-label={`${formatLongDate(dateOfDay(day.day), language)}, ${t('classCount', { count: day.classes.length })}`}
               onClick={() => setSelectedDay(day.day)}
               className={clsx(styles.dayCell, { [styles.dayCellSelected]: day.day === effectiveDay })}
               data-testid={`dashboard-calendar-day-${day.day}`}

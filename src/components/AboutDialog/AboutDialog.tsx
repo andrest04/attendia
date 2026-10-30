@@ -11,7 +11,6 @@ import packageJSON from '../../../package.json';
 
 import Video from 'twilio-video';
 import { useAppState } from '../../state';
-import { t as translateSpanish } from '../../i18n/translate';
 
 interface AboutDialogProps {
   open: boolean;
@@ -27,7 +26,7 @@ function AboutDialog({ open, onClose }: PropsWithChildren<AboutDialogProps>) {
       <Divider />
       <DialogContent>
         <DialogContentText>
-          {t('about.supportedBrowser')}: {String(Video.isSupported)}
+          {t('about.supportedBrowser')}: {t(Video.isSupported ? 'common:browserSupport.yes' : 'common:browserSupport.no')}
         </DialogContentText>
         <DialogContentText>
           {t('about.sdkVersion')}: {Video.version}
@@ -50,7 +49,7 @@ function AboutDialog({ open, onClose }: PropsWithChildren<AboutDialogProps>) {
       <Divider />
       <DialogActions>
         <Button onClick={onClose} color="primary" variant="contained" autoFocus>
-          {translateSpanish('Aceptar')}
+          {t('common:acknowledge')}
         </Button>
       </DialogActions>
     </Dialog>

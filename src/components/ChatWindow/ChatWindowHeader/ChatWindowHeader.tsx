@@ -37,12 +37,13 @@ const useStyles = makeStyles(() =>
 export default function ChatWindowHeader() {
   const classes = useStyles();
   const { t } = useTranslation('chat');
+  const { t: tRoom } = useTranslation('room');
   const { setIsChatWindowOpen } = useChatContext();
 
   return (
     <div className={classes.container}>
       <div className={classes.text}>{t('title')}</div>
-      <button className={classes.closeChatWindow} onClick={() => setIsChatWindowOpen(false)}>
+      <button className={classes.closeChatWindow} aria-label={tRoom('chat.close')} onClick={() => setIsChatWindowOpen(false)}>
         <CloseIcon />
       </button>
     </div>

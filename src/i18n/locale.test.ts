@@ -2,6 +2,7 @@ import { acceptLanguageHeader, dateLocale, getLocale, LOCALE_STORAGE_KEY, setLoc
 import { t } from './translate';
 import i18n from './index';
 import { LANGUAGE_STORAGE_KEY } from './createI18n';
+import { getCurrentLanguage, setCurrentLanguage } from './currentLanguage';
 
 beforeEach(() => {
   i18n.changeLanguage('es');
@@ -34,6 +35,50 @@ describe('locale', () => {
       expect(getLocale()).toBe('es');
     } finally {
       set.mockRestore();
+    }
+  });
+
+  it('keeps both language APIs aligned across changes and no-op locale requests', () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeLocale(listener);
+    try {
+      setCurrentLanguage('en');
+      expect(getLocale()).toBe('en');
+      expect(getCurrentLanguage()).toBe('en');
+      expect(acceptLanguageHeader()).toEqual({ 'Accept-Language': 'en' });
+      setLocale('es');
+      expect(getCurrentLanguage()).toBe('es');
+      expect(getLocale()).toBe('es');
+      const count = listener.mock.calls.length;
+      setLocale('es');
+      expect(listener).toHaveBeenCalledTimes(count);
+      expect(getCurrentLanguage()).toBe('es');
+      setCurrentLanguage(null);
+      expect(getLocale()).toBe('es');
+      expect(getCurrentLanguage()).toBe('es');
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('does not recurse when a languageChanged listener synchronizes the helper', () => {
+    let calls = 0;
+    const listener = (language: string) => {
+      if (++calls > 2) throw new Error('recursive languageChanged event');
+      setCurrentLanguage(language);
+    };
+    i18n.on('languageChanged', listener);
+    try {
+      setLocale('en');
+      expect(calls).toBe(1);
+      expect(getCurrentLanguage()).toBe('en');
+      expect(getLocale()).toBe('en');
+      setCurrentLanguage('es');
+      expect(calls).toBe(2);
+      expect(getCurrentLanguage()).toBe('es');
+      expect(getLocale()).toBe('es');
+    } finally {
+      i18n.off('languageChanged', listener);
     }
   });
 

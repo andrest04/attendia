@@ -1,8 +1,33 @@
 import React from 'react';
 import { mount } from 'enzyme';
+import { act } from 'react-dom/test-utils';
 import ManualPage from './ManualPage';
+import i18n from '../../i18n/testInit';
+import es from '../../i18n/locales/completePages.es';
+import en from '../../i18n/locales/completePages.en';
 
+i18n.addResourceBundle('es', 'completePages', es, true, true);
+i18n.addResourceBundle('en', 'completePages', en, true, true);
 describe('ManualPage', () => {
+  it('updates the manual and privacy explanation when the language changes', async () => {
+    const wrapper = mount(<ManualPage />);
+    try {
+      expect(wrapper.text()).toContain('Detección de atención');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Attention detection');
+      expect(wrapper.text()).toContain('No images leave your device');
+      expect(wrapper.text()).toContain('Camera and microphone controls');
+      expect(wrapper.text()).toContain('Session recording');
+      expect(wrapper.text()).toContain('Disabled by default; participant consent is required');
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Ninguna imagen sale de tu dispositivo');
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.unmount();
+    }
+  });
   it('renders the manual page with its heading', () => {
     const wrapper = mount(<ManualPage />);
     expect(wrapper.find('[data-testid="manual-page"]').exists()).toBe(true);

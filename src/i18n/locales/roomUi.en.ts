@@ -27,6 +27,14 @@ const roomUi = {
       tab: 'Chat',
       close: 'Close chat',
     },
+    gallery: {
+      students: 'Showing {{visible}} / {{total}} students',
+      previous: 'Previous page',
+      next: 'Next page',
+      navigation: 'Page navigation',
+      currentPage: 'Page {{page}}',
+      goToPage: 'Go to page {{page}}',
+    },
     stage: {
       degraded: 'Resolution reduced due to poor connectivity',
     },

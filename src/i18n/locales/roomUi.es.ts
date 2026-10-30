@@ -28,6 +28,14 @@ const roomUi = {
       tab: 'Chat',
       close: 'Cerrar chat',
     },
+    gallery: {
+      students: 'Mostrando {{visible}} / {{total}} estudiantes',
+      previous: 'Página anterior',
+      next: 'Página siguiente',
+      navigation: 'Navegación de páginas',
+      currentPage: 'Página {{page}}',
+      goToPage: 'Ir a la página {{page}}',
+    },
     stage: {
       degraded: 'Resolución reducida por baja conectividad',
     },
@@ -83,14 +91,14 @@ const roomUi = {
       close: 'Cerrar',
     },
     proctoring: {
-      caption: 'Proctoring',
+      caption: 'Supervisión',
       close: 'Cerrar',
       studentCaption: 'Estudiante · Sesión activa',
       markLegitimate: 'Marcar como legítimo',
       sendWarning: 'Enviar advertencia',
       markedLegitimate: 'Alerta de {{name}} marcada como legítima',
       warningSent: 'Advertencia enviada a {{name}}',
-      feedTitle: 'Alertas de proctoring ({{count}})',
+      feedTitle: 'Alertas de supervisión ({{count}})',
       kind: {
         multiface: 'Múltiples rostros',
         absent: 'Sin presencia',
@@ -155,9 +163,8 @@ const roomUi = {
     },
     captions: {
       label: 'Subtítulos',
-      // The product shows these two in English today; kept verbatim until the copy is decided.
-      ariaLabel: 'Toggle Captions',
-      requiresTranscriptions: 'Requires Real-Time Transcriptions to be enabled in the Twilio Console',
+      ariaLabel: 'Activar o desactivar subtítulos',
+      requiresTranscriptions: 'Requiere activar las transcripciones en tiempo real en la consola de Twilio',
     },
     raiseHand: {
       lowerAria: 'Bajar la mano',
@@ -222,8 +229,8 @@ const roomUi = {
       hideAttention: 'Ocultar atención',
       attentionPanel: 'Panel de atención',
       record: 'Grabar',
-      proctoringActive: 'Proctoring activo',
-      proctoring: 'Proctoring',
+      proctoringActive: 'Supervisión activa',
+      proctoring: 'Supervisión',
     },
     unmuteRequest: {
       mic: 'El profesor te pide activar tu micrófono',

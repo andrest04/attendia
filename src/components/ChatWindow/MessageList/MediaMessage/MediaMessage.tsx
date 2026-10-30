@@ -11,6 +11,10 @@ const useStyles = makeStyles({
     border: '2px solid #e4e7e9',
     borderRadius: '4px',
     cursor: 'pointer',
+    background: 'transparent',
+    color: 'inherit',
+    font: 'inherit',
+    textAlign: 'left',
   },
   iconContainer: {
     display: 'flex',
@@ -41,10 +45,10 @@ interface MediaMessageProps {
   media: Media;
 }
 
-export function formatFileSize(bytes: number, suffixIndex = 0): string {
-  const suffixes = ['bytes', 'KB', 'MB', 'GB'];
+export function formatFileSize(bytes: number, suffixIndex = 0, byteUnit = 'bytes'): string {
+  const suffixes = [byteUnit, 'KB', 'MB', 'GB'];
   if (bytes < 1000) return +bytes.toFixed(2) + ' ' + suffixes[suffixIndex];
-  return formatFileSize(bytes / 1024, suffixIndex + 1);
+  return formatFileSize(bytes / 1024, suffixIndex + 1, byteUnit);
 }
 
 export default function FileMessage({ media }: MediaMessageProps) {
@@ -67,16 +71,16 @@ export default function FileMessage({ media }: MediaMessageProps) {
   };
 
   return (
-    <div className={classes.messageContainer} onClick={handleClick}>
+    <button type="button" className={classes.messageContainer} onClick={handleClick} aria-label={t('openFile', { filename: media.filename })}>
       <div className={classes.iconContainer}>
         <FileDownloadIcon />
       </div>
       <div className={classes.mediaInfo}>
         <p className={classes.filename}>{media.filename}</p>
         <p className={classes.size}>
-          {formatFileSize(media.size)} - {t('clickToOpen')}
+          {formatFileSize(media.size, 0, t('byteUnit'))} - {t('clickToOpen')}
         </p>
       </div>
-    </div>
+    </button>
   );
 }

@@ -1,5 +1,7 @@
 import { renderHook, act } from '@testing-library/react-hooks';
 import useAsyncResource from './useAsyncResource';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
+import { setCurrentLanguage } from '../../i18n/currentLanguage';
 
 const options = { failureMessage: 'No pudimos cargarlo.' };
 
@@ -80,6 +82,29 @@ describe('useAsyncResource', () => {
     await waitForNextUpdate();
 
     expect(result.current).toEqual({ data: 'ok', error: null });
+  });
+
+  it('retains the newest distinct failure even when its current message matches', async () => {
+    setCurrentLanguage('es');
+    const first = jest.fn(() => Promise.reject(new ClientApiError(404, 'report not found', 'No encontrado.')) as Promise<string>);
+    const second = jest.fn(() => Promise.reject(new ClientApiError(404, 'resource not found', 'No encontrado.')) as Promise<string>);
+    const { result, rerender, waitForNextUpdate } = renderHook(({ load }) => useAsyncResource(load, options), {
+      initialProps: { load: first },
+    });
+    try {
+      await waitForNextUpdate();
+      expect(result.current.error).toBe('No encontrado.');
+      rerender({ load: second });
+      await act(async () => {});
+      expect(result.current.error).toBe('No encontrado.');
+      setCurrentLanguage('en');
+      rerender({ load: second });
+      expect(result.current.error).toBe('The requested resource does not exist.');
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+    } finally {
+      setCurrentLanguage('es');
+    }
   });
 
   it('settles when a persistently failing loader is recreated on every render', async () => {

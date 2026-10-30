@@ -1,5 +1,6 @@
 import React from 'react';
 import { Area, AreaChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Tooltip } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { AttentionTimelinePoint } from '../../AttentionProvider/types';
 import { attentionStatusColors } from '../../../theme';
 
@@ -15,6 +16,7 @@ interface AttentionTimelineChartProps {
  * main bundle. Keep this module free of other imports that live in the main chunk.
  */
 export default function AttentionTimelineChart({ timeline, attentionThreshold }: AttentionTimelineChartProps) {
+  const { t } = useTranslation('room');
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={timeline} margin={{ top: 4, right: 4, left: -24, bottom: 4 }}>
@@ -32,6 +34,7 @@ export default function AttentionTimelineChart({ timeline, attentionThreshold }:
         <Area
           type="monotone"
           dataKey="value"
+          name={t('rightRail.groupAttention')}
           stroke="#1d6eed"
           strokeWidth={2}
           fill="#1d6eed"

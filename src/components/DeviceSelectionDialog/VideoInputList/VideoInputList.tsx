@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import es from '../../../i18n/locales/completeControls.es';
 import { DEFAULT_VIDEO_CONSTRAINTS, SELECTED_VIDEO_INPUT_KEY } from '../../../constants';
 import { FormControl, MenuItem, Typography, Select } from '@material-ui/core';
 import { LocalVideoTrack } from 'twilio-video';
@@ -6,7 +8,6 @@ import { makeStyles } from '@material-ui/core/styles';
 import VideoTrack from '../../VideoTrack/VideoTrack';
 import useDevices from '../../../hooks/useDevices/useDevices';
 import useMediaStreamTrack from '../../../hooks/useMediaStreamTrack/useMediaStreamTrack';
-import { t } from '../../../i18n/translate';
 import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 
 const useStyles = makeStyles({
@@ -21,6 +22,7 @@ const useStyles = makeStyles({
 });
 
 export default function VideoInputList() {
+  const { t } = useTranslation('completeControls');
   const classes = useStyles();
   const { videoInputDevices } = useDevices();
   const { localTracks } = useVideoContext();
@@ -53,9 +55,10 @@ export default function VideoInputList() {
       {videoInputDevices.length > 1 ? (
         <FormControl fullWidth>
           <Typography variant="subtitle2" gutterBottom>
-            {t('Entrada de video')}
+            {t('videoInput', es.videoInput)}
           </Typography>
           <Select
+            inputProps={{ 'aria-label': t('videoInput', es.videoInput) }}
             onChange={e => replaceTrack(e.target.value as string)}
             value={localVideoInputDeviceId || ''}
             variant="outlined"
@@ -70,9 +73,9 @@ export default function VideoInputList() {
       ) : (
         <>
           <Typography variant="subtitle2" gutterBottom>
-            {t('Entrada de video')}
+            {t('videoInput', es.videoInput)}
           </Typography>
-          <Typography>{localVideoTrack?.mediaStreamTrack.label || t('Sin video local')}</Typography>
+          <Typography>{localVideoTrack?.mediaStreamTrack.label || t('noVideo', es.noVideo)}</Typography>
         </>
       )}
     </div>

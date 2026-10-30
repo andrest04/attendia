@@ -10,6 +10,10 @@ import Snackbar from '../../Snackbar/Snackbar';
 import * as utils from '../../../utils';
 import { setImmediate } from 'timers';
 import { getLocale, setLocale, Locale } from '../../../i18n/locale';
+import { render, fireEvent, cleanup } from '@testing-library/react';
+import { I18nextProvider, setI18n } from 'react-i18next';
+import i18n from '../../../i18n/testInit';
+import { createI18n } from '../../../i18n/createI18n';
 
 jest.mock('@material-ui/core/useMediaQuery');
 
@@ -25,8 +29,24 @@ describe('the ChatInput component', () => {
   });
 
   afterEach(() => {
+    cleanup();
+    setI18n(i18n);
     act(() => setLocale(previousLocale));
     jest.clearAllMocks();
+  });
+
+  it.each([['es', 'Enviar mensaje'], ['en', 'Send message']])('names and sends a message in %s', (language, label) => {
+    const { getByRole } = render(
+      <I18nextProvider i18n={createI18n({ detect: false, lng: language })}>
+        <ChatInput conversation={{ sendMessage: mockHandleSendMessage } as any} isChatWindowOpen={true} />
+      </I18nextProvider>
+    );
+    const send = getByRole('button', { name: label }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.change(getByRole('textbox'), { target: { value: ' hello ' } });
+    expect(send.disabled).toBe(false);
+    fireEvent.click(send);
+    expect(mockHandleSendMessage).toHaveBeenCalledWith('hello');
   });
 
   it('should enable the send message button when user types a valid message', () => {

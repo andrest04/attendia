@@ -1,5 +1,9 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount, shallow } from 'enzyme';
+import { act } from 'react-dom/test-utils';
+import { I18nextProvider, setI18n } from 'react-i18next';
+import testI18n from '../../../i18n/testInit';
+import { createI18n } from '../../../i18n/createI18n';
 
 import EndCallButton from './EndCallButton';
 import { clearRejoinSession } from '../../../classSession/rejoinSession';
@@ -100,6 +104,24 @@ describe('End Call button', () => {
   });
 
   describe('dialog behavior', () => {
+    it('associates the open dialog with its translated title in both languages', async () => {
+      const i18n = createI18n({ detect: false, lng: 'es' });
+      const wrapper = mount(<I18nextProvider i18n={i18n}><EndCallButton onEndForAll={jest.fn()} /></I18nextProvider>);
+      wrapper.find('[data-cy-disconnect]').first().simulate('click');
+      const checkTitle = (title: string) => {
+        const dialog = document.querySelector('[role="dialog"]')!;
+        const id = dialog.getAttribute('aria-labelledby');
+        expect(id).toBeTruthy();
+        expect(document.getElementById(id!)!.textContent).toBe(title);
+      };
+      checkTitle('¿Terminar la sesión?');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      checkTitle('End the session?');
+      wrapper.unmount();
+      setI18n(testI18n);
+    });
+
     it('closes the dialog when "Salir sin cerrar" is clicked', () => {
       const wrapper = shallow(<EndCallButton onEndForAll={jest.fn()} />);
       mainButton(wrapper).simulate('click');

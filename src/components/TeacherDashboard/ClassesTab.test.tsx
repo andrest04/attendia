@@ -1,9 +1,16 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { shallow, mount } from 'enzyme';
+import { act } from 'react-dom/test-utils';
+import { I18nextProvider } from 'react-i18next';
+import i18n from '../../i18n/testInit';
+import es from '../../i18n/locales/completeDashboard.es';
+import en from '../../i18n/locales/completeDashboard.en';
 import ClassesTab from './ClassesTab';
 import { mockDashboardData } from './mockDashboardData';
 import { setLocale } from '../../i18n/locale';
 
+i18n.addResourceBundle('es', 'completeDashboard', es, true, true);
+i18n.addResourceBundle('en', 'completeDashboard', en, true, true);
 describe('ClassesTab', () => {
   afterEach(() => setLocale('es'));
 
@@ -26,6 +33,40 @@ describe('ClassesTab', () => {
     expect(labels.join('|')).toContain('Active students');
     expect(labels.join('|')).toContain('Average attention');
     expect(labels.join('|')).toContain('Hours taught');
+  });
+
+  it('updates class actions and form labels on a live language change', async () => {
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ClassesTab stats={[]} dateLabel="" sessions={[]} professorName="Teacher" onStartClass={jest.fn()} onCreateClass={jest.fn()} /></I18nextProvider>);
+    wrapper.find('[data-testid="dashboard-new-class-button"]').hostNodes().simulate('click');
+    expect(wrapper.text()).toContain('Título de la clase');
+    wrapper.find('form').simulate('submit', { preventDefault: jest.fn() });
+    expect(wrapper.text()).toContain('Indica un título para la clase.');
+    try {
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Class title');
+      expect(wrapper.text()).toContain('Create class');
+      expect(wrapper.text()).toContain('Enter a title for the class.');
+      expect(wrapper.find('input#new-class-date').prop('placeholder')).toBe('mm/dd/yyyy');
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.unmount();
+    }
+  });
+  it('labels expected student counts on upcoming and expired cards in both languages', async () => {
+    const session = { ...mockDashboardData.upcomingSessions[0], id: 'upcoming', studentCount: 1 };
+    const expired = { ...session, id: 'expired', studentCount: 0 };
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ClassesTab stats={[]} dateLabel="" sessions={[session]} expiredSessions={[expired]} professorName="Ana" onStartClass={jest.fn()} /></I18nextProvider>);
+    try {
+      const count = (id: string) => wrapper.find(`[data-testid="${id}"] [role="img"]`).hostNodes();
+      expect(count('dashboard-session-card-upcoming').prop('aria-label')).toBe('1 alumno esperado');
+      expect(count('dashboard-expired-session-card-expired').prop('aria-label')).toBe('0 alumnos esperados');
+      await act(async () => { await i18n.changeLanguage('en'); }); wrapper.update();
+      expect(count('dashboard-session-card-upcoming').prop('aria-label')).toBe('1 expected student');
+      expect(count('dashboard-expired-session-card-expired').prop('aria-label')).toBe('0 expected students');
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); }); wrapper.unmount();
+    }
   });
 
   it('renders every stat card and upcoming session card', () => {

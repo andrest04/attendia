@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { i18n } from 'i18next';
 import useVideoContext from '../useVideoContext/useVideoContext';
 import useClassDataChannel from '../useClassDataChannel/useClassDataChannel';
 import useLatest from '../useLatest/useLatest';
@@ -64,11 +65,16 @@ export interface SessionEndApi {
   isCoTeacher: boolean;
 }
 
+function EndSessionFailureMessage({ instance }: { instance: i18n }) {
+  const { t } = useTranslation('notifications', { i18n: instance });
+  return React.createElement(React.Fragment, null, t('endSessionFailed'));
+}
+
 export default function useSessionEnd(options: SessionEndOptions = {}): SessionEndApi {
   const { room } = useVideoContext();
   const { user, setSessionEndedByProfessor } = useAppState();
   const { enqueueSnackbar } = useSnackbar();
-  const { t } = useTranslation('notifications');
+  const { i18n: instance } = useTranslation('notifications');
   const [isEnding, setIsEnding] = useState(false);
   const sendRef = useRef<(message: SessionEndedMessage) => void>(() => undefined);
   const isCoTeacher = options.isCoTeacher ?? false;
@@ -149,7 +155,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       // Even if completion fails (offline, transient), we still leave and show the
       // ended screen locally — the broadcast tells the connected students. The
       // professor must know the room may still be open, so surface it.
-      enqueueSnackbar(t('endSessionFailed'), {
+      enqueueSnackbar(React.createElement(EndSessionFailureMessage, { instance }), {
         variant: 'warning',
       });
     } finally {
@@ -157,7 +163,7 @@ export default function useSessionEnd(options: SessionEndOptions = {}): SessionE
       if (notOwner) leaveClass(room);
       else leaveAsEnded();
     }
-  }, [room, user, leaveAsEnded, onProfessorEndRef, enqueueSnackbar, t, isCoTeacher, leaveWithoutEnding]);
+  }, [room, user, leaveAsEnded, onProfessorEndRef, enqueueSnackbar, instance, isCoTeacher, leaveWithoutEnding]);
 
   return { endSessionForAll, leaveWithoutEnding, isEnding, isCoTeacher };
 }

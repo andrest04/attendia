@@ -7,6 +7,11 @@ import { ShellNotification } from '../shellNotification';
 /** The student panel is a lightweight activity log, not a firehose — keep only the most recent few. */
 const MAX_PANEL_NOTIFICATIONS = 3;
 
+type ParticipantNotification = Omit<ShellNotification, 'text'> & {
+  identity: string;
+  event: 'joined' | 'left';
+};
+
 /**
  * Builds the student left-rail notifications feed: a short log of CLASSMATES
  * joining/leaving the session. The professor's presence and the local student's
@@ -16,7 +21,7 @@ const MAX_PANEL_NOTIFICATIONS = 3;
  */
 export default function useShellNotifications(participants: Participant[]) {
   const { t } = useTranslation('notifications');
-  const [notifications, setNotifications] = useState<ShellNotification[]>([]);
+  const [notifications, setNotifications] = useState<ParticipantNotification[]>([]);
   const prevParticipantIds = useRef<string[]>(participants.map(p => p.sid));
   const prevParticipantIdentityMap = useRef<Record<string, string>>(
     participants.reduce((acc, participant) => ({ ...acc, [participant.sid]: participant.identity }), {})
@@ -35,7 +40,7 @@ export default function useShellNotifications(participants: Participant[]) {
           ...prev,
           ...joined.map(p => ({
             id: `joined-${p.sid}-${Date.now()}`,
-            text: t('participantJoined', { name: p.identity }),
+            identity: p.identity,
             kind: 'participant' as const,
             event: 'joined' as const,
             createdAt: Date.now(),
@@ -55,7 +60,7 @@ export default function useShellNotifications(participants: Participant[]) {
           ...prev,
           ...left.map(identity => ({
             id: `left-${identity}-${Date.now()}`,
-            text: t('participantLeft', { name: identity }),
+            identity,
             kind: 'participant' as const,
             event: 'left' as const,
             createdAt: Date.now(),
@@ -69,7 +74,10 @@ export default function useShellNotifications(participants: Participant[]) {
       (acc, participant) => ({ ...acc, [participant.sid]: participant.identity }),
       {} as Record<string, string>
     );
-  }, [participants, t]);
+  }, [participants]);
 
-  return notifications;
+  return notifications.map(({ identity, ...notification }) => ({
+    ...notification,
+    text: t(notification.event === 'joined' ? 'participantJoined' : 'participantLeft', { name: identity }),
+  }));
 }
