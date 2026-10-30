@@ -24,7 +24,7 @@ describe('the AboutDialog component', () => {
   it('should display the package.json version', () => {
     process.env.REACT_APP_VERSION = '1.3';
     const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-    expect(getByText('Versión de la app: 1.3')).toBeTruthy();
+    expect(getByText('Versión de la aplicación: 1.3')).toBeTruthy();
   });
 
   it('should not display the room type when it is unknown', () => {
@@ -46,7 +46,7 @@ describe('the AboutDialog component', () => {
 
     it('should display N/A as the git tag', () => {
       const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-      expect(getByText('Tag desplegado: N/A')).toBeTruthy();
+      expect(getByText('Etiqueta desplegada: N/A')).toBeTruthy();
     });
 
     it('should disaply N/A as the commit hash', () => {
@@ -66,7 +66,7 @@ describe('the AboutDialog component', () => {
 
     it('should display the git tag', () => {
       const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-      expect(getByText('Tag desplegado: v0.1')).toBeTruthy();
+      expect(getByText('Etiqueta desplegada: v0.1')).toBeTruthy();
     });
 
     it('should display the commit hash', () => {

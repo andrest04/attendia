@@ -262,7 +262,7 @@ const entryFlow = {
       permissionDenied:
         'El navegador bloqueó el acceso a la cámara o el micrófono. Haz clic en el ícono de la cámara (a la izquierda de la barra de direcciones), permite el acceso y vuelve a intentar.',
       deviceInUse:
-        'No se pudo iniciar la cámara. Cierra otras apps o pestañas que la estén usando y vuelve a intentar.',
+        'No se pudo iniciar la cámara. Cierra otras aplicaciones o pestañas que la estén usando y vuelve a intentar.',
       deviceNotFound: 'No se encontró una cámara o un micrófono. Conecta un dispositivo y vuelve a intentar.',
     },
     roomOwnerLookupFailed: 'No pudimos verificar tu rol en la sala.',
@@ -295,14 +295,14 @@ const entryFlow = {
       title: 'Acerca de',
       supportedBrowser: 'Navegador compatible',
       sdkVersion: 'Versión del SDK',
-      appVersion: 'Versión de la app',
-      deployedTag: 'Tag desplegado',
+      appVersion: 'Versión de la aplicación',
+      deployedTag: 'Etiqueta desplegada',
       deployedCommit: 'Hash del commit desplegado',
       roomType: 'Tipo de sala',
     },
     phoneBlocked: {
       title: 'Esta plataforma no está disponible en celulares',
-      hint: 'Ingresa desde un computador o tablet.',
+      hint: 'Ingresa desde un computador o tableta.',
     },
     sessionEnded: {
       title: 'La sesión finalizó',
@@ -314,7 +314,7 @@ const entryFlow = {
       openIn: 'Abre esta aplicación en uno de los',
       supportedBrowsers: 'navegadores compatibles',
       afterLink: '.',
-      secureIntro: 'Si ya usas un navegador compatible, comprueba que la app se sirva desde un',
+      secureIntro: 'Si ya usas un navegador compatible, comprueba que la aplicación se sirva desde un',
       secureContext: 'contexto seguro',
       secureExample: '(por ejemplo, https o localhost).',
     },
@@ -326,7 +326,7 @@ const entryFlow = {
       screenSuffix: '- Pantalla',
       recording: 'Grabando',
       recordingTooltip:
-        'Se está grabando el audio y el video de todos los participantes. Visita la configuración de la app para detener la grabación.',
+        'Se está grabando el audio y el video de todos los participantes. Visita la configuración de la aplicación para detener la grabación.',
       participantReconnecting: 'El participante se está reconectando',
       participantConnected: 'El participante está conectado',
     },

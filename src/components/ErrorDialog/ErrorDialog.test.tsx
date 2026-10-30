@@ -90,7 +90,7 @@ describe('the ErrorDialog component', () => {
     const error = { message: 'Failed to allocate videosource', name: 'NotReadableError' } as TwilioError;
     const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
     expect(wrapper.find(DialogContentText).text()).toBe(
-      'No se pudo iniciar la cámara. Cierra otras apps o pestañas que la estén usando y vuelve a intentar.'
+      'No se pudo iniciar la cámara. Cierra otras aplicaciones o pestañas que la estén usando y vuelve a intentar.'
     );
   });
 

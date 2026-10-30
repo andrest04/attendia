@@ -12,6 +12,9 @@ describe('the UnsupportedBrowserWarning component', () => {
         <span>Is supported</span>
       </UnsupportedBrowserWarning>
     );
+    expect(wrapper.text()).toContain('Navegador o contexto no compatible');
+    expect(wrapper.text()).toContain('comprueba que la aplicación se sirva desde un');
+    expect(wrapper.text()).toContain('navegadores compatibles');
     expect(wrapper).toMatchSnapshot();
   });
 

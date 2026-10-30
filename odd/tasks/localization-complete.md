@@ -17,6 +17,10 @@ Finish the existing i18n feature for production user-facing application text.
 
 ## Log
 
+- Spanish locale terminology audit reviewed 12 Spanish modules and identified `app/apps`, `tablet` and `Tag` in visible copy. Replaced with Spanish equivalents, retaining technical Git `commit`/`hash`; worker observed RED and updated one matching snapshot. Parent integration passed 6 suites/52 tests/1 snapshot, client typecheck and lint with the existing GalleryView warning; browser verification absent.
+
+- Supervision wording work unit committed as `eb8db0b`; T6 remains open while remaining terminology audit runs.
+
 - Translated six Spanish room, toolbar and report `proctoring` labels consistently as `supervisión`, leaving protocol identifiers and English untouched. Worker observed RED and 3 suites/50 GREEN tests; typecheck and lint passed with existing warning. Full Jest suite, client/server typechecks, lint and production build passed. Lint retained the existing GalleryView test shadow warning; build warned about bundle size. Browser verification absent.
 
 - Security availability wording work unit committed as `93638a3`; T6 remains open.

@@ -18,6 +18,15 @@ describe('locale resources', () => {
     expect(esKeys.filter(key => !enKeys.includes(key))).toEqual([]);
   });
 
+  it('uses Spanish wording in the visible secure-context and recording guidance', () => {
+    expect(es.misc.unsupportedBrowser.secureIntro).toBe(
+      'Si ya usas un navegador compatible, comprueba que la aplicación se sirva desde un'
+    );
+    expect(es.misc.tile.recordingTooltip).toBe(
+      'Se está grabando el audio y el video de todos los participantes. Visita la configuración de la aplicación para detener la grabación.'
+    );
+  });
+
   it('has no empty translations', () => {
     const empty = (resources: unknown) =>
       leafKeys(resources).filter(path => {
