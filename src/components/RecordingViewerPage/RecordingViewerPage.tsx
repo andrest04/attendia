@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { makeStyles } from '@material-ui/core/styles';
 import CloseIcon from '@material-ui/icons/Close';
 import GetAppIcon from '@material-ui/icons/GetApp';
@@ -41,29 +42,35 @@ const useStyles = makeStyles(() => ({
 }));
 
 export default function RecordingViewerPage() {
+  const { t } = useTranslation();
   const classes = useStyles();
   const { roomSid } = useParams<{ roomSid: string }>();
   const { fetchRecordingDownloadUrl } = useAppState();
 
   const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadFailure, setDownloadFailure] = useState<{ reason: any } | null>(null);
+  const downloadError = downloadFailure
+    ? (downloadFailure.reason && downloadFailure.reason.message) || '__recording_download_failed__'
+    : null;
 
   const load = useMemo(() => (fetchRecordingDownloadUrl ? () => fetchRecordingDownloadUrl(roomSid) : null), [
     roomSid,
     fetchRecordingDownloadUrl,
   ]);
   const { data: videoUrl, error: loadError } = useAsyncResource(load, {
-    failureMessage: 'No pudimos cargar la grabación.',
+    failureMessage: '__recording_load_failed__',
   });
-  const error = fetchRecordingDownloadUrl ? loadError : 'No pudimos validar tu acceso a esta grabación.';
+  const error = fetchRecordingDownloadUrl
+    ? loadError === '__recording_load_failed__' ? t('completeReports.recordingPage.failure', 'No pudimos cargar la grabación.') : loadError
+    : t('completeReports.recordingPage.access', 'No pudimos validar tu acceso a esta grabación.');
 
   const handleDownload = () => {
     if (!fetchRecordingDownloadUrl) return;
     setIsDownloading(true);
-    setDownloadError(null);
+    setDownloadFailure(null);
     fetchRecordingDownloadUrl(roomSid)
       .then(ticketUrl => window.open(ticketUrl, '_blank', 'noopener'))
-      .catch(err => setDownloadError(err.message || 'No pudimos descargar la grabación.'))
+      .catch(err => setDownloadFailure({ reason: err }))
       .finally(() => setIsDownloading(false));
   };
 
@@ -71,7 +78,7 @@ export default function RecordingViewerPage() {
     <StandalonePage
       testId="recording-viewer-page"
       fill
-      navStart={<PageTitle tone="strong">Grabación de la clase</PageTitle>}
+      navStart={<PageTitle tone="strong">{t('completeReports.recordingPage.title', 'Grabación de la clase')}</PageTitle>}
       navEnd={
         <>
           {videoUrl && (
@@ -82,7 +89,7 @@ export default function RecordingViewerPage() {
               icon={<GetAppIcon style={{ fontSize: 16 }} />}
               testId="recording-viewer-page-download"
             >
-              Descargar
+              {t('completeReports.recordingPage.download', 'Descargar')}
             </PageNavButton>
           )}
           <PageNavButton
@@ -90,18 +97,18 @@ export default function RecordingViewerPage() {
             icon={<CloseIcon style={{ fontSize: 16 }} />}
             testId="recording-viewer-page-close"
           >
-            Cerrar
+            {t('completeReports.recordingPage.close', 'Cerrar')}
           </PageNavButton>
         </>
       }
     >
       <div className={classes.body}>
         {videoUrl ? (
-          <video className={classes.video} src={videoUrl} controls autoPlay data-testid="recording-viewer-video" />
+          <video className={classes.video} src={videoUrl} controls autoPlay aria-label={t('completeReports.recordingPage.title', 'Grabación de la clase')} data-testid="recording-viewer-video" />
         ) : (
-          <PageMessageCard testId="recording-viewer-empty">{error || 'Cargando la grabación...'}</PageMessageCard>
+          <PageMessageCard testId="recording-viewer-empty">{error || t('completeReports.recordingPage.loading', 'Cargando la grabación...')}</PageMessageCard>
         )}
-        {downloadError && <PageNote testId="recording-viewer-page-download-error">{downloadError}</PageNote>}
+        {downloadError && <PageNote testId="recording-viewer-page-download-error">{downloadError === '__recording_download_failed__' ? t('completeReports.recordingPage.downloadFailure', 'No pudimos descargar la grabación.') : downloadError}</PageNote>}
       </div>
     </StandalonePage>
   );

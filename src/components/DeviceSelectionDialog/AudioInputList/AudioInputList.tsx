@@ -1,4 +1,6 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import es from '../../../i18n/locales/completeControls.es';
 import AudioLevelIndicator from '../../AudioLevelIndicator/AudioLevelIndicator';
 import { LocalAudioTrack } from 'twilio-video';
 import { FormControl, MenuItem, Typography, Select, Grid } from '@material-ui/core';
@@ -9,6 +11,7 @@ import useVideoContext from '../../../hooks/useVideoContext/useVideoContext';
 import { selectAudioTrack } from '../../../utils/trackSelectors';
 
 export default function AudioInputList() {
+  const { t } = useTranslation('completeControls');
   const { audioInputDevices } = useDevices();
   const { localTracks } = useVideoContext();
 
@@ -25,13 +28,14 @@ export default function AudioInputList() {
   return (
     <div>
       <Typography variant="subtitle2" gutterBottom>
-        Audio Input
+        {t('audioInput', es.audioInput)}
       </Typography>
       <Grid container alignItems="center" justifyContent="space-between">
         <div className="inputSelect">
           {audioInputDevices.length > 1 ? (
             <FormControl fullWidth>
               <Select
+                inputProps={{ 'aria-label': t('audioInput', es.audioInput) }}
                 onChange={e => replaceTrack(e.target.value as string)}
                 value={localAudioInputDeviceId || ''}
                 variant="outlined"
@@ -44,7 +48,7 @@ export default function AudioInputList() {
               </Select>
             </FormControl>
           ) : (
-            <Typography>{localAudioTrack?.mediaStreamTrack.label || 'No Local Audio'}</Typography>
+            <Typography>{localAudioTrack?.mediaStreamTrack.label || t('noAudio', es.noAudio)}</Typography>
           )}
         </div>
         <AudioLevelIndicator audioTrack={localAudioTrack} color="black" />

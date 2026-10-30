@@ -1,11 +1,17 @@
 import React from 'react';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
+import { setCurrentLanguage } from '../../i18n/currentLanguage';
 import { act } from 'react-dom/test-utils';
 import { mount } from 'enzyme';
 import { MemoryRouter, Route } from 'react-router-dom';
 import RecordingViewerPage from './RecordingViewerPage';
 import { useAppState } from '../../state';
+import i18n from '../../i18n/testInit';
+import es from '../../i18n/locales/completeReports.es';
+import en from '../../i18n/locales/completeReports.en';
 
 jest.mock('../../state');
+i18n.on('languageChanged', setCurrentLanguage);
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 const flushPromises = () => act(async () => {});
@@ -32,6 +38,28 @@ describe('RecordingViewerPage', () => {
     return wrapper;
   };
 
+  it('updates the generic loading failure in both languages without refetching', async () => {
+    i18n.addResourceBundle('es', 'common', es, true, true);
+    i18n.addResourceBundle('en', 'common', en, true, true);
+    const fetchRecordingDownloadUrl = jest.fn(() => Promise.reject(new Error('')));
+    mockUseAppState.mockImplementation(() => ({ fetchRecordingDownloadUrl }));
+    const wrapper = mountPage();
+    try {
+      await flushPromises();
+      wrapper.update();
+      expect(wrapper.text()).toContain('No pudimos cargar la grabación.');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Class recording');
+      expect(wrapper.text()).toContain('We could not load the recording.');
+      expect(fetchRecordingDownloadUrl).toHaveBeenCalledTimes(1);
+    } finally {
+      wrapper.unmount();
+      mounted = [];
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
+  });
+
   it('shows an error state when the authenticated API is unavailable', () => {
     mockUseAppState.mockImplementation(() => ({}));
     const wrapper = mountPage();
@@ -57,6 +85,29 @@ describe('RecordingViewerPage', () => {
     expect(wrapper.find('[data-testid="recording-viewer-page-download"]').exists()).toBe(false);
   });
 
+  it('names the video in both languages without refetching or changing playback', async () => {
+    i18n.addResourceBundle('es', 'common', es, true, true);
+    i18n.addResourceBundle('en', 'common', en, true, true);
+    const fetchRecordingDownloadUrl = jest.fn(() => Promise.resolve('https://media.test/ticket-1'));
+    mockUseAppState.mockImplementation(() => ({ fetchRecordingDownloadUrl }));
+    const wrapper = mountPage();
+    try {
+      await flushPromises(); wrapper.update();
+      expect(wrapper.find('video').prop('aria-label')).toBe('Grabación de la clase');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      const video = wrapper.find('video');
+      expect(video.prop('aria-label')).toBe('Class recording');
+      expect(video.prop('src')).toBe('https://media.test/ticket-1');
+      expect(video.prop('controls')).toBe(true);
+      expect(video.prop('autoPlay')).toBe(true);
+      expect(fetchRecordingDownloadUrl).toHaveBeenCalledTimes(1);
+    } finally {
+      wrapper.unmount(); mounted = [];
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
+  });
+
   it('plays the ticketed URL straight from the video element', async () => {
     const fetchRecordingDownloadUrl = jest.fn(() => Promise.resolve('https://media.test/ticket-1'));
     mockUseAppState.mockImplementation(() => ({ fetchRecordingDownloadUrl }));
@@ -72,9 +123,8 @@ describe('RecordingViewerPage', () => {
   });
 
   it('shows the server message when the recording cannot be loaded', async () => {
-    mockUseAppState.mockImplementation(() => ({
-      fetchRecordingDownloadUrl: jest.fn(() => Promise.reject(new Error('La grabación aún se está procesando.'))),
-    }));
+    const fetchRecordingDownloadUrl = jest.fn(() => Promise.reject(new Error('La grabación aún se está procesando.')));
+    mockUseAppState.mockImplementation(() => ({ fetchRecordingDownloadUrl }));
     const wrapper = mountPage();
     await flushPromises();
     wrapper.update();
@@ -89,9 +139,8 @@ describe('RecordingViewerPage', () => {
   });
 
   it('falls back to a generic message when the failure carries none', async () => {
-    mockUseAppState.mockImplementation(() => ({
-      fetchRecordingDownloadUrl: jest.fn(() => Promise.reject(new Error(''))),
-    }));
+    const fetchRecordingDownloadUrl = jest.fn(() => Promise.reject(new Error('')));
+    mockUseAppState.mockImplementation(() => ({ fetchRecordingDownloadUrl }));
     const wrapper = mountPage();
     await flushPromises();
     wrapper.update();
@@ -102,6 +151,30 @@ describe('RecordingViewerPage', () => {
         .hostNodes()
         .text()
     ).toContain('No pudimos cargar la grabación.');
+  });
+
+  it.each(['load', 'download'])('updates an API %s error without refetching', async stage => {
+    const failure = new ClientApiError(503, 'unknown', 'Error del servidor.');
+    const fetchRecordingDownloadUrl = jest.fn();
+    if (stage === 'load') fetchRecordingDownloadUrl.mockRejectedValueOnce(failure);
+    else fetchRecordingDownloadUrl.mockResolvedValueOnce('https://media.test/ticket').mockRejectedValueOnce(failure);
+    mockUseAppState.mockImplementation(() => ({ fetchRecordingDownloadUrl }));
+    const wrapper = mountPage();
+    try {
+      await flushPromises(); wrapper.update();
+      if (stage === 'download') {
+        wrapper.find('[data-testid="recording-viewer-page-download"]').simulate('click');
+        await flushPromises(); wrapper.update();
+      }
+      expect(wrapper.text()).toContain('Error del servidor.');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('The request could not be completed.');
+      expect(fetchRecordingDownloadUrl).toHaveBeenCalledTimes(stage === 'load' ? 1 : 2);
+    } finally {
+      wrapper.unmount(); mounted = [];
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
   });
 
   describe('download', () => {

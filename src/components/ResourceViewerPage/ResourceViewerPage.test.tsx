@@ -1,11 +1,20 @@
 import React from 'react';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
+import { setCurrentLanguage } from '../../i18n/currentLanguage';
 import { act } from 'react-dom/test-utils';
 import { mount } from 'enzyme';
 import { MemoryRouter, Route } from 'react-router-dom';
 import ResourceViewerPage from './ResourceViewerPage';
 import { useAppState } from '../../state';
+import i18n from '../../i18n/testInit';
+import en from '../../i18n/locales/completePreview.en';
+import es from '../../i18n/locales/completePreview.es';
+
+i18n.addResourceBundle('en', 'common', en, true, true);
+i18n.addResourceBundle('es', 'common', es, true, true);
 
 jest.mock('../../state');
+i18n.on('languageChanged', setCurrentLanguage);
 
 const mockUseAppState = useAppState as jest.Mock<any>;
 const flushPromises = () => act(async () => {});
@@ -48,14 +57,85 @@ describe('ResourceViewerPage', () => {
     global.URL.revokeObjectURL = jest.fn();
   });
 
-  const mountPage = (resourceId: string) =>
-    mount(
+  let mounted: Array<ReturnType<typeof mount>> = [];
+  afterEach(() => { mounted.forEach(wrapper => wrapper.length && wrapper.unmount()); mounted = []; });
+
+  const mountPage = (resourceId: string) => {
+    const wrapper = mount(
       <MemoryRouter initialEntries={[`/dashboard/recursos/${resourceId}/ver`]}>
         <Route path="/dashboard/recursos/:resourceId/ver">
           <ResourceViewerPage />
         </Route>
       </MemoryRouter>
     );
+    mounted.push(wrapper);
+    return wrapper;
+  };
+
+  it('switches the access error, title and close button without refetching', async () => {
+    mockUseAppState.mockImplementation(() => ({}));
+    const wrapper = mountPage('file-a');
+    expect(wrapper.text()).toContain('Vista previa');
+    await act(async () => { await i18n.changeLanguage('en'); });
+    wrapper.update();
+    expect(wrapper.text()).toContain('Preview');
+    expect(wrapper.text()).toContain('Close');
+    expect(wrapper.text()).toContain('We could not verify your access to this resource.');
+    wrapper.unmount();
+    await act(async () => { await i18n.changeLanguage('es'); });
+  });
+
+  it('switches the loading message without restarting the request', async () => {
+    const fetchResources = jest.fn(() => new Promise(() => {}));
+    mockUseAppState.mockImplementation(() => ({ fetchResources, fetchResourceDownloadUrl: jest.fn(), fetchResourcePreviewUrl: jest.fn() }));
+    const wrapper = mountPage('file-a');
+    expect(wrapper.text()).toContain('Cargando el documento...');
+    await act(async () => { await i18n.changeLanguage('en'); });
+    wrapper.update();
+    expect(wrapper.text()).toContain('Loading the document...');
+    expect(fetchResources).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+    await act(async () => { await i18n.changeLanguage('es'); });
+  });
+
+  it.each([
+    ['missing', () => Promise.resolve([]), 'El recurso solicitado no existe.', 'The requested resource does not exist.'],
+    ['fallback', () => Promise.reject({}), 'No pudimos cargar el recurso.', 'We could not load the resource.'],
+  ])('switches the %s error without retrying', async (_case, load, spanish, english) => {
+    const fetchResources = jest.fn(load);
+    mockUseAppState.mockImplementation(() => ({ fetchResources, fetchResourceDownloadUrl: jest.fn(), fetchResourcePreviewUrl: jest.fn() }));
+    const wrapper = mountPage('file-a');
+    await flushPromises();
+    wrapper.update();
+    expect(wrapper.text()).toContain(spanish);
+    await act(async () => { await i18n.changeLanguage('en'); });
+    wrapper.update();
+    expect(wrapper.text()).toContain(english);
+    expect(fetchResources).toHaveBeenCalledTimes(1);
+    wrapper.unmount();
+    await act(async () => { await i18n.changeLanguage('es'); });
+  });
+
+  it.each(['resource', 'file'])('updates an API %s failure without refetching', async stage => {
+    const failure = new ClientApiError(503, 'unknown', 'Error del servidor.');
+    const fetchResources = jest.fn(() => stage === 'resource' ? Promise.reject(failure) : Promise.resolve([pdfFile]));
+    const fetchResourceDownloadUrl = jest.fn(() => Promise.reject(failure));
+    const fetchResourcePreviewUrl = jest.fn();
+    mockUseAppState.mockImplementation(() => ({ fetchResources, fetchResourceDownloadUrl, fetchResourcePreviewUrl }));
+    const wrapper = mountPage('file-a');
+    try {
+      await flushPromises(); wrapper.update();
+      expect(wrapper.text()).toContain('Error del servidor.');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('The request could not be completed.');
+      expect(fetchResources).toHaveBeenCalledTimes(1);
+      expect(fetchResourceDownloadUrl).toHaveBeenCalledTimes(stage === 'file' ? 1 : 0);
+    } finally {
+      wrapper.unmount();
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
+  });
 
   it('shows an error state when the authenticated API is unavailable', () => {
     mockUseAppState.mockImplementation(() => ({}));
@@ -80,6 +160,31 @@ describe('ResourceViewerPage', () => {
     expect(fetchResourcePreviewUrl).not.toHaveBeenCalled();
     expect(wrapper.find('[data-testid="resource-viewer-frame"]').prop('src')).toBe('blob:mock-url');
     expect(wrapper.text()).toContain('guia.pdf');
+  });
+
+  it('names the video with its unchanged resource name in both languages', async () => {
+    const fetchResources = jest.fn(() => Promise.resolve([{ ...videoFile, name: 'Clase & <prueba>.mp4' }]));
+    const fetchResourceDownloadUrl = jest.fn(() => Promise.resolve(new Blob(['video'], { type: 'video/mp4' })));
+    const fetchResourcePreviewUrl = jest.fn();
+    mockUseAppState.mockImplementation(() => ({ fetchResources, fetchResourceDownloadUrl, fetchResourcePreviewUrl }));
+    const wrapper = mountPage('file-b');
+    try {
+      await flushPromises(); wrapper.update();
+      expect(wrapper.find('video').prop('aria-label')).toBe('Vista previa de video: Clase & <prueba>.mp4');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      const video = wrapper.find('video');
+      expect(video.prop('aria-label')).toBe('Video preview: Clase & <prueba>.mp4');
+      expect(video.prop('src')).toBe('blob:mock-url');
+      expect(video.prop('controls')).toBe(true);
+      expect(video.prop('autoPlay')).toBe(true);
+      expect(fetchResources).toHaveBeenCalledTimes(1);
+      expect(fetchResourceDownloadUrl).toHaveBeenCalledTimes(1);
+      expect(fetchResourcePreviewUrl).not.toHaveBeenCalled();
+    } finally {
+      wrapper.unmount();
+      await act(async () => { await i18n.changeLanguage('es'); });
+    }
   });
 
   it('renders a video resource in a <video> element', async () => {

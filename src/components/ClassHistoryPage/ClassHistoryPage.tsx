@@ -15,7 +15,9 @@ import AttentionReportView, { AttentionReportViewData } from '../AttentionReport
 import { storedReportDate, storedReportToViewData } from '../AttentionReport/storedReportViewData';
 import { StoredAttentionReport } from '../AttentionProvider/reportTypes';
 import { useAppState } from '../../state';
-import { countOf } from '../../utils/pluralize';
+import { useTranslation } from 'react-i18next';
+import { resolveLocale } from '../../i18n/resolveLocale';
+import es from '../../i18n/locales/completeReports.es';
 
 /*
  * "Historial de clases" — teacher-facing list of the attention reports persisted
@@ -25,11 +27,9 @@ import { countOf } from '../../utils/pluralize';
  * gated twice: here on profile.role for UX, and server-side for real.
  */
 
-const MOCK_TAG = 'Datos simulados';
-
-const endReasonLabel: { [key: string]: string } = {
-  'ended-for-all': 'Sesión finalizada para todos',
-  left: 'El profesor salió sin cerrar la sala',
+const endReasonKey: { [key: string]: 'ended' | 'left' } = {
+  'ended-for-all': 'ended',
+  left: 'left',
 };
 
 const useStyles = makeStyles((theme: Theme) => ({
@@ -168,13 +168,13 @@ const useStyles = makeStyles((theme: Theme) => ({
 }));
 
 /** Snapshot date: prefer the resolved server timestamp, fall back to the client clock. */
-function formatReportDate(report: StoredAttentionReport): string {
+function formatReportDate(report: StoredAttentionReport, locale: string, noDate: string): string {
   const date = storedReportDate(report);
   if (isNaN(date.getTime())) {
-    return 'Fecha no disponible';
+    return noDate;
   }
-  const day = date.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const time = date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const day = date.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' });
+  const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   return `${day} · ${time}`;
 }
 
@@ -185,12 +185,17 @@ export function toViewData(report: StoredAttentionReport): AttentionReportViewDa
 
 export default function ClassHistoryPage() {
   const classes = useStyles();
+  const { t, i18n } = useTranslation();
+  const text = (key: keyof typeof es.completeReports.history, options: object = {}) =>
+    t(`completeReports.history.${key}`, { defaultValue: es.completeReports.history[key], ...options });
+  const locale = resolveLocale(i18n.language);
   const history = useHistory();
   const { fetchAttentionReports, profile } = useAppState();
 
   const [reports, setReports] = useState<StoredAttentionReport[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ reason: any } | null>(null);
+  const error = failure ? (failure.reason && failure.reason.message) || '__history_load_failed__' : null;
   // Detail view is local state (no sub-route): the data is already in memory.
   const [selected, setSelected] = useState<StoredAttentionReport | null>(null);
 
@@ -201,7 +206,7 @@ export default function ClassHistoryPage() {
   const load = useCallback(() => {
     if (!fetchAttentionReports) return;
     setIsLoading(true);
-    setError(null);
+    setFailure(null);
     fetchAttentionReports()
       .then(fetchedReports => {
         setReports(fetchedReports);
@@ -209,7 +214,7 @@ export default function ClassHistoryPage() {
       })
       .catch(err => {
         console.error('ClassHistoryPage: could not fetch the reports', err);
-        setError(err.message || 'No pudimos consultar el historial de clases.');
+        setFailure({ reason: err });
         setIsLoading(false);
       });
   }, [fetchAttentionReports]);
@@ -231,7 +236,7 @@ export default function ClassHistoryPage() {
           icon={<ChevronLeftIcon style={{ fontSize: 16 }} />}
           testId="class-history-back-to-lobby"
         >
-          Volver
+          {text('back')}
         </PageNavButton>
       }
     >
@@ -243,7 +248,7 @@ export default function ClassHistoryPage() {
               icon={<ChevronLeftIcon style={{ fontSize: 16 }} />}
               testId="class-history-detail-back"
             >
-              Volver al historial
+              {text('backToHistory')}
             </PageNavButton>
           </div>
           <AttentionReportView data={toViewData(selected)} />
@@ -255,35 +260,35 @@ export default function ClassHistoryPage() {
               <HistoryIcon style={{ fontSize: 22 }} />
             </div>
             <Typography variant="h1" className={classes.h1}>
-              Historial de clases
+              {text('title')}
             </Typography>
           </div>
           <Typography className={classes.subtitle}>
-            Reportes de atención guardados al finalizar cada sesión de clase.
+            {text('subtitle')}
           </Typography>
 
           {!isAvailable ? (
             <div className={`${classes.card} ${classes.centerCard}`} data-testid="class-history-unavailable">
               <Typography className={classes.mutedText}>
-                El historial de clases solo está disponible para profesores.
+                {text('unavailable')}
               </Typography>
             </div>
           ) : isLoading ? (
             <div className={`${classes.card} ${classes.centerCard}`} data-testid="class-history-loading">
               <CircularProgress size={28} />
-              <Typography className={classes.mutedText}>Cargando el historial…</Typography>
+              <Typography className={classes.mutedText}>{text('loading')}</Typography>
             </div>
           ) : error ? (
             <div className={`${classes.card} ${classes.centerCard}`} data-testid="class-history-error">
-              <Typography className={classes.mutedText}>{error}</Typography>
+              <Typography className={classes.mutedText}>{error === '__history_load_failed__' ? text('failure') : error}</Typography>
               <Button variant="outlined" className={classes.retryBtn} onClick={load} data-testid="class-history-retry">
-                Reintentar
+                {text('retry')}
               </Button>
             </div>
           ) : !reports || reports.length === 0 ? (
             <div className={`${classes.card} ${classes.centerCard}`} data-testid="class-history-empty">
               <Typography className={classes.mutedText}>
-                Todavía no hay clases guardadas. Cuando termines una sesión, tu reporte de atención va a aparecer acá.
+                {text('empty')}
               </Typography>
             </div>
           ) : (
@@ -298,20 +303,20 @@ export default function ClassHistoryPage() {
                 >
                   <div className={classes.reportTitleRow}>
                     <span className={classes.reportTitle}>{report.roomName}</span>
-                    {report.source === 'mock' && <span className={classes.mockTag}>{MOCK_TAG}</span>}
+                    {report.source === 'mock' && <span className={classes.mockTag}>{t('completeReports.shared.mock', 'Datos simulados')}</span>}
                   </div>
-                  <div className={classes.reportMeta}>{endReasonLabel[report.endReason] || report.endReason}</div>
+                  <div className={classes.reportMeta}>{endReasonKey[report.endReason] ? text(endReasonKey[report.endReason]) : report.endReason}</div>
                   <div className={classes.chipsRow}>
                     <span className={classes.chip}>
                       <EventIcon className={classes.chipIcon} />
-                      {formatReportDate(report)}
+                      {formatReportDate(report, locale, text('noDate'))}
                     </span>
                     <span className={classes.chip}>
                       <PeopleAltIcon className={classes.chipIcon} />
-                      {countOf(report.studentCount, 'estudiante')}
+                      {t('completeReports.shared.students', { count: report.studentCount, defaultValue: report.studentCount === 1 ? '{{count}} estudiante' : '{{count}} estudiantes' })}
                     </span>
-                    <span className={classes.chip}>Promedio {report.groupAverage} / 100</span>
-                    <span className={classes.chip}>{countOf((report.proctoringAlerts || []).length, 'alerta')}</span>
+                    <span className={classes.chip}>{text('average', { value: report.groupAverage })}</span>
+                    <span className={classes.chip}>{t('completeReports.shared.alerts', { count: (report.proctoringAlerts || []).length, defaultValue: (report.proctoringAlerts || []).length === 1 ? '{{count}} alerta' : '{{count}} alertas' })}</span>
                   </div>
                 </button>
               ))}

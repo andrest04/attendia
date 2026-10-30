@@ -9,7 +9,9 @@ import ReactECharts from 'echarts-for-react';
 import { AttentionLevel, AttentionTimelinePoint } from '../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { attentionStatusColors } from '../../theme';
-import { countOf } from '../../utils/pluralize';
+import { useTranslation } from 'react-i18next';
+import { resolveLocale } from '../../i18n/resolveLocale';
+import es from '../../i18n/locales/completeReports.es';
 
 /*
  * Presentational core of the attention report so the same light-themed report body
@@ -439,6 +441,10 @@ interface Props {
  */
 export default function AttentionReportView({ data, actionsSlot }: Props) {
   const classes = useStyles();
+  const { t, i18n } = useTranslation();
+  const text = (key: keyof typeof es.completeReports.report, options: object = {}) =>
+    t(`completeReports.report.${key}`, { defaultValue: es.completeReports.report[key], ...options });
+  const locale = resolveLocale(i18n.language);
   const {
     sessionName,
     studentCount,
@@ -460,27 +466,27 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
   // show "—" instead of a placeholder 0 that reads as "the group had 0% attention".
   const kpiCards = [
     {
-      label: 'Atención promedio grupal',
+      label: text('groupAverage'),
       value: hasGroupData ? `${groupAverage}` : '—',
       sub: '/ 100',
       color: KPI_COLORS.group,
     },
     {
-      label: 'Estudiantes monitoreados',
+      label: text('monitored'),
       value: `${participants.length}`,
-      sub: 'participantes',
+      sub: text('participants'),
       color: KPI_COLORS.students,
     },
     {
-      label: 'Alertas de proctoring',
+      label: text('proctoring'),
       value: `${totalAlerts}`,
-      sub: 'eventos detectados',
+      sub: text('events'),
       color: KPI_COLORS.alerts,
     },
     {
-      label: 'Umbral superado',
+      label: text('thresholdExceeded'),
       value: hasGroupData ? `${percentAboveThreshold}%` : '—',
-      sub: 'del tiempo total',
+      sub: text('totalTime'),
       color: KPI_COLORS.threshold,
     },
   ];
@@ -585,26 +591,26 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
           <div className={classes.iconWrap}>
             <DescriptionIcon className={classes.headerIcon} />
           </div>
-          <Typography className={classes.titleText}>Reporte de Atención</Typography>
+          <Typography className={classes.titleText}>{text('title')}</Typography>
         </div>
 
         <p className={classes.sessionLine}>
-          {'Sesión: '}
+          {text('session')}{' '}
           <strong>{sessionName}</strong>
           {' — '}
-          {countOf(studentCount, 'estudiante')}
+          {t('completeReports.shared.students', { count: studentCount, defaultValue: studentCount === 1 ? '{{count}} estudiante' : '{{count}} estudiantes' })}
         </p>
 
         <div className={classes.chipsRow}>
           <span className={classes.chip}>
             <EventIcon className={classes.chipIcon} />
-            {reportDate.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {reportDate.toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
           <span className={classes.chip}>
             <AccessTimeIcon className={classes.chipIcon} />
-            {reportDate.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+            {reportDate.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
           </span>
-          {source === 'mock' && <span className={classes.mockTag}>{MOCK_DISCLOSURE}</span>}
+          {source === 'mock' && <span className={classes.mockTag}>{text('mock')}</span>}
         </div>
       </div>
 
@@ -628,15 +634,15 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
       {/* ── Timeline chart ─────────────────────────────────────────── */}
       <div className={classes.chartCard} data-testid="attention-report-timeline">
         <div className={classes.chartHead}>
-          <Typography className={classes.chartTitle}>Evolución de atención grupal</Typography>
+          <Typography className={classes.chartTitle}>{text('evolution')}</Typography>
           <div className={classes.chartLegend}>
             <div className={classes.legendItem}>
               <div className={classes.legendLineSolid} />
-              <span className={classes.legendLabel}>Atención grupo</span>
+              <span className={classes.legendLabel}>{text('groupAttention')}</span>
             </div>
             <div className={classes.legendItem}>
               <div className={classes.legendLineDashed} />
-              <span className={classes.legendLabel}>Umbral mínimo ({attentionThreshold}%)</span>
+              <span className={classes.legendLabel}>{text('threshold', { threshold: attentionThreshold })}</span>
             </div>
           </div>
         </div>
@@ -656,14 +662,14 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
 
       {/* ── Per-student table ──────────────────────────────────────── */}
       <div className={classes.tableCard} data-testid="attention-report-table">
-        <Typography className={classes.tableTitle}>Detalle por estudiante</Typography>
+        <Typography className={classes.tableTitle}>{text('details')}</Typography>
         <div className={classes.tableScroll}>
           <table className={classes.table}>
             <thead>
               <tr className={classes.headRow}>
-                {['Nombre del Estudiante', 'Índice Prom.', 'Mínimo', 'Máximo', 'Alertas Proctoring', 'Nivel'].map(h => (
-                  <th key={h} className={classes.th}>
-                    {h}
+                {([ 'name', 'average', 'minimum', 'maximum', 'alerts', 'level' ] as const).map(key => (
+                  <th key={key} className={classes.th}>
+                    {text(key)}
                   </th>
                 ))}
               </tr>
@@ -719,7 +725,7 @@ export default function AttentionReportView({ data, actionsSlot }: Props) {
                         color: ATTENTION_LEVEL_STYLE[participant.level].reportChipText,
                       }}
                     >
-                      {ATTENTION_LEVEL_STYLE[participant.level].label}
+                      {text(participant.level)}
                     </span>
                   </td>
                 </tr>

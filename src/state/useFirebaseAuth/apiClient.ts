@@ -11,12 +11,43 @@
  * and the server — depend on their exact shape.
  */
 
-const ClientApiErrorBase = Error as new (message?: string) => { name: string; message: string; stack?: string };
+import { FirebaseError } from 'firebase/app';
+import { getCurrentLanguage } from '../../i18n/currentLanguage';
+import completeErrorsEn from '../../i18n/locales/completeErrors.en';
+import completeErrorsEs from '../../i18n/locales/completeErrors.es';
+
+// The project augments Error with code: undefined; API errors carry a string code instead.
+const ClientApiErrorBase: new (message?: string) => Omit<Error, 'code'> = Error;
+
+/** Keep Error's non-enumerable, writable message semantics after an explicit assignment. */
+export function setLocalizedErrorMessage(error: Omit<Error, 'code'>, resolve: () => string): void {
+  // Materialize the stack before installing the getter: diagnostics contain call sites,
+  // not server text captured in a different language.
+  void error.stack;
+  Object.defineProperty(error, 'message', {
+    configurable: true,
+    get: resolve,
+    set: value => Object.defineProperty(error, 'message', { configurable: true, writable: true, value }),
+  });
+}
 
 export class ClientApiError extends ClientApiErrorBase {
-  constructor(public status: number, public code: string, message: string) {
-    super(message);
+  constructor(public status: number, public code: string, message: string, public hasServerExplanation = true) {
+    super();
     Object.setPrototypeOf(this, ClientApiError.prototype);
+    setLocalizedErrorMessage(this, () => {
+        if (getCurrentLanguage().split('-')[0] !== 'en') return hasServerExplanation ? message : completeErrorsEs.requestFailed;
+        // The same upload code is used for photos (2 MB) and resources (25 MB).
+        if (code === 'file too large') {
+          if (message.indexOf('25 MB') !== -1) return completeErrorsEn['file too large:25 MB'];
+          if (message.indexOf('2 MB') !== -1) return completeErrorsEn['file too large:2 MB'];
+        }
+        const statusKey = `${status}:${code}`;
+        if (Object.prototype.hasOwnProperty.call(completeErrorsEn, statusKey)) return completeErrorsEn[statusKey];
+        return Object.prototype.hasOwnProperty.call(completeErrorsEn, code)
+          ? completeErrorsEn[code]
+          : 'The request could not be completed.';
+    });
   }
 }
 
@@ -35,12 +66,30 @@ export async function throwOnErrorResponse(response: Response): Promise<void> {
   if (response.ok) return;
   const body = await response.json().catch(() => ({}));
   const code = body.error?.message || response.statusText || `http_${response.status}`;
-  throw new ClientApiError(response.status, code, body.error?.explanation || code);
+  throw new ClientApiError(response.status, code, body.error?.explanation || code, Boolean(body.error?.explanation));
 }
 
 /** The slice of a Firebase `User` the client needs. */
 export interface IdTokenSource {
   getIdToken(forceRefresh?: boolean): Promise<string>;
+}
+
+/** Localize Firebase authentication failures without changing their identity or code. */
+export async function acquireIdToken(user: IdTokenSource, forceRefresh = false): Promise<string> {
+  try {
+    return forceRefresh ? await user.getIdToken(true) : await user.getIdToken();
+  } catch (error) {
+    if (FirebaseError && error instanceof FirebaseError && error.code.indexOf('auth/') === 0 && error.name !== 'AbortError') {
+      try {
+        setLocalizedErrorMessage(error, () =>
+          getCurrentLanguage().split('-')[0] === 'en' ? completeErrorsEn.tokenFailed : completeErrorsEs.tokenFailed
+        );
+      } catch {
+        // Frozen or otherwise non-configurable errors must retain their original behavior.
+      }
+    }
+    throw error;
+  }
 }
 
 export interface ApiRequestOptions {
@@ -68,7 +117,7 @@ export interface ApiClient {
 
 export function createApiClient(user: IdTokenSource): ApiClient {
   async function raw(path: string, options: ApiRequestOptions = {}): Promise<Response> {
-    const idToken = options.forceRefresh ? await user.getIdToken(true) : await user.getIdToken();
+    const idToken = await acquireIdToken(user, options.forceRefresh);
 
     const headers: { [name: string]: string } = { Authorization: idToken };
     if (options.json !== undefined) headers['content-type'] = 'application/json';
@@ -79,7 +128,18 @@ export function createApiClient(user: IdTokenSource): ApiClient {
     if (options.json !== undefined) init.body = JSON.stringify(options.json);
     else if (options.body !== undefined) init.body = options.body;
 
-    return fetch(path, init);
+    try {
+      return await fetch(path, init);
+    } catch (error) {
+      // Fetch rejects with TypeError for network failures; token acquisition above is separate.
+      if (!(error instanceof TypeError) || error.name === 'AbortError') throw error;
+      const networkError = new TypeError();
+      Object.defineProperty(networkError, 'cause', { configurable: true, value: error });
+      setLocalizedErrorMessage(networkError, () =>
+        getCurrentLanguage().split('-')[0] === 'en' ? completeErrorsEn.requestFailed : completeErrorsEs.requestFailed
+      );
+      throw networkError;
+    }
   }
 
   async function request(path: string, options?: ApiRequestOptions): Promise<Response> {
@@ -107,7 +167,8 @@ export function createApiClient(user: IdTokenSource): ApiClient {
 export function withUser<U extends IdTokenSource, Args extends any[], Result>(
   user: U | null,
   message: string,
-  call: (user: U, ...args: Args) => Promise<Result>
+  call: (user: U, ...args: Args) => Promise<Result>,
+  noUserError: () => Error = () => new Error(message)
 ): (...args: Args) => Promise<Result> {
-  return (...args: Args) => (user ? call(user, ...args) : Promise.reject(new Error(message)));
+  return (...args: Args) => (user ? call(user, ...args) : Promise.reject(noUserError()));
 }

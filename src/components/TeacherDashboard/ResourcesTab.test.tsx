@@ -1,8 +1,17 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
+import { I18nextProvider } from 'react-i18next';
 import { mount } from 'enzyme';
 import ResourcesTab from './ResourcesTab';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
+import { setCurrentLanguage } from '../../i18n/currentLanguage';
 import { useAppState } from '../../state';
+import i18n from '../../i18n/testInit';
+import es from '../../i18n/locales/completeDashboard.es';
+import en from '../../i18n/locales/completeDashboard.en';
+
+i18n.addResourceBundle('es', 'completeDashboard', es, true, true);
+i18n.addResourceBundle('en', 'completeDashboard', en, true, true);
 
 jest.mock('../../state');
 
@@ -59,6 +68,161 @@ describe('the ResourcesTab component', () => {
   ];
   afterEach(() => jest.clearAllMocks());
 
+  it('updates a displayed resource fetch error without refetching on language change', async () => {
+    const fetchResources = jest.fn().mockRejectedValue(new ClientApiError(404, 'resource not found', 'Recurso no encontrado'));
+    mockUseAppState.mockImplementation(() => ({ fetchResources, uploadResource: jest.fn(), fetchResourceDownloadUrl: jest.fn(), deleteResource: jest.fn() }));
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ResourcesTab classes={scheduledClasses} /></I18nextProvider>);
+    try {
+      await flushPromises();
+      wrapper.update();
+      expect(wrapper.text()).toContain('Recurso no encontrado');
+      await act(async () => { setCurrentLanguage('en'); await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('The requested resource does not exist.');
+      expect(fetchResources).toHaveBeenCalledTimes(1);
+    } finally {
+      setCurrentLanguage('es');
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.unmount();
+    }
+  });
+
+  it('translates selection and file-count validation already shown without uploading', async () => {
+    const api = { fetchResources: jest.fn(() => Promise.resolve([])), uploadResource: jest.fn(), fetchResourceDownloadUrl: jest.fn(), deleteResource: jest.fn() };
+    mockUseAppState.mockReturnValue(api);
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ResourcesTab classes={[]} /></I18nextProvider>);
+    try {
+      await flushPromises();
+      wrapper.update();
+      wrapper.find('[data-testid="dashboard-upload-file-button"]').hostNodes().simulate('click');
+      expect(wrapper.text()).toContain('Selecciona una clase programada');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Select a scheduled class');
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.update();
+      const files = Array.from({ length: 11 }, (_, i) => new File(['x'], `${i}.pdf`, { type: 'application/pdf' }));
+      wrapper.find('[data-testid="dashboard-resources-file-input"]').hostNodes().simulate('change', { target: { files } });
+      expect(wrapper.text()).toContain('Puedes subir hasta 10 archivos');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('You can upload up to 10 files');
+      expect(api.uploadResource).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.unmount();
+    }
+  });
+
+  it('translates individual file validation errors and keeps them dismissible', async () => {
+    const api = { fetchResources: jest.fn(() => Promise.resolve([])), uploadResource: jest.fn(), fetchResourceDownloadUrl: jest.fn(), deleteResource: jest.fn() };
+    mockUseAppState.mockReturnValue(api);
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ResourcesTab classes={scheduledClasses} /></I18nextProvider>);
+    try {
+      await flushPromises();
+      wrapper.update();
+      const large = new File(['x'], 'large.pdf', { type: 'application/pdf' });
+      Object.defineProperty(large, 'size', { value: 26 * 1024 * 1024 });
+      const invalid = new File(['x'], 'bad.exe', { type: 'application/x-msdownload' });
+      wrapper.find('[data-testid="dashboard-resources-file-input"]').hostNodes().simulate('change', { target: { files: [large, invalid] } });
+      expect(wrapper.text()).toContain('El archivo supera el tamaño máximo');
+      expect(wrapper.text()).toContain('Tipo de archivo no admitido');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('The file exceeds the maximum allowed size');
+      expect(wrapper.text()).toContain('Unsupported file type');
+      wrapper.find('[data-testid="dashboard-resources-uploading-dismiss-upload-0"]').hostNodes().simulate('click');
+      expect(wrapper.find('[data-testid="dashboard-resources-uploading-card-upload-0"]').exists()).toBe(false);
+      expect(api.uploadResource).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.unmount();
+    }
+  });
+
+  it('translates bulk partial-failure counts and retries only remaining files', async () => {
+    const orphan = { ...fileA, classId: 'gone', classTitle: 'Historia' };
+    const deleteResource = jest.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('failed')).mockResolvedValue(undefined);
+    mockUseAppState.mockReturnValue({ fetchResources: jest.fn(() => Promise.resolve([orphan, { ...orphan, id: 'second' }])), uploadResource: jest.fn(), fetchResourceDownloadUrl: jest.fn(), deleteResource });
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ResourcesTab classes={[]} /></I18nextProvider>);
+    try {
+      await flushPromises(); wrapper.update();
+      wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').hostNodes().simulate('click');
+      await act(async () => { wrapper.find('[data-testid="dashboard-confirm-dialog-confirm"]').hostNodes().first().simulate('click'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('No pudimos eliminar 1 recurso.');
+      await act(async () => { await i18n.changeLanguage('en'); }); wrapper.update();
+      expect(wrapper.text()).toContain("We couldn't delete 1 resource.");
+      wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').hostNodes().simulate('click');
+      await act(async () => { wrapper.find('[data-testid="dashboard-confirm-dialog-confirm"]').hostNodes().first().simulate('click'); });
+      wrapper.update();
+      expect(deleteResource.mock.calls.map(call => call[0])).toEqual(['file-a', 'second', 'second']);
+      expect(wrapper.find('[data-testid="dashboard-resources-bulk-delete-error"]').exists()).toBe(false);
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); }); wrapper.unmount();
+    }
+  });
+
+  it('translates a message-less bulk class deletion failure and permits retry', async () => {
+    const onDeleteClass = jest.fn().mockRejectedValueOnce(new Error('')).mockResolvedValue(undefined);
+    mockUseAppState.mockReturnValue({ fetchResources: jest.fn(() => Promise.resolve([])), uploadResource: jest.fn(), fetchResourceDownloadUrl: jest.fn(), deleteResource: jest.fn() });
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ResourcesTab classes={[{ ...scheduledClasses[0], status: 'completed' }]} onDeleteClass={onDeleteClass} /></I18nextProvider>);
+    try {
+      await flushPromises(); wrapper.update();
+      wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').hostNodes().simulate('click');
+      await act(async () => { wrapper.find('[data-testid="dashboard-confirm-dialog-confirm"]').hostNodes().first().simulate('click'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('No pudimos eliminar la clase.');
+      await act(async () => { await i18n.changeLanguage('en'); }); wrapper.update();
+      expect(wrapper.text()).toContain("We couldn't delete the class.");
+      wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').hostNodes().simulate('click');
+      await act(async () => { wrapper.find('[data-testid="dashboard-confirm-dialog-confirm"]').hostNodes().first().simulate('click'); });
+      wrapper.update();
+      expect(onDeleteClass).toHaveBeenCalledTimes(2);
+      expect(wrapper.find('[data-testid="dashboard-resources-bulk-delete-error"]').exists()).toBe(false);
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); }); wrapper.unmount();
+    }
+  });
+
+  it('translates a destructive confirmation with its file count while open', async () => {
+    const orphan = { ...fileA, classId: 'gone', classTitle: 'Historia' };
+    const api = { fetchResources: jest.fn(() => Promise.resolve([orphan, { ...orphan, id: 'second' }])), uploadResource: jest.fn(), fetchResourceDownloadUrl: jest.fn(), deleteResource: jest.fn() };
+    mockUseAppState.mockImplementation(() => api);
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ResourcesTab classes={[]} /></I18nextProvider>);
+    await flushPromises();
+    wrapper.update();
+    wrapper.find('[data-testid="dashboard-resources-bulk-delete-button"]').hostNodes().simulate('click');
+    wrapper.update();
+    expect(wrapper.find('ConfirmDialog').at(1).prop('message')).toBe('¿Eliminar los 2 archivos de "Historia"? Esta acción no se puede deshacer.');
+    try {
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.find('ConfirmDialog').at(1).prop('message')).toBe('Delete the 2 files from "Historia"? This action cannot be undone.');
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.unmount();
+    }
+  });
+
+  it('updates resource controls when the language changes', async () => {
+    const api = { fetchResources: jest.fn(() => Promise.resolve([])), uploadResource: jest.fn(), fetchResourceDownloadUrl: jest.fn(), deleteResource: jest.fn() };
+    mockUseAppState.mockImplementation(() => api);
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ResourcesTab classes={scheduledClasses} /></I18nextProvider>);
+    await flushPromises();
+    wrapper.update();
+    expect(wrapper.text()).toContain('Subir archivo');
+    try {
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Upload file');
+      expect(wrapper.text()).toContain('Materials associated with scheduled classes');
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.unmount();
+    }
+  });
+
   it('shows a fallback message when the real resources API is not available (non-firebase auth modes)', () => {
     mockUseAppState.mockImplementation(() => ({}));
     const wrapper = mount(<ResourcesTab classes={scheduledClasses} />);
@@ -84,6 +248,28 @@ describe('the ResourcesTab component', () => {
     expect(wrapper.find('[data-testid="dashboard-resources-pill-class-b"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="dashboard-resource-file-file-a"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="dashboard-resource-file-file-b"]').exists()).toBe(false);
+  });
+
+  it('exposes the selected filter while retaining class names and filtering across languages', async () => {
+    mockUseAppState.mockReturnValue({ fetchResources: jest.fn(() => Promise.resolve([fileA, fileB])), uploadResource: jest.fn(), fetchResourceDownloadUrl: jest.fn(), deleteResource: jest.fn() });
+    const wrapper = mount(<I18nextProvider i18n={i18n}><ResourcesTab classes={scheduledClasses} /></I18nextProvider>);
+    try {
+      await flushPromises(); wrapper.update();
+      const pill = (id: string) => wrapper.find(`[data-testid="dashboard-resources-pill-${id}"]`).hostNodes();
+      expect(pill('class-a').prop('aria-pressed')).toBe(true);
+      expect(pill('class-b').prop('aria-pressed')).toBe(false);
+      expect(pill('class-a').text()).toContain('Cálculo I');
+      pill('class-b').simulate('click'); wrapper.update();
+      expect(pill('class-a').prop('aria-pressed')).toBe(false);
+      expect(pill('class-b').prop('aria-pressed')).toBe(true);
+      expect(wrapper.find('[data-testid="dashboard-resource-file-file-b"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="dashboard-resource-file-file-a"]').exists()).toBe(false);
+      await act(async () => { await i18n.changeLanguage('en'); }); wrapper.update();
+      expect(pill('class-b').prop('aria-pressed')).toBe(true);
+      expect(pill('class-b').text()).toContain('Física II');
+    } finally {
+      await act(async () => { await i18n.changeLanguage('es'); }); wrapper.unmount();
+    }
   });
 
   it('switches the active group when a pill is clicked', async () => {

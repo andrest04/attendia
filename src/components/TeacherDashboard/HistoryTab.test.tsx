@@ -2,6 +2,14 @@ import React from 'react';
 import { mount } from 'enzyme';
 import { act } from 'react-dom/test-utils';
 import HistoryTab from './HistoryTab';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
+import { setCurrentLanguage } from '../../i18n/currentLanguage';
+import i18n from '../../i18n/testInit';
+import es from '../../i18n/locales/completeDashboard.es';
+import en from '../../i18n/locales/completeDashboard.en';
+
+i18n.addResourceBundle('es', 'completeDashboard', es);
+i18n.addResourceBundle('en', 'completeDashboard', en);
 
 const reports: any[] = [
   {
@@ -75,6 +83,46 @@ describe('HistoryTab', () => {
   };
 
   afterEach(() => jest.clearAllMocks());
+
+  it('updates an already displayed recording error when the language changes and permits retry', async () => {
+    const request = jest.fn().mockRejectedValueOnce(new ClientApiError(404, 'room not found', 'Sala no encontrada')).mockResolvedValue({ status: 'enqueued' });
+    const wrapper = mount(<HistoryTab {...props} onRequestRecording={request} />);
+    try {
+      await act(async () => {
+        wrapper.find('[data-testid="dashboard-history-recording-request-RM00000000000000000000000000000abc"]').hostNodes().simulate('click');
+        await Promise.resolve();
+      });
+      wrapper.update();
+      expect(wrapper.text()).toContain('Sala no encontrada');
+      await act(async () => { setCurrentLanguage('en'); await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(wrapper.text()).toContain('The class session was not found.');
+      await act(async () => {
+        wrapper.find('[data-testid="dashboard-history-recording-request-RM00000000000000000000000000000abc"]').hostNodes().simulate('click');
+        await Promise.resolve();
+      });
+      wrapper.update();
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(wrapper.text()).not.toContain('The class session was not found.');
+    } finally {
+      setCurrentLanguage('es');
+      await act(async () => { await i18n.changeLanguage('es'); });
+      wrapper.unmount();
+    }
+  });
+
+  it('updates history headings and recording actions when the language changes', async () => {
+    const wrapper = mount(<HistoryTab {...props} />);
+    expect(wrapper.text()).toContain('Historial de clases');
+    await act(async () => { await i18n.changeLanguage('en'); });
+    wrapper.update();
+    expect(wrapper.text()).toContain('Class history');
+    expect(wrapper.text()).toContain('Request recording');
+    await act(async () => { await i18n.changeLanguage('es'); });
+    wrapper.update();
+    expect(wrapper.text()).toContain('Historial de clases');
+    wrapper.unmount();
+  });
 
   it('renders persisted duration, disclosed mock attention, a request-recording action, and "No disponible" for the other row', () => {
     const wrapper = mount(<HistoryTab {...props} />);

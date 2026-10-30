@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from '@material-ui/core';
+import { useTranslation } from 'react-i18next';
 import Snackbar from '../Snackbar/Snackbar';
 import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
 
@@ -11,6 +12,7 @@ enum Snackbars {
 }
 
 export default function RecordingNotifications() {
+  const { t } = useTranslation();
   const [activeSnackbar, setActiveSnackbar] = useState(Snackbars.none);
   const prevIsRecording = useRef<boolean | null>(null);
   const isRecording = useIsRecording();
@@ -46,26 +48,26 @@ export default function RecordingNotifications() {
         open={activeSnackbar === Snackbars.recordingStarted}
         handleClose={() => setActiveSnackbar(Snackbars.none)}
         variant="info"
-        headline="Recording has started."
+        headline={t('recordingNotifications.started')}
         message=""
       />
       <Snackbar
         open={activeSnackbar === Snackbars.recordingInProgress}
         handleClose={() => setActiveSnackbar(Snackbars.none)}
         variant="info"
-        headline="Recording is in progress."
+        headline={t('recordingNotifications.inProgress')}
         message=""
       />
       <Snackbar
         open={activeSnackbar === Snackbars.recordingFinished}
-        headline="Recording Complete"
+        headline={t('recordingNotifications.complete')}
         message={
           <>
-            You can view the recording in the{' '}
+            {t('recordingNotifications.beforeLink')}{' '}
             <Link target="_blank" rel="noopener" href="https://www.twilio.com/console/video/logs/recordings">
-              Twilio Console
+              {t('recordingNotifications.link')}
             </Link>
-            . Recordings will be available once this room has ended.
+            {t('recordingNotifications.afterLink')}
           </>
         }
         variant="info"

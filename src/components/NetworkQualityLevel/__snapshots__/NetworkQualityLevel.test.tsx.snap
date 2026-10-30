@@ -2,10 +2,12 @@
 
 exports[`the NetworkQualityLevel component should render correctly for level 0 1`] = `
 <div
-  className="makeStyles-outerContainer-1"
+  aria-label="Network quality: 0 of 5"
+  className="makeStyles-outerContainer-3"
+  role="img"
 >
   <div
-    className="makeStyles-innerContainer-2"
+    className="makeStyles-innerContainer-4"
   >
     <div
       style={
@@ -53,10 +55,12 @@ exports[`the NetworkQualityLevel component should render correctly for level 0 1
 
 exports[`the NetworkQualityLevel component should render correctly for level 3 1`] = `
 <div
-  className="makeStyles-outerContainer-1"
+  aria-label="Network quality: 3 of 5"
+  className="makeStyles-outerContainer-3"
+  role="img"
 >
   <div
-    className="makeStyles-innerContainer-2"
+    className="makeStyles-innerContainer-4"
   >
     <div
       style={
@@ -104,10 +108,12 @@ exports[`the NetworkQualityLevel component should render correctly for level 3 1
 
 exports[`the NetworkQualityLevel component should render correctly for level 5 1`] = `
 <div
-  className="makeStyles-outerContainer-1"
+  aria-label="Network quality: 5 of 5"
+  className="makeStyles-outerContainer-3"
+  role="img"
 >
   <div
-    className="makeStyles-innerContainer-2"
+    className="makeStyles-innerContainer-4"
   >
     <div
       style={

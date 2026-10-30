@@ -26,7 +26,7 @@ function AboutDialog({ open, onClose }: PropsWithChildren<AboutDialogProps>) {
       <Divider />
       <DialogContent>
         <DialogContentText>
-          {t('about.supportedBrowser')}: {String(Video.isSupported)}
+          {t('about.supportedBrowser')}: {t(Video.isSupported ? 'common:browserSupport.yes' : 'common:browserSupport.no')}
         </DialogContentText>
         <DialogContentText>
           {t('about.sdkVersion')}: {Video.version}

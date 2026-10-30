@@ -13,7 +13,7 @@ mockUseAppState.mockImplementation(() => ({ roomType: undefined }));
 describe('the AboutDialog component', () => {
   it('should display Video.isSupported', () => {
     const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-    expect(getByText('Navegador compatible: true')).toBeTruthy();
+    expect(getByText('Navegador compatible: Sí')).toBeTruthy();
   });
 
   it('should display the SDK version', () => {

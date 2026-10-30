@@ -308,9 +308,13 @@ const FIREBASE_AUTH_ERROR_KEYS: { [code: string]: string } = {
 };
 const GENERIC_AUTH_ERROR_KEY = 'auth:errors.generic';
 
-export function getFirebaseAuthErrorMessage(error: any, t: TFunction = spanishTranslator): string {
+function getFirebaseAuthErrorKey(error: any): string {
   const code: unknown = error?.code;
-  return t((typeof code === 'string' && FIREBASE_AUTH_ERROR_KEYS[code]) || GENERIC_AUTH_ERROR_KEY);
+  return (typeof code === 'string' && FIREBASE_AUTH_ERROR_KEYS[code]) || GENERIC_AUTH_ERROR_KEY;
+}
+
+export function getFirebaseAuthErrorMessage(error: any, t: TFunction = spanishTranslator): string {
+  return t(getFirebaseAuthErrorKey(error));
 }
 
 /** A labelled outlined text input, the field every auth form is made of. */
@@ -347,13 +351,14 @@ function AuthField({
 }
 
 /** The failure of the last auth action, under the fields it came from. */
-function AuthErrorMessage({ error }: { error: Error | null }) {
+function AuthErrorMessage({ error }: { error: string | null }) {
   const classes = useStyles();
+  const { t } = useTranslation('auth');
   if (!error) return null;
   return (
     <Typography variant="caption" className={classes.errorMessage}>
       <ErrorOutlineIcon />
-      {error.message}
+      {t(error)}
     </Typography>
   );
 }
@@ -407,7 +412,7 @@ export default function LoginPage() {
   const { signIn, signInWithEmail, register, completeProfile, signOut, user, profile, isAuthReady } = useAppState();
   const history = useHistory();
   const location = useLocation<{ from: Location }>();
-  const [authError, setAuthError] = useState<Error | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Firebase-mode form state.
   const [view, setView] = useState<'login' | 'register'>('login');
@@ -433,7 +438,7 @@ export default function LoginPage() {
     (action || Promise.resolve())
       .then(() => onSuccess?.())
       .catch(err => {
-        if (isMountedRef.current) setAuthError(new Error(getFirebaseAuthErrorMessage(err, t)));
+        if (isMountedRef.current) setAuthError(getFirebaseAuthErrorKey(err));
       })
       .finally(() => {
         if (isMountedRef.current) setIsSubmitting(false);

@@ -1,10 +1,18 @@
 import React from 'react';
 import { mount, shallow } from 'enzyme';
 import { act } from 'react-dom/test-utils';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { Redirect } from 'react-router-dom';
+import { FirebaseError } from 'firebase/app';
+import { getI18n, I18nextProvider, setI18n } from 'react-i18next';
+import { createI18n } from '../../i18n/createI18n';
+import { TextField } from '@material-ui/core';
+import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
 import TeacherProfilePage from './TeacherProfilePage';
 import { useAppState } from '../../state';
 import DashboardHeader from '../TeacherDashboard/DashboardHeader';
+import AvatarCropModal from './AvatarCropModal';
+import { AvatarCropError } from './avatarCropUtils';
 
 jest.mock('../../state');
 jest.mock('react-router-dom', () => ({
@@ -13,8 +21,16 @@ jest.mock('react-router-dom', () => ({
 }));
 
 const mockEnqueueSnackbar = jest.fn();
+let mockUseRealSnackbar = false;
 jest.mock('notistack', () => ({
-  useSnackbar: () => ({ enqueueSnackbar: mockEnqueueSnackbar, closeSnackbar: jest.fn() }),
+  ...jest.requireActual('notistack'),
+  useSnackbar: () => mockUseRealSnackbar
+    ? jest.requireActual('notistack').useSnackbar()
+    : { enqueueSnackbar: (message: any, options: any) => {
+        const node = document.createElement('div');
+        if (React.isValidElement(message)) node.innerHTML = renderToStaticMarkup(message);
+        mockEnqueueSnackbar(React.isValidElement(message) ? node.textContent : message, options);
+      }, closeSnackbar: jest.fn() },
 }));
 
 const mockUseAppState = useAppState as jest.Mock<any>;
@@ -46,6 +62,114 @@ const teacherState = (overrides = {}) => ({
 function button(wrapper: any, label: string) {
   return wrapper.findWhere((node: any) => typeof node.prop('onClick') === 'function' && node.text() === label).first();
 }
+
+describe('profile snackbar language switching', () => {
+  it.each([['es', 'en'], ['en', 'es']])('updates a visible authentication error from %s to %s', async (from, to) => {
+    const previousI18n = getI18n();
+    const i18n = createI18n({ detect: false, lng: from });
+    const { SnackbarProvider } = jest.requireActual('notistack');
+    mockUseAppState.mockReturnValue(teacherState({ deleteAvatar: jest.fn(() => Promise.reject(new FirebaseError('auth/wrong-password', 'raw'))) }));
+    mockUseRealSnackbar = true;
+    const wrapper = mount(<I18nextProvider i18n={i18n}><SnackbarProvider><TeacherProfilePage /></SnackbarProvider></I18nextProvider>);
+    try {
+      await act(async () => { button(wrapper, i18n.t('teacherProfile:photo.delete')).prop('onClick')!({}); await Promise.resolve(); });
+      wrapper.update();
+      expect(wrapper.text()).toContain(i18n.getFixedT(from)('teacherProfile:errors.generic'));
+      await act(async () => { await i18n.changeLanguage(to); });
+      wrapper.update();
+      expect(wrapper.text()).toContain(i18n.getFixedT(to)('teacherProfile:errors.generic'));
+    } finally {
+      wrapper.unmount();
+      mockUseRealSnackbar = false;
+      setI18n(previousI18n);
+    }
+  });
+
+  it.each([['es', 'en'], ['en', 'es']])('updates known crop errors but preserves identical unknown text from %s to %s', async (from, to) => {
+    const previousI18n = getI18n();
+    const i18n = createI18n({ detect: false, lng: from });
+    const { SnackbarProvider } = jest.requireActual('notistack');
+    mockUseAppState.mockReturnValue(teacherState());
+    mockUseRealSnackbar = true;
+    const wrapper = mount(<I18nextProvider i18n={i18n}><SnackbarProvider><TeacherProfilePage /></SnackbarProvider></I18nextProvider>);
+    try {
+      const original = i18n.getFixedT(from)('teacherProfile:crop.invalidImage');
+      act(() => {
+        const onError = wrapper.find(AvatarCropModal).prop('onError');
+        onError(new AvatarCropError('crop.invalidImage', original));
+        onError({ message: original });
+      });
+      await act(async () => { await i18n.changeLanguage(to); });
+      wrapper.update();
+      expect(wrapper.text()).toContain(i18n.getFixedT(to)('teacherProfile:crop.invalidImage'));
+      expect(wrapper.text()).toContain(original);
+    } finally {
+      wrapper.unmount();
+      mockUseRealSnackbar = false;
+      setI18n(previousI18n);
+    }
+  });
+
+
+  it.each([['es', 'en'], ['en', 'es']])('uses the current language when an in-flight save completes from %s to %s', async (from, to) => {
+    const previousI18n = getI18n();
+    const i18n = createI18n({ detect: false, lng: from });
+    const { SnackbarProvider } = jest.requireActual('notistack');
+    let finish!: () => void;
+    mockUseAppState.mockReturnValue(teacherState({ updateTeacherProfile: jest.fn(() => new Promise<void>(resolve => { finish = resolve; })) }));
+    mockUseRealSnackbar = true;
+    const wrapper = mount(<I18nextProvider i18n={i18n}><SnackbarProvider><TeacherProfilePage /></SnackbarProvider></I18nextProvider>);
+    try {
+      act(() => { (wrapper.find('form').at(0).find(TextField).first().prop('onChange') as any)({ target: { value: 'New name' } }); });
+      wrapper.update();
+      act(() => { (wrapper.find('form').at(0).prop('onSubmit') as any)({ preventDefault: jest.fn() }); });
+      await act(async () => { await i18n.changeLanguage(to); finish(); await Promise.resolve(); });
+      wrapper.update();
+      expect(wrapper.text()).toContain(i18n.getFixedT(to)('teacherProfile:name.updated'));
+    } finally {
+      wrapper.unmount();
+      mockUseRealSnackbar = false;
+      setI18n(previousI18n);
+    }
+  });
+
+  it.each([['es', 'en'], ['en', 'es']])('updates a visible notice and an in-flight result from %s to %s', async (from, to) => {
+    const previousI18n = getI18n();
+    const i18n = createI18n({ detect: false, lng: from });
+    const { SnackbarProvider } = jest.requireActual('notistack');
+    let finish!: () => void;
+    const updateTeacherProfile = jest.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+    mockUseAppState.mockReturnValue(teacherState({ updateTeacherProfile }));
+    mockUseRealSnackbar = true;
+    const wrapper = mount(<I18nextProvider i18n={i18n}><SnackbarProvider><TeacherProfilePage /></SnackbarProvider></I18nextProvider>);
+    try {
+      const submitName = async (name: string) => {
+        act(() => { (wrapper.find('form').at(0).find(TextField).first().prop('onChange') as any)({ target: { value: name } }); });
+        wrapper.update();
+        await act(async () => {
+          (wrapper.find('form').at(0).prop('onSubmit') as any)({ preventDefault: jest.fn() });
+          await Promise.resolve();
+        });
+        wrapper.update();
+      };
+      await submitName('First');
+      expect(wrapper.text()).toContain(i18n.getFixedT(from)('teacherProfile:name.updated'));
+      await submitName('Second');
+      await act(async () => { await i18n.changeLanguage(to); });
+      wrapper.update();
+      expect(wrapper.text()).toContain(i18n.getFixedT(to)('teacherProfile:name.updated'));
+      await act(async () => { finish(); await Promise.resolve(); });
+      wrapper.update();
+      expect(wrapper.text().split(i18n.getFixedT(to)('teacherProfile:name.updated')).length - 1).toBe(2);
+    } finally {
+      wrapper.unmount();
+      mockUseRealSnackbar = false;
+      setI18n(previousI18n);
+    }
+  });
+});
 
 describe('TeacherProfilePage', () => {
   beforeEach(() => {
@@ -387,6 +511,42 @@ describe('TeacherProfilePage', () => {
         .prop('disabled')
     ).toBe(false);
     expect(wrapper.findWhere((node: any) => node.prop('label') === 'Contraseña actual')).toHaveLength(2);
+  });
+
+  it.each([
+    ['es', 'No pudimos completar el cambio. Intenta de nuevo.'],
+    ['en', "We couldn't complete the change. Try again."],
+  ])('localizes an unmapped Firebase authentication failure in %s', async (language, expected) => {
+    const previousI18n = getI18n();
+    const i18n = createI18n({ detect: false, lng: language });
+    try {
+      const changePassword = jest.fn(() => Promise.reject(new FirebaseError('auth/wrong-password', 'Raw SDK message')));
+      mockUseAppState.mockReturnValue(teacherState({ changePassword }));
+      const wrapper = mount(<I18nextProvider i18n={i18n}><TeacherProfilePage /></I18nextProvider>);
+      const fields = wrapper.find('form').at(2);
+      act(() => {
+        (fields.find(TextField).at(0).prop('onChange') as any)({ target: { value: 'old-password' } });
+        (fields.find(TextField).at(1).prop('onChange') as any)({ target: { value: 'new-password' } });
+      });
+      wrapper.update();
+      await act(async () => {
+        (wrapper.find('form').at(2).prop('onSubmit') as any)({ preventDefault: jest.fn() });
+        await Promise.resolve();
+      });
+      expect(changePassword).toHaveBeenCalledWith('old-password', 'new-password');
+      expect(mockEnqueueSnackbar).toHaveBeenCalledWith(expected, { variant: 'error' });
+      wrapper.unmount();
+    } finally {
+      setI18n(previousI18n);
+    }
+  });
+
+  it('preserves a ClientApiError message even when its code resembles an auth code', async () => {
+    const error = new ClientApiError(400, 'auth/custom', 'Server explanation');
+    mockUseAppState.mockReturnValue(teacherState({ deleteAvatar: jest.fn(() => Promise.reject(error)) }));
+    const wrapper = shallow(<TeacherProfilePage />);
+    await button(wrapper, 'Eliminar foto').prop('onClick')!({});
+    expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Server explanation', { variant: 'error' });
   });
 
   it('surfaces a failed profile action', async () => {

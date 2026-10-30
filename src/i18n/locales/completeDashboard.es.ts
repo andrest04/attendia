@@ -1,0 +1,36 @@
+const completeDashboard = {
+  classes: {
+    mock: 'Datos simulados', upcoming: 'Próximas sesiones', cancelExpired_one: 'Cancelar vencida', cancelExpired_other: 'Cancelar {{count}} vencidas',
+    cancelling: 'Cancelando…', newClass: 'Nueva clase', formSubtitle: 'Completa estos datos para programar la sesión.',
+    title: 'Título de la clase', titlePlaceholder: 'Ej: Matemáticas — Grupo A', date: 'Fecha', datePlaceholder: 'dd/mm/aaaa', time: 'Hora',
+    expectedStudentCount_one: '{{count}} alumno esperado', expectedStudentCount_other: '{{count}} alumnos esperados',
+    students: 'Alumnos esperados', duration: 'Duración (minutos)', creating: 'Creando…', create: 'Crear clase', cancel: 'Cancelar',
+    chooseDate: 'Elegir fecha', chooseTime: 'Elegir hora', invalidDate: 'Formato de fecha inválido', invalidTime: 'Formato de hora inválido', datePast: 'La fecha no puede ser anterior a hoy', dateFuture: 'La fecha supera el máximo permitido',
+    duplicate: 'Ya tienes una clase "{{title}}" programada para el {{date}}. Puedes crear esta igual si es una sesión distinta.', noDate: 'sin fecha',
+    checking: 'Verificando…', rejoin: 'Volver a entrar', closed: 'La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.',
+    restart: 'Iniciar de nuevo', checkingRoom: 'Verificando sala…', start: 'Iniciar sesión', details: 'Ver detalles',
+    inProgress: 'Sesiones en curso', refresh: 'Actualizar', expired: 'Sesiones vencidas', retryCancel: 'Reintentar cancelación',
+  },
+  resources: {
+    title: 'Recursos', unavailable: 'Los recursos reales solo están disponibles con el modo de autenticación Firebase.', subtitle: 'Materiales asociados a clases programadas',
+    uploadingCount: 'Subiendo… ({{count}})', upload: 'Subir archivo', loading: 'Cargando recursos…', cancelled: '(clase cancelada)', expired: '(clase vencida)', completed: '(clase finalizada)',
+    empty: 'Todavía no tienes clases programadas para asociar recursos.', deleteResource: 'Eliminar recurso', dismiss: 'Descartar', view: 'Ver', download: 'Descargar',
+    uploading: 'Subiendo… {{progress}}%', delete: 'Eliminar', back: 'Volver', deleteAll: 'Eliminar todo', deleteClass: 'Eliminar clase', deleteClassResources: 'Eliminar recursos de la clase',
+    deleteResourceConfirm: '¿Eliminar "{{name}}"? Esta acción no se puede deshacer.',
+    deleteResources_one: 'Eliminar el recurso de esta clase', deleteResources_other: 'Eliminar los {{count}} recursos de esta clase',
+    deleteFilesConfirm_one: '¿Eliminar el archivo de "{{name}}"? Esta acción no se puede deshacer.', deleteFilesConfirm_other: '¿Eliminar los {{count}} archivos de "{{name}}"? Esta acción no se puede deshacer.',
+    deleteClassConfirm: '¿Eliminar la clase "{{name}}"? Esta acción no se puede deshacer.',
+    deleteClassWithFiles_one: '¿Eliminar la clase "{{name}}" y su recurso? Esta acción no se puede deshacer.', deleteClassWithFiles_other: '¿Eliminar la clase "{{name}}" y sus {{count}} recursos? Esta acción no se puede deshacer.',
+  },
+  history: {
+    title: 'Historial de clases', subtitle: 'Reportes guardados al finalizar cada sesión',
+    searchPlaceholder: 'Buscar clase...', search: 'Buscar clase', loading: 'Cargando el historial...',
+    retry: 'Reintentar', empty: 'Todavía no hay reportes guardados.', noResults: 'No encontramos clases con esa búsqueda.',
+    class: 'CLASE', date: 'FECHA', duration: 'DURACIÓN', students: 'ALUMNOS', attention: 'ATENCIÓN', recording: 'GRABACIÓN',
+    mock: 'Datos simulados', report: 'Reporte', unavailable: 'No disponible', dateUnavailable: 'Fecha no disponible',
+    request: 'Solicitar grabación', processing: 'Procesando...', view: 'Ver grabación',
+    failed: 'No pudimos generar la grabación.', expired: 'La grabación venció — solo está disponible por 7 días.',
+    requestFailed: 'No pudimos solicitar la grabación.', expiry: 'Disponible hasta {{date}} (7 días)',
+  },
+};
+export default completeDashboard;

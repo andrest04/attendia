@@ -48,6 +48,56 @@ describe('useReloadableResource', () => {
     expect(result.current.error).toBe('No pudimos cargar.');
   });
 
+  it('updates an existing localized error without fetching again', async () => {
+    let language = 'es';
+    const failure = { get message() { return language === 'es' ? 'Error localizado' : 'Localized error'; } };
+    const fetch = jest.fn(() => Promise.reject(failure));
+    const { result, rerender } = renderHook(
+      ({ failureMessage }) => useReloadableResource(fetch, { ...options, failureMessage }),
+      { initialProps: { failureMessage: 'Error predeterminado' } }
+    );
+    await flush();
+    expect(result.current.error).toBe('Error localizado');
+
+    language = 'en';
+    rerender({ failureMessage: 'Default error' });
+    expect(result.current.error).toBe('Localized error');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('updates an existing fallback without fetching again', async () => {
+    const fetch = jest.fn(() => Promise.reject(new Error('')));
+    const { result, rerender } = renderHook(
+      ({ failureMessage }) => useReloadableResource(fetch, { ...options, failureMessage }),
+      { initialProps: { failureMessage: 'Error predeterminado' } }
+    );
+    await flush();
+    expect(result.current.error).toBe('Error predeterminado');
+
+    rerender({ failureMessage: 'Default error' });
+    expect(result.current.error).toBe('Default error');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves an arbitrary error message when the fallback changes', async () => {
+    const fetch = jest.fn(() => Promise.reject(new Error('Custom server message')));
+    const { result, rerender } = renderHook(
+      ({ failureMessage }) => useReloadableResource(fetch, { ...options, failureMessage }),
+      { initialProps: { failureMessage: 'Error predeterminado' } }
+    );
+    await flush();
+    rerender({ failureMessage: 'Default error' });
+    expect(result.current.error).toBe('Custom server message');
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles a rejection without an error object', async () => {
+    const fetch = jest.fn(() => Promise.reject(null));
+    const { result } = renderHook(() => useReloadableResource(fetch, options));
+    await flush();
+    expect(result.current.error).toBe(options.failureMessage);
+  });
+
   it('reloads on demand, clearing the previous error while it loads', async () => {
     const fetch = jest
       .fn()

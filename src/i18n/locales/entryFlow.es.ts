@@ -137,7 +137,7 @@ const entryFlow = {
       protectTitle: '¿Cómo se protegen tus datos?',
       protectBefore: 'Todo el procesamiento ocurre ',
       protectStrong: 'en tu dispositivo',
-      protectAfter: ' (on-device)',
+      protectAfter: '.',
       protectNoImages: 'Ninguna imagen ni video sale de tu equipo',
       protectOnlyIndices: 'Solo se transmiten índices numéricos de atención al docente',
       protectPedagogical: 'Los datos son para uso pedagógico exclusivamente',

@@ -109,23 +109,33 @@ export default function useTeacherClasses({
   const { t, i18n } = useTranslation('dashboardShell');
   const language = i18n.language;
   const data = mockDashboardData;
+  const [fetchError, setFetchError] = useState<{ message?: string } | null>(null);
+  const fetchClassesWithError = useCallback(() => {
+    setFetchError(null);
+    return fetchClasses!().catch(err => {
+      // The shared loader reads .message; nullish rejections need a safe sentinel.
+      const failure = err == null ? {} : err;
+      setFetchError(failure);
+      throw failure;
+    });
+  }, [fetchClasses]);
   const {
     data: realClasses,
     setData: setRealClasses,
     isLoading: isClassesLoading,
     error: classesError,
     reload: loadClasses,
-  } = useReloadableResource<ClassRecord[]>(fetchClasses, {
+  } = useReloadableResource<ClassRecord[]>(fetchClasses ? fetchClassesWithError : undefined, {
     initial: [],
     failureMessage: t('classes.fetchFailed'),
     logLabel: 'TeacherDashboard: could not fetch classes',
   });
   const [cancellingClassId, setCancellingClassId] = useState<string | null>(null);
-  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<{ message?: string } | null>(null);
   const cancelRetrySessionRef = useRef<{ id: string; title: string } | null>(null);
   const [isCancellingExpired, setIsCancellingExpired] = useState(false);
-  const [cancelExpiredError, setCancelExpiredError] = useState<string | null>(null);
-  const [startClassError, setStartClassError] = useState<string | null>(null);
+  const [cancelExpiredCount, setCancelExpiredCount] = useState<number | null>(null);
+  const [startClassError, setStartClassError] = useState<{ message?: string; roomInUse?: boolean } | null>(null);
   const [isStartingClass, setIsStartingClass] = useState(false);
   const cancelDialog = useConfirmDialog<{ id: string; title: string }>();
   const cancelExpiredDialog = useConfirmDialog();
@@ -153,7 +163,7 @@ export default function useTeacherClasses({
         refreshNotifications();
       })
       .catch(err => {
-        setCancelError(err.message || t('classes.cancelFailed'));
+        setCancelError(err || {});
         cancelRetrySessionRef.current = session;
       })
       .finally(() => setCancellingClassId(null));
@@ -193,7 +203,7 @@ export default function useTeacherClasses({
   const confirmCancelExpiredClasses = () => {
     cancelExpiredDialog.close();
     setIsCancellingExpired(true);
-    setCancelExpiredError(null);
+    setCancelExpiredCount(null);
     Promise.allSettled(expiredClasses.map(classRecord => deleteClass!(classRecord.id).then(() => classRecord.id))).then(
       results => {
         const deletedIds = results
@@ -204,7 +214,7 @@ export default function useTeacherClasses({
           setRealClasses(current => current.filter(c => !deletedIds.includes(c.id)));
         }
         if (failedCount > 0) {
-          setCancelExpiredError(t('classes.cancelExpiredFailed', { count: failedCount }));
+          setCancelExpiredCount(failedCount);
         }
         setIsCancellingExpired(false);
       }
@@ -229,12 +239,12 @@ export default function useTeacherClasses({
         });
         return;
       }
-      setStartClassError(t('classes.roomInUse'));
+      setStartClassError({ roomInUse: true });
       return;
     }
     startClass!(classId, roomName)
       .then(() => onStartClass({ roomName, name: toClassSessionDisplayName(professorName, 'teacher'), classId }))
-      .catch(err => setStartClassError(err.message || t('classes.startFailed')))
+      .catch(err => setStartClassError(err || {}))
       .finally(() => setIsStartingClass(false));
   };
 
@@ -250,12 +260,12 @@ export default function useTeacherClasses({
     realClasses,
     setRealClasses,
     isClassesLoading,
-    classesError,
+    classesError: fetchError ? fetchError.message || t('classes.fetchFailed') || classesError : classesError,
     cancellingClassId,
-    cancelError,
+    cancelError: cancelError ? cancelError.message || t('classes.cancelFailed') : null,
     isCancellingExpired,
-    cancelExpiredError,
-    startClassError,
+    cancelExpiredError: cancelExpiredCount === null ? null : t('classes.cancelExpiredFailed', { count: cancelExpiredCount }),
+    startClassError: startClassError ? (startClassError.roomInUse ? t('classes.roomInUse') : startClassError.message || t('classes.startFailed')) : null,
     isStartingClass,
     startedRoomStatus,
     refreshStartedRooms,

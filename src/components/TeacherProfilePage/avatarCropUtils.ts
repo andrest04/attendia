@@ -4,6 +4,13 @@ import spanishTranslator from '../../i18n/spanishTranslator';
 export const MAX_AVATAR_BLOB_BYTES = 2 * 1024 * 1024;
 export const AVATAR_OUTPUT_SIZE = 256;
 
+export class AvatarCropError extends Error {
+  constructor(public readonly translationKey: 'crop.invalidImage' | 'crop.stillTooLarge', message: string) {
+    super(message);
+    this.name = 'AvatarCropError';
+  }
+}
+
 export interface PixelCrop {
   x: number;
   y: number;
@@ -19,7 +26,7 @@ function loadImage(src: string, t: TFunction): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(t('teacherProfile:crop.invalidImage')));
+    image.onerror = () => reject(new AvatarCropError('crop.invalidImage', t('teacherProfile:crop.invalidImage')));
     image.src = src;
   });
 }
@@ -41,5 +48,5 @@ export async function cropToBudgetedBlob(
     const blob = await canvasToBlob(canvas, quality);
     if (blob && blob.size <= MAX_AVATAR_BLOB_BYTES) return blob;
   }
-  throw new Error(t('teacherProfile:crop.stillTooLarge'));
+  throw new AvatarCropError('crop.stillTooLarge', t('teacherProfile:crop.stillTooLarge'));
 }

@@ -5,6 +5,12 @@ import useChatContext from '../../hooks/useChatContext/useChatContext';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
 import { setImmediate } from 'timers';
 import EventEmitter from 'events';
+import i18n from '../../i18n/testInit';
+import en from '../../i18n/locales/completePreview.en';
+import es from '../../i18n/locales/completePreview.es';
+
+i18n.addResourceBundle('en', 'common', en, true, true);
+i18n.addResourceBundle('es', 'common', es, true, true);
 
 const mockConversation: any = new EventEmitter();
 mockConversation.getMessages = jest.fn(() => Promise.resolve({ items: ['mockMessage'] }));
@@ -171,9 +177,41 @@ describe('the ChatProvider component', () => {
     result.current.connect('mockToken');
     mockConversationsClient.emit('stateChanged', 'failed');
 
-    expect(mockOnError).toHaveBeenCalledWith(
-      new Error("There was a problem connecting to Twilio's conversation service.")
-    );
+    expect(mockOnError.mock.calls[0][0].message).toBe('Hubo un problema al conectar con el servicio de conversaciones de Twilio.');
+  });
+
+  it('updates an existing connection error after a language switch', async () => {
+    const { result, unmount } = renderHook(useChatContext, { wrapper });
+    act(() => {
+      result.current.connect('mockToken');
+      mockConversationsClient.emit('stateChanged', 'failed');
+    });
+    const error = mockOnError.mock.calls[0][0];
+    expect(error).toBeInstanceOf(Error);
+    await act(async () => { await i18n.changeLanguage('en'); });
+    expect(error.message).toBe("There was a problem connecting to Twilio's conversation service.");
+    unmount();
+    await act(async () => { await i18n.changeLanguage('es'); });
+  });
+
+  it('localizes a conversation lookup error in English', async () => {
+    await act(async () => { await i18n.changeLanguage('en'); });
+    const originalError = new Error('external detail');
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockConversationsClient.getConversationByUniqueName.mockRejectedValueOnce(originalError);
+    const { result, unmount } = renderHook(useChatContext, { wrapper });
+    await act(async () => {
+      result.current.connect('mockToken');
+      mockConversationsClient.emit('stateChanged', 'initialized');
+      await Promise.resolve();
+    });
+    expect(log).toHaveBeenCalledWith(originalError);
+    const error = mockOnError.mock.calls[0][0];
+    expect(error.message).toBe('There was a problem getting the Conversation associated with this room.');
+    await act(async () => { await i18n.changeLanguage('es'); });
+    expect(error.message).toBe('Hubo un problema al obtener la conversación asociada a esta sala.');
+    unmount();
+    log.mockRestore();
   });
 
   it('should call onError when there is an error getting the conversation', done => {
@@ -186,9 +224,7 @@ describe('the ChatProvider component', () => {
     });
 
     setImmediate(() => {
-      expect(mockOnError).toHaveBeenCalledWith(
-        new Error('There was a problem getting the Conversation associated with this room.')
-      );
+      expect(mockOnError.mock.calls[0][0].message).toBe('Hubo un problema al obtener la conversación asociada a esta sala.');
       done();
     });
   });

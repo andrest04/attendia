@@ -1,0 +1,36 @@
+const completeDashboard = {
+  classes: {
+    mock: 'Simulated data', upcoming: 'Upcoming sessions', cancelExpired_one: 'Cancel expired class', cancelExpired_other: 'Cancel {{count}} expired classes',
+    cancelling: 'Cancelling…', newClass: 'New class', formSubtitle: 'Complete these details to schedule the session.',
+    title: 'Class title', titlePlaceholder: 'E.g. Mathematics — Group A', date: 'Date', datePlaceholder: 'mm/dd/yyyy', time: 'Time',
+    expectedStudentCount_one: '{{count}} expected student', expectedStudentCount_other: '{{count}} expected students',
+    students: 'Expected students', duration: 'Duration (minutes)', creating: 'Creating…', create: 'Create class', cancel: 'Cancel',
+    chooseDate: 'Choose date', chooseTime: 'Choose time', invalidDate: 'Invalid date format', invalidTime: 'Invalid time format', datePast: 'Date cannot be before today', dateFuture: 'Date exceeds the maximum allowed',
+    duplicate: 'You already have a class "{{title}}" scheduled for {{date}}. You can still create this one if it is a different session.', noDate: 'no date',
+    checking: 'Checking…', rejoin: 'Rejoin', closed: 'The room has closed. You can start it again as a new session.',
+    restart: 'Start again', checkingRoom: 'Checking room…', start: 'Start session', details: 'View details',
+    inProgress: 'Sessions in progress', refresh: 'Refresh', expired: 'Expired sessions', retryCancel: 'Retry cancellation',
+  },
+  resources: {
+    title: 'Resources', unavailable: 'Real resources are only available with Firebase authentication.', subtitle: 'Materials associated with scheduled classes',
+    uploadingCount: 'Uploading… ({{count}})', upload: 'Upload file', loading: 'Loading resources…', cancelled: '(cancelled class)', expired: '(expired class)', completed: '(completed class)',
+    empty: 'You have no scheduled classes to associate resources with yet.', deleteResource: 'Delete resource', dismiss: 'Dismiss', view: 'View', download: 'Download',
+    uploading: 'Uploading… {{progress}}%', delete: 'Delete', back: 'Back', deleteAll: 'Delete all', deleteClass: 'Delete class', deleteClassResources: 'Delete class resources',
+    deleteResourceConfirm: 'Delete "{{name}}"? This action cannot be undone.',
+    deleteResources_one: 'Delete the resource from this class', deleteResources_other: 'Delete the {{count}} resources from this class',
+    deleteFilesConfirm_one: 'Delete the file from "{{name}}"? This action cannot be undone.', deleteFilesConfirm_other: 'Delete the {{count}} files from "{{name}}"? This action cannot be undone.',
+    deleteClassConfirm: 'Delete the class "{{name}}"? This action cannot be undone.',
+    deleteClassWithFiles_one: 'Delete the class "{{name}}" and its resource? This action cannot be undone.', deleteClassWithFiles_other: 'Delete the class "{{name}}" and its {{count}} resources? This action cannot be undone.',
+  },
+  history: {
+    title: 'Class history', subtitle: 'Reports saved at the end of each session',
+    searchPlaceholder: 'Search classes...', search: 'Search classes', loading: 'Loading history...',
+    retry: 'Retry', empty: 'There are no saved reports yet.', noResults: 'No classes match your search.',
+    class: 'CLASS', date: 'DATE', duration: 'DURATION', students: 'STUDENTS', attention: 'ATTENTION', recording: 'RECORDING',
+    mock: 'Simulated data', report: 'Report', unavailable: 'Unavailable', dateUnavailable: 'Date unavailable',
+    request: 'Request recording', processing: 'Processing...', view: 'View recording',
+    failed: "We couldn't generate the recording.", expired: 'The recording expired — it is only available for 7 days.',
+    requestFailed: "We couldn't request the recording.", expiry: 'Available until {{date}} (7 days)',
+  },
+};
+export default completeDashboard;

@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, waitForElement } from '@testing-library/react';
 import CreatePasswordDialog from './CreatePasswordDialog';
 import { useAppState } from '../../../state';
+import i18n from '../../../i18n';
 
 jest.mock('../../../state');
 
@@ -11,9 +12,14 @@ describe('the CreatePasswordDialog component', () => {
   const mockCreatePassword = jest.fn(() => Promise.resolve());
   const mockOnClose = jest.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    await act(async () => { await i18n.changeLanguage('es'); });
     jest.clearAllMocks();
     mockUseAppState.mockImplementation(() => ({ createPassword: mockCreatePassword }));
+  });
+
+  afterEach(async () => {
+    await act(async () => { await i18n.changeLanguage('es'); });
   });
 
   const renderDialog = () => render(<CreatePasswordDialog open={true} onClose={mockOnClose} />);
@@ -27,6 +33,42 @@ describe('the CreatePasswordDialog component', () => {
       fireEvent.submit(utils.getByLabelText('Contraseña nueva').closest('form')!);
     });
   };
+
+  it.each([
+    ['abc', 'abc', 'La contraseña es demasiado débil. Usa al menos 6 caracteres.', 'The password is too weak. Use at least 6 characters.'],
+    ['password1', 'password2', 'Las contraseñas no coinciden.', 'The passwords do not match.'],
+  ])('retranslates validation errors without changing input or submitting', async (password, confirmation, spanish, english) => {
+    const ui = renderDialog();
+    fillAndSubmit(ui, password, confirmation);
+    expect(ui.getByText(spanish)).toBeTruthy();
+    await act(async () => { await i18n.changeLanguage('en'); });
+    expect(ui.getByText(english)).toBeTruthy();
+    expect((ui.getByLabelText('New password') as HTMLInputElement).value).toBe(password);
+    expect((ui.getByLabelText('Confirm password') as HTMLInputElement).value).toBe(confirmation);
+    await act(async () => { await i18n.changeLanguage('es'); });
+    expect(ui.getByText(spanish)).toBeTruthy();
+    expect(mockCreatePassword).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['auth/weak-password', 'La contraseña es demasiado débil. Usa al menos 6 caracteres.', 'The password is too weak. Use at least 6 characters.'],
+    ['auth/requires-recent-login', 'Por seguridad, cierra sesión y vuelve a entrar con Google antes de crear tu contraseña.', 'For security, sign out and sign in again with Google before creating your password.'],
+    ['auth/provider-already-linked', 'Esta cuenta ya tiene una contraseña configurada. Inicia sesión con tu correo y contraseña.', 'This account already has a password. Sign in with your email and password.'],
+    ['auth/credential-already-in-use', 'Esta cuenta ya tiene una contraseña configurada. Inicia sesión con tu correo y contraseña.', 'This account already has a password. Sign in with your email and password.'],
+    ['auth/email-already-in-use', 'Esta cuenta ya tiene una contraseña configurada. Inicia sesión con tu correo y contraseña.', 'This account already has a password. Sign in with your email and password.'],
+    [null, 'No se pudo crear la contraseña. Intenta de nuevo.', 'The password could not be created. Please try again.'],
+  ])('retranslates Firebase error %s without retrying', async (code, spanish, english) => {
+    mockCreatePassword.mockImplementationOnce(() => Promise.reject(code ? { code } : null));
+    const ui = renderDialog();
+    fillAndSubmit(ui, 'password1', 'password1');
+    await waitForElement(() => ui.getByText(spanish));
+    await act(async () => { await i18n.changeLanguage('en'); });
+    expect(ui.getByText(english)).toBeTruthy();
+    expect((ui.getByLabelText('New password') as HTMLInputElement).value).toBe('password1');
+    await act(async () => { await i18n.changeLanguage('es'); });
+    expect(ui.getByText(spanish)).toBeTruthy();
+    expect(mockCreatePassword).toHaveBeenCalledTimes(1);
+  });
 
   it('should show a validation error for a password shorter than 6 characters', () => {
     const utils = renderDialog();

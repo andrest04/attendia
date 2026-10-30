@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { initializeApp } from 'firebase/app';
-import { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
   getAuth,
@@ -24,9 +23,10 @@ import {
   StoredAttentionReport,
 } from '../../components/AttentionProvider/reportTypes';
 import { ResourceFileKind } from '../../components/TeacherDashboard/types';
-import { ClientApiError, createApiClient, throwOnErrorResponse, withUser } from './apiClient';
+import { acquireIdToken, ClientApiError, createApiClient, setLocalizedErrorMessage, throwOnErrorResponse, withUser as bindUser } from './apiClient';
+import completeErrorsEn from '../../i18n/locales/completeErrors.en';
+import completeErrorsEs from '../../i18n/locales/completeErrors.es';
 import { featureFlags } from '../../utils/featureFlags';
-import spanishTranslator from '../../i18n/spanishTranslator';
 
 // Re-exported so existing importers keep working; the class lives with the API client.
 export { ClientApiError };
@@ -220,10 +220,10 @@ async function uploadResourceRequest(
   user: User,
   file: File,
   classId: string,
-  onProgress?: (percent: number) => void,
-  t: TFunction = spanishTranslator
+  onProgress: ((percent: number) => void) | undefined,
+  uploadFailureMessage: () => string
 ): Promise<ResourceRecord> {
-  const idToken = await user.getIdToken();
+  const idToken = await acquireIdToken(user);
 
   const formData = new FormData();
   formData.append('file', file);
@@ -253,11 +253,16 @@ async function uploadResourceRequest(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve(body);
       } else {
-        reject(new Error(body.error?.explanation || body.error?.message || xhr.statusText));
+        const code = body.error?.message || xhr.statusText || `http_${xhr.status}`;
+        reject(new ClientApiError(xhr.status, code, body.error?.explanation || code, Boolean(body.error?.explanation)));
       }
     };
 
-    xhr.onerror = () => reject(new Error(t('errors:auth.uploadFailed')));
+    xhr.onerror = () => {
+      const error = new Error();
+      setLocalizedErrorMessage(error, uploadFailureMessage);
+      reject(error);
+    };
 
     xhr.send(formData);
   });
@@ -326,7 +331,22 @@ const startClassRequest = (user: User, id: string, roomName: string): Promise<vo
   createApiClient(user).send(`/classes/${encodeURIComponent(id)}/start`, { method: 'POST', json: { roomName } });
 
 export default function useFirebaseAuth() {
-  const { t } = useTranslation('errors');
+  const { t, i18n } = useTranslation('errors');
+  const i18nRef = useRef(i18n);
+  i18nRef.current = i18n;
+  const sessionError = useCallback((recording = false): Error => {
+    const error = new Error();
+    setLocalizedErrorMessage(error, () => {
+      const messages = i18nRef.current.language.split('-')[0] === 'en' ? completeErrorsEn : completeErrorsEs;
+      return recording ? messages.recordingRequiresSession : messages.sessionRequired;
+    });
+    return error;
+  }, []);
+  const withUser = useCallback(<U extends { getIdToken(forceRefresh?: boolean): Promise<string> }, Args extends any[], Result>(
+    currentUser: U | null,
+    message: string,
+    call: (currentUser: U, ...args: Args) => Promise<Result>
+  ) => bindUser(currentUser, message, call, () => sessionError()), [sessionError]);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -358,16 +378,18 @@ export default function useFirebaseAuth() {
   }, []);
 
   const getToken = useCallback(
-    (user_identity: string, room_name: string) =>
-      createApiClient(user!).json(process.env.REACT_APP_TOKEN_ENDPOINT || '/token', {
+    (user_identity: string, room_name: string) => {
+      if (!user) return Promise.reject(sessionError());
+      return createApiClient(user).json(process.env.REACT_APP_TOKEN_ENDPOINT || '/token', {
         method: 'POST',
         json: {
           user_identity,
           room_name,
           create_conversation: !featureFlags.isConversationsDisabled(),
         },
-      }),
-    [user]
+      });
+    },
+    [user, sessionError]
   );
 
   const updateRecordingRules = useCallback(
@@ -447,22 +469,24 @@ export default function useFirebaseAuth() {
   const completeProfile = useCallback(
     async (role: ClassSessionRole) => {
       if (!user) {
-        throw new Error('Cannot complete a profile without an authenticated user');
+        throw sessionError();
       }
 
       const displayName = user.displayName || user.email || '';
       const createdProfile = await postProfileRequest(user, displayName, role);
       applyProfile(createdProfile);
     },
-    [user, applyProfile]
+    [user, applyProfile, sessionError]
   );
 
   // Links an email/password credential to the current (Google-only) account, so the
   // user can afterwards sign in with either provider — same uid, same Firestore profile.
   const createPassword = useCallback(
     async (password: string) => {
-      if (!user || !user.email) {
-        throw new Error('Cannot create a password without an authenticated user with an email');
+      if (!user) throw sessionError();
+      if (!user.email) {
+        const messages = i18nRef.current.language.split('-')[0] === 'en' ? completeErrorsEn : completeErrorsEs;
+        throw new Error(messages.accountEmailRequired);
       }
 
       const result = await linkWithCredential(user, EmailAuthProvider.credential(user.email, password));
@@ -470,7 +494,7 @@ export default function useFirebaseAuth() {
       // providerData. The Firestore profile is untouched by the credential link.
       setUser(result.user);
     },
-    [user]
+    [user, sessionError]
   );
 
   const reauthenticate = useCallback(
@@ -565,23 +589,23 @@ export default function useFirebaseAuth() {
   // policy (the in-room saver swallows failures so leaving is never blocked).
   const saveAttentionReport = useMemo(
     () => withUser(user, 'Cannot save an attention report without an authenticated user', postReportRequest),
-    [user]
+    [user, withUser]
   );
 
   const fetchAttentionReports = useMemo(
     () => withUser(user, 'Cannot fetch attention reports without an authenticated user', fetchReportsRequest),
-    [user]
+    [user, withUser]
   );
 
   const fetchAttentionReport = useMemo(
     () => withUser(user, 'Cannot fetch an attention report without an authenticated user', fetchReportRequest),
-    [user]
+    [user, withUser]
   );
 
   const requestRecordingArtifact = useCallback(
     (roomSid: string, suppliedManualRequestId?: string) => {
       if (!user) {
-        return Promise.reject(new Error('Cannot request a recording without an authenticated user'));
+        return Promise.reject(sessionError(true));
       }
       const manualRequestId =
         suppliedManualRequestId ||
@@ -597,17 +621,17 @@ export default function useFirebaseAuth() {
         return recording;
       });
     },
-    [user]
+    [user, sessionError]
   );
 
   const fetchNotifications = useMemo(
     () => withUser(user, 'Cannot fetch notifications without an authenticated user', fetchNotificationsRequest),
-    [user]
+    [user, withUser]
   );
 
   const markNotificationRead = useMemo(
     () => withUser(user, 'Cannot read a notification without an authenticated user', markNotificationReadRequest),
-    [user]
+    [user, withUser]
   );
 
   const markAllNotificationsRead = useMemo(
@@ -615,7 +639,7 @@ export default function useFirebaseAuth() {
       withUser(user, 'Cannot read notifications without an authenticated user', (u: User, idempotencyKey: string) =>
         notificationOperationRequest(u, '/notifications/mark-all-read', 'POST', idempotencyKey)
       ),
-    [user]
+    [user, withUser]
   );
 
   const clearNotifications = useMemo(
@@ -623,7 +647,7 @@ export default function useFirebaseAuth() {
       withUser(user, 'Cannot clear notifications without an authenticated user', (u: User, idempotencyKey: string) =>
         notificationOperationRequest(u, '/notifications', 'DELETE', idempotencyKey)
       ),
-    [user]
+    [user, withUser]
   );
 
   const reconcileNotifications = useMemo(
@@ -634,7 +658,7 @@ export default function useFirebaseAuth() {
         (u: User, scope: 'all' | 'recordings', claims: ReportFailureClaim[] = []) =>
           reconcileNotificationsRequest(u, scope, claims)
       ),
-    [user]
+    [user, withUser]
   );
 
   const fetchRecordingArtifactStatus = useMemo(
@@ -644,7 +668,7 @@ export default function useFirebaseAuth() {
         'Cannot fetch a recording status without an authenticated user',
         fetchRecordingArtifactStatusRequest
       ),
-    [user]
+    [user, withUser]
   );
 
   const fetchRecordingDownloadUrl = useMemo(
@@ -654,12 +678,12 @@ export default function useFirebaseAuth() {
         'Cannot fetch a recording download url without an authenticated user',
         fetchRecordingDownloadUrlRequest
       ),
-    [user]
+    [user, withUser]
   );
 
   const fetchResources = useMemo(
     () => withUser(user, 'Cannot fetch resources without an authenticated user', fetchResourcesRequest),
-    [user]
+    [user, withUser]
   );
 
   const uploadResource = useMemo(
@@ -668,24 +692,24 @@ export default function useFirebaseAuth() {
         user,
         'Cannot upload a resource without an authenticated user',
         (u: User, file: File, classId: string, onProgress?: (percent: number) => void) =>
-          uploadResourceRequest(u, file, classId, onProgress, t)
+          uploadResourceRequest(u, file, classId, onProgress, () => i18nRef.current.t('errors:auth.uploadFailed'))
       ),
-    [user, t]
+    [user, withUser]
   );
 
   const fetchResourceDownloadUrl = useMemo(
     () => withUser(user, 'Cannot download a resource without an authenticated user', fetchResourceDownloadRequest),
-    [user]
+    [user, withUser]
   );
 
   const fetchResourcePreviewUrl = useMemo(
     () => withUser(user, 'Cannot preview a resource without an authenticated user', fetchResourcePreviewRequest),
-    [user]
+    [user, withUser]
   );
 
   const deleteResource = useMemo(
     () => withUser(user, 'Cannot delete a resource without an authenticated user', deleteResourceRequest),
-    [user]
+    [user, withUser]
   );
 
   // Unlike uploadResource/deleteResource, avatar changes must update shared profile
@@ -698,7 +722,7 @@ export default function useFirebaseAuth() {
         applyProfile(updatedProfile);
         return updatedProfile;
       }),
-    [user, applyProfile]
+    [user, applyProfile, withUser]
   );
 
   const deleteAvatar = useMemo(
@@ -708,7 +732,7 @@ export default function useFirebaseAuth() {
         applyProfile(updatedProfile);
         return updatedProfile;
       }),
-    [user, applyProfile]
+    [user, applyProfile, withUser]
   );
 
   // Clears avatarRemoved so the client resumes falling back to the auth provider's
@@ -720,27 +744,27 @@ export default function useFirebaseAuth() {
         applyProfile(updatedProfile);
         return updatedProfile;
       }),
-    [user, applyProfile]
+    [user, applyProfile, withUser]
   );
 
   const fetchClasses = useMemo(
     () => withUser(user, 'Cannot fetch classes without an authenticated user', fetchClassesRequest),
-    [user]
+    [user, withUser]
   );
 
   const createClass = useMemo(
     () => withUser(user, 'Cannot create a class without an authenticated user', createClassRequest),
-    [user]
+    [user, withUser]
   );
 
   const deleteClass = useMemo(
     () => withUser(user, 'Cannot delete a class without an authenticated user', deleteClassRequest),
-    [user]
+    [user, withUser]
   );
 
   const startClass = useMemo(
     () => withUser(user, 'Cannot start a class without an authenticated user', startClassRequest),
-    [user]
+    [user, withUser]
   );
 
   const signOut = useCallback(() => {

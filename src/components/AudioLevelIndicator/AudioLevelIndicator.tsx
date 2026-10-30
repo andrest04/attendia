@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AudioTrack, LocalAudioTrack, RemoteAudioTrack } from 'twilio-video';
 import { interval } from 'd3-timer';
+import { useTranslation } from 'react-i18next';
 import useIsTrackEnabled from '../../hooks/useIsTrackEnabled/useIsTrackEnabled';
 import useMediaStreamTrack from '../../hooks/useMediaStreamTrack/useMediaStreamTrack';
 
@@ -34,6 +35,7 @@ export function initializeAnalyser(stream: MediaStream) {
 const isIOS = /iPhone|iPad/.test(navigator.userAgent);
 
 function AudioLevelIndicator({ audioTrack, color = 'white' }: { audioTrack?: AudioTrack; color?: string }) {
+  const { t } = useTranslation();
   const SVGRectRef = useRef<SVGRectElement>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode>();
   const isTrackEnabled = useIsTrackEnabled(audioTrack as LocalAudioTrack | RemoteAudioTrack);
@@ -113,7 +115,7 @@ function AudioLevelIndicator({ audioTrack, color = 'white' }: { audioTrack?: Aud
   const clipPathId = `audio-level-clip-${getUniqueClipId()}`;
 
   return isTrackEnabled ? (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" data-test-audio-indicator>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" role="img" aria-label={t(audioTrack ? 'audioTrack.enabled' : 'audioTrack.unavailable')} data-test-audio-indicator>
       <defs>
         <clipPath id={clipPathId}>
           <rect ref={SVGRectRef} x="0" y="14" width="24" height="24" />
@@ -144,6 +146,8 @@ function AudioLevelIndicator({ audioTrack, color = 'white' }: { audioTrack?: Aud
       height="24"
       viewBox="0 0 24 24"
       transform="translate(-0.5, 0)"
+      role="img"
+      aria-label={t(audioTrack ? 'audioTrack.disabled' : 'audioTrack.unavailable')}
       data-test-audio-mute-icon
     >
       <g fill="none" fillRule="evenodd">

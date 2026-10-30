@@ -1,5 +1,6 @@
 import { makeStyles } from '@material-ui/core/styles';
 import { Participant } from 'twilio-video';
+import { useTranslation } from 'react-i18next';
 import useParticipantNetworkQualityLevel from '../../hooks/useParticipantNetworkQualityLevel/useParticipantNetworkQualityLevel';
 
 const useStyles = makeStyles({
@@ -30,12 +31,13 @@ const BARS_ARRAY = [0, 1, 2, 3, 4];
 
 export default function NetworkQualityLevel({ participant }: { participant: Participant }) {
   const classes = useStyles();
+  const { t } = useTranslation();
   const networkQualityLevel = useParticipantNetworkQualityLevel(participant);
 
   if (networkQualityLevel === null) return null;
 
   return (
-    <div className={classes.outerContainer}>
+    <div className={classes.outerContainer} role="img" aria-label={t('networkQuality.label', { level: networkQualityLevel })}>
       <div className={classes.innerContainer}>
         {BARS_ARRAY.map(level => (
           <div

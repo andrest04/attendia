@@ -3,7 +3,7 @@ import Cropper, { Area } from 'react-easy-crop';
 import { useTranslation } from 'react-i18next';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Typography } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
-import { cropToBudgetedBlob } from './avatarCropUtils';
+import { AvatarCropError, cropToBudgetedBlob } from './avatarCropUtils';
 
 const useStyles = makeStyles((theme: Theme) => ({
   cropArea: {
@@ -25,7 +25,7 @@ interface Props {
   isSaving: boolean;
   onCancel: () => void;
   onConfirm: (blob: Blob) => void;
-  onError: (message: string) => void;
+  onError: (error: AvatarCropError | { message: string } | { translationKey: 'crop.failed' }) => void;
 }
 
 export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfirm, onError }: Props) {
@@ -47,15 +47,15 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
       const blob = await cropToBudgetedBlob(imageSrc, croppedAreaPixels, t);
       onConfirm(blob);
     } catch (error: any) {
-      onError(error?.message || t('crop.failed'));
+      onError(error instanceof AvatarCropError ? error : error?.message ? { message: error.message } : { translationKey: 'crop.failed' });
     } finally {
       setIsCropping(false);
     }
   };
 
   return (
-    <Dialog open={Boolean(imageSrc)} onClose={onCancel} maxWidth="xs" fullWidth data-testid="avatar-crop-dialog">
-      <DialogTitle>{t('crop.title')}</DialogTitle>
+    <Dialog open={Boolean(imageSrc)} onClose={onCancel} maxWidth="xs" fullWidth data-testid="avatar-crop-dialog" aria-labelledby="avatar-crop-title">
+      <DialogTitle id="avatar-crop-title">{t('crop.title')}</DialogTitle>
       <DialogContent>
         <div className={classes.cropArea}>
           {imageSrc && (
@@ -73,8 +73,9 @@ export default function AvatarCropModal({ imageSrc, isSaving, onCancel, onConfir
           )}
         </div>
         <div className={classes.zoomRow}>
-          <Typography variant="body2">{t('crop.zoom')}</Typography>
+          <Typography id="avatar-crop-zoom-label" variant="body2">{t('crop.zoom')}</Typography>
           <Slider
+            aria-labelledby="avatar-crop-zoom-label"
             value={zoom}
             min={1}
             max={3}

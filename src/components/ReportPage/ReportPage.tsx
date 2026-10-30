@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import CloseIcon from '@material-ui/icons/Close';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 import AttentionReportView from '../AttentionReport/AttentionReportView';
 import { storedReportToViewData } from '../AttentionReport/storedReportViewData';
@@ -15,6 +16,7 @@ import { useAppState } from '../../state';
  */
 
 export default function ReportPage() {
+  const { t } = useTranslation();
   const { roomSid } = useParams<{ roomSid: string }>();
   const { fetchAttentionReport } = useAppState();
 
@@ -29,20 +31,22 @@ export default function ReportPage() {
         : null,
     [fetchAttentionReport, roomSid]
   );
-  const { data, error: loadError } = useAsyncResource(load, { failureMessage: 'No pudimos consultar el reporte.' });
-  const error = fetchAttentionReport ? loadError : 'No pudimos validar tu acceso al reporte.';
+  const { data, error: loadError } = useAsyncResource(load, { failureMessage: '__report_load_failed__' });
+  const error = fetchAttentionReport
+    ? loadError === '__report_load_failed__' ? t('completeReports.reportPage.failure', 'No pudimos consultar el reporte.') : loadError
+    : t('completeReports.reportPage.access', 'No pudimos validar tu acceso al reporte.');
 
   return (
     <StandalonePage
       testId="report-page"
-      navStart={<PageTitle tone="muted">Reporte de Atención</PageTitle>}
+      navStart={<PageTitle tone="muted">{t('completeReports.reportPage.title', 'Reporte de Atención')}</PageTitle>}
       navEnd={
         <PageNavButton
           onClick={() => window.close()}
           icon={<CloseIcon style={{ fontSize: 16 }} />}
           testId="report-page-close"
         >
-          Cerrar
+          {t('completeReports.reportPage.close', 'Cerrar')}
         </PageNavButton>
       }
     >
@@ -50,7 +54,7 @@ export default function ReportPage() {
         <AttentionReportView data={data} />
       ) : (
         <PageMessageCard testId="report-page-empty" maxWidth={520}>
-          {error || 'Cargando el reporte...'}
+          {error || t('completeReports.reportPage.loading', 'Cargando el reporte...')}
         </PageMessageCard>
       )}
     </StandalonePage>

@@ -1,5 +1,10 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount, shallow } from 'enzyme';
+import { act } from 'react-dom/test-utils';
+import { I18nextProvider } from 'react-i18next';
+import { createI18n } from '../../i18n/createI18n';
+import { renderHook } from '@testing-library/react-hooks';
+import useTeacherClasses from './useTeacherClasses';
 import TeacherDashboard from './TeacherDashboard';
 import DashboardHeader from './DashboardHeader';
 import NotificationDropdown from './NotificationDropdown';
@@ -433,6 +438,58 @@ describe('TeacherDashboard with real classes (firebase auth mode)', () => {
       fetchAttentionReports: mockFetchAttentionReports,
     }));
   });
+
+  it.each([
+    [{}, 'No pudimos consultar las clases programadas.'],
+    [new Error('Error específico'), 'Error específico'],
+  ])('shows the class load error, including a fallback for an empty error', async (failure, expected) => {
+    mockFetchClasses.mockRejectedValueOnce(failure);
+    const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { result, waitFor, unmount } = renderHook(() => useTeacherClasses({
+      fetchClasses: mockFetchClasses,
+      professorName: 'Profesor',
+      onStartClass: jest.fn(),
+      refreshNotifications: jest.fn(),
+    }));
+    await waitFor(() => expect(result.current.classesError).toBe(expected));
+    unmount();
+    log.mockRestore();
+  });
+
+  it.each([['null', null], ['undefined', undefined]])(
+    'renders a translated fallback and can retry when class loading rejects %s',
+    async (_label, failure) => {
+      const i18n = createI18n({ detect: false, lng: 'es' });
+      mockFetchClasses.mockRejectedValueOnce(failure).mockResolvedValue([]);
+      const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const wrapper = mount(
+        <I18nextProvider i18n={i18n}>
+          <TeacherDashboard onStartClass={jest.fn()} activeTab="calendario" />
+        </I18nextProvider>
+      );
+      try {
+        await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+        wrapper.update();
+        expect(wrapper.text()).toContain('No pudimos consultar las clases programadas.');
+        expect(mockFetchClasses).toHaveBeenCalledTimes(1);
+        await act(async () => { await i18n.changeLanguage('en'); });
+        wrapper.update();
+        expect(wrapper.text()).toContain("We couldn't load your scheduled classes.");
+        expect(mockFetchClasses).toHaveBeenCalledTimes(1);
+        await act(async () => {
+          wrapper.find(CalendarTab).prop('onRetry')!();
+          await new Promise(resolve => setTimeout(resolve, 0));
+        });
+        wrapper.update();
+        expect(mockFetchClasses).toHaveBeenCalledTimes(2);
+        expect(wrapper.text()).not.toContain("We couldn't load your scheduled classes.");
+      } finally {
+        wrapper.unmount();
+        await i18n.changeLanguage('es');
+        log.mockRestore();
+      }
+    }
+  );
 
   // Enzyme shallow rendering (this file's convention throughout) does not invoke
   // useEffect, so the fetch-on-mount call itself is exercised via `mount` in

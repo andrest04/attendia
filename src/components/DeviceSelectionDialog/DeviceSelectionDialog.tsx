@@ -1,4 +1,6 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import es from '../../i18n/locales/completeControls.es';
 
 import AudioInputList from './AudioInputList/AudioInputList';
 import AudioOutputList from './AudioOutputList/AudioOutputList';
@@ -74,6 +76,8 @@ const useStyles = makeStyles((theme: Theme) => ({
 }));
 
 export default function DeviceSelectionDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation('completeControls');
+  const text = (key: keyof typeof es) => t(key, es[key]);
   const { isAcquiringLocalTracks } = useVideoContext();
   const { isKrispEnabled, isKrispInstalled } = useAppState();
   const { toggleKrisp } = useKrispToggle();
@@ -81,28 +85,28 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
 
   return (
     <Dialog open={open} onClose={onClose} classes={{ paper: classes.paper }}>
-      <DialogTitle>Audio and Video Settings</DialogTitle>
+      <DialogTitle>{text('deviceTitle')}</DialogTitle>
       <Divider />
       <DialogContent className={classes.container}>
         <div className={classes.listSection}>
           <Typography variant="h6" className={classes.headline}>
-            Video
+            {text('video')}
           </Typography>
           <VideoInputList />
         </div>
         <Divider />
         <div className={classes.listSection}>
           <Typography variant="h6" className={classes.headline}>
-            Audio
+            {text('audio')}
           </Typography>
 
           {isKrispInstalled && (
             <div className={classes.noiseCancellationContainer}>
               <div className={classes.krispContainer}>
-                <Typography variant="subtitle2">Noise Cancellation powered by </Typography>
+                <Typography variant="subtitle2">{text('noisePowered')}</Typography>
                 <KrispLogo />
                 <Tooltip
-                  title="Suppress background noise from your microphone"
+                  title={text('noiseDescription')}
                   interactive
                   leaveDelay={250}
                   leaveTouchDelay={15000}
@@ -122,7 +126,7 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
                     onClick={toggleKrisp}
                   />
                 }
-                label={isKrispEnabled ? 'Enabled' : 'Disabled'}
+                label={text(isKrispEnabled ? 'enabled' : 'disabled')}
                 style={{ marginRight: 0 }}
                 disabled={isAcquiringLocalTracks}
               />
@@ -130,7 +134,7 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
           )}
           {isKrispInstalled && (
             <Typography variant="body1" color="textSecondary" className={classes.krispInfoText}>
-              Suppress background noise from your microphone.
+              {text('noiseDescriptionSentence')}
             </Typography>
           )}
 
@@ -143,7 +147,7 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
           <Divider />
           <div className={classes.listSection}>
             <Typography variant="h6" className={classes.headline}>
-              Gallery View
+              {text('gallery')}
             </Typography>
             <MaxGalleryViewParticipants />
           </div>
@@ -152,7 +156,7 @@ export default function DeviceSelectionDialog({ open, onClose }: { open: boolean
       <Divider />
       <DialogActions>
         <Button color="primary" variant="contained" className={classes.button} onClick={onClose}>
-          Done
+          {text('done')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -3,6 +3,15 @@ import { Client } from '@twilio/conversations';
 import { Conversation } from '@twilio/conversations/';
 import { Message } from '@twilio/conversations/';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
+import { useTranslation } from 'react-i18next';
+import { i18n as I18nInstance } from 'i18next';
+
+// Keep app-created errors readable in the current language even while a dialog is open.
+function chatError(i18n: I18nInstance, key: string, fallback: string): Error {
+  const error = new Error();
+  Object.defineProperty(error, 'message', { configurable: true, get: () => i18n.t(key, { defaultValue: fallback }) });
+  return error;
+}
 
 type ChatContextType = {
   isChatWindowOpen: boolean;
@@ -17,6 +26,7 @@ export const ChatContext = createContext<ChatContextType>(null!);
 
 export const ChatProvider: React.FC = ({ children }) => {
   const { room, onError } = useVideoContext();
+  const { i18n } = useTranslation();
   const isChatWindowOpenRef = useRef(false);
   const [isChatWindowOpen, setIsChatWindowOpen] = useState(false);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -34,13 +44,13 @@ export const ChatProvider: React.FC = ({ children }) => {
           window.chatClient = client;
           setChatClient(client);
         } else if (state === 'failed') {
-          onError(new Error("There was a problem connecting to Twilio's conversation service."));
+          onError(chatError(i18n, 'completePreview.chatConnection', 'Hubo un problema al conectar con el servicio de conversaciones de Twilio.'));
         }
       };
 
       client.once('stateChanged', handleClientInitialized);
     },
-    [onError]
+    [onError, i18n]
   );
 
   useEffect(() => {
@@ -77,10 +87,10 @@ export const ChatProvider: React.FC = ({ children }) => {
         })
         .catch(e => {
           console.error(e);
-          onError(new Error('There was a problem getting the Conversation associated with this room.'));
+          onError(chatError(i18n, 'completePreview.chatConversation', 'Hubo un problema al obtener la conversación asociada a esta sala.'));
         });
     }
-  }, [room, chatClient, onError]);
+  }, [room, chatClient, onError, i18n]);
 
   return (
     <ChatContext.Provider

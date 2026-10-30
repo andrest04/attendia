@@ -17,7 +17,8 @@ import { makeStyles, Theme } from '@material-ui/core/styles';
 import PersonIcon from '@material-ui/icons/Person';
 import { Link, Redirect } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { TFunction } from 'i18next';
+import { i18n, TFunction } from 'i18next';
+import { FirebaseError } from 'firebase/app';
 import { useTranslation } from 'react-i18next';
 import spanishTranslator from '../../i18n/spanishTranslator';
 import { useAppState } from '../../state';
@@ -94,17 +95,13 @@ const useStyles = makeStyles((theme: Theme) => ({
 // never reaches the server. SVG is excluded (vector, not a photo, and taints the canvas).
 const ALLOWED_AVATAR_INPUT_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/bmp'];
 
-function validateAvatarFile(file: File, t: TFunction) {
-  if (!ALLOWED_AVATAR_INPUT_MIME_TYPES.includes(file.type) || file.size > MAX_INPUT_AVATAR_BYTES) {
-    throw new Error(t('teacherProfile:photo.invalidFile'));
-  }
-}
+class AvatarReadError extends Error {}
 
-function readFileAsDataUrl(file: File, t: TFunction): Promise<string> {
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error(t('teacherProfile:photo.readFailed')));
+    reader.onerror = () => reject(new AvatarReadError('file read failed'));
     reader.readAsDataURL(file);
   });
 }
@@ -119,12 +116,18 @@ function errorMessage(error: any, t: TFunction = spanishTranslator) {
   if (error?.code === 'auth/requires-recent-login') return t('teacherProfile:errors.requiresRecentLogin');
   if (error?.code === 'auth/email-already-in-use') return t('teacherProfile:errors.emailInUse');
   if (error?.code === 'auth/invalid-email') return t('teacherProfile:errors.invalidEmail');
+  if (error instanceof FirebaseError && error.code.indexOf('auth/') === 0) return t('teacherProfile:errors.generic');
   return error?.message || t('teacherProfile:errors.generic');
+}
+
+function ProfileNotice({ instance, translationKey, error }: { instance: i18n; translationKey?: string; error?: any }) {
+  const { t } = useTranslation('teacherProfile', { i18n: instance });
+  return <>{translationKey ? t(translationKey) : errorMessage(error, t)}</>;
 }
 
 export default function TeacherProfilePage() {
   const classes = useStyles();
-  const { t } = useTranslation('teacherProfile');
+  const { t, i18n: instance } = useTranslation('teacherProfile');
   const {
     user,
     profile,
@@ -155,6 +158,9 @@ export default function TeacherProfilePage() {
   const [passwordSubmitted, setPasswordSubmitted] = useState(false);
   const [hasLinkedPassword, setHasLinkedPassword] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
+  const notice = (translationKey: string, variant: 'success' | 'error') =>
+    enqueueSnackbar(<ProfileNotice instance={instance} translationKey={translationKey} />, { variant });
+  const errorNotice = (error: any) => enqueueSnackbar(<ProfileNotice instance={instance} error={error} />, { variant: 'error' });
   const hasPasswordProvider =
     hasLinkedPassword || Boolean(firebaseUser?.providerData.some(provider => provider.providerId === 'password'));
 
@@ -176,7 +182,7 @@ export default function TeacherProfilePage() {
     try {
       await work();
     } catch (error) {
-      enqueueSnackbar(errorMessage(error, t), { variant: 'error' });
+      errorNotice(error);
     } finally {
       setSavingAction(null);
     }
@@ -192,7 +198,7 @@ export default function TeacherProfilePage() {
     if (isNameEmpty || isNameUnchanged) return;
     run('name', async () => {
       await updateTeacherProfile!({ displayName: name.trim() });
-      enqueueSnackbar(t('name.updated'), { variant: 'success' });
+      notice('name.updated', 'success');
     });
   };
 
@@ -200,17 +206,16 @@ export default function TeacherProfilePage() {
     const file = event.target.files?.[0];
     event.target.value = ''; // allow re-selecting the same file after cancelling the crop
     if (!file) return;
-    try {
-      validateAvatarFile(file, t);
-    } catch (error) {
-      enqueueSnackbar(error instanceof Error ? error.message : t('photo.validationFailed'), {
-        variant: 'error',
-      });
+    if (!ALLOWED_AVATAR_INPUT_MIME_TYPES.includes(file.type) || file.size > MAX_INPUT_AVATAR_BYTES) {
+      notice('photo.invalidFile', 'error');
       return;
     }
-    readFileAsDataUrl(file, t)
+    readFileAsDataUrl(file)
       .then(setCropImageSrc)
-      .catch((error: Error) => enqueueSnackbar(error.message, { variant: 'error' }));
+      .catch(error => {
+        if (error instanceof AvatarReadError) notice('photo.readFailed', 'error');
+        else enqueueSnackbar(error.message, { variant: 'error' });
+      });
   };
 
   const cancelCrop = () => setCropImageSrc(null);
@@ -222,7 +227,7 @@ export default function TeacherProfilePage() {
       const updatedProfile = await uploadAvatar!(compressedFile);
       setAvatarUrl(updatedProfile.avatarUrl);
       setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-      enqueueSnackbar(t('photo.updated'), { variant: 'success' });
+      notice('photo.updated', 'success');
     });
   };
 
@@ -246,7 +251,7 @@ export default function TeacherProfilePage() {
     return run('email', async () => {
       await changeEmail!(email, emailCurrentPassword || undefined);
       setEmailCurrentPassword('');
-      enqueueSnackbar(t('email.updated'), { variant: 'success' });
+      notice('email.updated', 'success');
     });
   };
 
@@ -263,9 +268,7 @@ export default function TeacherProfilePage() {
       if (!hasPasswordProvider) setHasLinkedPassword(true);
       setCurrentPassword('');
       setNewPassword('');
-      enqueueSnackbar(hasPasswordProvider ? t('password.updated') : t('password.created'), {
-        variant: 'success',
-      });
+      notice(hasPasswordProvider ? 'password.updated' : 'password.created', 'success');
     });
   };
 
@@ -338,7 +341,7 @@ export default function TeacherProfilePage() {
                           const updatedProfile = await deleteAvatar!();
                           setAvatarUrl(updatedProfile.avatarUrl);
                           setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-                          enqueueSnackbar(t('photo.deleted'), { variant: 'success' });
+                          notice('photo.deleted', 'success');
                         })
                       }
                     >
@@ -359,7 +362,7 @@ export default function TeacherProfilePage() {
                             const updatedProfile = await restoreProviderPhoto!();
                             setAvatarUrl(updatedProfile.avatarUrl);
                             setAvatarRemoved(Boolean(updatedProfile.avatarRemoved));
-                            enqueueSnackbar(t('photo.restored'), { variant: 'success' });
+                            notice('photo.restored', 'success');
                           })
                         }
                       >
@@ -525,7 +528,7 @@ export default function TeacherProfilePage() {
             isSaving={isSaving}
             onCancel={cancelCrop}
             onConfirm={confirmCrop}
-            onError={message => enqueueSnackbar(message, { variant: 'error' })}
+            onError={error => 'translationKey' in error ? notice(error.translationKey, 'error') : enqueueSnackbar(error.message, { variant: 'error' })}
           />
         </Container>
       </main>

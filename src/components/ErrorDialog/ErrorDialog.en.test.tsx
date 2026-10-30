@@ -11,6 +11,17 @@ describe('ErrorDialog in English', () => {
     wrapper = undefined;
   });
 
+  it('does not expose an untranslated unknown SDK error', () => {
+    const error: any = Object.assign(new Error('mensaje externo'), { code: 99999, name: 'TwilioError' });
+    wrapper = mount(
+      <I18nextProvider i18n={createI18n({ detect: false, lng: 'en' })}>
+        <ErrorDialog dismissError={() => {}} error={error} />
+      </I18nextProvider>
+    );
+    expect(document.body.textContent).toContain('An unexpected error occurred.');
+    expect(document.body.textContent).not.toContain('mensaje externo');
+  });
+
   it('shows the translated message and the English error code label', () => {
     const error: any = Object.assign(new Error('raw'), { code: 20101 });
     wrapper = mount(

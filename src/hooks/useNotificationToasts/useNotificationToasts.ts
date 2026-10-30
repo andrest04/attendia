@@ -1,5 +1,6 @@
+import React from 'react';
 import { Participant } from 'twilio-video';
-import { TFunction } from 'i18next';
+import { i18n } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useSnackbar, VariantType } from 'notistack';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
@@ -29,11 +30,17 @@ interface UseNotificationToastsArgs {
 }
 
 interface Toast {
-  message: string;
+  key: string;
   variant: VariantType;
+  name?: string;
 }
 
-const toast = (message: string, variant: VariantType = 'info'): Toast => ({ message, variant });
+const toast = (key: string, variant: VariantType = 'info', name?: string): Toast => ({ key, variant, name });
+
+function ToastMessage({ candidate, instance }: { candidate: Toast; instance: i18n }) {
+  const { t } = useTranslation('notifications', { i18n: instance });
+  return React.createElement(React.Fragment, null, t(candidate.key, { name: candidate.name }));
+}
 
 /**
  * What each role is told about each room event. A policy answers "what, if anything, should
@@ -51,35 +58,30 @@ interface ToastPolicy {
   warned?(kind: ProctoringAlert['kind'] | null): Toast | undefined;
 }
 
-/** Student-facing copy for a proctoring warning, specific to the detected condition. */
-function warningMessage(kind: ProctoringAlert['kind'] | null, t: TFunction): string {
-  return kind ? t(`warning.${kind}`) : t('warning.generic');
-}
-
 // Professor: students joining/leaving and raising their hand.
-const createTeacherPolicy = (t: TFunction): ToastPolicy => ({
+const createTeacherPolicy = (): ToastPolicy => ({
   participantJoined: identity =>
-    isTeacherIdentity(identity) ? undefined : toast(t('participantJoined', { name: stripTeacherSuffix(identity) })),
+    isTeacherIdentity(identity) ? undefined : toast('participantJoined', 'info', stripTeacherSuffix(identity)),
   participantLeft: identity =>
-    isTeacherIdentity(identity) ? undefined : toast(t('participantLeft', { name: stripTeacherSuffix(identity) })),
-  handRaised: identity => toast(t('handRaised', { name: stripTeacherSuffix(identity) })),
+    isTeacherIdentity(identity) ? undefined : toast('participantLeft', 'info', stripTeacherSuffix(identity)),
+  handRaised: identity => toast('handRaised', 'info', stripTeacherSuffix(identity)),
   // The owner may mute or turn off a co-teacher; both teachers read as "the professor".
-  muted: () => toast(t('mutedByProfessor'), 'warning'),
-  cameraTurnedOff: () => toast(t('cameraOffByProfessor'), 'warning'),
+  muted: () => toast('mutedByProfessor', 'warning'),
+  cameraTurnedOff: () => toast('cameraOffByProfessor', 'warning'),
 });
 
 // Student: the professor joining/leaving, "es tu turno", recording on/off, being muted or
 // warned. Classmates joining/leaving go to the panel log, not toasts; the student's own
 // raise-hand is not toasted — it is redundant noise.
-const createStudentPolicy = (t: TFunction): ToastPolicy => ({
-  participantJoined: identity => (isTeacherIdentity(identity) ? toast(t('professorJoined')) : undefined),
-  participantLeft: identity => (isTeacherIdentity(identity) ? toast(t('professorLeft'), 'warning') : undefined),
+const createStudentPolicy = (): ToastPolicy => ({
+  participantJoined: identity => (isTeacherIdentity(identity) ? toast('professorJoined') : undefined),
+  participantLeft: identity => (isTeacherIdentity(identity) ? toast('professorLeft', 'warning') : undefined),
   recordingChanged: isRecording =>
-    isRecording ? toast(t('recordingStarted'), 'warning') : toast(t('recordingStopped'), 'default'),
-  turnGranted: () => toast(t('turnGranted'), 'success'),
-  muted: () => toast(t('mutedByProfessor'), 'warning'),
-  cameraTurnedOff: () => toast(t('cameraOffByProfessor'), 'warning'),
-  warned: kind => toast(warningMessage(kind, t), 'warning'),
+    isRecording ? toast('recordingStarted', 'warning') : toast('recordingStopped', 'default'),
+  turnGranted: () => toast('turnGranted', 'success'),
+  muted: () => toast('mutedByProfessor', 'warning'),
+  cameraTurnedOff: () => toast('cameraOffByProfessor', 'warning'),
+  warned: kind => toast(`warning.${kind || 'generic'}`, 'warning'),
 });
 
 /**
@@ -102,11 +104,11 @@ export default function useNotificationToasts({
   lastWarningKind,
 }: UseNotificationToastsArgs) {
   const { enqueueSnackbar } = useSnackbar();
-  const { t } = useTranslation('notifications');
-  const policy = isTeacher ? createTeacherPolicy(t) : createStudentPolicy(t);
+  const { i18n: instance } = useTranslation('notifications');
+  const policy = isTeacher ? createTeacherPolicy() : createStudentPolicy();
 
   const show = (candidate: Toast | undefined) => {
-    if (candidate) enqueueSnackbar(candidate.message, { variant: candidate.variant });
+    if (candidate) enqueueSnackbar(React.createElement(ToastMessage, { candidate, instance }), { variant: candidate.variant });
   };
 
   // ── Join / leave ────────────────────────────────────────────────────────────

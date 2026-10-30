@@ -1,4 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import es from '../../i18n/locales/completeControls.es';
 import {
   Button,
   Dialog,
@@ -51,10 +53,15 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
 }));
 
+let nextDialogId = 0;
+
 const withDefault = (val?: string) => (typeof val === 'undefined' ? 'default' : val);
 
 export default function ConnectionOptionsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const classes = useStyles();
+  const [dialogId] = useState(() => `connection-options-${++nextDialogId}`);
+  const { t } = useTranslation('completeControls');
+  const text = (key: keyof typeof es) => t(key, es[key]);
   const { settings, dispatchSetting } = useAppState();
   const roomState = useRoomState();
   const isDisabled = roomState !== 'disconnected';
@@ -75,98 +82,108 @@ export default function ConnectionOptionsDialog({ open, onClose }: { open: boole
 
   return (
     <Dialog open={open} onClose={onClose} classes={{ paper: classes.paper }}>
-      <DialogTitle>Connection Settings</DialogTitle>
+      <DialogTitle>{text('connectionTitle')}</DialogTitle>
       <Divider />
       <DialogContent className={classes.container}>
         <Grid container spacing={2}>
           <Grid item xs={12}>
             <Typography hidden={!isDisabled} variant="body2">
-              These settings cannot be changed when connected to a room.
+              {text('connectedNotice')}
             </Typography>
           </Grid>
 
           <Grid item sm={6} xs={12}>
             <FormControl className={classes.formControl}>
-              <InputLabel id={inputLabels.dominantSpeakerPriority}>Dominant Speaker Priority:</InputLabel>
+              <InputLabel id={`${dialogId}-dominant-label`}>{text('dominantPriority')}</InputLabel>
               <Select
                 fullWidth
                 disabled={isDisabled}
                 name={inputLabels.dominantSpeakerPriority}
                 label={inputLabels.dominantSpeakerPriority}
+                labelId={`${dialogId}-dominant-label`}
+                SelectDisplayProps={{ id: `${dialogId}-dominant` }}
                 value={withDefault(settings.dominantSpeakerPriority)}
                 onChange={handleChange}
               >
-                <MenuItem value="low">Low</MenuItem>
-                <MenuItem value="standard">Standard</MenuItem>
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="default">Server Default</MenuItem>
+                <MenuItem value="low">{text('low')}</MenuItem>
+                <MenuItem value="standard">{text('standard')}</MenuItem>
+                <MenuItem value="high">{text('high')}</MenuItem>
+                <MenuItem value="default">{text('serverDefault')}</MenuItem>
               </Select>
             </FormControl>
 
             <FormControl className={classes.formControl}>
-              <InputLabel id={inputLabels.trackSwitchOffMode}>Track Switch Off Mode:</InputLabel>
+              <InputLabel id={`${dialogId}-switch-label`}>{text('switchOffMode')}</InputLabel>
               <Select
                 fullWidth
                 disabled={isDisabled}
                 name={inputLabels.trackSwitchOffMode}
                 label={inputLabels.trackSwitchOffMode}
+                labelId={`${dialogId}-switch-label`}
+                SelectDisplayProps={{ id: `${dialogId}-switch` }}
                 value={withDefault(settings.trackSwitchOffMode)}
                 onChange={handleChange}
               >
-                <MenuItem value="predicted">Predicted</MenuItem>
-                <MenuItem value="detected">Detected</MenuItem>
-                <MenuItem value="disabled">Disabled</MenuItem>
-                <MenuItem value="default">Server Default</MenuItem>
+                <MenuItem value="predicted">{text('predicted')}</MenuItem>
+                <MenuItem value="detected">{text('detected')}</MenuItem>
+                <MenuItem value="disabled">{text('disabled')}</MenuItem>
+                <MenuItem value="default">{text('serverDefault')}</MenuItem>
               </Select>
             </FormControl>
 
             <FormControl className={classes.formControl}>
-              <InputLabel id={inputLabels.bandwidthProfileMode}>Mode:</InputLabel>
+              <InputLabel id={`${dialogId}-mode-label`}>{text('mode')}</InputLabel>
               <Select
                 fullWidth
                 disabled={isDisabled}
                 name={inputLabels.bandwidthProfileMode}
                 label={inputLabels.bandwidthProfileMode}
+                labelId={`${dialogId}-mode-label`}
+                SelectDisplayProps={{ id: `${dialogId}-mode` }}
                 value={withDefault(settings.bandwidthProfileMode)}
                 onChange={handleChange}
               >
-                <MenuItem value="grid">Grid</MenuItem>
-                <MenuItem value="collaboration">Collaboration</MenuItem>
-                <MenuItem value="presentation">Presentation</MenuItem>
-                <MenuItem value="default">Server Default</MenuItem>
+                <MenuItem value="grid">{text('grid')}</MenuItem>
+                <MenuItem value="collaboration">{text('collaboration')}</MenuItem>
+                <MenuItem value="presentation">{text('presentation')}</MenuItem>
+                <MenuItem value="default">{text('serverDefault')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
           <Grid item sm={6} xs={12}>
             <FormControl className={classes.formControl}>
-              <InputLabel id={inputLabels.clientTrackSwitchOffControl}>Client Track Switch Off Control:</InputLabel>
+              <InputLabel id={`${dialogId}-client-label`}>{text('clientSwitchOff')}</InputLabel>
               <Select
                 fullWidth
                 disabled={isDisabled}
                 name={inputLabels.clientTrackSwitchOffControl}
                 label={inputLabels.clientTrackSwitchOffControl}
+                labelId={`${dialogId}-client-label`}
+                SelectDisplayProps={{ id: `${dialogId}-client` }}
                 value={withDefault(settings.clientTrackSwitchOffControl)}
                 onChange={handleChange}
               >
-                <MenuItem value="auto">Auto</MenuItem>
-                <MenuItem value="manual">Manual</MenuItem>
-                <MenuItem value="default">Default</MenuItem>
+                <MenuItem value="auto">{text('auto')}</MenuItem>
+                <MenuItem value="manual">{text('manual')}</MenuItem>
+                <MenuItem value="default">{text('default')}</MenuItem>
               </Select>
             </FormControl>
 
             <FormControl className={classes.formControl}>
-              <InputLabel id={inputLabels.contentPreferencesMode}>Content Preferences Mode:</InputLabel>
+              <InputLabel id={`${dialogId}-content-label`}>{text('contentPreferences')}</InputLabel>
               <Select
                 fullWidth
                 disabled={isDisabled}
                 name={inputLabels.contentPreferencesMode}
                 label={inputLabels.contentPreferencesMode}
+                labelId={`${dialogId}-content-label`}
+                SelectDisplayProps={{ id: `${dialogId}-content` }}
                 value={withDefault(settings.contentPreferencesMode)}
                 onChange={handleChange}
               >
-                <MenuItem value="auto">Auto</MenuItem>
-                <MenuItem value="manual">Manual</MenuItem>
-                <MenuItem value="default">Default</MenuItem>
+                <MenuItem value="auto">{text('auto')}</MenuItem>
+                <MenuItem value="manual">{text('manual')}</MenuItem>
+                <MenuItem value="default">{text('default')}</MenuItem>
               </Select>
             </FormControl>
 
@@ -174,9 +191,9 @@ export default function ConnectionOptionsDialog({ open, onClose }: { open: boole
               <TextField
                 disabled={isDisabled}
                 fullWidth
-                id={inputLabels.maxAudioBitrate}
-                label="Max Audio Bitrate"
-                placeholder="Leave blank for no limit"
+                id={`${dialogId}-max-audio-bitrate`}
+                label={text('maxAudioBitrate')}
+                placeholder={text('noLimit')}
                 name={inputLabels.maxAudioBitrate}
                 value={withDefault(settings.maxAudioBitrate)}
                 onChange={handleNumberChange}
@@ -188,7 +205,7 @@ export default function ConnectionOptionsDialog({ open, onClose }: { open: boole
       <Divider />
       <DialogActions>
         <Button className={classes.button} color="primary" variant="contained" onClick={onClose}>
-          Done
+          {text('done')}
         </Button>
       </DialogActions>
     </Dialog>

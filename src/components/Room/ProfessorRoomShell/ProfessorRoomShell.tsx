@@ -2,6 +2,7 @@ import React from 'react';
 import { makeStyles } from '@material-ui/core';
 import { useSnackbar } from 'notistack';
 import { useTranslation } from 'react-i18next';
+import { i18n } from 'i18next';
 import { useAttention } from '../../AttentionProvider';
 import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { ProctoringAlert } from '../../AttentionProvider/types';
@@ -14,6 +15,11 @@ import ProfessorRightRail from './ProfessorRightRail';
 import ProctoringAlertModal from './ProctoringAlertModal';
 import LiveReportModal from './LiveReportModal';
 import { ProfessorRightTab } from './professorShellHelpers';
+
+function ProctoringNotice({ instance, messageKey, name }: { instance: i18n; messageKey: string; name: string }) {
+  const { t } = useTranslation('room', { i18n: instance });
+  return <>{t(messageKey, { name })}</>;
+}
 
 const useStyles = makeStyles(() => ({
   center: {
@@ -111,7 +117,7 @@ export default function ProfessorRoomShell({
   onCloseLeft,
   onCloseRight,
 }: Props) {
-  const { t } = useTranslation('room');
+  const { t, i18n: instance } = useTranslation('room');
   const classes = useStyles();
   const { enqueueSnackbar } = useSnackbar();
   const {
@@ -187,7 +193,7 @@ export default function ProfessorRoomShell({
   const handleMarkLegitimate = () => {
     if (proctoringModalAlert) {
       setDismissedIds(prev => new Set(prev).add(proctoringModalAlert.id));
-      enqueueSnackbar(t('proctoring.markedLegitimate', { name: stripTeacherSuffix(proctoringModalAlert.identity) }), {
+      enqueueSnackbar(<ProctoringNotice instance={instance} messageKey="proctoring.markedLegitimate" name={stripTeacherSuffix(proctoringModalAlert.identity)} />, {
         variant: 'success',
       });
     }
@@ -197,7 +203,7 @@ export default function ProfessorRoomShell({
     if (proctoringModalAlert) {
       onSendWarning?.(proctoringModalAlert.identity, proctoringModalAlert.kind);
       setDismissedIds(prev => new Set(prev).add(proctoringModalAlert.id));
-      enqueueSnackbar(t('proctoring.warningSent', { name: stripTeacherSuffix(proctoringModalAlert.identity) }), {
+      enqueueSnackbar(<ProctoringNotice instance={instance} messageKey="proctoring.warningSent" name={stripTeacherSuffix(proctoringModalAlert.identity)} />, {
         variant: 'warning',
       });
     }

@@ -1,10 +1,13 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import es from '../../../i18n/locales/completeControls.es';
 import Tooltip from '@material-ui/core/Tooltip';
 import SvgIcon from '@material-ui/core/SvgIcon';
 
 export default function PinIcon() {
+  const { t } = useTranslation('completeControls');
   return (
-    <Tooltip title="Participant is pinned. Click to un-pin." placement="top">
+    <Tooltip title={t('pin', es.pin)} placement="top">
       <SvgIcon
         style={{ float: 'right', background: 'rgba(0, 0, 0, 0.5)', padding: '0.1em', boxSizing: 'content-box' }}
         width="26"

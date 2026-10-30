@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { TFunction } from 'i18next';
 import { Button, CircularProgress } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import SearchIcon from '@material-ui/icons/Search';
@@ -127,15 +129,15 @@ interface Props {
   onCheckRecordingStatus?: (roomSid: string) => Promise<RecordingArtifact>;
 }
 
-function formatDate(report: StoredAttentionReport): string {
+function formatDate(report: StoredAttentionReport, t: TFunction, language: string): string {
   const date = storedReportDate(report);
   return isNaN(date.getTime())
-    ? 'Fecha no disponible'
-    : date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' });
+    ? t('history.dateUnavailable')
+    : date.toLocaleDateString(language === 'es' ? 'es-AR' : language, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function formatDuration(report: StoredAttentionReport): string {
-  if (!Number.isFinite(report.durationMs) || report.durationMs < 0) return 'No disponible';
+function formatDuration(report: StoredAttentionReport, t: TFunction): string {
+  if (!Number.isFinite(report.durationMs) || report.durationMs < 0) return t('history.unavailable');
   const totalSeconds = Math.floor(report.durationMs / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -149,6 +151,7 @@ function formatDuration(report: StoredAttentionReport): string {
 
 interface RecordingViewContext {
   classes: ReturnType<typeof useStyles>;
+  t: TFunction;
   roomSid: string;
   isBusy: boolean;
   /** The request/retry actions exist only in firebase mode. */
@@ -159,9 +162,9 @@ interface RecordingViewContext {
   onView: () => void;
 }
 
-const renderPending = ({ classes, roomSid }: RecordingViewContext) => (
+const renderPending = ({ classes, roomSid, t }: RecordingViewContext) => (
   <span className={classes.noRecording} data-testid={`dashboard-history-recording-pending-${roomSid}`}>
-    <CircularProgress size={12} /> Procesando...
+    <CircularProgress size={12} /> {t('history.processing')}
   </span>
 );
 
@@ -170,7 +173,7 @@ const renderPending = ({ classes, roomSid }: RecordingViewContext) => (
  * (not a ladder of conditionals), so a new status cannot be forgotten: the type forces an entry.
  */
 const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingViewContext) => React.ReactNode> = {
-  not_requested: ({ classes, roomSid, isBusy, canRequest, onRequest }) => (
+  not_requested: ({ classes, roomSid, isBusy, canRequest, onRequest, t }) => (
     <button
       type="button"
       className={classes.recordingButton}
@@ -178,12 +181,12 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
       disabled={isBusy || !canRequest}
       data-testid={`dashboard-history-recording-request-${roomSid}`}
     >
-      {isBusy && <CircularProgress size={12} />} Solicitar grabación
+      {isBusy && <CircularProgress size={12} />} {t('history.request')}
     </button>
   ),
   enqueued: renderPending,
   processing: renderPending,
-  completed: ({ classes, roomSid, expiryHint, onView }) => (
+  completed: ({ classes, roomSid, expiryHint, onView, t }) => (
     <>
       <button
         type="button"
@@ -191,15 +194,15 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
         onClick={onView}
         data-testid={`dashboard-history-recording-view-${roomSid}`}
       >
-        <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> Ver grabación
+        <PlayCircleOutlineIcon style={{ fontSize: 14 }} /> {t('history.view')}
       </button>
       {expiryHint && <span className={classes.recordingHint}>{expiryHint}</span>}
     </>
   ),
-  failed: ({ classes, roomSid, isBusy, canRequest, onRequest }) => (
+  failed: ({ classes, roomSid, isBusy, canRequest, onRequest, t }) => (
     <>
       <span className={classes.recordingError} data-testid={`dashboard-history-recording-failed-${roomSid}`}>
-        No pudimos generar la grabación.
+        {t('history.failed')}
       </span>
       <button
         type="button"
@@ -208,13 +211,13 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
         disabled={isBusy || !canRequest}
         data-testid={`dashboard-history-recording-retry-${roomSid}`}
       >
-        Reintentar
+        {t('history.retry')}
       </button>
     </>
   ),
-  expired: ({ classes, roomSid }) => (
+  expired: ({ classes, roomSid, t }) => (
     <span className={classes.recordingHint} data-testid={`dashboard-history-recording-expired-${roomSid}`}>
-      La grabación venció — solo está disponible por 7 días.
+      {t('history.expired')}
     </span>
   ),
 };
@@ -235,10 +238,11 @@ interface RecordingCellProps {
  */
 function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: RecordingCellProps) {
   const classes = useStyles();
+  const { t, i18n } = useTranslation('completeDashboard');
   const roomSid = report.roomSid;
   const [recording, setRecording] = useState<RecordingArtifact | undefined>(report.recording);
   const [isBusy, setIsBusy] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ message?: string } | null>(null);
 
   useEffect(() => {
     setRecording(report.recording);
@@ -272,7 +276,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
     setActionError(null);
     onRequestRecording(roomSid)
       .then(setRecording)
-      .catch(err => setActionError(err.message || 'No pudimos solicitar la grabación.'))
+      .catch(err => setActionError(err || {}))
       .finally(() => setIsBusy(false));
   }, [onRequestRecording, roomSid]);
 
@@ -281,14 +285,14 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
   }, [roomSid]);
 
   if (!report.recordingWasActiveAtEnd) {
-    return <span className={classes.noRecording}>No disponible</span>;
+    return <span className={classes.noRecording}>{t('history.unavailable')}</span>;
   }
 
   const expiryHint = recording?.mediaExpiresAt
-    ? `Disponible hasta ${new Date(recording.mediaExpiresAt).toLocaleDateString('es-AR', {
+    ? t('history.expiry', { date: new Date(recording.mediaExpiresAt).toLocaleDateString(i18n.language === 'es' ? 'es-AR' : i18n.language, {
         day: 'numeric',
         month: 'short',
-      })} (7 días)`
+      }) })
     : null;
 
   return (
@@ -296,6 +300,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
       {/* The server may send a status this client does not know yet: render nothing for it. */}
       {recordingStateView[status]?.({
         classes,
+        t,
         roomSid,
         isBusy,
         canRequest: Boolean(onRequestRecording),
@@ -303,7 +308,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
         onRequest: handleRequest,
         onView: handleView,
       })}
-      {actionError && <span className={classes.recordingError}>{actionError}</span>}
+      {actionError && <span className={classes.recordingError}>{actionError.message || t('history.requestFailed')}</span>}
     </div>
   );
 }
@@ -319,6 +324,7 @@ export default function HistoryTab({
   onCheckRecordingStatus,
 }: Props) {
   const classes = useStyles();
+  const { t, i18n } = useTranslation('completeDashboard');
   const [query, setQuery] = useState('');
   const filteredReports = (reports || []).filter(report =>
     report.roomName.toLocaleLowerCase().includes(query.toLocaleLowerCase())
@@ -328,8 +334,8 @@ export default function HistoryTab({
     <div className={classes.root} data-testid="dashboard-history-tab">
       <div className={classes.header}>
         <div>
-          <div className={classes.title}>Historial de clases</div>
-          <div className={classes.subtitle}>Reportes guardados al finalizar cada sesión</div>
+          <div className={classes.title}>{t('history.title')}</div>
+          <div className={classes.subtitle}>{t('history.subtitle')}</div>
         </div>
         <label className={classes.searchBox} data-testid="dashboard-history-search">
           <SearchIcon style={{ fontSize: 16 }} />
@@ -337,8 +343,8 @@ export default function HistoryTab({
             className={classes.searchInput}
             value={query}
             onChange={event => setQuery(event.target.value)}
-            placeholder="Buscar clase..."
-            aria-label="Buscar clase"
+            placeholder={t('history.searchPlaceholder')}
+            aria-label={t('history.search')}
           />
         </label>
       </div>
@@ -346,35 +352,35 @@ export default function HistoryTab({
       <div className={classes.tableWrap}>
         {isLoading ? (
           <div className={classes.state} data-testid="dashboard-history-loading">
-            <CircularProgress size={24} /> <div>Cargando el historial...</div>
+            <CircularProgress size={24} /> <div>{t('history.loading')}</div>
           </div>
         ) : error ? (
           <div className={classes.state} data-testid="dashboard-history-error">
             {error}
             <div>
               <Button onClick={onRetry} data-testid="dashboard-history-retry">
-                Reintentar
+                {t('history.retry')}
               </Button>
             </div>
           </div>
         ) : !reports || reports.length === 0 ? (
           <div className={classes.state} data-testid="dashboard-history-empty">
-            Todavía no hay reportes guardados.
+            {t('history.empty')}
           </div>
         ) : filteredReports.length === 0 ? (
           <div className={classes.state} data-testid="dashboard-history-no-results">
-            No encontramos clases con esa búsqueda.
+            {t('history.noResults')}
           </div>
         ) : (
           <table className={classes.table}>
             <thead>
               <tr>
-                <th className={classes.th}>CLASE</th>
-                <th className={classes.th}>FECHA</th>
-                <th className={classes.th}>DURACIÓN</th>
-                <th className={classes.th}>ALUMNOS</th>
-                <th className={classes.th}>ATENCIÓN</th>
-                <th className={classes.th}>GRABACIÓN</th>
+                <th className={classes.th}>{t('history.class')}</th>
+                <th className={classes.th}>{t('history.date')}</th>
+                <th className={classes.th}>{t('history.duration')}</th>
+                <th className={classes.th}>{t('history.students')}</th>
+                <th className={classes.th}>{t('history.attention')}</th>
+                <th className={classes.th}>{t('history.recording')}</th>
                 <th className={classes.th} />
               </tr>
             </thead>
@@ -386,10 +392,10 @@ export default function HistoryTab({
                   <tr key={report.roomSid} data-testid={`dashboard-history-row-${report.roomSid}`}>
                     <td className={classes.td}>
                       {report.roomName}
-                      {report.source === 'mock' && <span className={classes.mockTag}>Datos simulados</span>}
+                      {report.source === 'mock' && <span className={classes.mockTag}>{t('history.mock')}</span>}
                     </td>
-                    <td className={classes.td}>{formatDate(report)}</td>
-                    <td className={classes.td}>{formatDuration(report)}</td>
+                    <td className={classes.td}>{formatDate(report, t, i18n.language)}</td>
+                    <td className={classes.td}>{formatDuration(report, t)}</td>
                     <td className={classes.td}>{report.studentCount}</td>
                     <td className={classes.td}>
                       <div className={classes.attentionCell}>
@@ -419,7 +425,7 @@ export default function HistoryTab({
                         data-testid="dashboard-history-report"
                       >
                         <BarChartIcon style={{ fontSize: 14 }} />
-                        Reporte
+                        {t('history.report')}
                       </button>
                     </td>
                   </tr>

@@ -1,4 +1,8 @@
 import useFirebaseAuth from './useFirebaseAuth';
+import testI18n from '../../i18n/testInit';
+import React from 'react';
+import { I18nextProvider } from 'react-i18next';
+import { setCurrentLanguage } from '../../i18n/currentLanguage';
 import { act, renderHook } from '@testing-library/react-hooks';
 import {
   createUserWithEmailAndPassword,
@@ -25,6 +29,7 @@ let mockAuthStateCallback: Function;
 
 jest.mock('firebase/app', () => ({
   initializeApp: jest.fn(),
+  FirebaseError: jest.requireActual('firebase/app').FirebaseError,
 }));
 
 jest.mock('firebase/auth', () => {
@@ -98,11 +103,30 @@ window.XMLHttpRequest = MockXHR;
 
 describe('the useFirebaseAuth hook', () => {
   afterEach(() => {
+    setCurrentLanguage('es');
     jest.clearAllMocks();
     window.localStorage.clear();
     mockUser.displayName = 'Test User';
     mockUser.email = 'test@example.com';
     mockXhrInstances = [];
+  });
+
+  it('localizes token failures before starting a resource upload', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+    const { result, unmount } = renderHook(() => useFirebaseAuth());
+    await act(async () => { await mockAuthStateCallback(mockUser); });
+    const { FirebaseError } = jest.requireActual('firebase/app');
+    const original = new FirebaseError('auth/network-request-failed', 'Firebase network failure');
+    mockUser.getIdToken.mockRejectedValueOnce(original);
+    setCurrentLanguage('es');
+    const error = await result.current.uploadResource(new File(['x'], 'x.txt'), 'class').catch(e => e);
+    expect(error).toBe(original);
+    expect(error.code).toBe('auth/network-request-failed');
+    expect(error.message).toBe('No se pudo verificar tu sesión. Inténtalo de nuevo.');
+    setCurrentLanguage('en');
+    expect(error.message).toBe('Your session could not be verified. Try again.');
+    expect(mockXhrInstances).toHaveLength(0);
+    unmount();
   });
 
   it('should expose the user and their profile once the initial auth state settles', async () => {
@@ -358,7 +382,7 @@ describe('the useFirebaseAuth hook', () => {
     const file = new File(['bytes'], 'avatar.jpg', { type: 'image/jpeg' });
 
     await expect(result.current.uploadAvatar(file)).rejects.toEqual(
-      new Error('Cannot upload an avatar without an authenticated user')
+      new Error('Inicia sesión para continuar.')
     );
   });
 
@@ -390,7 +414,7 @@ describe('the useFirebaseAuth hook', () => {
     const { result } = renderHook(() => useFirebaseAuth());
 
     await expect(result.current.deleteAvatar()).rejects.toEqual(
-      new Error('Cannot delete an avatar without an authenticated user')
+      new Error('Inicia sesión para continuar.')
     );
   });
 
@@ -522,11 +546,80 @@ describe('the useFirebaseAuth hook', () => {
 
     await act(async () => {
       await expect(result.current.createPassword('newPassword1')).rejects.toEqual(
-        new Error('Cannot create a password without an authenticated user with an email')
+        new Error('Inicia sesión para continuar.')
       );
     });
 
     expect(linkWithCredential).not.toHaveBeenCalled();
+  });
+
+  it('localizes the recording request guard in both languages without making a request', async () => {
+    await testI18n.changeLanguage('es');
+    const { result, unmount } = renderHook(() => useFirebaseAuth(), {
+      wrapper: ({ children }) => React.createElement(I18nextProvider, { i18n: testI18n }, children),
+    });
+    const callbacks = {
+      getToken: result.current.getToken,
+      fetchResources: result.current.fetchResources,
+      fetchClasses: result.current.fetchClasses,
+      fetchAttentionReports: result.current.fetchAttentionReports,
+      requestRecordingArtifact: result.current.requestRecordingArtifact,
+    };
+    const error = await result.current.requestRecordingArtifact('RM123').catch(e => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toBe('Inicia sesión para solicitar una grabación.');
+    const resourceError = await result.current.fetchResources().catch(e => e);
+    expect(resourceError.message).toBe('Inicia sesión para continuar.');
+    expect(mockFetch).not.toHaveBeenCalled();
+    await act(async () => { await testI18n.changeLanguage('en'); });
+    expect(error.message).toBe('Sign in to request a recording.');
+    expect(resourceError.message).toBe('Sign in to continue.');
+    expect(result.current.getToken).toBe(callbacks.getToken);
+    expect(result.current.fetchResources).toBe(callbacks.fetchResources);
+    expect(result.current.fetchClasses).toBe(callbacks.fetchClasses);
+    expect(result.current.fetchAttentionReports).toBe(callbacks.fetchAttentionReports);
+    expect(result.current.requestRecordingArtifact).toBe(callbacks.requestRecordingArtifact);
+    expect(error.stack).toContain('Error');
+    expect(JSON.stringify(error)).toBe('{}');
+    error.message = 'Overridden';
+    expect(error.message).toBe('Overridden');
+    const englishError = await result.current.requestRecordingArtifact('RM123').catch(e => e);
+    expect(englishError.message).toBe('Sign in to request a recording.');
+    expect(mockFetch).not.toHaveBeenCalled();
+    unmount();
+    await testI18n.changeLanguage('es');
+  });
+
+  it('rejects token requests without a user in both languages without accessing the network', async () => {
+    await testI18n.changeLanguage('es');
+    const { result, unmount } = renderHook(() => useFirebaseAuth(), {
+      wrapper: ({ children }) => React.createElement(I18nextProvider, { i18n: testI18n }, children),
+    });
+    const error = await result.current.getToken('name', 'room').catch(e => e);
+    expect(error).toBeInstanceOf(Error);
+    expect(error.message).toBe('Inicia sesión para continuar.');
+    expect(mockFetch).not.toHaveBeenCalled();
+    await act(async () => { await testI18n.changeLanguage('en'); });
+    expect(error.message).toBe('Sign in to continue.');
+    expect((await result.current.getToken('name', 'room').catch(e => e)).message).toBe('Sign in to continue.');
+    expect(mockFetch).not.toHaveBeenCalled();
+    unmount();
+    await testI18n.changeLanguage('es');
+  });
+
+  it('keeps resource loaders stable across signed-in rerenders', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+    const { result, rerender } = renderHook(() => useFirebaseAuth());
+    await act(async () => { await mockAuthStateCallback(mockUser); });
+    const fetchClasses = result.current.fetchClasses;
+    const fetchResources = result.current.fetchResources;
+    const fetchReports = result.current.fetchAttentionReports;
+    const fetchCount = mockFetch.mock.calls.length;
+    rerender();
+    expect(result.current.fetchClasses).toBe(fetchClasses);
+    expect(result.current.fetchResources).toBe(fetchResources);
+    expect(result.current.fetchAttentionReports).toBe(fetchReports);
+    expect(mockFetch).toHaveBeenCalledTimes(fetchCount);
   });
 
   it('should clear the user and profile on signOut', async () => {
@@ -572,6 +665,12 @@ describe('the useFirebaseAuth hook', () => {
       new Error('La sala todavía no está abierta.')
     );
 
+    setCurrentLanguage('en');
+    mockFetch.mockResolvedValueOnce(profileResponse(403, { error: { message: 'identity in use', explanation: 'Nombre en uso.' } }));
+    const tokenError = await result.current.getToken('testuser', 'testroom').catch(e => e);
+    expect(tokenError).toMatchObject({ status: 403, code: 'identity in use', message: 'This name is already in use in the room.' });
+    setCurrentLanguage('es');
+    expect(tokenError.message).toBe('Nombre en uso.');
     delete process.env.REACT_APP_TOKEN_ENDPOINT;
   });
 
@@ -609,7 +708,7 @@ describe('the useFirebaseAuth hook', () => {
       const { result } = renderHook(() => useFirebaseAuth());
 
       await expect(result.current.fetchResources()).rejects.toEqual(
-        new Error('Cannot fetch resources without an authenticated user')
+        new Error('Inicia sesión para continuar.')
       );
     });
 
@@ -664,12 +763,41 @@ describe('the useFirebaseAuth hook', () => {
       await expect(uploadPromise).rejects.toEqual(new Error('Debes seleccionar una clase programada.'));
     });
 
+    it('localizes upload errors without changing the response code or status', async () => {
+      const result = await signIn();
+      const upload = result.current.uploadResource(new File(['x'], 'guia.pdf'), 'class-1').catch(e => e);
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      const xhr = mockXhrInstances[mockXhrInstances.length - 1];
+      xhr.status = 400;
+      xhr.responseText = JSON.stringify({ error: { message: 'file too large', explanation: 'Archivo demasiado grande.' } });
+      xhr.onload?.();
+      const error = await upload;
+      expect(error).toMatchObject({ status: 400, code: 'file too large', message: 'Archivo demasiado grande.' });
+      setCurrentLanguage('en');
+      expect(error.message).toBe('The file exceeds the permitted size.');
+    });
+
+    it('updates an existing upload network error when the language changes', async () => {
+      const result = await signIn();
+      const upload = result.current.uploadResource(new File(['x'], 'guia.pdf'), 'class-1').catch(e => e);
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      mockXhrInstances[mockXhrInstances.length - 1].onerror?.();
+      const error = await upload;
+      expect(error.message).toBe(testI18n.t('errors:auth.uploadFailed', { lng: 'es' }));
+      try {
+        await act(async () => { await testI18n.changeLanguage('en'); });
+        expect(error.message).toBe(testI18n.t('errors:auth.uploadFailed', { lng: 'en' }));
+      } finally {
+        await act(async () => { await testI18n.changeLanguage('es'); });
+      }
+    });
+
     it('rejects uploadResource when there is no signed-in user', async () => {
       const { result } = renderHook(() => useFirebaseAuth());
       const file = new File(['contenido'], 'guia.pdf', { type: 'application/pdf' });
 
       await expect(result.current.uploadResource(file, 'Cálculo I')).rejects.toEqual(
-        new Error('Cannot upload a resource without an authenticated user')
+        new Error('Inicia sesión para continuar.')
       );
     });
 
@@ -690,7 +818,7 @@ describe('the useFirebaseAuth hook', () => {
       const { result } = renderHook(() => useFirebaseAuth());
 
       await expect(result.current.fetchResourceDownloadUrl('res-1')).rejects.toEqual(
-        new Error('Cannot download a resource without an authenticated user')
+        new Error('Inicia sesión para continuar.')
       );
     });
 
@@ -711,7 +839,7 @@ describe('the useFirebaseAuth hook', () => {
       const { result } = renderHook(() => useFirebaseAuth());
 
       await expect(result.current.fetchResourcePreviewUrl('res-1')).rejects.toEqual(
-        new Error('Cannot preview a resource without an authenticated user')
+        new Error('Inicia sesión para continuar.')
       );
     });
 
@@ -731,7 +859,7 @@ describe('the useFirebaseAuth hook', () => {
       const { result } = renderHook(() => useFirebaseAuth());
 
       await expect(result.current.deleteResource('res-1')).rejects.toEqual(
-        new Error('Cannot delete a resource without an authenticated user')
+        new Error('Inicia sesión para continuar.')
       );
     });
   });
@@ -762,7 +890,7 @@ describe('the useFirebaseAuth hook', () => {
       });
       await expect(result.current.fetchNotifications()).rejects.toEqual(
         expect.objectContaining({
-          message: 'notifications unavailable',
+          message: 'No se pudo completar la solicitud.',
           status: 404,
           code: 'notifications unavailable',
         })

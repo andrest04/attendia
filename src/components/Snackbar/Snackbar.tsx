@@ -1,4 +1,6 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import es from '../../i18n/locales/completeControls.es';
 import clsx from 'clsx';
 import CloseIcon from '@material-ui/icons/Close';
 import ErrorIcon from '../../icons/ErrorIcon';
@@ -62,6 +64,7 @@ const VARIANT_ICON: Record<SnackbarVariant, React.ComponentType> = {
 };
 
 export default function Snackbar({ headline, message, variant, open, handleClose }: SnackbarProps) {
+  const { t } = useTranslation('completeControls');
   const classes = useStyles();
   const VariantIcon = variant && VARIANT_ICON[variant];
 
@@ -98,7 +101,7 @@ export default function Snackbar({ headline, message, variant, open, handleClose
         </div>
         <div>
           {handleClose && (
-            <IconButton size="small" aria-label="close" color="inherit" onClick={handleClose}>
+            <IconButton size="small" aria-label={t('close', es.close)} color="inherit" onClick={handleClose}>
               <CloseIcon fontSize="small" />
             </IconButton>
           )}

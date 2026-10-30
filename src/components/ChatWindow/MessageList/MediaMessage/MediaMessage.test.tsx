@@ -1,7 +1,10 @@
 import React from 'react';
 import { Media } from '@twilio/conversations';
 import MediaMessage, { formatFileSize } from './MediaMessage';
-import { shallow } from 'enzyme';
+import { mount, shallow } from 'enzyme';
+import { act } from 'react-dom/test-utils';
+import { I18nextProvider } from 'react-i18next';
+import { createI18n } from '../../../../i18n/createI18n';
 
 jest.mock('@material-ui/core/styles/makeStyles', () => () => () => ({}));
 
@@ -25,7 +28,26 @@ describe('the formatFileSize function', () => {
 });
 
 describe('the MediaMessage component', () => {
-  it('should get the file URL and load it in a new tab when clicked', done => {
+  it('renders a native attachment action with localized size and name in both languages', async () => {
+    const i18n = createI18n({ detect: false, lng: 'es' });
+    const media = { filename: 'informe & datos.txt', size: 123, getContentTemporaryUrl: jest.fn() } as unknown as Media;
+    const wrapper = mount(<I18nextProvider i18n={i18n}><MediaMessage media={media} /></I18nextProvider>);
+    const button = () => wrapper.find('button');
+    expect(button()).toHaveLength(1);
+    expect(button().prop('type')).toBe('button');
+    expect(button().prop('aria-label')).toBe('Abrir archivo: informe & datos.txt');
+    expect(button().text()).toContain('123 octetos');
+    expect(button().text()).toContain('informe & datos.txt');
+    await act(async () => { await i18n.changeLanguage('en'); });
+    wrapper.update();
+    expect(button().prop('aria-label')).toBe('Open file: informe & datos.txt');
+    expect(button().text()).toContain('123 bytes');
+    wrapper.setProps({ children: <MediaMessage media={{ ...media, size: 1000 } as Media} /> });
+    expect(button().text()).toContain('0.98 KB');
+    wrapper.unmount();
+  });
+
+  it('should get the file URL and load it in a new tab when clicked', async () => {
     const mockMedia = {
       filename: 'foo.txt',
       size: 123,
@@ -34,20 +56,20 @@ describe('the MediaMessage component', () => {
 
     const mockAnchorElement = document.createElement('a');
     mockAnchorElement.click = jest.fn();
-    document.createElement = jest.fn(() => mockAnchorElement);
+    const createElement = jest.spyOn(document, 'createElement').mockReturnValue(mockAnchorElement);
+    jest.useFakeTimers();
 
     const wrapper = shallow(<MediaMessage media={mockMedia} />);
     wrapper.simulate('click');
 
-    setTimeout(() => {
-      expect(mockAnchorElement.href).toBe('http://twilio.com/foo.txt');
-      expect(mockAnchorElement.target).toBe('_blank');
-      expect(mockAnchorElement.rel).toBe('noopener');
-      // This extra setTimeout is needed for the iOS workaround
-      setTimeout(() => {
-        expect(mockAnchorElement.click).toHaveBeenCalled();
-      });
-      done();
-    });
+    await Promise.resolve();
+    expect(mockAnchorElement.href).toBe('http://twilio.com/foo.txt');
+    expect(mockAnchorElement.target).toBe('_blank');
+    expect(mockAnchorElement.rel).toBe('noopener');
+    expect(mockAnchorElement.click).not.toHaveBeenCalled();
+    jest.runAllTimers();
+    expect(mockAnchorElement.click).toHaveBeenCalledTimes(1);
+    createElement.mockRestore();
+    jest.useRealTimers();
   });
 });

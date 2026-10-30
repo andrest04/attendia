@@ -45,7 +45,7 @@ const dashboard = {
       cancel: 'Cancelar',
     },
     pendingReports_one:
-      'No pudimos guardar un reporte al cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.',
+      'No pudimos guardar un reporte al cerrar la clase. Todavía no se envió. Puedes reintentar ahora.',
     pendingReports_other:
       'No pudimos guardar {{count}} reportes al cerrar la clase. Todavía no se enviaron. Puedes reintentar ahora.',
     retryPendingReports: 'Reintentar guardado',

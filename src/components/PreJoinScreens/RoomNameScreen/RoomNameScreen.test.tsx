@@ -1,6 +1,9 @@
 import React from 'react';
 import RoomNameScreen from './RoomNameScreen';
-import { shallow } from 'enzyme';
+import { mount, shallow } from 'enzyme';
+import { act } from 'react-dom/test-utils';
+import { getI18n, I18nextProvider, setI18n } from 'react-i18next';
+import { createI18n } from '../../../i18n/createI18n';
 import { Button, TextField } from '@material-ui/core';
 import { useAppState } from '../../../state';
 import { createDefaultClassSessionDraft } from '../../../classSession/classSessionTypes';
@@ -337,6 +340,26 @@ describe('the RoomNameScreen component', () => {
     });
     afterEach(() => {
       mockUseAppState.mockReset();
+    });
+
+    it('keeps the join input named in both languages after entering a code', async () => {
+      const previousI18n = getI18n();
+      const i18n = createI18n({ detect: false, lng: 'es' });
+      const wrapper = mount(
+        <I18nextProvider i18n={i18n}>
+          <RoomNameScreen {...joinProps} teacherJoinCode="aula-7" />
+        </I18nextProvider>
+      );
+      try {
+        expect(wrapper.find('input#input-teacher-join-code').prop('aria-label')).toBe('¿Ya hay una sala abierta?');
+        await act(async () => { await i18n.changeLanguage('en'); });
+        wrapper.update();
+        expect(wrapper.find('input#input-teacher-join-code').prop('aria-label')).toBe('Is there already an open room?');
+        expect(wrapper.find('input#input-teacher-join-code').prop('value')).toBe('aula-7');
+      } finally {
+        wrapper.unmount();
+        setI18n(previousI18n);
+      }
     });
 
     it('is offered in the teacher card as a secondary option', () => {

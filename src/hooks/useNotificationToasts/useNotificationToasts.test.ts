@@ -1,9 +1,15 @@
+import React from 'react';
 import { renderHook } from '@testing-library/react-hooks';
+import { act } from 'react-dom/test-utils';
+import { mount } from 'enzyme';
+import { I18nextProvider } from 'react-i18next';
+import { createI18n } from '../../i18n/createI18n';
 import useNotificationToasts from './useNotificationToasts';
 
 const mockEnqueue = jest.fn();
+let useRealSnackbar = false;
 jest.mock('notistack', () => ({
-  useSnackbar: () => ({ enqueueSnackbar: mockEnqueue, closeSnackbar: jest.fn() }),
+  useSnackbar: () => useRealSnackbar ? jest.requireActual('notistack').useSnackbar() : ({ enqueueSnackbar: mockEnqueue, closeSnackbar: jest.fn() }),
 }));
 
 const p = (sid: string, identity: string) => ({ sid, identity } as any);
@@ -19,7 +25,44 @@ const base = {
   lastWarningKind: null as null | 'multiface' | 'absent' | 'away' | 'camera-off',
 };
 
-const messages = () => mockEnqueue.mock.calls.map(call => call[0]);
+const messages = () => mockEnqueue.mock.calls.map(call => {
+  const view = mount(call[0]);
+  const text = view.text();
+  view.unmount();
+  return text;
+});
+
+describe('visible notification localization', () => {
+  it('updates an existing interpolated toast without enqueueing another event', async () => {
+    const instance = createI18n({ detect: false, lng: 'es' });
+    const SnackbarProvider = jest.requireActual('notistack').SnackbarProvider;
+    useRealSnackbar = true;
+    const Hook = ({ participants }: { participants: ReturnType<typeof p>[] }) => {
+      useNotificationToasts({ ...base, isTeacher: true, participants });
+      return null;
+    };
+    const App = ({ participants }: { participants: ReturnType<typeof p>[] }) => React.createElement(I18nextProvider, { i18n: instance },
+      React.createElement(SnackbarProvider, { autoHideDuration: 60000 }, React.createElement(Hook, { participants })));
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const view = mount(React.createElement(App, { participants: [] as ReturnType<typeof p>[] }), { attachTo: container });
+    try {
+      act(() => { view.setProps({ participants: [p('1', 'Sofía')] }); });
+      view.update();
+      expect(document.body.textContent).toContain('Sofía se unió a la sesión');
+      await act(async () => { await instance.changeLanguage('en'); });
+      view.update();
+      expect(document.body.textContent).toContain('Sofía joined the session');
+      expect(document.body.textContent).not.toContain('Sofía se unió a la sesión');
+      expect(document.body.textContent!.split('Sofía joined the session')).toHaveLength(2);
+    } finally {
+      view.unmount();
+      await instance.changeLanguage('es');
+      document.body.removeChild(container);
+      useRealSnackbar = false;
+    }
+  });
+});
 
 describe('useNotificationToasts', () => {
   beforeEach(() => mockEnqueue.mockClear());

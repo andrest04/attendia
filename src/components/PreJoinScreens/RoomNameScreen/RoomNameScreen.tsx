@@ -641,6 +641,7 @@ export default function RoomNameScreen({
                   fullWidth
                   size="small"
                   placeholder={t('roomName.joinBox.placeholder')}
+                  inputProps={{ 'aria-label': t('roomName.joinBox.title') }}
                   value={teacherJoinCode}
                   onChange={(event: ChangeEvent<HTMLInputElement>) => setTeacherJoinCode?.(event.target.value)}
                   onKeyDown={(event: React.KeyboardEvent) => {

@@ -150,7 +150,7 @@ export default function SessionStatusBar({
   recording = false,
   showHelpButton = true,
 }: Props) {
-  const { t } = useTranslation('room');
+  const { t } = useTranslation(['room', 'common']);
   const classes = useStyles();
   const elapsed = useSessionElapsed();
   const { openTour } = useOnboarding();
@@ -164,7 +164,12 @@ export default function SessionStatusBar({
       <div className={classes.divider} />
 
       {recording && (
-        <span className={classes.recBadge} data-testid="professor-room-shell-rec-badge">
+        <span
+          className={classes.recBadge}
+          data-testid="professor-room-shell-rec-badge"
+          role="img"
+          aria-label={t('recordingNotifications.inProgress', { ns: 'common' })}
+        >
           <FiberManualRecordIcon className={classes.recDot} />
           <span className={classes.recText}>REC</span>
         </span>

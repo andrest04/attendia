@@ -63,6 +63,7 @@ export default function Menu(props: { buttonClassName?: string }) {
         onClick={() => setMenuOpen(isOpen => !isOpen)}
         ref={anchorRef}
         className={props.buttonClassName}
+        aria-label={isMobile ? t('menu.more') : undefined}
         data-cy-more-button
       >
         {isMobile ? (

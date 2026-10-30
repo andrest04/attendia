@@ -231,6 +231,7 @@ export default function ChatInput({ conversation, isChatWindowOpen }: ChatInputP
         {/* Primary send button */}
         <Button
           className={classes.sendButton}
+          aria-label={t('sendMessage')}
           onClick={() => handleSendMessage(messageBody)}
           color="primary"
           variant="contained"

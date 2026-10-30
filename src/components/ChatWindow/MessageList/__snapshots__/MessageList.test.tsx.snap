@@ -182,8 +182,10 @@ exports[`the messageList component should render correctly 1`] = `
             9:49 pm
           </div>
         </div>
-        <div
+        <button
+          aria-label="Abrir archivo: test1.txt"
           class="makeStyles-messageContainer-16"
+          type="button"
         >
           <div
             class="makeStyles-iconContainer-17"
@@ -255,7 +257,7 @@ exports[`the messageList component should render correctly 1`] = `
               Haz clic para abrir
             </p>
           </div>
-        </div>
+        </button>
         <button
           class="MuiButtonBase-root MuiButton-root MuiButton-contained MessageListScrollContainer-button-4 MuiButton-containedPrimary"
           data-cy-new-message-button="true"

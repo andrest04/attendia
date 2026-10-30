@@ -1,5 +1,9 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { mount, shallow } from 'enzyme';
+import { act } from 'react-dom/test-utils';
+import i18n from '../../i18n';
+import es from '../../i18n/locales/completeNotifications.es';
+import en from '../../i18n/locales/completeNotifications.en';
 import { Button, CircularProgress, IconButton, ListItem, ListItemText, MenuItem } from '@material-ui/core';
 import { TeacherNotification } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import NotificationDropdown from './NotificationDropdown';
@@ -41,6 +45,43 @@ const baseProps = {
 
 describe('NotificationDropdown', () => {
   beforeEach(jest.clearAllMocks);
+
+  it('updates canonical persisted copy when the language changes without replacing the notification', async () => {
+    i18n.addResourceBundle('es', 'completeNotifications', es);
+    i18n.addResourceBundle('en', 'completeNotifications', en);
+    await i18n.changeLanguage('es');
+    const original = { ...notification('one'), title: 'Clase próxima: Álgebra', message: 'Tu clase "Álgebra" comienza en 15 minutos.' };
+    const wrapper = mount(<NotificationDropdown {...baseProps} notifications={[original]} />);
+    expect(wrapper.text()).toContain('Clase próxima: Álgebra');
+    await act(async () => { await i18n.changeLanguage('en'); });
+    wrapper.update();
+    expect(wrapper.text()).toContain('Upcoming class: Álgebra');
+    expect(wrapper.text()).toContain('Your class "Álgebra" starts in 15 minutes.');
+    wrapper.find(ListItem).first().simulate('click');
+    expect(baseProps.onNotificationClick).toHaveBeenCalledWith(original);
+    wrapper.unmount();
+    await i18n.changeLanguage('es');
+  });
+
+  it('exposes each row’s read state and preserves its content and action across languages', async () => {
+    const items = [notification('new'), notification('old', 22)];
+    await i18n.changeLanguage('es');
+    const wrapper = mount(<NotificationDropdown {...baseProps} notifications={items} unreadCount={1} />);
+    try {
+      const row = (id: string) => wrapper.find(`[data-testid="notification-row-${id}"]`).hostNodes();
+      expect(row('new').prop('aria-label')).toBe('Título new. Mensaje new. No leída');
+      expect(row('old').prop('aria-label')).toBe('Título old. Mensaje old. Leída');
+      await act(async () => { await i18n.changeLanguage('en'); });
+      wrapper.update();
+      expect(row('new').prop('aria-label')).toBe('Título new. Mensaje new. Unread');
+      expect(row('old').prop('aria-label')).toBe('Título old. Mensaje old. Read');
+      row('new').simulate('click');
+      expect(baseProps.onNotificationClick).toHaveBeenCalledWith(items[0]);
+    } finally {
+      wrapper.unmount();
+      await i18n.changeLanguage('es');
+    }
+  });
 
   it('shows loading before a confirmed response and only then the exact empty copy', () => {
     const loading = shallow(<NotificationDropdown {...baseProps} hasConfirmedState={false} />);
