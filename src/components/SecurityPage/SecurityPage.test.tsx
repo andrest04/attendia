@@ -31,6 +31,13 @@ describe('SecurityPage', () => {
       unmount();
     }
   });
+  it('describes reconnection and video adaptation in Spanish', () => {
+    const { container, unmount } = render(<SecurityPage />);
+    expect(container.textContent).toContain('Reconexión automática con espera exponencial entre intentos');
+    expect(container.textContent).toContain('Reducción adaptativa de la tasa de bits ante pérdida de paquetes');
+    unmount();
+  });
+
   it('renders without crashing', () => {
     const { container } = render(<SecurityPage />);
     expect(container).toBeTruthy();

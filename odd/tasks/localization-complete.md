@@ -17,6 +17,12 @@ Finish the existing i18n feature for production user-facing application text.
 
 ## Log
 
+- Re-reviewed completePages, completePreview, completeBackground and completeNotifications English/Spanish resources. Translated `backoff` and `bitrate` in the security page without changing claims; worker observed RED, and parent verification passed 2 suites/12 tests, client typecheck and lint (existing GalleryView test shadow warning). Browser proof absent.
+
+- Re-reviewed all values in src/i18n/locales/roomUi.en.ts, roomUi.es.ts, dashboard.en.ts, dashboard.es.ts, completeControls.en.ts and completeControls.es.ts: no definite wrong-language copy, excluding brand and technical terminology. Runtime interpolation/fallbacks not checked.
+
+- Spanish sharing/report wording work unit committed as `4663f40`; T6 remains open for remaining coverage and verification.
+
 - Bilingual dictionary review fully read src/i18n/locales/entryFlow.en.ts, entryFlow.es.ts, completeReports.en.ts, completeReports.es.ts, completeDashboard.en.ts, completeDashboard.es.ts, completeNotifications.en.ts and completeNotifications.es.ts. Replaced Spanish `link` and `pipeline` wording; delegated worker observed two RED tests. Parent integration passed 4 suites/61 tests, client typecheck and lint (existing GalleryView test shadow warning). Browser verification absent.
 
 - Targeted component literal audit checked src/components/RecordingViewerPage/RecordingViewerPage.tsx, ResourceViewerPage/ResourceViewerPage.tsx, ClassHistoryPage/ClassHistoryPage.tsx, SessionEndedScreen/SessionEndedScreen.tsx, StandalonePage/StandalonePage.tsx, Snackbar/Snackbar.tsx, LanguageSelector/LanguageSelector.tsx, BackgroundSelectionDialog/BackgroundSelectionDialog.tsx, BackgroundSelectionDialog/BackgroundSelectionHeader/BackgroundSelectionHeader.tsx and BackgroundSelectionDialog/BackgroundThumbnail/BackgroundThumbnail.tsx (all under src/components). No definite untranslated app-owned literal found; child components and external content excluded.
