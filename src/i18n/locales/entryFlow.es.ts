@@ -30,7 +30,7 @@ const entryFlow = {
         roomNamePlaceholder: 'Ej: Matemáticas — Grupo A',
         yourName: 'Tu nombre',
         created: 'Sesión creada',
-        shareHint: 'Comparte el código o el link con tus estudiantes.',
+        shareHint: 'Comparte el código o el enlace con tus estudiantes.',
         visibleIdentity: 'Identidad visible en sala',
         copied: 'Copiado',
         copy: 'Copiar',

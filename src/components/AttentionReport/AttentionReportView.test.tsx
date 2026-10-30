@@ -43,7 +43,7 @@ describe('AttentionReportView — zoom/scrub timeline (ECharts)', () => {
     i18n.addResourceBundle('en', 'common', en, true, true);
     const wrapper = mount(<AttentionReportView data={{ ...baseData, source: 'mock' }} />);
     try {
-      expect(wrapper.text()).toContain('Datos simulados — pipeline CV pendiente');
+      expect(wrapper.text()).toContain('Datos simulados — procesamiento de visión por computadora pendiente');
       expect(wrapper.text()).toContain('2 estudiantes');
       await act(async () => { await i18n.changeLanguage('en'); });
       wrapper.update();

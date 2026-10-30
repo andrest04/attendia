@@ -6,7 +6,7 @@ const completeReports = {
       mock: 'Datos simulados',
     },
     report: {
-      title: 'Reporte de Atención', session: 'Sesión:', mock: 'Datos simulados — pipeline CV pendiente',
+      title: 'Reporte de Atención', session: 'Sesión:', mock: 'Datos simulados — procesamiento de visión por computadora pendiente',
       groupAverage: 'Atención promedio grupal', monitored: 'Estudiantes monitoreados', participants: 'participantes',
       proctoring: 'Alertas de proctoring', events: 'eventos detectados', thresholdExceeded: 'Umbral superado',
       totalTime: 'del tiempo total', evolution: 'Evolución de atención grupal', groupAttention: 'Atención grupo',
