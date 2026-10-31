@@ -8,12 +8,12 @@ Finish the existing i18n feature for production user-facing application text.
 
 ## Tasks
 
-- [ ] T1 S1 Dashboard classes, resources and history; route: writer; commit: pending.
-- [ ] T2 S1 Reports, history and recording pages; route: writer; commit: pending.
-- [ ] T3 S1 Manual and security pages; route: writer; commit: pending.
-- [ ] T4 S1 Device, connection, captions and remaining cross-cutting UI; route: writer; commit: pending.
-- [ ] T5 S1 API errors, persisted notifications and external error fallbacks; route: two disjoint writers; commit: pending.
-- [ ] T6 S1 Production-wide audit, static metadata, integration and verification; route: inline; commit: pending.
+- [x] T1 S1 Dashboard classes, resources and history; route: writer; integrated in main (abadcce).
+- [x] T2 S1 Reports, history and recording pages; route: writer; integrated in main (abadcce).
+- [x] T3 S1 Manual and security pages; route: writer; integrated in main (abadcce).
+- [x] T4 S1 Device, connection, captions and remaining cross-cutting UI; route: writer; integrated in main (abadcce).
+- [x] T5 S1 API errors, persisted notifications and external error fallbacks; route: two disjoint writers; integrated in main (abadcce).
+- [x] T6 S1 Production-wide audit, static metadata, integration and verification; route: inline; closed 2026-10-31 with documented gaps: browser, screen-reader, real Firebase and real download HTTP checks were never performed (see log).
 
 ## Log
 
@@ -108,3 +108,5 @@ Finish the existing i18n feature for production user-facing application text.
 - Report chart/data audit fully read AttentionReport/AttentionReportView.tsx, buildReportViewData.ts, storedReportViewData.ts, reportMath.ts; AttentionProvider/useGroupTimeline.ts; Room/ProfessorRoomShell/AttentionTimelineChart.tsx and LiveReportModal.tsx; ReportPage/ReportPage.tsx; ClassHistoryPage/ClassHistoryPage.tsx; and src/i18n/resolveLocale.ts. Fixed 24-hour labels and raw numbers are not established translation defects. ECharts 6.1 default-tooltip source was traced; no untranslated series label confirmed, browser interaction unverified; no fix applied. Full Jest, client/server typechecks, lint and build passed after Recharts fix (bundle-size warning), before later gallery correction.
 - Bounded room-shell audit found teacher gallery count hard-coded Spanish and pagination arrows unnamed; scoped fix in progress. Fully read roomShells.tsx, StudentRoomShell/StudentRoomToolbar.tsx, StudentRoomShell/useShellNotifications.ts, ProfessorRoomShell/ProfessorToolbar.tsx, ProfessorRoomShell/SessionStatusBar.tsx, ToolbarParts/OverflowMenu.tsx, ModerationMenu/studentModerationItems.tsx, ModerationMenu/TileModerationMenu.tsx, ShellLayout/CollapsibleRail.tsx, ShellLayout/RoomShellLayout.tsx (under src/components/Room); MenuBar/Menu/Menu.tsx, Buttons/ToolbarDeviceMenu/ToolbarDeviceMenu.tsx, GalleryView/GalleryView.tsx, Participant/Participant.tsx, ParticipantTracks/ParticipantTracks.tsx, Publication/Publication.tsx, VideoTrack/VideoTrack.tsx, MainParticipant/MainParticipant.tsx, MainParticipantInfo/MainParticipantInfo.tsx, ParticipantTileParts/ReconnectingOverlay.tsx and RoleBadge/RoleBadge.tsx (under src/components).
 - User requested handoff: "primer, test, build y commit y guardas la seseion". Full Jest and production build passed after gallery work; build warned about bundle size. Gallery integration passed 50 tests and client typecheck; lint reported one test shadow warning. The production-wide audit remains incomplete; independent upload-error verification, browser, screen-reader and real Firebase checks remain unavailable or unperformed. Preserve open tasks for resumption. Latest full suite initially had 1 old calendar English label expectation (2904 passed); corrected; full Jest, client/server typechecks, lint and build passed (bundle-size warning) before the later chart-label change.
+
+- Reconciled 2026-10-31 on main (f935d79): lint, client tsc and server tsc exit 0; full Jest 304 suites / 3028 tests / 33 snapshots passed. T1-T6 checked on that evidence plus the merged work units; the earlier "do not mark complete" caveat still applies to the unperformed manual checks listed in T6.
