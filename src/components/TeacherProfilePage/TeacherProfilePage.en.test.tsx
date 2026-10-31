@@ -69,7 +69,7 @@ describe('TeacherProfilePage in English', () => {
         .first()
         .text()
     ).toBe('Back to joining a room');
-    expect(wrapper.find('select[aria-label="Language"]').exists()).toBe(true);
+    expect(wrapper.find('select[aria-label="Language"]').exists()).toBe(false);
   });
 });
 

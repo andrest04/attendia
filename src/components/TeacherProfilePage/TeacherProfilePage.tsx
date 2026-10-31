@@ -289,7 +289,6 @@ export default function TeacherProfilePage() {
           professorPhotoURL={photo}
           identityColor="student"
           showNotifications={false}
-          showLanguageSelector
           extraMenuItems={
             <MenuItem onClick={() => signOut?.()} data-testid="student-profile-header-sign-out">
               {t('signOut')}

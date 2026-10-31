@@ -6,7 +6,6 @@ import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import PersonIcon from '@material-ui/icons/Person';
 import { useHistory } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import LanguageSelector from '../LanguageSelector/LanguageSelector';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import LanguageSwitch from '../LanguageSwitch/LanguageSwitch';
 import { routes } from '../../routes';
@@ -181,8 +180,6 @@ interface Props {
   onProfileClick?: () => void;
   // Extra <MenuItem>s rendered after "Perfil" (e.g. sign-out, on the prejoin header).
   extraMenuItems?: React.ReactNode;
-  /** Mounts the language switcher beside the notifications bell (off where the host already has one). */
-  showLanguageSelector?: boolean;
 }
 
 /** Top bar shared by every Panel Docente tab and the prejoin flow: brand, notifications, profile chip. */
@@ -201,7 +198,6 @@ export default function DashboardHeader({
   showProfileLink = true,
   onProfileClick,
   extraMenuItems,
-  showLanguageSelector = false,
 }: Props) {
   const classes = useStyles();
   const { t } = useTranslation('dashboardShell');
@@ -230,7 +226,7 @@ export default function DashboardHeader({
       )}
       {centerLabel && <span className={classes.centerLabel}>{centerLabel}</span>}
       <div className={classes.right}>
-        {showLanguageSelector ? <LanguageSelector /> : <LanguageSwitch />}
+        <LanguageSwitch />
         {badge}
         {showProfile &&
           showNotifications &&

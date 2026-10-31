@@ -5,7 +5,6 @@ import DashboardHeader from '../TeacherDashboard/DashboardHeader';
 import CreatePasswordDialog from './CreatePasswordDialog/CreatePasswordDialog';
 import { useHistory, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import LanguageSelector from '../LanguageSelector/LanguageSelector';
 import AttendiaLogo from '../Brand/AttendiaLogo';
 import { routes } from '../../routes';
 import { getProfessorInitials, resolveProfilePhotoURL } from '../../utils/professorIdentity/professorIdentity';
@@ -517,7 +516,6 @@ const IntroContainer = (props: IntroContainerProps) => {
           </span>
         </div>
         <div className={classes.footerLinks}>
-          <LanguageSelector />
           <a href="/security" className={classes.footerLink}>
             {t('intro.security')}
           </a>

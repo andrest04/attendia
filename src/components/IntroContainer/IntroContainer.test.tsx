@@ -1,7 +1,6 @@
 import React from 'react';
 import IntroContainer from './IntroContainer';
 import DashboardHeader from '../TeacherDashboard/DashboardHeader';
-import LanguageSelector from '../LanguageSelector/LanguageSelector';
 import { shallow } from 'enzyme';
 import { useLocation } from 'react-router-dom';
 import { useAppState } from '../../state';
@@ -222,16 +221,4 @@ describe('the IntroContainer component', () => {
     });
   });
 
-  it('offers the language selector in the footer for the prejoin and login screens', () => {
-    mockUseLocation.mockImplementation(() => ({ pathname: '/' }));
-    mockUseAppState.mockImplementation(() => ({ user: undefined }));
-
-    const wrapper = shallow(
-      <IntroContainer>
-        <span>Test Content</span>
-      </IntroContainer>
-    );
-
-    expect(wrapper.find(LanguageSelector)).toHaveLength(1);
-  });
 });

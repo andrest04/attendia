@@ -51,9 +51,9 @@ describe('teacher dashboard chrome in English', () => {
     expect(signOut.prop('title')).toBe('Signing out is not available in this mode');
   });
 
-  it('translates the header and mounts the language selector only when asked', () => {
+  it('translates the header and shows the language switch, never a select', () => {
     wrapper = mount(
-      wrap(<DashboardHeader professorName="Ana" professorInitials="A" onLogoClick={jest.fn()} showLanguageSelector />)
+      wrap(<DashboardHeader professorName="Ana" professorInitials="A" onLogoClick={jest.fn()} />)
     );
     expect(wrapper.find('button[aria-label="Go to home"]').exists()).toBe(true);
     expect(
@@ -62,7 +62,7 @@ describe('teacher dashboard chrome in English', () => {
         .first()
         .text()
     ).toBe('Profile');
-    expect(wrapper.find('select[aria-label="Language"]').exists()).toBe(true);
+    expect(wrapper.find('select[aria-label="Language"]').exists()).toBe(false);
     wrapper.unmount();
 
     wrapper = mount(wrap(<DashboardHeader professorName="Ana" professorInitials="A" />));

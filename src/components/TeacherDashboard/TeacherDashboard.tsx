@@ -360,7 +360,6 @@ export default function TeacherDashboard({
         professorPhotoURL={resolveProfilePhotoURL(profile?.avatarUrl, profile?.avatarRemoved, user?.photoURL)}
         onLogoClick={onTabChange ? () => onTabChange('clases') : undefined}
         notificationUnreadCount={notifications.unreadCount}
-        showLanguageSelector
         notificationContent={close => (
           <NotificationDropdown
             {...notifications}

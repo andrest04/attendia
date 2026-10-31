@@ -107,10 +107,10 @@ describe('the LoginPage component', () => {
         fireEvent.submit(ui.getByText('Confirmar y continuar').closest('form')!);
       }
       await waitForElement(() => ui.getByText(spanish));
-      fireEvent.change(ui.getByLabelText('Idioma', { selector: 'select' }), { target: { value: 'en' } });
+      fireEvent.click(ui.getByText('EN'));
       expect(ui.getByText(english)).toBeTruthy();
       expect(ui.queryByText(spanish)).toBeNull();
-      fireEvent.change(ui.getByLabelText('Language', { selector: 'select' }), { target: { value: 'es' } });
+      fireEvent.click(ui.getByText('ES'));
       expect(ui.getByText(spanish)).toBeTruthy();
       expect(action).toHaveBeenCalledTimes(1);
       if (step !== 'completion') expect((ui.getByLabelText('Correo electrónico') as HTMLInputElement).value).toBe('ana@example.com');
