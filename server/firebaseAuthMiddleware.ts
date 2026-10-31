@@ -32,7 +32,8 @@ export const createFirebaseAuthMiddleware = (verifyIdToken: IdTokenVerifier): Re
     const firebaseUser: VerifiedFirebaseUser = { uid: token.uid, email: token.email };
     res.locals.firebaseUser = firebaseUser;
     next();
-  } catch {
+  } catch (error) {
+    console.warn(`ID token rejected: ${error && (error as Error).message}`);
     res.status(401).send();
   }
 };
