@@ -5,6 +5,7 @@ import { useModerationActions } from '../Room/ModerationMenu/moderationActionsCo
 import MainParticipantInfo from './MainParticipantInfo';
 import AvatarIcon from '../../icons/AvatarIcon';
 import RoleBadge from '../RoleBadge/RoleBadge';
+import IdentityRoleBadge from '../RoleBadge/IdentityRoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
 import { shallow } from 'enzyme';
@@ -87,7 +88,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'Ana [Profesor]' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.find(RoleBadge).exists()).toBe(true);
+    expect(wrapper.find(IdentityRoleBadge).dive().find(RoleBadge).exists()).toBe(true);
     expect(wrapper.text()).not.toContain('[Profesor]');
   });
 
@@ -95,7 +96,7 @@ describe('the MainParticipantInfo component', () => {
     const wrapper = shallow(
       <MainParticipantInfo participant={{ identity: 'mockIdentity' } as any}>mock children</MainParticipantInfo>
     );
-    expect(wrapper.find(RoleBadge).exists()).toBe(false);
+    expect(wrapper.find(IdentityRoleBadge).dive().find(RoleBadge).exists()).toBe(false);
   });
 
   it('should not render the reconnecting UI when the user is connected', () => {

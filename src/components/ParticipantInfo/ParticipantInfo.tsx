@@ -18,7 +18,7 @@ import { StudentModerationHandlers } from '../Room/ModerationMenu/studentModerat
 import { AttentionLevel } from '../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../AttentionProvider/attentionLevelStyle';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
-import RoleBadge from '../RoleBadge/RoleBadge';
+import IdentityRoleBadge from '../RoleBadge/IdentityRoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
 
@@ -297,7 +297,7 @@ export default function ParticipantInfo({
               {stripTeacherSuffix(participant.identity)}
               {isLocalParticipant && ` ${t('tile.localSuffix')}`}
             </Typography>
-            {isTeacher && <RoleBadge size="sm" className={classes.roleBadge} />}
+            <IdentityRoleBadge identity={participant.identity} size="sm" className={classes.roleBadge} />
           </span>
         </div>
         <div>{isSelected && <PinIcon />}</div>

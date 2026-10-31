@@ -6,8 +6,8 @@ import VideoTrack from '../../../VideoTrack/VideoTrack';
 import useVideoContext from '../../../../hooks/useVideoContext/useVideoContext';
 import { selectCameraTrack } from '../../../../utils/trackSelectors';
 import { stripTeacherSuffix } from '../../../../classSession/classSessionTypes';
+import IdentityRoleBadge from '../../../RoleBadge/IdentityRoleBadge';
 import { useTranslation } from 'react-i18next';
-import { displayIdentity } from '../../../../i18n/displayIdentity';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // Outer card: browser-window chrome + video area
@@ -119,6 +119,10 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
   },
+  roleBadge: {
+    marginLeft: '0.4em',
+    marginRight: '0.3em',
+  },
   // Controls bar below the video (mic + camera buttons)
   controls: {
     display: 'flex',
@@ -184,8 +188,9 @@ export default function LocalVideoPreview({ identity, children }: { identity: st
             <span className={classes.identity}>
               <LocalAudioLevelIndicator />
               <Typography variant="body1" color="inherit" component="span">
-                {displayIdentity(identity)}
+                {stripTeacherSuffix(identity)}
               </Typography>
+              <IdentityRoleBadge identity={identity} size="sm" className={classes.roleBadge} />
             </span>
           </div>
         )}

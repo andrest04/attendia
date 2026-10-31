@@ -10,6 +10,7 @@ import useParticipantIsReconnecting from '../../hooks/useParticipantIsReconnecti
 import usePublications from '../../hooks/usePublications/usePublications';
 import ScreenShareIcon from '../../icons/ScreenShareIcon';
 import RoleBadge from '../RoleBadge/RoleBadge';
+import IdentityRoleBadge from '../RoleBadge/IdentityRoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
 import TileModerationMenu from '../Room/ModerationMenu/TileModerationMenu';
@@ -204,7 +205,7 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.find(RoleBadge).exists()).toBe(true);
+    expect(wrapper.find(IdentityRoleBadge).dive().find(RoleBadge).exists()).toBe(true);
     expect(wrapper.text()).not.toContain('[Profesor]');
   });
 
@@ -216,7 +217,7 @@ describe('the ParticipantInfo component', () => {
         mock children
       </ParticipantInfo>
     );
-    expect(wrapper.find(RoleBadge).exists()).toBe(false);
+    expect(wrapper.find(IdentityRoleBadge).dive().find(RoleBadge).exists()).toBe(false);
   });
 
   it('should not render the attention overlay when no attention prop is provided', () => {

@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
 import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
-import RoleBadge from '../../RoleBadge/RoleBadge';
+import IdentityRoleBadge from '../../RoleBadge/IdentityRoleBadge';
 import { ParticipantAttention } from '../../AttentionProvider/types';
 import { ATTENTION_LEVEL_STYLE } from '../../AttentionProvider/attentionLevelStyle';
 import { classifyAttention } from '../../AttentionProvider/presence';
@@ -227,7 +227,7 @@ function RosterRow({
         <span className={classes.rosterName} title={displayIdentity(participant.identity)}>
           {stripTeacherSuffix(participant.identity)}
         </span>
-        {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" />}
+        <IdentityRoleBadge identity={participant.identity} size="sm" />
       </div>
       {attention?.multiface && (
         <span

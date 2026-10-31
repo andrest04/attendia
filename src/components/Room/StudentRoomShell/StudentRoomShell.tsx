@@ -3,9 +3,9 @@ import clsx from 'clsx';
 import { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { makeStyles, Theme } from '@material-ui/core';
-import { isTeacherIdentity, stripTeacherSuffix } from '../../../classSession/classSessionTypes';
+import { stripTeacherSuffix } from '../../../classSession/classSessionTypes';
 import { getInitials } from '../roomIdentity';
-import RoleBadge from '../../RoleBadge/RoleBadge';
+import IdentityRoleBadge from '../../RoleBadge/IdentityRoleBadge';
 import SessionStatusBar from '../ProfessorRoomShell/SessionStatusBar';
 import RoomShellLayout from '../ShellLayout/RoomShellLayout';
 import { CollapsibleRail, RailCloseButton } from '../ShellLayout/CollapsibleRail';
@@ -262,7 +262,6 @@ function RosterItem({
   participant: RosterParticipant;
   classes: ReturnType<typeof useStyles>;
 }) {
-  const isTeacher = isTeacherIdentity(participant.identity);
   const initials = getInitials(participant.identity);
   const displayName = stripTeacherSuffix(participant.identity);
 
@@ -280,7 +279,7 @@ function RosterItem({
         <div className={classes.rosterName} title={displayName}>
           {displayName}
         </div>
-        {isTeacher && <RoleBadge size="sm" />}
+        <IdentityRoleBadge identity={participant.identity} size="sm" />
       </div>
       {participant.isOnline && <div className={classes.rosterDot} />}
     </div>

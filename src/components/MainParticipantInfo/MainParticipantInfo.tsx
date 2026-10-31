@@ -14,10 +14,10 @@ import useIsRecording from '../../hooks/useIsRecording/useIsRecording';
 import useParticipantTile from '../../hooks/useParticipantTile/useParticipantTile';
 import useScreenShareParticipant from '../../hooks/useScreenShareParticipant/useScreenShareParticipant';
 import useVideoContext from '../../hooks/useVideoContext/useVideoContext';
-import { isTeacherIdentity, stripTeacherSuffix } from '../../classSession/classSessionTypes';
+import { stripTeacherSuffix } from '../../classSession/classSessionTypes';
 import { useModerationActions } from '../Room/ModerationMenu/moderationActionsContext';
 import TileModerationMenu from '../Room/ModerationMenu/TileModerationMenu';
-import RoleBadge from '../RoleBadge/RoleBadge';
+import IdentityRoleBadge from '../RoleBadge/IdentityRoleBadge';
 import RaisedHandBadge from '../ParticipantTileParts/RaisedHandBadge';
 import ReconnectingOverlay from '../ParticipantTileParts/ReconnectingOverlay';
 
@@ -162,7 +162,7 @@ export default function MainParticipantInfo({ participant, children }: MainParti
               {isLocal && ` ${t('tile.localSuffix')}`}
               {isSharingScreen && ` ${t('tile.screenSuffix')}`}
             </Typography>
-            {isTeacherIdentity(participant.identity) && <RoleBadge size="sm" className={classes.roleBadge} />}
+            <IdentityRoleBadge identity={participant.identity} size="sm" className={classes.roleBadge} />
           </div>
           <NetworkQualityLevel participant={participant} />
         </div>

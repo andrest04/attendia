@@ -8,6 +8,7 @@ import { Button, TextField } from '@material-ui/core';
 import { useAppState } from '../../../state';
 import { createDefaultClassSessionDraft } from '../../../classSession/classSessionTypes';
 import RoleBadge from '../../RoleBadge/RoleBadge';
+import IdentityRoleBadge from '../../RoleBadge/IdentityRoleBadge';
 import { getLocale, setLocale, Locale } from '../../../i18n/locale';
 
 jest.mock('../../../state');
@@ -216,7 +217,7 @@ describe('the RoomNameScreen component', () => {
     // The role is a badge (same look as in the room), never the raw `[Profesor]` suffix.
     expect(wrapper.text()).toContain('Andres Torres');
     expect(wrapper.text()).not.toContain('[Profesor]');
-    expect(wrapper.find(RoleBadge).exists()).toBe(true);
+    expect(wrapper.find(IdentityRoleBadge).dive().find(RoleBadge).exists()).toBe(true);
     expect(wrapper.text()).toContain('Nombre de la sala');
     expect(wrapper.text()).toContain('session-1');
     expect(wrapper.text()).not.toContain('Link para compartir');
@@ -289,7 +290,7 @@ describe('the RoomNameScreen component', () => {
     );
 
     expect(wrapper.text()).toContain('Andres Torres');
-    expect(wrapper.find(RoleBadge).exists()).toBe(false);
+    expect(wrapper.find(IdentityRoleBadge).dive().find(RoleBadge).exists()).toBe(false);
   });
 
   it('keeps teacher creation disabled without session name', () => {

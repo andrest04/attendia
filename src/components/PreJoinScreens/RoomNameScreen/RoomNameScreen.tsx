@@ -11,11 +11,10 @@ import {
   ClassSessionDraft,
   ClassSessionRole,
   isClassSessionDraftReady,
-  isTeacherIdentity,
   normalizeStudentJoinInputToRoomName,
   stripTeacherSuffix,
 } from '../../../classSession/classSessionTypes';
-import RoleBadge from '../../RoleBadge/RoleBadge';
+import IdentityRoleBadge from '../../RoleBadge/IdentityRoleBadge';
 
 const useStyles = makeStyles((theme: Theme) => ({
   // ── Single-card wrapper ───────────────────────────────────────────────────────
@@ -569,7 +568,7 @@ export default function RoomNameScreen({
                   </Typography>
                   <div className={classes.createdIdentity}>
                     <Typography variant="body2">{stripTeacherSuffix(teacherDisplayName)}</Typography>
-                    {isTeacherIdentity(teacherDisplayName) && <RoleBadge />}
+                    <IdentityRoleBadge identity={teacherDisplayName} />
                   </div>
                 </div>
               </div>
