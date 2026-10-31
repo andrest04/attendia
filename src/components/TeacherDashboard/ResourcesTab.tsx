@@ -8,6 +8,7 @@ import CloseIcon from '@material-ui/icons/Close';
 import InsertDriveFileIcon from '@material-ui/icons/InsertDriveFile';
 import ErrorOutlineIcon from '@material-ui/icons/ErrorOutline';
 import OpenInNewIcon from '@material-ui/icons/OpenInNew';
+import { useDashboardButtonStyles } from './DashboardButton/dashboardButtonStyles';
 import { ResourceRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { resourceKindIcon } from './dashboardHelpers';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
@@ -47,24 +48,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     gap: theme.spacing(1),
     flexWrap: 'wrap',
   },
-  uploadButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.75),
-    padding: theme.spacing(1, 2),
-    borderRadius: theme.shape.borderRadius,
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
+  noShrinkButton: {
     flexShrink: 0,
-    '&:disabled': {
-      opacity: 0.6,
-      cursor: 'default',
-    },
   },
   pillTabs: {
     display: 'flex',
@@ -101,19 +86,11 @@ const useStyles = makeStyles((theme: Theme) => ({
   bulkDeleteRow: {
     marginBottom: theme.spacing(2.5),
   },
-  bulkDeleteButton: {
+  compactButton: {
     display: 'inline-flex',
-    alignItems: 'center',
     gap: theme.spacing(0.75),
     padding: theme.spacing(0.75, 1.5),
-    borderRadius: theme.shape.borderRadius,
-    border: `1px solid ${theme.palette.error.main}`,
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.error.main,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
     fontSize: '0.8125rem',
-    cursor: 'pointer',
   },
   grid: {
     display: 'grid',
@@ -170,23 +147,11 @@ const useStyles = makeStyles((theme: Theme) => ({
     gap: theme.spacing(1),
     flexWrap: 'wrap',
   },
-  downloadButton: {
+  fileActionButton: {
     display: 'inline-flex',
-    alignItems: 'center',
     gap: theme.spacing(0.5),
     padding: theme.spacing(0.75, 1.5),
-    borderRadius: theme.shape.borderRadius,
-    border: '1px solid #e2ecf9',
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.text.primary,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
     fontSize: '0.75rem',
-    cursor: 'pointer',
-  },
-  viewButton: {
-    borderColor: theme.palette.primary.main,
-    color: theme.palette.primary.main,
   },
   emptyTile: {
     border: '2px dashed #cbd5e1',
@@ -317,6 +282,7 @@ interface Props {
 
 export default function ResourcesTab({ classes: scheduledClasses, expiredClassIds, onDeleteClass }: Props) {
   const classes = useStyles();
+  const buttons = useDashboardButtonStyles();
   const { t, i18n } = useTranslation('completeDashboard');
   const {
     isAvailable,
@@ -368,7 +334,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
         <div className={classes.uploadControls}>
           <button
             type="button"
-            className={classes.uploadButton}
+            className={clsx(buttons.primary, classes.noShrinkButton)}
             onClick={handleUploadClick}
             disabled={activeUploadCount > 0}
             data-testid="dashboard-upload-file-button"
@@ -445,7 +411,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
         <div className={classes.bulkDeleteRow}>
           <button
             type="button"
-            className={classes.bulkDeleteButton}
+            className={clsx(buttons.danger, classes.compactButton)}
             onClick={handleBulkDeleteClick}
             data-testid="dashboard-resources-bulk-delete-button"
           >
@@ -495,7 +461,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   {isViewableKind(file.kind) && (
                     <button
                       type="button"
-                      className={clsx(classes.downloadButton, classes.viewButton)}
+                      className={clsx(buttons.secondary, classes.fileActionButton)}
                       onClick={() => handleView(file)}
                       data-testid="dashboard-resource-view"
                     >
@@ -505,7 +471,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   )}
                   <button
                     type="button"
-                    className={classes.downloadButton}
+                    className={clsx(buttons.secondary, classes.fileActionButton)}
                     onClick={() => handleDownload(file)}
                     data-testid="dashboard-resource-download"
                   >

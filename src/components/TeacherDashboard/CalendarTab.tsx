@@ -8,6 +8,7 @@ import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import PeopleAltIcon from '@material-ui/icons/PeopleAlt';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { useTranslation } from 'react-i18next';
+import { useDashboardButtonStyles } from './DashboardButton/dashboardButtonStyles';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { formatDate, formatDayMonth, formatLongDate, formatTime, weekdayName } from '../../i18n/format';
 import { buildCalendarDays, calendarSummary, mondayLeadingBlanks, monthStart } from './calendarView';
@@ -149,34 +150,9 @@ const useStyles = makeStyles((theme: Theme) => ({
   },
   startButton: {
     flex: 1,
-    padding: theme.spacing(1),
-    borderRadius: theme.shape.borderRadius,
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
   },
   cancelButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: theme.spacing(0.5),
-    padding: theme.spacing(1),
-    borderRadius: theme.shape.borderRadius,
-    border: '1px solid #e2ecf9',
-    cursor: 'pointer',
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.text.primary,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
-    '&:disabled': {
-      opacity: 0.6,
-      cursor: 'default',
-    },
   },
   cancelError: {
     marginTop: theme.spacing(1),
@@ -241,6 +217,7 @@ export default function CalendarTab({
   expiredClassIds,
 }: Props) {
   const styles = useStyles();
+  const buttons = useDashboardButtonStyles();
   const { t, i18n } = useTranslation('calendar');
   const language = i18n.language;
   const [visibleMonth, setVisibleMonth] = useState(() => monthStart(new Date()));
@@ -420,7 +397,7 @@ export default function CalendarTab({
                 <div className={styles.sessionActions}>
                   <button
                     type="button"
-                    className={styles.startButton}
+                    className={clsx(buttons.primary, styles.startButton)}
                     onClick={() => onStartClass(classRecord)}
                     data-testid={`dashboard-calendar-start-${classRecord.id}`}
                   >
@@ -429,7 +406,7 @@ export default function CalendarTab({
                   {onCancelClass && (
                     <button
                       type="button"
-                      className={styles.cancelButton}
+                      className={clsx(buttons.secondary, styles.cancelButton)}
                       onClick={() => onCancelClass(classRecord)}
                       disabled={cancellingClassId === classRecord.id}
                       data-testid={`dashboard-calendar-cancel-${classRecord.id}`}

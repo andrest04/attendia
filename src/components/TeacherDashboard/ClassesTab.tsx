@@ -24,6 +24,7 @@ import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
 import baseTheme from '../../theme';
+import { useDashboardButtonStyles } from './DashboardButton/dashboardButtonStyles';
 
 // @material-ui/pickers ships its overridable class keys separately from core's `Overrides` type;
 // this augmentation is required for `theme.overrides.MuiPickers*` below to type-check.
@@ -145,19 +146,7 @@ const useStyles = makeStyles((theme: Theme) => ({
   statsGridHeader: {
     marginBottom: theme.spacing(1),
   },
-  newClassButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.75),
-    padding: theme.spacing(1, 2),
-    borderRadius: theme.shape.borderRadius,
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
+  noShrinkButton: {
     flexShrink: 0,
   },
   headerActions: {
@@ -165,25 +154,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     gap: theme.spacing(1),
     flexShrink: 0,
-  },
-  cancelExpiredButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.75),
-    padding: theme.spacing(1, 2),
-    borderRadius: theme.shape.borderRadius,
-    border: '1px solid #f0c36d',
-    cursor: 'pointer',
-    backgroundColor: '#fff8e6',
-    color: theme.palette.text.primary,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
-    flexShrink: 0,
-    '&:disabled': {
-      opacity: 0.6,
-      cursor: 'default',
-    },
   },
   sessionsGrid: {
     display: 'grid',
@@ -202,16 +172,6 @@ const useStyles = makeStyles((theme: Theme) => ({
   sessionCardExpired: {
     filter: 'grayscale(1)',
     opacity: 0.75,
-  },
-  expiredCancelButton: {
-    transition: 'background-color 0.15s ease, border-color 0.15s ease',
-    '&:hover:not(:disabled)': {
-      backgroundColor: '#f1f5f9',
-      borderColor: '#cbd5e1',
-    },
-    '&:disabled': {
-      cursor: 'default',
-    },
   },
   expiredSection: {
     marginTop: theme.spacing(3),
@@ -285,37 +245,8 @@ const useStyles = makeStyles((theme: Theme) => ({
     alignItems: 'center',
     gap: 4,
   },
-  primaryButton: {
+  fullWidthButton: {
     width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1.25),
-    borderRadius: theme.shape.borderRadius,
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.875rem',
-  },
-  secondaryButton: {
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1.25),
-    borderRadius: theme.shape.borderRadius,
-    border: '1px solid #e2ecf9',
-    cursor: 'pointer',
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.text.primary,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.875rem',
   },
   newClassForm: {
     backgroundColor: theme.palette.background.paper,
@@ -390,36 +321,6 @@ const useStyles = makeStyles((theme: Theme) => ({
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(1.5),
-  },
-  newClassSubmitButton: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.75),
-    padding: theme.spacing(1, 2),
-    borderRadius: theme.shape.borderRadius,
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
-    flexShrink: 0,
-    '&:disabled': {
-      opacity: 0.6,
-      cursor: 'default',
-    },
-  },
-  newClassCancelButton: {
-    padding: theme.spacing(1, 2),
-    borderRadius: theme.shape.borderRadius,
-    border: 'none',
-    background: 'none',
-    cursor: 'pointer',
-    color: theme.palette.text.secondary,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.8125rem',
   },
   newClassError: {
     marginTop: theme.spacing(1.5),
@@ -534,6 +435,7 @@ export default function ClassesTab({
   startedRoomStatus = {},
 }: Props) {
   const classes = useStyles();
+  const buttons = useDashboardButtonStyles();
   const { t, i18n } = useTranslation(['completeDashboard', 'dashboardShell']);
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -603,7 +505,7 @@ export default function ClassesTab({
       return (
         <button
           type="button"
-          className={classes.primaryButton}
+          className={clsx(buttons.primary, classes.fullWidthButton)}
           onClick={() => handleStartClass(session)}
           disabled={isStartingClass}
           data-testid="dashboard-rejoin-session-button"
@@ -622,7 +524,7 @@ export default function ClassesTab({
           </div>
           <button
             type="button"
-            className={classes.secondaryButton}
+            className={clsx(buttons.secondary, classes.fullWidthButton)}
             onClick={() => handleStartClass(session)}
             disabled={isStartingClass}
             data-testid="dashboard-restart-session-button"
@@ -637,7 +539,7 @@ export default function ClassesTab({
       return (
         <button
           type="button"
-          className={classes.secondaryButton}
+          className={clsx(buttons.secondary, classes.fullWidthButton)}
           disabled
           data-testid="dashboard-checking-session-button"
         >
@@ -746,7 +648,7 @@ export default function ClassesTab({
           {onCancelExpiredClasses && expiredClassesCount > 0 && (
             <button
               type="button"
-              className={classes.cancelExpiredButton}
+              className={clsx(buttons.secondary, classes.noShrinkButton)}
               onClick={onCancelExpiredClasses}
               disabled={isCancellingExpired}
               data-testid="dashboard-cancel-expired-button"
@@ -759,7 +661,7 @@ export default function ClassesTab({
           )}
           <button
             type="button"
-            className={classes.newClassButton}
+            className={clsx(buttons.primary, classes.noShrinkButton)}
             onClick={handleNewClassClick}
             data-testid="dashboard-new-class-button"
           >
@@ -879,13 +781,13 @@ export default function ClassesTab({
           <div className={classes.newClassActions}>
             <button
               type="submit"
-              className={classes.newClassSubmitButton}
+              className={clsx(buttons.primary, classes.noShrinkButton)}
               disabled={isSubmitting}
               data-testid="dashboard-new-class-submit-button"
             >
               {isSubmitting ? t('classes.creating') : t('classes.create')}
             </button>
-            <button type="button" className={classes.newClassCancelButton} onClick={resetForm}>
+            <button type="button" className={buttons.secondary} onClick={resetForm}>
               {t('classes.cancel')}
             </button>
           </div>
@@ -926,7 +828,7 @@ export default function ClassesTab({
               (session.highlighted ? (
                 <button
                   type="button"
-                  className={classes.primaryButton}
+                  className={clsx(buttons.primary, classes.fullWidthButton)}
                   onClick={() => handleStartClass(session)}
                   disabled={isStartingClass}
                   data-testid="dashboard-start-session-button"
@@ -937,7 +839,7 @@ export default function ClassesTab({
               ) : onCancelClass ? (
                 <button
                   type="button"
-                  className={classes.secondaryButton}
+                  className={clsx(buttons.secondary, classes.fullWidthButton)}
                   onClick={() => onCancelClass(session)}
                   disabled={cancellingClassId === session.id}
                   data-testid="dashboard-cancel-session-button"
@@ -946,7 +848,7 @@ export default function ClassesTab({
                   {cancellingClassId === session.id ? t('classes.cancelling') : t('classes.cancel')}
                 </button>
               ) : (
-                <button type="button" className={classes.secondaryButton} data-testid="dashboard-view-details-button">
+                <button type="button" className={clsx(buttons.secondary, classes.fullWidthButton)} data-testid="dashboard-view-details-button">
                   <OpenInNewIcon style={{ fontSize: 16 }} />
                   {t('classes.details')}
                 </button>
@@ -970,7 +872,7 @@ export default function ClassesTab({
                 {renderStartedAction(session, actionFor(session)) || (
                   <button
                     type="button"
-                    className={classes.primaryButton}
+                    className={clsx(buttons.primary, classes.fullWidthButton)}
                     onClick={() => handleStartClass(session)}
                     disabled={isStartingClass}
                     data-testid="dashboard-start-session-button"
@@ -1014,7 +916,7 @@ export default function ClassesTab({
                 {onCancelClass && (
                   <button
                     type="button"
-                    className={clsx(classes.secondaryButton, classes.expiredCancelButton)}
+                    className={clsx(buttons.secondary, classes.fullWidthButton)}
                     onClick={() => onCancelClass(session)}
                     disabled={cancellingClassId === session.id}
                     data-testid="dashboard-cancel-expired-session-button"

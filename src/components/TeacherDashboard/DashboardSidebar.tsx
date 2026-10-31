@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import PlayArrowIcon from '@material-ui/icons/PlayArrow';
 import ExitToAppIcon from '@material-ui/icons/ExitToApp';
+import { useDashboardButtonStyles } from './DashboardButton/dashboardButtonStyles';
 import { DashboardTabId } from './types';
 import { dashboardTabIcon, dashboardTabLabelKey } from './dashboardHelpers';
 
@@ -100,24 +101,6 @@ const useStyles = makeStyles((theme: Theme) => ({
       flexShrink: 0,
     },
   },
-  startButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing(1),
-    padding: theme.spacing(1.25),
-    borderRadius: theme.shape.borderRadius,
-    border: 'none',
-    cursor: 'pointer',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
-    fontSize: '0.875rem',
-    '&:hover': {
-      backgroundColor: theme.palette.primary.dark,
-    },
-  },
   signOutLink: {
     display: 'flex',
     alignItems: 'center',
@@ -156,6 +139,7 @@ interface Props {
 /** Left navigation rail shared by every Panel Docente tab. */
 export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankClass, onSignOut }: Props) {
   const classes = useStyles();
+  const buttons = useDashboardButtonStyles();
   const { t } = useTranslation('dashboardShell');
 
   return (
@@ -181,7 +165,7 @@ export default function DashboardSidebar({ activeTab, onTabChange, onStartBlankC
       <div className={classes.footer}>
         <button
           type="button"
-          className={classes.startButton}
+          className={buttons.primary}
           onClick={onStartBlankClass}
           data-testid="dashboard-sidebar-start-class"
         >

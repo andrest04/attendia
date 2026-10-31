@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next';
+import clsx from 'clsx';
 import { Button, CircularProgress } from '@material-ui/core';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import SearchIcon from '@material-ui/icons/Search';
@@ -9,6 +10,7 @@ import PlayCircleOutlineIcon from '@material-ui/icons/PlayCircleOutline';
 import { RecordingArtifact, RecordingArtifactStatus, StoredAttentionReport } from '../AttentionProvider/reportTypes';
 import { attentionLevelColor, attentionLevelFromPercent } from './dashboardHelpers';
 import { routePath } from '../../routes';
+import { useDashboardButtonStyles } from './DashboardButton/dashboardButtonStyles';
 import { storedReportDate } from '../AttentionReport/storedReportViewData';
 
 // How often a pending (enqueued/processing) recording's status is re-checked. Twilio
@@ -76,34 +78,17 @@ const useStyles = makeStyles((theme: Theme) => ({
   attentionBarFill: { height: '100%', borderRadius: 3 },
   reportButton: {
     display: 'inline-flex',
-    alignItems: 'center',
     gap: theme.spacing(0.75),
     padding: theme.spacing(0.75, 1.5),
-    borderRadius: theme.shape.borderRadius,
-    border: '1px solid #e2ecf9',
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.text.primary,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
     fontSize: '0.75rem',
-    cursor: 'pointer',
   },
   noRecording: { color: theme.palette.text.secondary },
   recordingCell: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, whiteSpace: 'normal' },
   recordingButton: {
     display: 'inline-flex',
-    alignItems: 'center',
     gap: theme.spacing(0.5),
     padding: theme.spacing(0.5, 1.25),
-    borderRadius: theme.shape.borderRadius,
-    border: '1px solid #e2ecf9',
-    backgroundColor: theme.palette.background.paper,
-    color: theme.palette.text.primary,
-    fontFamily: 'Poppins, Inter, sans-serif',
-    fontWeight: 600,
     fontSize: '0.75rem',
-    cursor: 'pointer',
-    '&:disabled': { cursor: 'default', opacity: 0.6 },
   },
   recordingHint: { fontSize: '0.6875rem', color: theme.palette.text.secondary },
   recordingError: { fontSize: '0.6875rem', color: theme.palette.error.main },
@@ -151,6 +136,8 @@ function formatDuration(report: StoredAttentionReport, t: TFunction): string {
 
 interface RecordingViewContext {
   classes: ReturnType<typeof useStyles>;
+  /** Shared secondary button look composed with the compact recording-cell sizing. */
+  recordingButtonClass: string;
   t: TFunction;
   roomSid: string;
   isBusy: boolean;
@@ -173,10 +160,10 @@ const renderPending = ({ classes, roomSid, t }: RecordingViewContext) => (
  * (not a ladder of conditionals), so a new status cannot be forgotten: the type forces an entry.
  */
 const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingViewContext) => React.ReactNode> = {
-  not_requested: ({ classes, roomSid, isBusy, canRequest, onRequest, t }) => (
+  not_requested: ({ recordingButtonClass, roomSid, isBusy, canRequest, onRequest, t }) => (
     <button
       type="button"
-      className={classes.recordingButton}
+      className={recordingButtonClass}
       onClick={onRequest}
       disabled={isBusy || !canRequest}
       data-testid={`dashboard-history-recording-request-${roomSid}`}
@@ -186,11 +173,11 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
   ),
   enqueued: renderPending,
   processing: renderPending,
-  completed: ({ classes, roomSid, expiryHint, onView, t }) => (
+  completed: ({ classes, recordingButtonClass, roomSid, expiryHint, onView, t }) => (
     <>
       <button
         type="button"
-        className={classes.recordingButton}
+        className={recordingButtonClass}
         onClick={onView}
         data-testid={`dashboard-history-recording-view-${roomSid}`}
       >
@@ -199,14 +186,14 @@ const recordingStateView: Record<RecordingArtifactStatus, (context: RecordingVie
       {expiryHint && <span className={classes.recordingHint}>{expiryHint}</span>}
     </>
   ),
-  failed: ({ classes, roomSid, isBusy, canRequest, onRequest, t }) => (
+  failed: ({ classes, recordingButtonClass, roomSid, isBusy, canRequest, onRequest, t }) => (
     <>
       <span className={classes.recordingError} data-testid={`dashboard-history-recording-failed-${roomSid}`}>
         {t('history.failed')}
       </span>
       <button
         type="button"
-        className={classes.recordingButton}
+        className={recordingButtonClass}
         onClick={onRequest}
         disabled={isBusy || !canRequest}
         data-testid={`dashboard-history-recording-retry-${roomSid}`}
@@ -238,6 +225,7 @@ interface RecordingCellProps {
  */
 function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: RecordingCellProps) {
   const classes = useStyles();
+  const buttons = useDashboardButtonStyles();
   const { t, i18n } = useTranslation('completeDashboard');
   const roomSid = report.roomSid;
   const [recording, setRecording] = useState<RecordingArtifact | undefined>(report.recording);
@@ -300,6 +288,7 @@ function RecordingCell({ report, onRequestRecording, onCheckRecordingStatus }: R
       {/* The server may send a status this client does not know yet: render nothing for it. */}
       {recordingStateView[status]?.({
         classes,
+        recordingButtonClass: clsx(buttons.secondary, classes.recordingButton),
         t,
         roomSid,
         isBusy,
@@ -324,6 +313,7 @@ export default function HistoryTab({
   onCheckRecordingStatus,
 }: Props) {
   const classes = useStyles();
+  const buttons = useDashboardButtonStyles();
   const { t, i18n } = useTranslation('completeDashboard');
   const [query, setQuery] = useState('');
   const filteredReports = (reports || []).filter(report =>
@@ -420,7 +410,7 @@ export default function HistoryTab({
                     <td className={classes.td}>
                       <button
                         type="button"
-                        className={classes.reportButton}
+                        className={clsx(buttons.secondary, classes.reportButton)}
                         onClick={() => onOpenReport(report)}
                         data-testid="dashboard-history-report"
                       >
