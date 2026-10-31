@@ -9,7 +9,7 @@ const completeDashboard = {
     duplicate: 'You already have a class "{{title}}" scheduled for {{date}}. You can still create this one if it is a different session.', noDate: 'no date',
     checking: 'Checking…', rejoin: 'Rejoin', closed: 'Session ended', closedBadge: 'Closed',
     restart: 'Start again', checkingRoom: 'Checking room…', start: 'Start session', details: 'View details',
-    inProgress: 'Sessions in progress', refresh: 'Refresh', expired: 'Expired sessions', retryCancel: 'Retry cancellation',
+    inProgress: 'Sessions in progress', expired: 'Expired sessions', retryCancel: 'Retry cancellation',
   },
   resources: {
     title: 'Resources', unavailable: 'Real resources are only available with Firebase authentication.', subtitle: 'Materials associated with scheduled classes',

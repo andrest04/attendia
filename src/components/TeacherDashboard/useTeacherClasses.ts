@@ -41,22 +41,18 @@ export const ROOM_PROBE_INTERVAL_MS = 30000;
 /**
  * Latest `checkRoomOpen` result per room for the given rooms (the teacher's started classes):
  * probed once when the set of rooms appears and then every ROOM_PROBE_INTERVAL_MS while the tab
- * is visible. It also re-probes when the tab becomes visible / the window regains focus and on
- * demand (`refresh`), but never twice within REPROBE_MIN_GAP_MS. Keyed on the rooms' names, so a
+ * is visible. It also re-probes when the tab becomes visible / the window regains focus, but
+ * never twice within REPROBE_MIN_GAP_MS. Keyed on the rooms' names, so a
  * class list reload does not restart the probing.
  */
 function useRoomOpenStatus(roomNames: string[]) {
   const [status, setStatus] = useState<Record<string, boolean | null>>({});
   const key = roomNames.join('\n');
   const lastProbeAtRef = useRef<number | null>(null);
-  const probeNowRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const rooms = key ? key.split('\n') : [];
-    if (rooms.length === 0) {
-      probeNowRef.current = () => {};
-      return undefined;
-    }
+    if (rooms.length === 0) return undefined;
     let cancelled = false;
     const probe = () => {
       lastProbeAtRef.current = Date.now();
@@ -72,7 +68,6 @@ function useRoomOpenStatus(roomNames: string[]) {
     const onVisible = () => {
       if (!document.hidden) probeIfAllowed();
     };
-    probeNowRef.current = probeIfAllowed;
     probe();
     const timer = setInterval(() => {
       if (!document.hidden) probe();
@@ -81,15 +76,13 @@ function useRoomOpenStatus(roomNames: string[]) {
     window.addEventListener('focus', onVisible);
     return () => {
       cancelled = true;
-      probeNowRef.current = () => {};
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
   }, [key]);
 
-  const refresh = useCallback(() => probeNowRef.current(), []);
-  return { status, refresh };
+  return { status };
 }
 
 /**
@@ -146,7 +139,7 @@ export default function useTeacherClasses({
     ? buildRealClassesView(realClasses, Date.now(), { t, language })
     : buildMockClassesView(data);
   const expiredClassIds = new Set(expiredClasses.map(classRecord => classRecord.id));
-  const { status: startedRoomStatus, refresh: refreshStartedRooms } = useRoomOpenStatus(
+  const { status: startedRoomStatus } = useRoomOpenStatus(
     hasRealClasses ? realClasses.filter(c => c.status === 'started').map(c => c.roomName) : []
   );
 
@@ -268,7 +261,6 @@ export default function useTeacherClasses({
     startClassError: startClassError ? (startClassError.roomInUse ? t('classes.roomInUse') : startClassError.message || t('classes.startFailed')) : null,
     isStartingClass,
     startedRoomStatus,
-    refreshStartedRooms,
     cancelDialog,
     cancelExpiredDialog,
     hasRealClasses,

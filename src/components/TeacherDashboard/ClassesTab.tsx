@@ -498,8 +498,6 @@ interface Props {
   isStartingClass?: boolean;
   /** Latest "is this room open?" probe per room name, for the teacher's started classes. */
   startedRoomStatus?: Record<string, boolean | null>;
-  /** Re-checks the started rooms now (rate-limited upstream); the "Actualizar" control only shows with it. */
-  onRefreshRooms?: () => void;
 }
 
 export function createIdempotencyKey(): string {
@@ -534,7 +532,6 @@ export default function ClassesTab({
   startClassError,
   isStartingClass,
   startedRoomStatus = {},
-  onRefreshRooms,
 }: Props) {
   const classes = useStyles();
   const { t, i18n } = useTranslation(['completeDashboard', 'dashboardShell']);
@@ -571,6 +568,9 @@ export default function ClassesTab({
     });
   };
 
+  const statusById = new Map(existingClasses.map(classRecord => [classRecord.id, classRecord.status]));
+  const actionFor = (session: UpcomingSession): ClassAction =>
+    resolveClassAction(statusById.get(session.id), startedRoomStatus[session.roomName || '']);
   // A closed room is no longer "now": the relative badge gives way to a neutral Closed one.
   const renderRelativeBadge = (session: UpcomingSession) =>
     actionFor(session) === 'closed-restart' ? (
@@ -580,9 +580,6 @@ export default function ClassesTab({
     ) : (
       <span className={classes.badgeRelative}>{session.relativeLabel}</span>
     );
-  const statusById = new Map(existingClasses.map(classRecord => [classRecord.id, classRecord.status]));
-  const actionFor = (session: UpcomingSession): ClassAction =>
-    resolveClassAction(statusById.get(session.id), startedRoomStatus[session.roomName || '']);
   // Started classes whose card is not in the upcoming grid (their scheduled time is long past)
   // still need their way back into the room.
   const inProgressSessions: UpcomingSession[] = existingClasses
@@ -961,16 +958,6 @@ export default function ClassesTab({
       {inProgressSessions.length > 0 && (
         <div className={classes.expiredSection} data-testid="dashboard-in-progress-section">
           <div className={classes.expiredSectionTitle}>{t('classes.inProgress')}</div>
-          {onRefreshRooms && (
-            <button
-              type="button"
-              className={classes.secondaryButton}
-              onClick={onRefreshRooms}
-              data-testid="dashboard-refresh-rooms-button"
-            >
-              {t('classes.refresh')}
-            </button>
-          )}
           <div className={classes.sessionsGrid}>
             {inProgressSessions.map(session => (
               <div

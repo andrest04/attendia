@@ -9,7 +9,7 @@ const completeDashboard = {
     duplicate: 'Ya tienes una clase "{{title}}" programada para el {{date}}. Puedes crear esta igual si es una sesión distinta.', noDate: 'sin fecha',
     checking: 'Verificando…', rejoin: 'Volver a entrar', closed: 'Sesión finalizada', closedBadge: 'Cerrada',
     restart: 'Iniciar de nuevo', checkingRoom: 'Verificando sala…', start: 'Iniciar sesión', details: 'Ver detalles',
-    inProgress: 'Sesiones en curso', refresh: 'Actualizar', expired: 'Sesiones vencidas', retryCancel: 'Reintentar cancelación',
+    inProgress: 'Sesiones en curso', expired: 'Sesiones vencidas', retryCancel: 'Reintentar cancelación',
   },
   resources: {
     title: 'Recursos', unavailable: 'Los recursos reales solo están disponibles con el modo de autenticación Firebase.', subtitle: 'Materiales asociados a clases programadas',

@@ -625,28 +625,7 @@ describe('ClassesTab', () => {
       expect(wrapper.find('[data-testid="dashboard-rejoin-session-button"]').length).toBe(1);
     });
 
-    it('offers an "Actualizar" control in the in-progress section that re-checks the rooms now', () => {
-      const onRefreshRooms = jest.fn();
-      const wrapper = shallow(
-        <ClassesTab
-          stats={mockDashboardData.stats}
-          dateLabel="Hoy"
-          sessions={[]}
-          existingClasses={[startedRecord]}
-          startedRoomStatus={{ algebra: true }}
-          onRefreshRooms={onRefreshRooms}
-          professorName="Ana"
-          onStartClass={jest.fn()}
-        />
-      );
-
-      const button = wrapper.find('[data-testid="dashboard-refresh-rooms-button"]');
-      expect(button.text()).toContain('Actualizar');
-      button.simulate('click');
-      expect(onRefreshRooms).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not show "Actualizar" without a refresh handler', () => {
+    it('never renders a manual refresh control in the in-progress section', () => {
       const wrapper = shallow(
         <ClassesTab
           stats={mockDashboardData.stats}
@@ -659,6 +638,7 @@ describe('ClassesTab', () => {
         />
       );
 
+      expect(wrapper.find('[data-testid="dashboard-in-progress-section"]').exists()).toBe(true);
       expect(wrapper.find('[data-testid="dashboard-refresh-rooms-button"]').exists()).toBe(false);
     });
   });

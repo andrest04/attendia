@@ -614,21 +614,20 @@ describe('useTeacherClasses', () => {
         expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
       });
 
-      it('ignores a focus or refresh within 3 seconds of the last probe (no burst)', async () => {
+      it('ignores a focus within 3 seconds of the last probe (no burst)', async () => {
         mockCheckRoomOpen.mockResolvedValue(true);
-        const { result } = setup({}, [started]);
+        setup({}, [started]);
         await flush();
 
         now += 1000;
         await act(async () => {
           window.dispatchEvent(new Event('focus'));
           document.dispatchEvent(new Event('visibilitychange'));
-          result.current.refreshStartedRooms();
         });
         expect(mockCheckRoomOpen).toHaveBeenCalledTimes(1);
       });
 
-      it('refreshStartedRooms probes now once the gap has passed and updates the status', async () => {
+      it('a focus after the 3 second gap re-probes and updates the status', async () => {
         mockCheckRoomOpen.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
         const { result } = setup({}, [started]);
         await flush();
@@ -636,7 +635,7 @@ describe('useTeacherClasses', () => {
 
         now += 5000;
         await act(async () => {
-          result.current.refreshStartedRooms();
+          window.dispatchEvent(new Event('focus'));
         });
         expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
         expect(result.current.startedRoomStatus).toEqual({ abierta: false });
