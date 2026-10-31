@@ -7,7 +7,7 @@ const completeDashboard = {
     students: 'Alumnos esperados', duration: 'Duración (minutos)', creating: 'Creando…', create: 'Crear clase', cancel: 'Cancelar',
     chooseDate: 'Elegir fecha', chooseTime: 'Elegir hora', invalidDate: 'Formato de fecha inválido', invalidTime: 'Formato de hora inválido', datePast: 'La fecha no puede ser anterior a hoy', dateFuture: 'La fecha supera el máximo permitido',
     duplicate: 'Ya tienes una clase "{{title}}" programada para el {{date}}. Puedes crear esta igual si es una sesión distinta.', noDate: 'sin fecha',
-    checking: 'Verificando…', rejoin: 'Volver a entrar', closed: 'La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.',
+    checking: 'Verificando…', rejoin: 'Volver a entrar', closed: 'Sesión finalizada', closedBadge: 'Cerrada',
     restart: 'Iniciar de nuevo', checkingRoom: 'Verificando sala…', start: 'Iniciar sesión', details: 'Ver detalles',
     inProgress: 'Sesiones en curso', refresh: 'Actualizar', expired: 'Sesiones vencidas', retryCancel: 'Reintentar cancelación',
   },

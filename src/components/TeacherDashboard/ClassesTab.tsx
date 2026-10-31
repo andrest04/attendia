@@ -10,6 +10,7 @@ import OpenInNewIcon from '@material-ui/icons/OpenInNew';
 import DeleteIcon from '@material-ui/icons/Delete';
 import EventBusyIcon from '@material-ui/icons/EventBusy';
 import MeetingRoomIcon from '@material-ui/icons/MeetingRoom';
+import InfoOutlinedIcon from '@material-ui/icons/InfoOutlined';
 import { MuiPickersUtilsProvider, KeyboardDatePicker, KeyboardTimePicker } from '@material-ui/pickers';
 import DateFnsUtils from '@date-io/date-fns';
 import esLocale from 'date-fns/locale/es';
@@ -242,6 +243,23 @@ const useStyles = makeStyles((theme: Theme) => ({
     borderRadius: 20,
     backgroundColor: '#ebf3ff',
     color: theme.palette.primary.main,
+  },
+  badgeClosed: {
+    fontSize: '0.6875rem',
+    fontWeight: 700,
+    padding: '2px 8px',
+    borderRadius: 20,
+    backgroundColor: '#eef1f5',
+    color: theme.palette.text.secondary,
+  },
+  closedNote: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    marginBottom: theme.spacing(1),
+    fontFamily: 'Inter, sans-serif',
+    fontSize: '0.8125rem',
+    color: theme.palette.text.secondary,
   },
   sessionTitle: {
     fontFamily: 'Poppins, Inter, sans-serif',
@@ -553,6 +571,15 @@ export default function ClassesTab({
     });
   };
 
+  // A closed room is no longer "now": the relative badge gives way to a neutral Closed one.
+  const renderRelativeBadge = (session: UpcomingSession) =>
+    actionFor(session) === 'closed-restart' ? (
+      <span className={classes.badgeClosed} data-testid="dashboard-closed-badge">
+        {t('classes.closedBadge')}
+      </span>
+    ) : (
+      <span className={classes.badgeRelative}>{session.relativeLabel}</span>
+    );
   const statusById = new Map(existingClasses.map(classRecord => [classRecord.id, classRecord.status]));
   const actionFor = (session: UpcomingSession): ClassAction =>
     resolveClassAction(statusById.get(session.id), startedRoomStatus[session.roomName || '']);
@@ -592,7 +619,8 @@ export default function ClassesTab({
     if (action === 'closed-restart') {
       return (
         <>
-          <div className={classes.newClassError} data-testid="dashboard-room-closed-note">
+          <div className={classes.closedNote} data-testid="dashboard-room-closed-note">
+            <InfoOutlinedIcon style={{ fontSize: 16 }} />
             {t('classes.closed')}
           </div>
           <button
@@ -883,7 +911,7 @@ export default function ClassesTab({
           >
             <div className={classes.sessionBadges}>
               <span className={classes.badgeToday}>{session.dayLabel}</span>
-              <span className={classes.badgeRelative}>{session.relativeLabel}</span>
+              {renderRelativeBadge(session)}
             </div>
             <div className={classes.sessionTitle}>{session.title}</div>
             <div className={classes.sessionCode}>{session.code}</div>

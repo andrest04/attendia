@@ -588,9 +588,17 @@ describe('ClassesTab', () => {
       const onStartClass = jest.fn();
       const wrapper = render({ algebra: false }, onStartClass);
 
-      expect(wrapper.find('[data-testid="dashboard-room-closed-note"]').text()).toContain('La sala ya se cerró');
+      expect(wrapper.find('[data-testid="dashboard-room-closed-note"]').text()).toContain('Sesión finalizada');
+      expect(wrapper.find('[data-testid="dashboard-closed-badge"]').text()).toBe('Cerrada');
       wrapper.find('[data-testid="dashboard-restart-session-button"]').simulate('click');
       expect(onStartClass).toHaveBeenCalledWith({ roomName: 'algebra', name: 'Ana [Profesor]', classId: 'c1' });
+    });
+
+    it('keeps the relative badge and drops the closed badge while the room is open', () => {
+      const wrapper = render({ algebra: true });
+
+      expect(wrapper.find('[data-testid="dashboard-closed-badge"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="dashboard-room-closed-note"]').exists()).toBe(false);
     });
 
     it('shows a disabled checking button until the room is probed', () => {

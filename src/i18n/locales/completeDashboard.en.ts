@@ -7,7 +7,7 @@ const completeDashboard = {
     students: 'Expected students', duration: 'Duration (minutes)', creating: 'Creating…', create: 'Create class', cancel: 'Cancel',
     chooseDate: 'Choose date', chooseTime: 'Choose time', invalidDate: 'Invalid date format', invalidTime: 'Invalid time format', datePast: 'Date cannot be before today', dateFuture: 'Date exceeds the maximum allowed',
     duplicate: 'You already have a class "{{title}}" scheduled for {{date}}. You can still create this one if it is a different session.', noDate: 'no date',
-    checking: 'Checking…', rejoin: 'Rejoin', closed: 'The room has closed. You can start it again as a new session.',
+    checking: 'Checking…', rejoin: 'Rejoin', closed: 'Session ended', closedBadge: 'Closed',
     restart: 'Start again', checkingRoom: 'Checking room…', start: 'Start session', details: 'View details',
     inProgress: 'Sessions in progress', refresh: 'Refresh', expired: 'Expired sessions', retryCancel: 'Retry cancellation',
   },
