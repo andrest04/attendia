@@ -470,7 +470,7 @@ function SecurityCard({ section }: { section: SecuritySection }) {
 export default function SecurityPage() {
   const sections = securitySections();
   const classes = useStyles();
-  const { t } = useTranslation('completePages');
+  const { t: translate } = useTranslation('completePages');
 
   const handleGoBack = () => {
     goBackFromStandalonePage();
@@ -493,14 +493,14 @@ export default function SecurityPage() {
 
         <button className={classes.backButton} onClick={handleGoBack}>
           <ChevronLeftIcon style={{ fontSize: 16 }} />
-          {t('back', { defaultValue: 'Volver' })}
+          {translate('back', { defaultValue: 'Volver' })}
         </button>
 
         <div className={classes.navSpacer} />
 
         <div className={classes.securityChip}>
           <SecurityIcon className={classes.securityChipIcon} />
-          <span className={classes.securityChipText}>{t('security.chip', { defaultValue: 'Centro de seguridad' })}</span>
+          <span className={classes.securityChipText}>{translate('security.chip', { defaultValue: 'Centro de seguridad' })}</span>
         </div>
       </nav>
 
@@ -509,20 +509,20 @@ export default function SecurityPage() {
         <Container className={classes.page} maxWidth={false}>
           <div className={classes.pageHeading}>
             <Typography variant="h1" className={classes.h1}>
-              {t('security.heading', { defaultValue: 'Seguridad y Privacidad' })}
+              {translate('security.heading', { defaultValue: 'Seguridad y Privacidad' })}
             </Typography>
             <p className={classes.subtitle}>
-              {t('security.subtitle', { defaultValue: 'Información sobre las medidas de seguridad, privacidad de datos y disponibilidad del servicio implementadas en Attendia.' })}
+              {translate('security.subtitle', { defaultValue: 'Información sobre las medidas de seguridad, privacidad de datos y disponibilidad del servicio implementadas en Attendia.' })}
             </p>
           </div>
 
           <div className={classes.sections}>
             {sections.map(section => (
               <SecurityCard key={section.id} section={{ ...section,
-                categoryPill: t(`security.${section.id}.categoryPill`, { defaultValue: section.categoryPill }),
-                title: t(`security.${section.id}.title`, { defaultValue: section.title }),
-                description: t(`security.${section.id}.description`, { defaultValue: section.description }),
-                bullets: section.bullets.map((bullet, index) => t(`security.${section.id}.bullets.${index}`, { defaultValue: bullet })),
+                categoryPill: translate(`security.${section.id}.categoryPill`, { defaultValue: section.categoryPill }),
+                title: translate(`security.${section.id}.title`, { defaultValue: section.title }),
+                description: translate(`security.${section.id}.description`, { defaultValue: section.description }),
+                bullets: section.bullets.map((bullet, index) => translate(`security.${section.id}.bullets.${index}`, { defaultValue: bullet })),
               }} />
             ))}
           </div>
@@ -534,7 +534,7 @@ export default function SecurityPage() {
               </div>
               <p className={classes.footerText}>
                 <strong className={classes.footerBrand}>attendia</strong>
-                {t('security.footer', { defaultValue: ' no almacena imágenes, video ni datos biométricos en ningún servidor. Todos los datos de análisis de atención son procesados localmente y solo se reportan índices numéricos agregados por sesión.' })}
+                {translate('security.footer', { defaultValue: ' no almacena imágenes, video ni datos biométricos en ningún servidor. Todos los datos de análisis de atención son procesados localmente y solo se reportan índices numéricos agregados por sesión.' })}
               </p>
             </div>
           </div>

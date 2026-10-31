@@ -3,6 +3,7 @@ import i18n from './index';
 import testI18n from './testInit';
 import { getCurrentLanguage, setCurrentLanguage } from './currentLanguage';
 import { getLocale, setLocale } from './locale';
+import { LANGUAGE_STORAGE_KEY } from './createI18n';
 
 afterEach(() => {
   i18n.changeLanguage('es');
@@ -28,8 +29,6 @@ it('keeps app language helpers synchronized with singleton changes', async () =>
   setLocale('en');
   expect(getCurrentLanguage()).toBe('en');
 });
-
-import { LANGUAGE_STORAGE_KEY } from './createI18n';
 
 describe('document metadata synchronization', () => {
   let description: HTMLMetaElement;
@@ -63,11 +62,11 @@ describe('document metadata synchronization', () => {
 
   it('updates the description and document language when switching in both directions', async () => {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'es');
-    const i18n = require('./index').default;
-    await i18n.changeLanguage('en');
+    const freshI18n = require('./index').default;
+    await freshI18n.changeLanguage('en');
     expect(document.documentElement.lang).toBe('en');
     expect(description.content).toBe('Video classroom platform with attention telemetry.');
-    await i18n.changeLanguage('es');
+    await freshI18n.changeLanguage('es');
     expect(document.documentElement.lang).toBe('es');
     expect(description.content).toBe('Plataforma de clases en video con telemetría de atención.');
   });
@@ -75,8 +74,8 @@ describe('document metadata synchronization', () => {
   it('continues to synchronize language if the description tag is absent', async () => {
     description.remove();
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'es');
-    const i18n = require('./index').default;
-    await i18n.changeLanguage('en');
+    const freshI18n = require('./index').default;
+    await freshI18n.changeLanguage('en');
     expect(document.documentElement.lang).toBe('en');
   });
 });

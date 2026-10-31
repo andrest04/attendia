@@ -376,7 +376,7 @@ function ManualCard({ section }: { section: ManualSection }) {
 export default function ManualPage() {
   const sections = manualSections();
   const classes = useStyles();
-  const { t } = useTranslation('completePages');
+  const { t: translate } = useTranslation('completePages');
 
   const handleGoBack = () => {
     goBackFromStandalonePage();
@@ -393,34 +393,34 @@ export default function ManualPage() {
 
         <button className={classes.backButton} onClick={handleGoBack} data-testid="manual-back">
           <ChevronLeftIcon style={{ fontSize: 16 }} />
-          {t('back', { defaultValue: 'Volver' })}
+          {translate('back', { defaultValue: 'Volver' })}
         </button>
 
         <div className={classes.navSpacer} />
 
         <div className={classes.manualChip}>
           <MenuBookIcon className={classes.manualChipIcon} />
-          <span className={classes.manualChipText}>{t('manual.heading', { defaultValue: 'Manual de uso' })}</span>
+          <span className={classes.manualChipText}>{translate('manual.heading', { defaultValue: 'Manual de uso' })}</span>
         </div>
       </nav>
 
       <Container className={classes.page} maxWidth={false}>
         <div className={classes.pageHeading}>
           <Typography variant="h1" className={classes.h1}>
-            {t('manual.heading', { defaultValue: 'Manual de uso' })}
+            {translate('manual.heading', { defaultValue: 'Manual de uso' })}
           </Typography>
           <p className={classes.subtitle}>
-            {t('manual.subtitle', { defaultValue: 'Guía completa de las funciones de la sala de clase: controles, participación, atención y reconexión.' })}
+            {translate('manual.subtitle', { defaultValue: 'Guía completa de las funciones de la sala de clase: controles, participación, atención y reconexión.' })}
           </p>
         </div>
 
         <div className={classes.sections} data-testid="manual-sections">
           {sections.map(section => (
             <ManualCard key={section.id} section={{ ...section,
-              categoryPill: t(`manual.${section.id}.categoryPill`, { defaultValue: section.categoryPill }),
-              title: t(`manual.${section.id}.title`, { defaultValue: section.title }),
-              description: t(`manual.${section.id}.description`, { defaultValue: section.description }),
-              bullets: section.bullets.map((bullet, index) => t(`manual.${section.id}.bullets.${index}`, { defaultValue: bullet })),
+              categoryPill: translate(`manual.${section.id}.categoryPill`, { defaultValue: section.categoryPill }),
+              title: translate(`manual.${section.id}.title`, { defaultValue: section.title }),
+              description: translate(`manual.${section.id}.description`, { defaultValue: section.description }),
+              bullets: section.bullets.map((bullet, index) => translate(`manual.${section.id}.bullets.${index}`, { defaultValue: bullet })),
             }} />
           ))}
         </div>

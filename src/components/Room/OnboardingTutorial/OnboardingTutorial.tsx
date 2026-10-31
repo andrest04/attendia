@@ -383,7 +383,7 @@ export default function OnboardingTutorial({ enabled = true, openSignal = 0 }: P
     } else {
       dismiss();
     }
-  }, [step, dismiss, STEPS.length]);
+  }, [step, dismiss]);
 
   const goPrev = useCallback(() => {
     setStep(s => Math.max(0, s - 1));

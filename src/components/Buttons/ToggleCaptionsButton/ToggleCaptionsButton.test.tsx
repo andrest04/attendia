@@ -20,14 +20,14 @@ describe('the ToggleCaptionsButton component', () => {
     await i18n.changeLanguage('es');
   });
   it('updates the caption controls while mounted when the language changes', async () => {
-    const i18n = createI18n({ detect: false, lng: 'es' });
-    i18n.addResourceBundle('es', 'completeControls', es);
-    i18n.addResourceBundle('en', 'completeControls', en);
+    const localI18n = createI18n({ detect: false, lng: 'es' });
+    localI18n.addResourceBundle('es', 'completeControls', es);
+    localI18n.addResourceBundle('en', 'completeControls', en);
     mockUseAppState.mockImplementation(() => ({ isCaptionsEnabled: false, setIsCaptionsEnabled: jest.fn() }));
-    const wrapper = mount(<I18nextProvider i18n={i18n}><ToggleCaptionsButton /></I18nextProvider>);
+    const wrapper = mount(<I18nextProvider i18n={localI18n}><ToggleCaptionsButton /></I18nextProvider>);
     expect(wrapper.find('button').prop('aria-label')).toBe(es.captionsAria);
     expect(wrapper.find('[data-testid="captions-tooltip"]').first().prop('title')).toBe(es.captionsRequirement);
-    await act(async () => { await i18n.changeLanguage('en'); });
+    await act(async () => { await localI18n.changeLanguage('en'); });
     wrapper.update();
     expect(wrapper.find('button').prop('aria-label')).toBe(en.captionsAria);
     expect(wrapper.find('[data-testid="captions-tooltip"]').first().prop('title')).toBe(en.captionsRequirement);

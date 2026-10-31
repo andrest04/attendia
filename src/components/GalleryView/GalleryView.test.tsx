@@ -20,8 +20,10 @@ const mockParticipants = [
 ];
 
 jest.mock('../Participant/Participant', () => {
-  const Participant = require('react').memo(function Participant() { return null; });
-  return { __esModule: true, default: Participant, Participant };
+  const renderNothing = () => null;
+  renderNothing.displayName = 'Participant';
+  const MockParticipant = require('react').memo(renderNothing);
+  return { __esModule: true, default: MockParticipant, Participant: MockParticipant };
 });
 
 jest.mock('../../constants', () => ({
