@@ -21,7 +21,6 @@ import ToolbarDeviceMenu from '../../Buttons/ToolbarDeviceMenu/ToolbarDeviceMenu
 import { SCREEN_SHARE_KEY, STOP_SCREEN_SHARE_KEY } from '../../Buttons/ToogleScreenShareButton/ToggleScreenShareButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
 import OverflowMenu, { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
-import LanguageSwitch from '../../LanguageSwitch/LanguageSwitch';
 import useToolbarChipStyles from '../ToolbarParts/useToolbarChipStyles';
 
 const useStyles = makeStyles((theme: Theme) =>
@@ -188,7 +187,6 @@ export default function ProfessorToolbar({
 
       <OverflowMenu items={moreItems} testIdPrefix="professor-toolbar" chipClassName={chip} />
 
-      <LanguageSwitch tone="dark" />
       <span className={toolbar.divider} />
       <EndCallButton
         dark

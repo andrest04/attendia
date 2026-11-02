@@ -19,7 +19,6 @@ import {
 import RaiseHandButton from '../../Buttons/RaiseHandButton/RaiseHandButton';
 import EndCallButton from '../../Buttons/EndCallButton/EndCallButton';
 import OverflowMenu, { OverflowMenuItem } from '../ToolbarParts/OverflowMenu';
-import LanguageSwitch from '../../LanguageSwitch/LanguageSwitch';
 import useToolbarChipStyles from '../ToolbarParts/useToolbarChipStyles';
 
 interface StudentRoomToolbarProps {
@@ -112,7 +111,6 @@ export default function StudentRoomToolbar({
 
       <OverflowMenu items={moreItems} testIdPrefix="student-toolbar" chipClassName={chip} />
 
-      <LanguageSwitch tone="dark" />
       <div className={classes.divider} />
       <EndCallButton dark iconOnly className={endCallChip} />
     </div>
