@@ -50,6 +50,7 @@ Forecast: under 400 authored changed lines, delivery strategy `ask-on-risk`.
 
 ### T2
 
+- Commit: `ee1c7b0`.
 - RED: 8 failures in `npm test -- src/components/TeacherDashboard/classSessionsView.test.ts`, because `buildInProgressSessions` did not exist yet.
 - GREEN: 41 tests passed on the same command.
 - Checks: `npm test -- src/components/VideoProvider src/components/ErrorDialog src/components/TeacherDashboard src/i18n` 518 passed; `npx tsc --noEmit -p .` clean; `CI=true npm run lint` clean.
