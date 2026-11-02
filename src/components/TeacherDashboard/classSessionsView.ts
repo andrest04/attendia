@@ -2,6 +2,7 @@ import { formatLongDateWithWeekday, formatShortDate, formatTime } from '../../i1
 import { getLocale } from '../../i18n/locale';
 import { t as translateSource } from '../../i18n/translate';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
+import { resolveClassAction } from './classAction';
 import { DashboardData, UpcomingSession } from './types';
 
 // A class that started up to this long ago is still joinable/visible on the
@@ -148,7 +149,8 @@ export function buildExpiredSessions(
  * UpcomingSession[] shape ClassesTab renders. Never reads Date.now() itself —
  * same discipline as attentionHeuristics.ts elsewhere in
  * this repo: callers inject "now" so the transform stays deterministic and
- * unit-testable.
+ * unit-testable. A started class is no longer upcoming: it belongs to the
+ * in-progress or finished section, whatever its scheduled time says.
  */
 export function buildUpcomingSessions(
   classes: ClassRecord[],
@@ -162,6 +164,7 @@ export function buildUpcomingSessions(
       (classRecord): classRecord is ScheduledClass =>
         classRecord.scheduledAtMs !== null &&
         classRecord.status !== 'completed' &&
+        classRecord.status !== 'started' &&
         classRecord.scheduledAtMs >= nowMs - GRACE_PERIOD_MS
     )
     .sort((a, b) => a.scheduledAtMs - b.scheduledAtMs);
@@ -187,25 +190,18 @@ function isMoreRecentlyScheduled(candidate: ClassRecord, current: ClassRecord): 
   return candidateMs === currentMs ? candidate.id > current.id : candidateMs > currentMs;
 }
 
-/**
- * Started classes whose scheduled time is long past have no card in the upcoming grid but still
- * need their way back into the room. All of a room's records enter the same room, so a room gets
- * one card at most, and none when the grid already offers it.
- */
-export function buildInProgressSessions(
-  classes: ClassRecord[],
-  visibleSessions: UpcomingSession[],
-  dayLabel: string
-): UpcomingSession[] {
-  const visibleIds = new Set(visibleSessions.map(session => session.id));
-  const visibleRooms = new Set(visibleSessions.map(session => session.roomName));
+/** Latest `checkRoomOpen` result per room name; a room missing here has not been probed yet. */
+export type RoomOpenStatus = Record<string, boolean | null>;
+
+/** Started classes are never cleaned up once their room closes, so the Finished section stops here. */
+export const MAX_FINISHED_SESSIONS = 6;
+
+/** All of a room's started records enter the same room, so each room is represented by one of them. */
+function latestStartedRecordPerRoom(classes: ClassRecord[]): ClassRecord[] {
   const recordByRoom = new Map<string, ClassRecord>();
 
   classes
-    .filter(
-      classRecord =>
-        classRecord.status === 'started' && !visibleIds.has(classRecord.id) && !visibleRooms.has(classRecord.roomName)
-    )
+    .filter(classRecord => classRecord.status === 'started')
     .forEach(classRecord => {
       const current = recordByRoom.get(classRecord.roomName);
       if (!current || isMoreRecentlyScheduled(classRecord, current)) {
@@ -213,7 +209,15 @@ export function buildInProgressSessions(
       }
     });
 
-  return Array.from(recordByRoom.values()).map(classRecord => ({
+  return Array.from(recordByRoom.values());
+}
+
+function isRoomClosed(classRecord: ClassRecord, roomStatus: RoomOpenStatus): boolean {
+  return resolveClassAction(classRecord.status, roomStatus[classRecord.roomName]) === 'closed-restart';
+}
+
+function toStartedSession(classRecord: ClassRecord, dayLabel: string): UpcomingSession {
+  return {
     id: classRecord.id,
     title: classRecord.title,
     code: classRecord.roomName,
@@ -224,7 +228,43 @@ export function buildInProgressSessions(
     dayLabel,
     relativeLabel: '',
     highlighted: false,
-  }));
+  };
+}
+
+/**
+ * Started classes whose room may still be running: open, not yet probed or inconclusive. One card
+ * per room. A scheduled class sharing the room is a distinct session and hides nothing here.
+ */
+export function buildInProgressSessions(
+  classes: ClassRecord[],
+  roomStatus: RoomOpenStatus,
+  dayLabel: string
+): UpcomingSession[] {
+  return latestStartedRecordPerRoom(classes)
+    .filter(classRecord => !isRoomClosed(classRecord, roomStatus))
+    .map(classRecord => toStartedSession(classRecord, dayLabel));
+}
+
+/** Started classes whose room is confirmed closed: one card per room, most recent first, capped. */
+export function buildFinishedSessions(
+  classes: ClassRecord[],
+  roomStatus: RoomOpenStatus,
+  dayLabel: string
+): UpcomingSession[] {
+  return latestStartedRecordPerRoom(classes)
+    .filter(classRecord => isRoomClosed(classRecord, roomStatus))
+    .sort((a, b) => (isMoreRecentlyScheduled(a, b) ? -1 : 1))
+    .slice(0, MAX_FINISHED_SESSIONS)
+    .map(classRecord => toStartedSession(classRecord, dayLabel));
+}
+
+/** A class still scheduled under this title, for the heads-up before creating another one. */
+export function findDuplicateScheduledClass(classes: ClassRecord[], title: string): ClassRecord | undefined {
+  const normalizedTitle = title.trim().toLowerCase();
+  if (!normalizedTitle) return undefined;
+  return classes.find(
+    classRecord => classRecord.status === 'scheduled' && classRecord.title.trim().toLowerCase() === normalizedTitle
+  );
 }
 
 /** What the "Clases" tab shows about the teacher's classes, whichever source they come from. */

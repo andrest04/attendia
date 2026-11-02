@@ -8,7 +8,7 @@ export type ClassAction =
   | 'rejoin'
   /** A started class whose room has not been probed yet. */
   | 'checking'
-  /** A started class whose room closed: explain it and offer an explicit new session. */
+  /** A started class whose room closed: it is finished, with an explicit new session on offer. */
   | 'closed-restart'
   /** Nothing to offer (completed). */
   | 'none';

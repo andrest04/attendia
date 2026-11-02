@@ -543,24 +543,12 @@ describe('ClassesTab', () => {
       durationMinutes: 60,
       status: 'started' as const,
     };
-    const startedSession = {
-      id: 'c1',
-      title: 'Álgebra',
-      code: 'algebra',
-      roomName: 'algebra',
-      classId: 'c1',
-      time: '10:00 AM',
-      studentCount: 3,
-      dayLabel: 'Hoy',
-      relativeLabel: 'Ahora',
-      highlighted: true,
-    };
     const render = (startedRoomStatus: Record<string, boolean | null>, onStartClass = jest.fn()) =>
       shallow(
         <ClassesTab
           stats={mockDashboardData.stats}
           dateLabel="Hoy"
-          sessions={[startedSession]}
+          sessions={[]}
           existingClasses={[startedRecord]}
           startedRoomStatus={startedRoomStatus}
           professorName="Ana"
@@ -584,21 +572,77 @@ describe('ClassesTab', () => {
       });
     });
 
-    it('explains the room closed and keeps an explicit restart', () => {
+    it('explains that an open room closes on its own', () => {
+      const wrapper = render({ algebra: true });
+
+      expect(wrapper.find('[data-testid="dashboard-room-open-note"]').text()).toContain(
+        'Se cierra sola tras unos minutos sin participantes'
+      );
+      expect(wrapper.find('[data-testid="dashboard-finished-section"]').exists()).toBe(false);
+    });
+
+    it('moves a closed room to the finished section with an explicit restart', () => {
       const onStartClass = jest.fn();
       const wrapper = render({ algebra: false }, onStartClass);
 
-      expect(wrapper.find('[data-testid="dashboard-room-closed-note"]').text()).toContain('Sesión finalizada');
-      expect(wrapper.find('[data-testid="dashboard-closed-badge"]').text()).toBe('Cerrada');
+      expect(wrapper.find('[data-testid="dashboard-in-progress-section"]').exists()).toBe(false);
+      const section = wrapper.find('[data-testid="dashboard-finished-section"]');
+      expect(section.text()).toContain('Finalizadas');
+      expect(section.find('[data-testid="dashboard-finished-card-c1"]').text()).toContain('Álgebra');
+      expect(section.find('[data-testid="dashboard-finished-card-c1"]').text()).toContain('algebra');
+
       wrapper.find('[data-testid="dashboard-restart-session-button"]').simulate('click');
       expect(onStartClass).toHaveBeenCalledWith({ roomName: 'algebra', name: 'Ana [Profesor]', classId: 'c1' });
     });
 
-    it('keeps the relative badge and drops the closed badge while the room is open', () => {
-      const wrapper = render({ algebra: true });
+    it('keeps the plain start in the in-progress section when the probe is inconclusive', () => {
+      const wrapper = render({ algebra: null });
 
-      expect(wrapper.find('[data-testid="dashboard-closed-badge"]').exists()).toBe(false);
-      expect(wrapper.find('[data-testid="dashboard-room-closed-note"]').exists()).toBe(false);
+      const section = wrapper.find('[data-testid="dashboard-in-progress-section"]');
+      expect(section.find('[data-testid="dashboard-start-session-button"]').exists()).toBe(true);
+      expect(section.find('[data-testid="dashboard-room-open-note"]').exists()).toBe(false);
+    });
+
+    it('leaves completed classes out of the started sections', () => {
+      const wrapper = shallow(
+        <ClassesTab
+          stats={mockDashboardData.stats}
+          dateLabel="Hoy"
+          sessions={[]}
+          existingClasses={[{ ...startedRecord, status: 'completed' as const }]}
+          startedRoomStatus={{ algebra: false }}
+          professorName="Ana"
+          onStartClass={jest.fn()}
+        />
+      );
+
+      expect(wrapper.find('[data-testid="dashboard-in-progress-section"]').exists()).toBe(false);
+      expect(wrapper.find('[data-testid="dashboard-finished-section"]').exists()).toBe(false);
+    });
+
+    it('warns about a repeated title only while the other class is scheduled', () => {
+      const warningFor = (status: 'scheduled' | 'started' | 'completed') => {
+        const wrapper = shallow(
+          <ClassesTab
+            stats={mockDashboardData.stats}
+            dateLabel="Hoy"
+            sessions={[]}
+            existingClasses={[{ ...startedRecord, status }]}
+            professorName="Ana"
+            onStartClass={jest.fn()}
+            onCreateClass={jest.fn()}
+          />
+        );
+        wrapper.find('[data-testid="dashboard-new-class-button"]').simulate('click');
+        wrapper.find('[data-testid="dashboard-new-class-title-input"]').simulate('change', {
+          target: { value: 'álgebra' },
+        });
+        return wrapper.find('[data-testid="dashboard-new-class-duplicate-warning"]').exists();
+      };
+
+      expect(warningFor('scheduled')).toBe(true);
+      expect(warningFor('started')).toBe(false);
+      expect(warningFor('completed')).toBe(false);
     });
 
     it('shows a disabled checking button until the room is probed', () => {

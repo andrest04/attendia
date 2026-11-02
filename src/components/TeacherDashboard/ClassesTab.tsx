@@ -16,11 +16,11 @@ import DateFnsUtils from '@date-io/date-fns';
 import esLocale from 'date-fns/locale/es';
 import enLocale from 'date-fns/locale/en-US';
 import { DashboardStat, UpcomingSession } from './types';
-import { buildInProgressSessions } from './classSessionsView';
+import { buildFinishedSessions, buildInProgressSessions, findDuplicateScheduledClass } from './classSessionsView';
 import { statCardIcon } from './dashboardHelpers';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../../classSession/classSessionTypes';
 import { validateNewClass } from './newClassValidation';
-import { resolveClassAction, ClassAction } from './classAction';
+import { resolveClassAction } from './classAction';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { MuiPickersOverrides } from '@material-ui/pickers/typings/overrides';
 import { StyleRules } from '@material-ui/core/styles/withStyles';
@@ -205,15 +205,7 @@ const useStyles = makeStyles((theme: Theme) => ({
     backgroundColor: '#ebf3ff',
     color: theme.palette.primary.main,
   },
-  badgeClosed: {
-    fontSize: '0.6875rem',
-    fontWeight: 700,
-    padding: '2px 8px',
-    borderRadius: 20,
-    backgroundColor: '#eef1f5',
-    color: theme.palette.text.secondary,
-  },
-  closedNote: {
+  roomNote: {
     display: 'flex',
     alignItems: 'center',
     gap: theme.spacing(0.75),
@@ -364,9 +356,9 @@ interface Props {
   sessions: UpcomingSession[];
   professorName: string;
   onStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
-  /** Firebase-mode only: every scheduled class the teacher currently has (any date,
-   * any status), used only to warn about a same-titled class before creating a new
-   * one — not a rendering source. Undefined/empty elsewhere skips the check. */
+  /** Firebase-mode only: every class the teacher currently has (any date, any status).
+   * Feeds the in-progress and finished sections and the same-title warning before
+   * creating a new class. Undefined/empty elsewhere leaves all three out. */
   existingClasses?: ClassRecord[];
   /** Firebase-mode only: creates a real scheduled class. Undefined elsewhere —
    * the "Nueva clase" button then keeps its stub (no-op) appearance. */
@@ -453,18 +445,11 @@ export default function ClassesTab({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const creationIdempotencyKeyRef = useRef<string | null>(null);
 
-  // Non-blocking heads-up only: same title as another still-relevant class doesn't
+  // Non-blocking heads-up only: same title as another scheduled class doesn't
   // collide (roomName is disambiguated per class doc, see server/classes.ts), but a
   // teacher who forgot they already scheduled "mate" for another day benefits from
   // knowing before confirming, rather than only discovering it later in Recursos.
-  const trimmedTitleInput = titleInput.trim();
-  const duplicateClass = trimmedTitleInput
-    ? existingClasses.find(
-        classRecord =>
-          classRecord.status !== 'completed' &&
-          classRecord.title.trim().toLowerCase() === trimmedTitleInput.toLowerCase()
-      )
-    : undefined;
+  const duplicateClass = findDuplicateScheduledClass(existingClasses, titleInput);
 
   const handleStartClass = (session: UpcomingSession) => {
     onStartClass({
@@ -474,52 +459,27 @@ export default function ClassesTab({
     });
   };
 
-  const statusById = new Map(existingClasses.map(classRecord => [classRecord.id, classRecord.status]));
-  const actionFor = (session: UpcomingSession): ClassAction =>
-    resolveClassAction(statusById.get(session.id), startedRoomStatus[session.roomName || '']);
-  // A closed room is no longer "now": the relative badge gives way to a neutral Closed one.
-  const renderRelativeBadge = (session: UpcomingSession) =>
-    actionFor(session) === 'closed-restart' ? (
-      <span className={classes.badgeClosed} data-testid="dashboard-closed-badge">
-        {t('classes.closedBadge')}
-      </span>
-    ) : (
-      <span className={classes.badgeRelative}>{session.relativeLabel}</span>
-    );
-  const inProgressSessions = buildInProgressSessions(existingClasses, sessions, t('classes.inProgress'));
+  const inProgressSessions = buildInProgressSessions(existingClasses, startedRoomStatus, t('classes.inProgress'));
+  const finishedSessions = buildFinishedSessions(existingClasses, startedRoomStatus, t('classes.finished'));
 
-  /** Actions for a started class; null when the plain "Iniciar sesión" flow applies. */
-  const renderStartedAction = (session: UpcomingSession, action: ClassAction) => {
+  const renderInProgressAction = (session: UpcomingSession) => {
+    const action = resolveClassAction('started', startedRoomStatus[session.roomName || '']);
     if (action === 'rejoin') {
       return (
-        <button
-          type="button"
-          className={clsx(buttons.primary, classes.fullWidthButton)}
-          onClick={() => handleStartClass(session)}
-          disabled={isStartingClass}
-          data-testid="dashboard-rejoin-session-button"
-        >
-          <MeetingRoomIcon style={{ fontSize: 18 }} />
-          {isStartingClass ? t('classes.checking') : t('classes.rejoin')}
-        </button>
-      );
-    }
-    if (action === 'closed-restart') {
-      return (
         <>
-          <div className={classes.closedNote} data-testid="dashboard-room-closed-note">
+          <div className={classes.roomNote} data-testid="dashboard-room-open-note">
             <InfoOutlinedIcon style={{ fontSize: 16 }} />
-            {t('classes.closed')}
+            {t('classes.openRoomNote')}
           </div>
           <button
             type="button"
-            className={clsx(buttons.secondary, classes.fullWidthButton)}
+            className={clsx(buttons.primary, classes.fullWidthButton)}
             onClick={() => handleStartClass(session)}
             disabled={isStartingClass}
-            data-testid="dashboard-restart-session-button"
+            data-testid="dashboard-rejoin-session-button"
           >
-            <PlayArrowIcon style={{ fontSize: 16 }} />
-            {isStartingClass ? t('classes.checking') : t('classes.restart')}
+            <MeetingRoomIcon style={{ fontSize: 18 }} />
+            {isStartingClass ? t('classes.checking') : t('classes.rejoin')}
           </button>
         </>
       );
@@ -536,7 +496,19 @@ export default function ClassesTab({
         </button>
       );
     }
-    return null;
+    // An inconclusive probe: the plain start stays available and the token guard is the real gate.
+    return (
+      <button
+        type="button"
+        className={clsx(buttons.primary, classes.fullWidthButton)}
+        onClick={() => handleStartClass(session)}
+        disabled={isStartingClass}
+        data-testid="dashboard-start-session-button"
+      >
+        <PlayArrowIcon style={{ fontSize: 18 }} />
+        {isStartingClass ? t('classes.checking') : t('classes.start')}
+      </button>
+    );
   };
 
   const handleNewClassClick = () => {
@@ -811,7 +783,7 @@ export default function ClassesTab({
           >
             <div className={classes.sessionBadges}>
               <span className={classes.badgeToday}>{session.dayLabel}</span>
-              {renderRelativeBadge(session)}
+              <span className={classes.badgeRelative}>{session.relativeLabel}</span>
             </div>
             <div className={classes.sessionTitle}>{session.title}</div>
             <div className={classes.sessionCode}>{session.code}</div>
@@ -829,39 +801,38 @@ export default function ClassesTab({
                 {session.studentCount}
               </span>
             </div>
-            {renderStartedAction(session, actionFor(session)) ||
-              (session.highlighted ? (
-                <button
-                  type="button"
-                  className={clsx(buttons.primary, classes.fullWidthButton)}
-                  onClick={() => handleStartClass(session)}
-                  disabled={isStartingClass}
-                  data-testid="dashboard-start-session-button"
-                >
-                  <PlayArrowIcon style={{ fontSize: 18 }} />
-                  {isStartingClass ? t('classes.checking') : t('classes.start')}
-                </button>
-              ) : onCancelClass ? (
-                <button
-                  type="button"
-                  className={clsx(buttons.secondary, classes.fullWidthButton)}
-                  onClick={() => onCancelClass(session)}
-                  disabled={cancellingClassId === session.id}
-                  data-testid="dashboard-cancel-session-button"
-                >
-                  <DeleteIcon style={{ fontSize: 16 }} />
-                  {cancellingClassId === session.id ? t('classes.cancelling') : t('classes.cancel')}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  className={clsx(buttons.secondary, classes.fullWidthButton)}
-                  data-testid="dashboard-view-details-button"
-                >
-                  <OpenInNewIcon style={{ fontSize: 16 }} />
-                  {t('classes.details')}
-                </button>
-              ))}
+            {session.highlighted ? (
+              <button
+                type="button"
+                className={clsx(buttons.primary, classes.fullWidthButton)}
+                onClick={() => handleStartClass(session)}
+                disabled={isStartingClass}
+                data-testid="dashboard-start-session-button"
+              >
+                <PlayArrowIcon style={{ fontSize: 18 }} />
+                {isStartingClass ? t('classes.checking') : t('classes.start')}
+              </button>
+            ) : onCancelClass ? (
+              <button
+                type="button"
+                className={clsx(buttons.secondary, classes.fullWidthButton)}
+                onClick={() => onCancelClass(session)}
+                disabled={cancellingClassId === session.id}
+                data-testid="dashboard-cancel-session-button"
+              >
+                <DeleteIcon style={{ fontSize: 16 }} />
+                {cancellingClassId === session.id ? t('classes.cancelling') : t('classes.cancel')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={clsx(buttons.secondary, classes.fullWidthButton)}
+                data-testid="dashboard-view-details-button"
+              >
+                <OpenInNewIcon style={{ fontSize: 16 }} />
+                {t('classes.details')}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -878,18 +849,7 @@ export default function ClassesTab({
               >
                 <div className={classes.sessionTitle}>{session.title}</div>
                 <div className={classes.sessionCode}>{session.code}</div>
-                {renderStartedAction(session, actionFor(session)) || (
-                  <button
-                    type="button"
-                    className={clsx(buttons.primary, classes.fullWidthButton)}
-                    onClick={() => handleStartClass(session)}
-                    disabled={isStartingClass}
-                    data-testid="dashboard-start-session-button"
-                  >
-                    <PlayArrowIcon style={{ fontSize: 18 }} />
-                    {isStartingClass ? t('classes.checking') : t('classes.start')}
-                  </button>
-                )}
+                {renderInProgressAction(session)}
               </div>
             ))}
           </div>
@@ -938,6 +898,34 @@ export default function ClassesTab({
                     {cancellingClassId === session.id ? t('classes.cancelling') : t('classes.cancel')}
                   </button>
                 )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {finishedSessions.length > 0 && (
+        <div className={classes.expiredSection} data-testid="dashboard-finished-section">
+          <div className={classes.expiredSectionTitle}>{t('classes.finished')}</div>
+          <div className={classes.sessionsGrid}>
+            {finishedSessions.map(session => (
+              <div
+                key={session.id}
+                className={classes.sessionCard}
+                data-testid={`dashboard-finished-card-${session.id}`}
+              >
+                <div className={classes.sessionTitle}>{session.title}</div>
+                <div className={classes.sessionCode}>{session.code}</div>
+                <button
+                  type="button"
+                  className={clsx(buttons.secondary, classes.fullWidthButton)}
+                  onClick={() => handleStartClass(session)}
+                  disabled={isStartingClass}
+                  data-testid="dashboard-restart-session-button"
+                >
+                  <PlayArrowIcon style={{ fontSize: 16 }} />
+                  {isStartingClass ? t('classes.checking') : t('classes.restart')}
+                </button>
               </div>
             ))}
           </div>
