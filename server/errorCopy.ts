@@ -16,6 +16,8 @@ export const EN_EXPLANATION: { [spanish: string]: string } = {
     'Another teacher already has a class in progress with that name. Choose another name for your session.',
   'No pudimos verificar la sala. Intenta de nuevo en unos segundos.':
     "We couldn't verify the room. Try again in a few seconds.",
+  'No pudimos actualizar el estado de las clases. Intenta de nuevo en unos segundos.':
+    "We couldn't update the status of your classes. Try again in a few seconds.",
   'No se pudieron vaciar las notificaciones.': "The notifications couldn't be cleared.",
   'No se pudieron marcar las notificaciones como leídas.': "The notifications couldn't be marked as read.",
   'No se pudo marcar la notificación como leída.': "The notification couldn't be marked as read.",

@@ -391,7 +391,7 @@ export function createDeleteClassHandler(
 
 /**
  * Marks a verified teacher's scheduled class as started after its token was issued. Starting a
- * started class again ("Start again") refreshes startedAt, so reconcile counts it as recent.
+ * started class again (rejoining from its card) refreshes startedAt, so reconcile counts it as recent.
  */
 export function createStartClassHandler(db: ClassesDatabase, serverTimestamp: () => unknown): RequestHandler {
   return teacherHandler(
