@@ -8,8 +8,8 @@ const completeDashboard = {
     chooseDate: 'Choose date', chooseTime: 'Choose time', invalidDate: 'Invalid date format', invalidTime: 'Invalid time format', datePast: 'Date cannot be before today', dateFuture: 'Date exceeds the maximum allowed',
     duplicate: 'You already have a class "{{title}}" scheduled for {{date}}. You can still create this one if it is a different session.', noDate: 'no date',
     checking: 'Checking…', rejoin: 'Rejoin', openRoomNote: 'Closes on its own after a few minutes with no participants',
-    restart: 'Start again', checkingRoom: 'Checking room…', start: 'Start session', details: 'View details',
-    inProgress: 'Sessions in progress', finished: 'Finished', expired: 'Expired sessions', retryCancel: 'Retry cancellation',
+    checkingRoom: 'Checking room…', start: 'Start session', details: 'View details',
+    inProgress: 'Sessions in progress', expired: 'Expired sessions', retryCancel: 'Retry cancellation',
   },
   resources: {
     title: 'Resources', unavailable: 'Real resources are only available with Firebase authentication.', subtitle: 'Materials associated with scheduled classes',

@@ -150,7 +150,7 @@ export function buildExpiredSessions(
  * same discipline as attentionHeuristics.ts elsewhere in
  * this repo: callers inject "now" so the transform stays deterministic and
  * unit-testable. A started class is no longer upcoming: it belongs to the
- * in-progress or finished section, whatever its scheduled time says.
+ * in-progress section until its room closes, whatever its scheduled time says.
  */
 export function buildUpcomingSessions(
   classes: ClassRecord[],
@@ -199,9 +199,6 @@ export const MAX_PROBED_ROOMS = 12;
 /** Latest `checkRoomOpen` result per room name; a room missing here has not been probed yet. */
 export type RoomOpenStatus = Record<string, boolean | null>;
 
-/** Started classes are never cleaned up once their room closes, so the Finished section stops here. */
-export const MAX_FINISHED_SESSIONS = 6;
-
 /** All of a room's started records enter the same room, so each room is represented by one of them. */
 function latestStartedRecordPerRoom(classes: ClassRecord[]): ClassRecord[] {
   const recordByRoom = new Map<string, ClassRecord>();
@@ -226,16 +223,6 @@ export function selectProbedRooms(classes: ClassRecord[]): string[] {
     .map(classRecord => classRecord.roomName);
 }
 
-/** A room outside the probed set never gets an answer, so it would sit on "checking" forever: it is not shown. */
-function probedStartedRecords(classes: ClassRecord[]): ClassRecord[] {
-  const probedRooms = new Set(selectProbedRooms(classes));
-  return latestStartedRecordPerRoom(classes).filter(classRecord => probedRooms.has(classRecord.roomName));
-}
-
-function isRoomClosed(classRecord: ClassRecord, roomStatus: RoomOpenStatus): boolean {
-  return resolveClassAction(classRecord.status, roomStatus[classRecord.roomName]) === 'closed-restart';
-}
-
 function toStartedSession(classRecord: ClassRecord, dayLabel: string): UpcomingSession {
   return {
     id: classRecord.id,
@@ -253,28 +240,22 @@ function toStartedSession(classRecord: ClassRecord, dayLabel: string): UpcomingS
 
 /**
  * Started classes whose room may still be running: open, not yet probed or inconclusive. One card
- * per probed room. A scheduled class sharing the room is a distinct session and hides nothing here.
+ * per probed room: a room outside the probed set never gets an answer, so it would sit on "checking"
+ * forever. A closed room leaves the dashboard, and the reconcile later completes its record. A
+ * scheduled class sharing the room is a distinct session and hides nothing here.
  */
 export function buildInProgressSessions(
   classes: ClassRecord[],
   roomStatus: RoomOpenStatus,
   dayLabel: string
 ): UpcomingSession[] {
-  return probedStartedRecords(classes)
-    .filter(classRecord => !isRoomClosed(classRecord, roomStatus))
-    .map(classRecord => toStartedSession(classRecord, dayLabel));
-}
-
-/** Started classes whose room is confirmed closed: one card per probed room, most recent first, capped. */
-export function buildFinishedSessions(
-  classes: ClassRecord[],
-  roomStatus: RoomOpenStatus,
-  dayLabel: string
-): UpcomingSession[] {
-  return probedStartedRecords(classes)
-    .filter(classRecord => isRoomClosed(classRecord, roomStatus))
-    .sort((a, b) => (isMoreRecentlyScheduled(a, b) ? -1 : 1))
-    .slice(0, MAX_FINISHED_SESSIONS)
+  const probedRooms = new Set(selectProbedRooms(classes));
+  return latestStartedRecordPerRoom(classes)
+    .filter(
+      classRecord =>
+        probedRooms.has(classRecord.roomName) &&
+        resolveClassAction(classRecord.status, roomStatus[classRecord.roomName]) !== 'none'
+    )
     .map(classRecord => toStartedSession(classRecord, dayLabel));
 }
 

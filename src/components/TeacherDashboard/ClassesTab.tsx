@@ -16,7 +16,7 @@ import DateFnsUtils from '@date-io/date-fns';
 import esLocale from 'date-fns/locale/es';
 import enLocale from 'date-fns/locale/en-US';
 import { DashboardStat, UpcomingSession } from './types';
-import { buildFinishedSessions, buildInProgressSessions, findDuplicateScheduledClass } from './classSessionsView';
+import { buildInProgressSessions, findDuplicateScheduledClass } from './classSessionsView';
 import { statCardIcon } from './dashboardHelpers';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../../classSession/classSessionTypes';
 import { validateNewClass } from './newClassValidation';
@@ -357,8 +357,8 @@ interface Props {
   professorName: string;
   onStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
   /** Firebase-mode only: every class the teacher currently has (any date, any status).
-   * Feeds the in-progress and finished sections and the same-title warning before
-   * creating a new class. Undefined/empty elsewhere leaves all three out. */
+   * Feeds the in-progress section and the same-title warning before creating a
+   * new class. Undefined/empty elsewhere leaves both out. */
   existingClasses?: ClassRecord[];
   /** Firebase-mode only: creates a real scheduled class. Undefined elsewhere —
    * the "Nueva clase" button then keeps its stub (no-op) appearance. */
@@ -460,7 +460,6 @@ export default function ClassesTab({
   };
 
   const inProgressSessions = buildInProgressSessions(existingClasses, startedRoomStatus, t('classes.inProgress'));
-  const finishedSessions = buildFinishedSessions(existingClasses, startedRoomStatus, t('classes.finished'));
 
   const renderInProgressAction = (session: UpcomingSession) => {
     const action = resolveClassAction('started', startedRoomStatus[session.roomName || '']);
@@ -898,34 +897,6 @@ export default function ClassesTab({
                     {cancellingClassId === session.id ? t('classes.cancelling') : t('classes.cancel')}
                   </button>
                 )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {finishedSessions.length > 0 && (
-        <div className={classes.expiredSection} data-testid="dashboard-finished-section">
-          <div className={classes.expiredSectionTitle}>{t('classes.finished')}</div>
-          <div className={classes.sessionsGrid}>
-            {finishedSessions.map(session => (
-              <div
-                key={session.id}
-                className={classes.sessionCard}
-                data-testid={`dashboard-finished-card-${session.id}`}
-              >
-                <div className={classes.sessionTitle}>{session.title}</div>
-                <div className={classes.sessionCode}>{session.code}</div>
-                <button
-                  type="button"
-                  className={clsx(buttons.secondary, classes.fullWidthButton)}
-                  onClick={() => handleStartClass(session)}
-                  disabled={isStartingClass}
-                  data-testid="dashboard-restart-session-button"
-                >
-                  <PlayArrowIcon style={{ fontSize: 16 }} />
-                  {isStartingClass ? t('classes.checking') : t('classes.restart')}
-                </button>
               </div>
             ))}
           </div>

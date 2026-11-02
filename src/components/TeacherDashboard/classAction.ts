@@ -8,9 +8,7 @@ export type ClassAction =
   | 'rejoin'
   /** A started class whose room has not been probed yet. */
   | 'checking'
-  /** A started class whose room closed: it is finished, with an explicit new session on offer. */
-  | 'closed-restart'
-  /** Nothing to offer (completed). */
+  /** Nothing to offer: the class is completed, or it started and its room has closed. */
   | 'none';
 
 /**
@@ -22,5 +20,5 @@ export function resolveClassAction(status: ClassStatus | undefined, roomOpen: bo
   if (status !== 'started') return 'start';
   if (roomOpen === undefined) return 'checking';
   if (roomOpen === null) return 'start';
-  return roomOpen ? 'rejoin' : 'closed-restart';
+  return roomOpen ? 'rejoin' : 'none';
 }

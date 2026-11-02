@@ -1,13 +1,11 @@
 import {
   buildExpiredSessions,
-  buildFinishedSessions,
   buildInProgressSessions,
   buildMockClassesView,
   buildRealClassesView,
   buildUpcomingSessions,
   findDuplicateScheduledClass,
   findExpiredClasses,
-  MAX_FINISHED_SESSIONS,
   MAX_PROBED_ROOMS,
   selectProbedRooms,
 } from './classSessionsView';
@@ -437,12 +435,10 @@ describe('started class sections', () => {
       expect(selectProbedRooms([...records].reverse())).toEqual(expected);
     });
 
-    it('leaves rooms outside the probed set out of both sections, whatever their last status', () => {
-      const records = roomsDescending(14);
-      const status = { 'room-12': true, 'room-13': false };
+    it('leaves rooms outside the probed set out of the section, whatever their last status', () => {
+      const status = { 'room-12': true };
 
-      expect(idsOf(buildInProgressSessions(records, status, 'En curso'))).not.toContain('c-12');
-      expect(idsOf(buildFinishedSessions(records, status, 'Finalizada'))).not.toContain('c-13');
+      expect(idsOf(buildInProgressSessions(roomsDescending(14), status, 'En curso'))).not.toContain('c-12');
     });
 
     it('keeps a room inside the probed set in progress until its first answer', () => {
@@ -541,63 +537,6 @@ describe('started class sections', () => {
       const physics = started({ id: 'physics', roomName: 'physics', scheduledAtMs: null });
 
       expect(idsOf(buildInProgressSessions([algebra, physics], {}, 'En curso'))).toEqual(['algebra', 'physics']);
-    });
-  });
-
-  describe('buildFinishedSessions', () => {
-    it('lists only started classes whose room is confirmed closed', () => {
-      const records = [
-        started({ id: 'closed', roomName: 'closed' }),
-        started({ id: 'open', roomName: 'open' }),
-        started({ id: 'unprobed', roomName: 'unprobed' }),
-        started({ id: 'inconclusive', roomName: 'inconclusive' }),
-      ];
-      const status = { closed: false, open: true, inconclusive: null };
-
-      expect(idsOf(buildFinishedSessions(records, status, 'Finalizadas'))).toEqual(['closed']);
-    });
-
-    it('leaves out scheduled and completed classes even when their room is closed', () => {
-      const records = [
-        makeClass({ id: 'scheduled', status: 'scheduled', roomName: 'a' }),
-        makeClass({ id: 'completed', status: 'completed', roomName: 'b' }),
-      ];
-
-      expect(buildFinishedSessions(records, { a: false, b: false }, 'Finalizadas')).toEqual([]);
-    });
-
-    it('lists a room once with the same tie-break as the in-progress section', () => {
-      const older = started({ id: 'older', roomName: 'algebra', scheduledAtMs: NOW_MS - 2000 });
-      const newer = started({ id: 'newer', roomName: 'algebra', scheduledAtMs: NOW_MS - 1000 });
-
-      expect(idsOf(buildFinishedSessions([newer, older], { algebra: false }, 'Finalizadas'))).toEqual(['newer']);
-      expect(idsOf(buildFinishedSessions([older, newer], { algebra: false }, 'Finalizadas'))).toEqual(['newer']);
-    });
-
-    it('sorts the most recent first and an undated class last', () => {
-      const undated = started({ id: 'undated', roomName: 'a', scheduledAtMs: null });
-      const older = started({ id: 'older', roomName: 'b', scheduledAtMs: NOW_MS - 2000 });
-      const newer = started({ id: 'newer', roomName: 'c', scheduledAtMs: NOW_MS - 1000 });
-      const status = { a: false, b: false, c: false };
-
-      expect(idsOf(buildFinishedSessions([undated, older, newer], status, 'Finalizadas'))).toEqual([
-        'newer',
-        'older',
-        'undated',
-      ]);
-    });
-
-    it('keeps only the most recent cards up to the limit', () => {
-      const count = MAX_FINISHED_SESSIONS + 2;
-      const records = Array.from({ length: count }, (_, index) =>
-        started({ id: `c${index}`, roomName: `room-${index}`, scheduledAtMs: NOW_MS - index * 1000 })
-      );
-      const status = Object.fromEntries(records.map(record => [record.roomName, false]));
-
-      const result = buildFinishedSessions(records, status, 'Finalizadas');
-
-      expect(MAX_FINISHED_SESSIONS).toBe(6);
-      expect(idsOf(result)).toEqual(idsOf(records.slice(0, MAX_FINISHED_SESSIONS)));
     });
   });
 

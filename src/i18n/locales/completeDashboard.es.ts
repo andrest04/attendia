@@ -8,8 +8,8 @@ const completeDashboard = {
     chooseDate: 'Elegir fecha', chooseTime: 'Elegir hora', invalidDate: 'Formato de fecha inválido', invalidTime: 'Formato de hora inválido', datePast: 'La fecha no puede ser anterior a hoy', dateFuture: 'La fecha supera el máximo permitido',
     duplicate: 'Ya tienes una clase "{{title}}" programada para el {{date}}. Puedes crear esta igual si es una sesión distinta.', noDate: 'sin fecha',
     checking: 'Verificando…', rejoin: 'Volver a entrar', openRoomNote: 'Se cierra sola tras unos minutos sin participantes',
-    restart: 'Iniciar de nuevo', checkingRoom: 'Verificando sala…', start: 'Iniciar sesión', details: 'Ver detalles',
-    inProgress: 'Sesiones en curso', finished: 'Finalizadas', expired: 'Sesiones vencidas', retryCancel: 'Reintentar cancelación',
+    checkingRoom: 'Verificando sala…', start: 'Iniciar sesión', details: 'Ver detalles',
+    inProgress: 'Sesiones en curso', expired: 'Sesiones vencidas', retryCancel: 'Reintentar cancelación',
   },
   resources: {
     title: 'Recursos', unavailable: 'Los recursos reales solo están disponibles con el modo de autenticación Firebase.', subtitle: 'Materiales asociados a clases programadas',

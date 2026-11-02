@@ -578,21 +578,15 @@ describe('ClassesTab', () => {
       expect(wrapper.find('[data-testid="dashboard-room-open-note"]').text()).toContain(
         'Se cierra sola tras unos minutos sin participantes'
       );
-      expect(wrapper.find('[data-testid="dashboard-finished-section"]').exists()).toBe(false);
     });
 
-    it('moves a closed room to the finished section with an explicit restart', () => {
-      const onStartClass = jest.fn();
-      const wrapper = render({ algebra: false }, onStartClass);
+    it('takes a class off the dashboard once its room is closed, with nothing to restart', () => {
+      const wrapper = render({ algebra: false });
 
       expect(wrapper.find('[data-testid="dashboard-in-progress-section"]').exists()).toBe(false);
-      const section = wrapper.find('[data-testid="dashboard-finished-section"]');
-      expect(section.text()).toContain('Finalizadas');
-      expect(section.find('[data-testid="dashboard-finished-card-c1"]').text()).toContain('Álgebra');
-      expect(section.find('[data-testid="dashboard-finished-card-c1"]').text()).toContain('algebra');
-
-      wrapper.find('[data-testid="dashboard-restart-session-button"]').simulate('click');
-      expect(onStartClass).toHaveBeenCalledWith({ roomName: 'algebra', name: 'Ana [Profesor]', classId: 'c1' });
+      expect(wrapper.find('[data-testid="dashboard-restart-session-button"]').exists()).toBe(false);
+      expect(wrapper.text()).not.toContain('Álgebra');
+      expect(wrapper.text()).not.toContain('Finalizadas');
     });
 
     it('keeps the plain start in the in-progress section when the probe is inconclusive', () => {
@@ -617,7 +611,6 @@ describe('ClassesTab', () => {
       );
 
       expect(wrapper.find('[data-testid="dashboard-in-progress-section"]').exists()).toBe(false);
-      expect(wrapper.find('[data-testid="dashboard-finished-section"]').exists()).toBe(false);
     });
 
     it('warns about a repeated title only while the other class is scheduled', () => {

@@ -213,9 +213,6 @@ export const EN: { [spanish: string]: string } = {
   Notificaciones: 'Notifications',
   'Abrir menú de perfil': 'Open profile menu',
   'Volver a entrar': 'Join again',
-  'La sala ya se cerró. Puedes iniciarla de nuevo como una sesión nueva.':
-    'The room is already closed. You can start it again as a new session.',
-  'Iniciar de nuevo': 'Start again',
   'Próximas sesiones': 'Upcoming sessions',
   'Título de la clase': 'Class title',
   'Ej: Matemáticas — Grupo A': 'e.g. Math — Group A',

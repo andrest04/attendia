@@ -19,8 +19,8 @@ describe('resolveClassAction', () => {
     expect(resolveClassAction('started', undefined)).toBe('checking');
   });
 
-  it('offers an explicit restart when the started class room is closed', () => {
-    expect(resolveClassAction('started', false)).toBe('closed-restart');
+  it('offers nothing for a started class whose room is closed', () => {
+    expect(resolveClassAction('started', false)).toBe('none');
   });
 
   it('falls back to the plain start flow when the probe was inconclusive', () => {
