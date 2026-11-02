@@ -204,13 +204,68 @@ describe('the VideoProvider component', () => {
       unmount();
     });
 
-    it('keeps the rejoin session on any other disconnection', () => {
-      const { unmount } = renderProvider('student-bob', jest.fn());
+    it.each([
+      ['student', 'student-bob'],
+      ['teacher', 'Ana [Profesor]'],
+    ])('clears the rejoin session of a %s on any other disconnection error', (_, identity) => {
+      const signaling = { code: 53000, message: 'Signaling connection error' } as TwilioError;
+      const onError = jest.fn();
+      const { unmount, onDisconnectError } = renderProvider(identity, onError);
 
-      mockRoom.emit('disconnected', mockRoom, { code: 53000, message: 'Signaling connection error' });
+      mockRoom.emit('disconnected', mockRoom, signaling);
+      onDisconnectError(signaling);
+
+      expect(clearRejoinSession).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(signaling);
+      expect(setEnded).not.toHaveBeenCalled();
+      unmount();
+    });
+
+    it('clears the session on any error before a descendant hears the disconnection', () => {
+      let clearsSeenByDescendant = -1;
+      const Descendant = () => {
+        useEffect(() => {
+          const listener = () => {
+            clearsSeenByDescendant = (clearRejoinSession as jest.Mock).mock.calls.length;
+          };
+          mockRoom.on('disconnected', listener);
+          return () => {
+            mockRoom.off('disconnected', listener);
+          };
+        }, []);
+        return null;
+      };
+      const { unmount } = renderProvider('Ana [Profesor]', jest.fn(), <Descendant />);
+
+      mockRoom.emit('disconnected', mockRoom, { code: 53118, message: 'Room completed' });
+
+      expect(clearsSeenByDescendant).toBe(1);
+      unmount();
+    });
+
+    it.each([
+      ['student', 'student-bob'],
+      ['teacher', 'Ana [Profesor]'],
+    ])('keeps the rejoin session of a %s on a disconnection without an error (a refresh)', (_, identity) => {
+      const { unmount } = renderProvider(identity, jest.fn());
+
       mockRoom.emit('disconnected', mockRoom);
 
       expect(clearRejoinSession).not.toHaveBeenCalled();
+      unmount();
+    });
+
+    it('still shows a student the ended screen, not a dialog, when the room completes', () => {
+      const roomCompleted = { code: 53118, message: 'Room completed' } as TwilioError;
+      const onError = jest.fn();
+      const { unmount, onDisconnectError } = renderProvider('student-bob', onError);
+
+      mockRoom.emit('disconnected', mockRoom, roomCompleted);
+      onDisconnectError(roomCompleted);
+
+      expect(clearRejoinSession).toHaveBeenCalled();
+      expect(setEnded).toHaveBeenCalledWith(true);
+      expect(onError).not.toHaveBeenCalled();
       unmount();
     });
   });

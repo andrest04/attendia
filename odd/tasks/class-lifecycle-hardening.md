@@ -27,7 +27,7 @@ User authorized all three fixes on 2026-11-02. Parent defaults, to report to the
 
 - [x] T1: Probes de-duplicate rooms, cover the newest 12, and keep the last known status on 429. Route: delegated (2+ non-trivial files).
 - [x] T2: A bounded server reconcile completes stale and superseded started records, called once on dashboard load. Route: delegated (same writer).
-- [ ] T3: Any error-bearing disconnect clears the rejoin session for every role. Route: delegated (same writer).
+- [x] T3: Any error-bearing disconnect clears the rejoin session for every role. Route: delegated (same writer).
 
 ## Acceptance criteria
 
@@ -48,8 +48,9 @@ User authorized all three fixes on 2026-11-02. Parent defaults, to report to the
 Forecast: may exceed about 400 authored lines; delivery strategy `ask-on-risk`, proposed slices follow the tasks.
 
 - T1 done. RED: 12 failed, 148 passed across `checkRoomOpen`, `classSessionsView`, `useTeacherClasses` and `server/__tests__/classes.test.ts` (for example "keeps the last known status when a later probe is rate limited"). GREEN: `npm test -- src/classSession src/components/TeacherDashboard src/components/PreJoinScreens server/__tests__/classes.test.ts`: 42 suites, 643 tests passed. Client and server `tsc` clean. `GET /classes` now returns `startedAtMs`, the only timestamp a record without a schedule can rank by on the client. Commit `c17efba`.
-- T2 done. RED: `Cannot find module '../classReconcile'`, plus 15 failed including "refreshes startedAt when a started class is started again" and the reconcile wiring pin. GREEN: `npm test -- server/__tests__/classReconcile.test.ts server/__tests__/classes.test.ts server/__tests__/securityWiring.test.ts src/components/TeacherDashboard src/state/useFirebaseAuth/useFirebaseAuth.test.ts`: 29 suites, 513 tests passed. Client and server `tsc` clean. The transaction also refuses a record whose `startedAt` changed after the room lookup, so a "Start again" racing the reconcile is not completed.
+- T2 done. RED: `Cannot find module '../classReconcile'`, plus 15 failed including "refreshes startedAt when a started class is started again" and the reconcile wiring pin. GREEN: `npm test -- server/__tests__/classReconcile.test.ts server/__tests__/classes.test.ts server/__tests__/securityWiring.test.ts src/components/TeacherDashboard src/state/useFirebaseAuth/useFirebaseAuth.test.ts`: 29 suites, 513 tests passed. Client and server `tsc` clean. The transaction also refuses a record whose `startedAt` changed after the room lookup, so a "Start again" racing the reconcile is not completed. Commit `1853e2c`.
+- T3 done. RED: 3 failed, 11 passed in `VideoProvider/index.test.tsx` ("clears the rejoin session of a teacher on any other disconnection error"). GREEN: with `useAutoRejoin.test.ts`, 2 suites, 23 tests passed. Inference checks: an error-bearing disconnect leaves no session, so `useAutoRejoin` never starts and its `[error]` watcher returns early, leaving the dialog up. A teacher can still recreate a closed room through a no-error path: a session kept across a refresh reaches `POST /token`, which creates the room for a teacher. Closing that needs `useAutoRejoin.ts` or the token guard, outside this surface.
 
 ## Next step
 
-T3.
+`npm run test:ci` before delivery; push and PR are the user's decision.
