@@ -99,7 +99,8 @@ if [ "$DEPLOY_BUILD" = "remote" ]; then
   # it still applies inside the export). Cleaned up explicitly after the build because
   # the EXIT trap set later would replace any trap set here.
   BUILD_CONTEXT="$(mktemp -d)"
-  if ! git archive HEAD | tar -x -C "$BUILD_CONTEXT"; then
+  # core.autocrlf would write CRLF on Windows and break the image's entrypoint shebang.
+  if ! git -c core.autocrlf=false archive HEAD | tar -x -C "$BUILD_CONTEXT"; then
     rm -rf "$BUILD_CONTEXT"
     echo "could not export the commit — nothing was deployed." >&2
     exit 1
