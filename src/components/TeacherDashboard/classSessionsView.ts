@@ -180,6 +180,53 @@ export function buildUpcomingSessions(
   );
 }
 
+/** The newest schedule wins; a record without a date is the oldest and a tie goes to the greatest id. */
+function isMoreRecentlyScheduled(candidate: ClassRecord, current: ClassRecord): boolean {
+  const candidateMs = candidate.scheduledAtMs ?? -Infinity;
+  const currentMs = current.scheduledAtMs ?? -Infinity;
+  return candidateMs === currentMs ? candidate.id > current.id : candidateMs > currentMs;
+}
+
+/**
+ * Started classes whose scheduled time is long past have no card in the upcoming grid but still
+ * need their way back into the room. All of a room's records enter the same room, so a room gets
+ * one card at most, and none when the grid already offers it.
+ */
+export function buildInProgressSessions(
+  classes: ClassRecord[],
+  visibleSessions: UpcomingSession[],
+  dayLabel: string
+): UpcomingSession[] {
+  const visibleIds = new Set(visibleSessions.map(session => session.id));
+  const visibleRooms = new Set(visibleSessions.map(session => session.roomName));
+  const recordByRoom = new Map<string, ClassRecord>();
+
+  classes
+    .filter(
+      classRecord =>
+        classRecord.status === 'started' && !visibleIds.has(classRecord.id) && !visibleRooms.has(classRecord.roomName)
+    )
+    .forEach(classRecord => {
+      const current = recordByRoom.get(classRecord.roomName);
+      if (!current || isMoreRecentlyScheduled(classRecord, current)) {
+        recordByRoom.set(classRecord.roomName, classRecord);
+      }
+    });
+
+  return Array.from(recordByRoom.values()).map(classRecord => ({
+    id: classRecord.id,
+    title: classRecord.title,
+    code: classRecord.roomName,
+    roomName: classRecord.roomName,
+    classId: classRecord.id,
+    studentCount: classRecord.studentCount,
+    time: '',
+    dayLabel,
+    relativeLabel: '',
+    highlighted: false,
+  }));
+}
+
 /** What the "Clases" tab shows about the teacher's classes, whichever source they come from. */
 export interface ClassesView {
   sessions: UpcomingSession[];

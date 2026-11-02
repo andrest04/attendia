@@ -1,5 +1,6 @@
 import {
   buildExpiredSessions,
+  buildInProgressSessions,
   buildMockClassesView,
   buildRealClassesView,
   buildUpcomingSessions,
@@ -351,5 +352,92 @@ describe('classSessionsView in English', () => {
     expect(buildExpiredSessions([old], NOW_MS, en)[0].relativeLabel).toBe('Expired 3d ago');
     expect(buildRealClassesView([], NOW_MS, en).dateLabel).toBe('Wednesday, July 8, 2026');
     expect(buildRealClassesView([], NOW_MS).dateLabel).toBe('Miércoles, 8 de julio de 2026');
+  });
+});
+
+describe('buildInProgressSessions', () => {
+  const started = (overrides: Partial<ClassRecord>) => makeClass({ status: 'started', ...overrides });
+  const upcomingIn = (classes: ClassRecord[]) => buildUpcomingSessions(classes, NOW_MS);
+  const idsOf = (sessions: { id: string }[]) => sessions.map(session => session.id);
+
+  it('builds an in-progress card with the label the caller passes', () => {
+    const record = started({ id: 'old', roomName: 'algebra', title: 'Álgebra', scheduledAtMs: null, studentCount: 12 });
+
+    expect(buildInProgressSessions([record], [], 'En curso')).toEqual([
+      {
+        id: 'old',
+        title: 'Álgebra',
+        code: 'algebra',
+        roomName: 'algebra',
+        classId: 'old',
+        studentCount: 12,
+        time: '',
+        dayLabel: 'En curso',
+        relativeLabel: '',
+        highlighted: false,
+      },
+    ]);
+  });
+
+  it('ignores classes that are not started', () => {
+    const records = [
+      makeClass({ id: 'scheduled', status: 'scheduled', roomName: 'a' }),
+      makeClass({ id: 'completed', status: 'completed', roomName: 'b' }),
+      makeClass({ id: 'no-status', roomName: 'c' }),
+    ];
+
+    expect(buildInProgressSessions(records, [], 'En curso')).toEqual([]);
+  });
+
+  it('skips a class whose own card is in the upcoming grid, even when the card has no room name', () => {
+    const record = started({ id: 'visible', roomName: 'algebra' });
+    const card = { ...upcomingIn([record])[0], roomName: undefined };
+
+    expect(buildInProgressSessions([record], [card], 'En curso')).toEqual([]);
+  });
+
+  it('skips a started class whose room already has another card in the upcoming grid', () => {
+    const past = started({ id: 'past', roomName: 'algebra', scheduledAtMs: NOW_MS - 24 * 60 * 60 * 1000 });
+    const today = started({ id: 'today', roomName: 'algebra', scheduledAtMs: NOW_MS });
+
+    expect(buildInProgressSessions([past, today], upcomingIn([past, today]), 'En curso')).toEqual([]);
+  });
+
+  it('leaves upcoming cards that share a room as separate cards', () => {
+    const morning = makeClass({ id: 'morning', roomName: 'algebra', scheduledAtMs: NOW_MS + 60 * 60 * 1000 });
+    const evening = makeClass({ id: 'evening', roomName: 'algebra', scheduledAtMs: NOW_MS + 5 * 60 * 60 * 1000 });
+
+    expect(idsOf(upcomingIn([morning, evening]))).toEqual(['morning', 'evening']);
+  });
+
+  it('lists a room once, keeping the most recently scheduled record', () => {
+    const older = started({ id: 'older', roomName: 'algebra', scheduledAtMs: NOW_MS - 2000 });
+    const newer = started({ id: 'newer', roomName: 'algebra', scheduledAtMs: NOW_MS - 1000 });
+
+    expect(idsOf(buildInProgressSessions([older, newer], [], 'En curso'))).toEqual(['newer']);
+    expect(idsOf(buildInProgressSessions([newer, older], [], 'En curso'))).toEqual(['newer']);
+  });
+
+  it('prefers a scheduled record over one without a date', () => {
+    const undated = started({ id: 'undated', roomName: 'algebra', scheduledAtMs: null });
+    const dated = started({ id: 'dated', roomName: 'algebra', scheduledAtMs: NOW_MS - 1000 });
+
+    expect(idsOf(buildInProgressSessions([dated, undated], [], 'En curso'))).toEqual(['dated']);
+    expect(idsOf(buildInProgressSessions([undated, dated], [], 'En curso'))).toEqual(['dated']);
+  });
+
+  it('breaks a schedule tie by the greatest id, whatever the input order', () => {
+    const a = started({ id: 'a', roomName: 'algebra', scheduledAtMs: null });
+    const b = started({ id: 'b', roomName: 'algebra', scheduledAtMs: null });
+
+    expect(idsOf(buildInProgressSessions([a, b], [], 'En curso'))).toEqual(['b']);
+    expect(idsOf(buildInProgressSessions([b, a], [], 'En curso'))).toEqual(['b']);
+  });
+
+  it('keeps one card per distinct room', () => {
+    const algebra = started({ id: 'algebra', roomName: 'algebra', scheduledAtMs: null });
+    const physics = started({ id: 'physics', roomName: 'physics', scheduledAtMs: null });
+
+    expect(idsOf(buildInProgressSessions([algebra, physics], [], 'En curso'))).toEqual(['algebra', 'physics']);
   });
 });

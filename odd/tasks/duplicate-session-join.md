@@ -22,7 +22,7 @@ The latest connection wins (user decision, 2026-11-02). It keeps moving between 
 ## Tasks
 
 - [x] T1: The disconnected tab shows a clear message and clears its rejoin session on 53205. Route: delegated (2+ non-trivial files).
-- [ ] T2: The in-progress section lists a room once and skips rooms already in the upcoming grid. Route: delegated (same writer).
+- [x] T2: The in-progress section lists a room once and skips rooms already in the upcoming grid. Route: delegated (same writer).
 
 ## Acceptance criteria
 
@@ -42,11 +42,20 @@ Forecast: under 400 authored changed lines, delivery strategy `ask-on-risk`.
 
 ### T1
 
+- Commit: `4ba945f`.
 - RED: 6 failures in `npm test -- src/components/VideoProvider/index.test.tsx src/components/ErrorDialog`, for example `Expected number of calls: 1, Received number of calls: 0` on `clearRejoinSession`.
 - GREEN: 30 tests passed on the same command.
 - Checks: `npm test -- src/components/VideoProvider src/components/ErrorDialog src/i18n` 166 passed; `npx tsc --noEmit -p .` clean; `CI=true npm run lint` clean.
 - The session is cleared from a listener registered in a layout effect, so it runs before `useRoomState` mounts the lobby and `useAutoRejoin` reads the session.
 
+### T2
+
+- RED: 8 failures in `npm test -- src/components/TeacherDashboard/classSessionsView.test.ts`, because `buildInProgressSessions` did not exist yet.
+- GREEN: 41 tests passed on the same command.
+- Checks: `npm test -- src/components/VideoProvider src/components/ErrorDialog src/components/TeacherDashboard src/i18n` 518 passed; `npx tsc --noEmit -p .` clean; `CI=true npm run lint` clean.
+- Tie-break: the latest `scheduledAtMs` wins, a record without a date counts as the oldest, and an equal schedule goes to the greatest id.
+- A hidden record stays `started`. Only the class named by a saved report is completed, so it can surface as the in-progress card once the visible record completes.
+
 ## Next step
 
-T2.
+Manual check in two tabs. Delivery remains the user's decision.

@@ -16,6 +16,7 @@ import DateFnsUtils from '@date-io/date-fns';
 import esLocale from 'date-fns/locale/es';
 import enLocale from 'date-fns/locale/en-US';
 import { DashboardStat, UpcomingSession } from './types';
+import { buildInProgressSessions } from './classSessionsView';
 import { statCardIcon } from './dashboardHelpers';
 import { toClassSessionDisplayName, toClassSessionRoomName } from '../../classSession/classSessionTypes';
 import { validateNewClass } from './newClassValidation';
@@ -351,7 +352,10 @@ const statTranslationKeys: Record<string, string> = {
 // (ResourcesTab's formatDateLabel, CalendarTab's day labels).
 function formatDuplicateDateLabel(ms: number | null, language: string, noDate: string): string {
   if (ms === null) return noDate;
-  return new Date(ms).toLocaleDateString(language.startsWith('es') ? 'es-AR' : language, { day: 'numeric', month: 'short' });
+  return new Date(ms).toLocaleDateString(language.startsWith('es') ? 'es-AR' : language, {
+    day: 'numeric',
+    month: 'short',
+  });
 }
 
 interface Props {
@@ -482,22 +486,7 @@ export default function ClassesTab({
     ) : (
       <span className={classes.badgeRelative}>{session.relativeLabel}</span>
     );
-  // Started classes whose card is not in the upcoming grid (their scheduled time is long past)
-  // still need their way back into the room.
-  const inProgressSessions: UpcomingSession[] = existingClasses
-    .filter(classRecord => classRecord.status === 'started' && !sessions.some(s => s.id === classRecord.id))
-    .map(classRecord => ({
-      id: classRecord.id,
-      title: classRecord.title,
-      code: classRecord.roomName,
-      roomName: classRecord.roomName,
-      classId: classRecord.id,
-      studentCount: classRecord.studentCount,
-      time: '',
-      dayLabel: t('classes.inProgress'),
-      relativeLabel: '',
-      highlighted: false,
-    }));
+  const inProgressSessions = buildInProgressSessions(existingClasses, sessions, t('classes.inProgress'));
 
   /** Actions for a started class; null when the plain "Iniciar sesión" flow applies. */
   const renderStartedAction = (session: UpcomingSession, action: ClassAction) => {
@@ -601,8 +590,15 @@ export default function ClassesTab({
       .finally(() => setIsSubmitting(false));
   };
 
-  const translatedValidation = validationErrorRef.current && validateNewClass(validationErrorRef.current.values, validationErrorRef.current.now, t);
-  const visibleFormError = translatedValidation && !translatedValidation.ok ? translatedValidation.message : typeof formError === 'string' ? formError : formError?.message;
+  const translatedValidation =
+    validationErrorRef.current &&
+    validateNewClass(validationErrorRef.current.values, validationErrorRef.current.now, t);
+  const visibleFormError =
+    translatedValidation && !translatedValidation.ok
+      ? translatedValidation.message
+      : typeof formError === 'string'
+      ? formError
+      : formError?.message;
 
   return (
     <div className={classes.root} data-testid="dashboard-classes-tab">
@@ -624,7 +620,9 @@ export default function ClassesTab({
               <div>
                 <div className={classes.statValue}>{stat.value}</div>
                 <div className={classes.statLabel}>
-                  {statTranslationKeys[stat.id] ? t(`dashboardShell:stats.${statTranslationKeys[stat.id]}`) : stat.label}
+                  {statTranslationKeys[stat.id]
+                    ? t(`dashboardShell:stats.${statTranslationKeys[stat.id]}`)
+                    : stat.label}
                 </div>
               </div>
             </div>
@@ -794,7 +792,10 @@ export default function ClassesTab({
 
           {!formError && duplicateClass && (
             <div className={classes.newClassDuplicateWarning} data-testid="dashboard-new-class-duplicate-warning">
-              {t('classes.duplicate', { title: duplicateClass.title, date: formatDuplicateDateLabel(duplicateClass.scheduledAtMs, i18n.language, t('classes.noDate')) })}
+              {t('classes.duplicate', {
+                title: duplicateClass.title,
+                date: formatDuplicateDateLabel(duplicateClass.scheduledAtMs, i18n.language, t('classes.noDate')),
+              })}
             </div>
           )}
           {visibleFormError && <div className={classes.newClassError}>{visibleFormError}</div>}
@@ -819,7 +820,11 @@ export default function ClassesTab({
                 <AccessTimeIcon style={{ fontSize: 16 }} />
                 {session.time}
               </span>
-              <span className={classes.metaItem} role="img" aria-label={t('classes.expectedStudentCount', { count: session.studentCount })}>
+              <span
+                className={classes.metaItem}
+                role="img"
+                aria-label={t('classes.expectedStudentCount', { count: session.studentCount })}
+              >
                 <PeopleAltIcon style={{ fontSize: 16 }} />
                 {session.studentCount}
               </span>
@@ -848,7 +853,11 @@ export default function ClassesTab({
                   {cancellingClassId === session.id ? t('classes.cancelling') : t('classes.cancel')}
                 </button>
               ) : (
-                <button type="button" className={clsx(buttons.secondary, classes.fullWidthButton)} data-testid="dashboard-view-details-button">
+                <button
+                  type="button"
+                  className={clsx(buttons.secondary, classes.fullWidthButton)}
+                  data-testid="dashboard-view-details-button"
+                >
                   <OpenInNewIcon style={{ fontSize: 16 }} />
                   {t('classes.details')}
                 </button>
@@ -908,7 +917,11 @@ export default function ClassesTab({
                     <AccessTimeIcon style={{ fontSize: 16 }} />
                     {session.time}
                   </span>
-                  <span className={classes.metaItem} role="img" aria-label={t('classes.expectedStudentCount', { count: session.studentCount })}>
+                  <span
+                    className={classes.metaItem}
+                    role="img"
+                    aria-label={t('classes.expectedStudentCount', { count: session.studentCount })}
+                  >
                     <PeopleAltIcon style={{ fontSize: 16 }} />
                     {session.studentCount}
                   </span>
