@@ -23,6 +23,12 @@ import { featureFlags } from '../../utils/featureFlags';
  * error — keeping it preserves the correct role for the fallback lobby and lets the next
  * manual refresh retry. The session is only cleared on a genuine token rejection (room
  * closed / passcode expired), which is a real refusal, not transient.
+ *
+ * The token is join-only for every role: a refresh resumes a class, it never opens one. Without
+ * it a teacher's saved session would recreate a room that has since closed. A closed room is
+ * refused with no error dialog (see getToken in state/index.tsx), so the user just lands in the
+ * normal flow. The identity already joined this room's conversation when it first entered, so
+ * skipping the token function's conversation step (create_room gates it) loses nothing.
  */
 
 const RETRY_DELAY_MS = 2000;
@@ -72,7 +78,7 @@ export default function useAutoRejoin(urlRoomName: string | undefined): boolean 
     if (disposedRef.current) return;
     const connectors = connectorsRef.current;
     // A session saved before the server refused padded identities may still carry spaces.
-    const { token } = await connectors.getToken(session.identity.trim(), session.roomName);
+    const { token } = await connectors.getToken(session.identity.trim(), session.roomName, { joinOnly: true });
     if (disposedRef.current) return;
     await connectors.videoConnect(token);
     if (!featureFlags.isConversationsDisabled()) {

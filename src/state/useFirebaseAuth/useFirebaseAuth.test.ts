@@ -1,4 +1,5 @@
 import useFirebaseAuth from './useFirebaseAuth';
+import AppStateProvider, { useAppState } from '../index';
 import { getLocale, setLocale, Locale } from '../../i18n/locale';
 import testI18n from '../../i18n/testInit';
 import React from 'react';
@@ -56,6 +57,9 @@ jest.mock('firebase/auth', () => {
     updateEmail: jest.fn(() => Promise.resolve()),
   };
 });
+
+// AppStateProvider's audio-output hook needs navigator.mediaDevices, which jsdom lacks.
+jest.mock('../useActiveSinkId/useActiveSinkId', () => ({ __esModule: true, default: () => ['default', () => {}] }));
 
 const mockProfile = { displayName: 'Test User', email: 'test@example.com', role: 'student' };
 
@@ -696,6 +700,77 @@ describe('the useFirebaseAuth hook', () => {
     setCurrentLanguage('es');
     expect(tokenError.message).toBe('Ese nombre ya está en uso en esta clase por otra cuenta. Elegí otro nombre para entrar.');
     delete process.env.REACT_APP_TOKEN_ENDPOINT;
+  });
+
+  it('should send create_room:false only on a join-only token request', async () => {
+    process.env.REACT_APP_TOKEN_ENDPOINT = 'http://test-endpoint.com/token';
+    mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+
+    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ token: 'mockVideoToken' }) });
+    await result.current.getToken('testuser', 'testroom', { joinOnly: true });
+
+    expect(JSON.parse(mockFetch.mock.calls[mockFetch.mock.calls.length - 1][1].body)).toEqual({
+      user_identity: 'testuser',
+      room_name: 'testroom',
+      create_room: false,
+      create_conversation: true,
+    });
+    delete process.env.REACT_APP_TOKEN_ENDPOINT;
+  });
+
+  describe('the error dialog around a token refusal', () => {
+    const roomNotOpen = () =>
+      profileResponse(403, { error: { message: 'room not found', explanation: 'La sala todavía no está abierta.' } });
+
+    const renderAppState = async () => {
+      mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+      const { result } = renderHook(() => useAppState(), { wrapper: AppStateProvider as any });
+      await act(async () => {
+        await mockAuthStateCallback(mockUser);
+      });
+      return result;
+    };
+
+    it('stays closed when a join-only request finds the room closed, and still rejects', async () => {
+      const result = await renderAppState();
+      mockFetch.mockResolvedValueOnce(roomNotOpen());
+
+      await act(async () => {
+        const refusal = await result.current.getToken('testuser', 'testroom', { joinOnly: true }).catch(e => e);
+        expect(refusal).toMatchObject({ status: 403, code: 'room not found' });
+      });
+
+      expect(result.current.error).toBe(null);
+      expect(result.current.isFetching).toBe(false);
+    });
+
+    it('opens when a manual join finds the room closed', async () => {
+      const result = await renderAppState();
+      mockFetch.mockResolvedValueOnce(roomNotOpen());
+
+      await act(async () => {
+        await result.current.getToken('testuser', 'testroom').catch(() => {});
+      });
+
+      expect(result.current.error).toMatchObject({ code: 'room not found' });
+    });
+
+    it('opens for any other refusal of a join-only request', async () => {
+      const result = await renderAppState();
+      mockFetch.mockResolvedValueOnce(
+        profileResponse(503, { error: { message: 'room verification failed', explanation: 'No pudimos verificar la sala.' } })
+      );
+
+      await act(async () => {
+        await result.current.getToken('testuser', 'testroom', { joinOnly: true }).catch(() => {});
+      });
+
+      expect(result.current.error).toMatchObject({ code: 'room verification failed' });
+    });
   });
 
   describe('the "Recursos" resource endpoints', () => {

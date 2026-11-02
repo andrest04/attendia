@@ -12,6 +12,8 @@ import useFirebaseAuth, {
   NotificationMutationResult,
   NotificationReconcileResult,
   ReportFailureClaim,
+  TokenRequestOptions,
+  isRoomNotOpenRefusal,
 } from './useFirebaseAuth/useFirebaseAuth';
 import { useLocalStorageState } from '../hooks/useLocalStorageState/useLocalStorageState';
 import { User } from 'firebase/auth';
@@ -21,7 +23,7 @@ import { AttentionReport, RecordingArtifact, StoredAttentionReport } from '../co
 export interface StateContextType {
   error: TwilioError | Error | null;
   setError(error: TwilioError | Error | null): void;
-  getToken(name: string, room: string): Promise<{ room_type: RoomType; token: string }>;
+  getToken(name: string, room: string, options?: TokenRequestOptions): Promise<{ room_type: RoomType; token: string }>;
   user?: User | null;
   signIn?(): Promise<void>;
   signOut?(): Promise<void>;
@@ -157,10 +159,11 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
   // Decorator for the two operations that talk to the video server: it raises
   // `isFetching` for the duration of the call, runs `onSuccess` with the result, and on
   // failure surfaces the error to the app-level ErrorDialog before re-rejecting so
-  // callers can still react to it.
+  // callers can still react to it. A failure the caller expects skips the dialog only.
   function withFetching<Args extends any[], Result>(
     operation: (...args: Args) => Promise<Result>,
-    onSuccess?: (result: Result) => void
+    onSuccess?: (result: Result) => void,
+    isExpectedFailure?: (error: any, ...args: Args) => boolean
   ): (...args: Args) => Promise<Result> {
     return (...args: Args) => {
       setIsFetching(true);
@@ -171,7 +174,7 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
           return result;
         })
         .catch(err => {
-          setError(err);
+          if (!isExpectedFailure || !isExpectedFailure(err, ...args)) setError(err);
           setIsFetching(false);
           return Promise.reject(err);
         });
@@ -179,8 +182,12 @@ export default function AppStateProvider(props: React.PropsWithChildren<{}>) {
   }
 
   const getToken: StateContextType['getToken'] = withFetching(
-    (name, room) => contextValue.getToken(name, room),
-    res => setRoomType(res.room_type)
+    (name, room, options) => contextValue.getToken(name, room, options),
+    res => setRoomType(res.room_type),
+    // Auto-rejoin finding its room closed is the normal end of a stale session, not an error to
+    // announce: it clears the session and falls back on its own. Setting the app error here would
+    // also send useAutoRejoin's watcher down its connect-failure retry.
+    (err, _name, _room, options) => Boolean(options?.joinOnly) && isRoomNotOpenRefusal(err)
   );
 
   const updateRecordingRules: StateContextType['updateRecordingRules'] = withFetching((room_sid, rules) =>

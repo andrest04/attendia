@@ -32,6 +32,16 @@ import { featureFlags } from '../../utils/featureFlags';
 // Re-exported so existing importers keep working; the class lives with the API client.
 export { ClientApiError };
 
+export interface TokenRequestOptions {
+  /** Ask for a token only if the room is already open, instead of creating it (`create_room: false`). */
+  joinOnly?: boolean;
+}
+
+/** The room-access guard's answer to a request for a room that is not open. */
+export function isRoomNotOpenRefusal(error: unknown): boolean {
+  return error instanceof ClientApiError && error.status === 403 && error.code === 'room not found';
+}
+
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -387,13 +397,14 @@ export default function useFirebaseAuth() {
   }, []);
 
   const getToken = useCallback(
-    (user_identity: string, room_name: string) => {
+    (user_identity: string, room_name: string, options?: TokenRequestOptions) => {
       if (!user) return Promise.reject(sessionError());
       return createApiClient(user).json(process.env.REACT_APP_TOKEN_ENDPOINT || '/token', {
         method: 'POST',
         json: {
           user_identity,
           room_name,
+          ...(options?.joinOnly ? { create_room: false } : {}),
           create_conversation: !featureFlags.isConversationsDisabled(),
         },
       });

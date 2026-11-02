@@ -72,7 +72,7 @@ describe('the useAutoRejoin hook', () => {
     await flush();
 
     expect(getAudioAndVideoTracks).toHaveBeenCalledTimes(1);
-    expect(getToken).toHaveBeenCalledWith('Ana Lopez', 'prueba');
+    expect(getToken).toHaveBeenCalledWith('Ana Lopez', 'prueba', { joinOnly: true });
     expect(videoConnect).toHaveBeenCalledWith('fresh-token');
     expect(chatConnect).toHaveBeenCalledWith('fresh-token');
   });
@@ -83,7 +83,17 @@ describe('the useAutoRejoin hook', () => {
     renderHook(() => useAutoRejoin('prueba'));
     await flush();
 
-    expect(getToken).toHaveBeenCalledWith('Ana Lopez', 'prueba');
+    expect(getToken).toHaveBeenCalledWith('Ana Lopez', 'prueba', { joinOnly: true });
+  });
+
+  it('asks for a join-only token for a teacher too, so a refresh cannot recreate a closed room', async () => {
+    mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: 'Ana Lopez [Profesor]' });
+
+    renderHook(() => useAutoRejoin('prueba'));
+    await flush();
+
+    expect(getToken).toHaveBeenCalledWith('Ana Lopez [Profesor]', 'prueba', { joinOnly: true });
+    expect(videoConnect).toHaveBeenCalledWith('fresh-token');
   });
 
   it('skips chat connect when conversations are disabled', async () => {
@@ -180,11 +190,41 @@ describe('the useAutoRejoin hook', () => {
       await act(async () => {});
 
       expect(getToken).toHaveBeenCalledTimes(2);
+      expect(getToken).toHaveBeenLastCalledWith('Ana Lopez', 'prueba', { joinOnly: true });
       expect(videoConnect).toHaveBeenCalledTimes(2);
       expect(mockClearRejoinSession).not.toHaveBeenCalled();
       // The retry is still using the acquired media — it must NOT be released mid-flight.
       expect(removeLocalAudioTrack).not.toHaveBeenCalled();
       expect(removeLocalVideoTrack).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('clears the session and falls back when the room closed before the retry', async () => {
+    jest.useFakeTimers();
+    try {
+      mockGetResumableSession.mockReturnValue({ roomName: 'prueba', identity: 'Ana Lopez' });
+
+      const { result, rerender } = renderHook(() => useAutoRejoin('prueba'));
+      await act(async () => {
+        jest.advanceTimersByTime(0);
+      });
+
+      getToken.mockRejectedValue(new Error('room not found'));
+      mockUseAppState.mockImplementation(() => ({ getToken, error: new Error('connect failed'), setError }));
+      await act(async () => {
+        rerender();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(RETRY_DELAY_MS);
+      });
+      await act(async () => {});
+
+      expect(mockClearRejoinSession).toHaveBeenCalledTimes(1);
+      expect(result.current).toBe(false);
+      expect(removeLocalAudioTrack).toHaveBeenCalled();
+      expect(removeLocalVideoTrack).toHaveBeenCalled();
     } finally {
       jest.useRealTimers();
     }
