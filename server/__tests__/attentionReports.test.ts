@@ -235,6 +235,27 @@ describe('createPostReportHandler', () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  it('saves a report of a teacher who left without ending and keeps the class started', async () => {
+    const { db, transactionSet, transactionGet, transactionUpdate, userGet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    transactionGet.mockResolvedValue({ exists: true, data: () => ({ roomName: validReport.roomName }) });
+    const res = makeRes();
+
+    await createPostReportHandler(db, serverTimestamp, boundSession)(
+      { body: { ...validReport, classId: 'class-1', endReason: 'left' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(transactionSet).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ roomSid: VALID_ROOM_SID, endReason: 'left' }),
+      { merge: true }
+    );
+    expect(transactionUpdate).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
   it('returns 401 when the middleware did not attach a verified user', async () => {
     const { db, transactionSet, userGet } = makeDb();
     const handler = createPostReportHandler(db, serverTimestamp, boundSession);

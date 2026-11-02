@@ -24,6 +24,10 @@ import { teacherHandler } from './teacherHandler';
 
 const VALID_END_REASONS = ['ended-for-all', 'left'];
 
+// Only ending the session for everyone ends the class. A teacher who left can still rejoin the
+// open room, so the class stays started; POST /classes/reconcile completes it once the room closes.
+const CLASS_ENDING_REASONS = ['ended-for-all'];
+
 // Defensive caps on incoming arrays — the client-side producers already cap far
 // lower (alerts ≤3), so anything above these is a malformed payload.
 // Mirrors src/components/AttentionReport/reportMath.ts MAX_REPORT_TIMELINE_POINTS
@@ -313,7 +317,9 @@ export function createPostReportHandler(
           if (!classData || classData.roomName !== report.roomName) {
             throw HttpError.badRequest('class relation mismatch');
           }
-          transaction.update(classRef!, { status: 'completed', completedAt: serverTimestamp() });
+          if (CLASS_ENDING_REASONS.includes(report.endReason)) {
+            transaction.update(classRef!, { status: 'completed', completedAt: serverTimestamp() });
+          }
         }
         if (episodeRef) {
           const episode = episodeSnapshot!.data();

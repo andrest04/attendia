@@ -3,51 +3,58 @@ import {
   findReconcileCandidates,
   MAX_ROOMS_CHECKED_PER_CALL,
   ReconcilableClass,
+  ROOM_CREATION_MARGIN_MS,
   selectRoomsToCheck,
-  STALE_STARTED_CLASS_MS,
 } from '../classReconcile';
 import { ClassesDatabase } from '../classes';
 
 const NOW = 1800000000000;
-const DAY = 24 * 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+const DAY = 24 * 60 * MINUTE;
 
 const record = (overrides: Partial<ReconcilableClass>): ReconcilableClass => ({
   id: 'class-1',
   roomName: 'room-1',
   status: 'started',
-  scheduledAtMs: NOW - DAY,
-  startedAtMs: NOW - DAY,
+  scheduledAtMs: NOW - MINUTE,
+  startedAtMs: NOW - MINUTE,
   ...overrides,
 });
 
 const idsOf = (records: ReconcilableClass[]) => records.map(candidate => candidate.id);
 
 describe('findReconcileCandidates', () => {
-  it('uses a 7-day limit', () => {
-    expect(STALE_STARTED_CLASS_MS).toBe(7 * DAY);
+  it('uses a 10-minute margin', () => {
+    expect(ROOM_CREATION_MARGIN_MS).toBe(10 * MINUTE);
   });
 
-  it('leaves a recent started record alone', () => {
+  it('leaves a started record inside the margin alone, since its room may not exist yet', () => {
     expect(findReconcileCandidates([record({})], NOW)).toEqual([]);
   });
 
-  it('takes a started record older than the limit, and not one exactly at it', () => {
-    const older = record({ id: 'older', roomName: 'a', startedAtMs: NOW - 7 * DAY - 1 });
-    const atLimit = record({ id: 'at-limit', roomName: 'b', startedAtMs: NOW - 7 * DAY });
+  it('takes a started record older than the margin, and not one exactly at it', () => {
+    const older = record({ id: 'older', roomName: 'a', startedAtMs: NOW - 10 * MINUTE - 1 });
+    const atLimit = record({ id: 'at-limit', roomName: 'b', startedAtMs: NOW - 10 * MINUTE });
 
     expect(idsOf(findReconcileCandidates([older, atLimit], NOW))).toEqual(['older']);
   });
 
   it('measures age from startedAt, so restarting an old class makes it recent', () => {
-    const restarted = record({ scheduledAtMs: NOW - 30 * DAY, startedAtMs: NOW - DAY });
+    const restarted = record({ scheduledAtMs: NOW - 30 * DAY, startedAtMs: NOW - MINUTE });
 
     expect(findReconcileCandidates([restarted], NOW)).toEqual([]);
   });
 
   it('falls back to the schedule when a record has no startedAt', () => {
-    const legacy = record({ scheduledAtMs: NOW - 8 * DAY, startedAtMs: null });
+    const legacy = record({ scheduledAtMs: NOW - 11 * MINUTE, startedAtMs: null });
+    const legacyInsideMargin = record({
+      id: 'recent',
+      roomName: 'b',
+      scheduledAtMs: NOW - 9 * MINUTE,
+      startedAtMs: null,
+    });
 
-    expect(idsOf(findReconcileCandidates([legacy], NOW))).toEqual(['class-1']);
+    expect(idsOf(findReconcileCandidates([legacy, legacyInsideMargin], NOW))).toEqual(['class-1']);
   });
 
   it('does not call a record old when it has neither time', () => {
@@ -55,14 +62,14 @@ describe('findReconcileCandidates', () => {
   });
 
   it.each(['started', 'completed'])('takes a record superseded by a later %s record of the same room', status => {
-    const older = record({ id: 'older', scheduledAtMs: NOW - 2 * DAY });
-    const newer = record({ id: 'newer', scheduledAtMs: NOW - DAY, status });
+    const older = record({ id: 'older', scheduledAtMs: NOW - 2 * MINUTE });
+    const newer = record({ id: 'newer', scheduledAtMs: NOW - MINUTE, status });
 
     expect(idsOf(findReconcileCandidates([older, newer], NOW))).toEqual(['older']);
   });
 
   it('does not count a scheduled record, or another room, as superseding', () => {
-    const older = record({ id: 'older', scheduledAtMs: NOW - 2 * DAY });
+    const older = record({ id: 'older', scheduledAtMs: NOW - 2 * MINUTE });
     const scheduled = record({ id: 'scheduled', scheduledAtMs: NOW, status: 'scheduled' });
     const otherRoom = record({ id: 'other', roomName: 'room-2', scheduledAtMs: NOW });
 
@@ -205,8 +212,17 @@ describe('createReconcileClassesHandler', () => {
     expect(res.json).toHaveBeenCalledWith({ completed: 1 });
   });
 
-  it('leaves a recent single record for "Start again", without a lookup', async () => {
-    const { db, updates } = makeDb({ recent: startedDoc('r', 1) });
+  it('completes a closed room as soon as the record is past the margin', async () => {
+    const { db, updates } = makeDb({ ended: startedDoc('r', 11 / (24 * 60)) });
+
+    const { res } = await run(db);
+
+    expect(updates.map(update => update.id)).toEqual(['ended']);
+    expect(res.json).toHaveBeenCalledWith({ completed: 1 });
+  });
+
+  it('leaves a single record inside the margin alone, without a lookup', async () => {
+    const { db, updates } = makeDb({ recent: startedDoc('r', 5 / (24 * 60)) });
 
     const { res, roomExists } = await run(db);
 
@@ -216,7 +232,7 @@ describe('createReconcileClassesHandler', () => {
   });
 
   it('completes only the superseded record of a closed room', async () => {
-    const { db, updates } = makeDb({ older: startedDoc('r', 2), newer: startedDoc('r', 1) });
+    const { db, updates } = makeDb({ older: startedDoc('r', 2), newer: startedDoc('r', 5 / (24 * 60)) });
 
     const { res } = await run(db);
 

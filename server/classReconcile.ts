@@ -8,11 +8,14 @@ import { teacherHandler } from './teacherHandler';
 /*
  * Nothing tells this server a Twilio room ended, so a started class stays `started` until a report
  * names it, and old records and hidden duplicates pile up. POST /classes/reconcile, called once per
- * dashboard load, completes the ones that are over: stale or superseded, with a closed room.
+ * dashboard load, completes the ones that are over: past the margin or superseded, with a closed room.
  */
 
-/** A started class older than this, with its room closed, was never finished properly. */
-export const STALE_STARTED_CLASS_MS = 7 * 24 * 60 * 60 * 1000;
+/**
+ * The class is marked started before Twilio creates its room (the teacher still goes through the
+ * prejoin screens), so a younger record with no room is not over. Past this, a closed room means it is.
+ */
+export const ROOM_CREATION_MARGIN_MS = 10 * 60 * 1000;
 
 /** Twilio lookups per call; oldest first, so repeated calls drain a longer backlog. */
 export const MAX_ROOMS_CHECKED_PER_CALL = 10;
@@ -34,9 +37,9 @@ function isMoreRecent(candidate: ReconcilableClass, current: ReconcilableClass):
 
 const ageOriginMs = (classRecord: ReconcilableClass) => classRecord.startedAtMs ?? classRecord.scheduledAtMs;
 
-function isStale(classRecord: ReconcilableClass, nowMs: number): boolean {
+function isPastRoomCreationMargin(classRecord: ReconcilableClass, nowMs: number): boolean {
   const originMs = ageOriginMs(classRecord);
-  return originMs !== null && nowMs - originMs > STALE_STARTED_CLASS_MS;
+  return originMs !== null && nowMs - originMs > ROOM_CREATION_MARGIN_MS;
 }
 
 function isSuperseded(classRecord: ReconcilableClass, classes: ReconcilableClass[]): boolean {
@@ -55,7 +58,8 @@ export function findReconcileCandidates(classes: ReconcilableClass[], nowMs: num
   return classes
     .filter(
       classRecord =>
-        classRecord.status === 'started' && (isStale(classRecord, nowMs) || isSuperseded(classRecord, classes))
+        classRecord.status === 'started' &&
+        (isPastRoomCreationMargin(classRecord, nowMs) || isSuperseded(classRecord, classes))
     )
     .sort((a, b) => origin(a) - origin(b) || (a.id < b.id ? -1 : 1));
 }
@@ -122,8 +126,8 @@ export function createReconcileClassesHandler(
           const didComplete = await db.runTransaction(async transaction => {
             const snapshot = await transaction.get(docRef);
             const data = snapshot.data();
-            // A changed startedAt means "Start again" ran after the room lookup above: that room
-            // answer is out of date and the class is about to be in use.
+            // A changed startedAt means the class was started again after the room lookup above:
+            // that room answer is out of date and the class is about to be in use.
             if (
               !snapshot.exists ||
               !data ||
