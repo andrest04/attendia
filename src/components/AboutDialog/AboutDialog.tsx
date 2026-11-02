@@ -35,10 +35,10 @@ function AboutDialog({ open, onClose }: PropsWithChildren<AboutDialogProps>) {
           {t('about.appVersion')}: {packageJSON.version}
         </DialogContentText>
         <DialogContentText>
-          {t('about.deployedTag')}: {process.env.REACT_APP_GIT_TAG || 'N/A'}
+          {t('about.deployedTag')}: {process.env.REACT_APP_GIT_TAG || t('about.notAvailable')}
         </DialogContentText>
         <DialogContentText>
-          {t('about.deployedCommit')}: {process.env.REACT_APP_GIT_COMMIT || 'N/A'}
+          {t('about.deployedCommit')}: {process.env.REACT_APP_GIT_COMMIT || t('about.notAvailable')}
         </DialogContentText>
         {roomType && (
           <DialogContentText>

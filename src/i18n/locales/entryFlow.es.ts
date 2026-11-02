@@ -298,6 +298,7 @@ const entryFlow = {
       appVersion: 'Versión de la aplicación',
       deployedTag: 'Etiqueta desplegada',
       deployedCommit: 'Hash del commit desplegado',
+      notAvailable: 'N/D',
       roomType: 'Tipo de sala',
     },
     phoneBlocked: {

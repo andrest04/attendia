@@ -7,6 +7,7 @@ const completeErrors = {
   tokenFailed: 'No se pudo verificar tu sesión. Inténtalo de nuevo.',
   'room not found': 'La sala no está abierta.',
   '404:room not found': 'No encontramos esa sesión de clase.',
+  'phones not supported': 'Esta plataforma no está disponible en celulares. Ingresa desde un computador o tablet.',
   'teacher role required': 'Se necesita una cuenta de profesor para esta acción.',
   'identity in use': 'Ese nombre ya está en uso en esta clase por otra cuenta. Elegí otro nombre para entrar.',
   'file too large': 'El archivo supera el tamaño permitido.',

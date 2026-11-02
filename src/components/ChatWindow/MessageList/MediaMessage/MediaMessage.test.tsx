@@ -22,9 +22,13 @@ describe('the formatFileSize function', () => {
     { bytes: 2458769876, result: '2.29 GB' },
   ].forEach(testCase => {
     it(`should format ${testCase.bytes} to "${testCase.result}"`, () => {
-      expect(formatFileSize(testCase.bytes)).toBe(testCase.result);
+      expect(formatFileSize(testCase.bytes, 0, 'bytes', 'en')).toBe(testCase.result);
     });
   });
+});
+
+it('uses the Spanish decimal separator for Spanish', () => {
+  expect(formatFileSize(1234, 0, 'bytes', 'es')).toBe('1,21 KB');
 });
 
 describe('the MediaMessage component', () => {

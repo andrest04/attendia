@@ -11,6 +11,7 @@ const completeErrors: { [code: string]: string } = {
   '404:room not found': 'The class session was not found.',
   'room_name is required': 'The room name is required.',
   'room_sid is required': 'The room identifier is required.',
+  'phones not supported': 'This platform is not available on phones. Sign in from a computer or tablet.',
   'teacher role required': 'A teacher account is required for this action.',
   'profile role required': 'You do not have permission to modify this profile.',
   'not allowed': 'You do not have permission for this action.',

@@ -123,6 +123,17 @@ describe('createApiClient', () => {
     expect(error).toMatchObject({ status: 403, code: 'teacher role required', message: 'Solo profesores.' });
   });
 
+  it('maps the phone-block 403 to a localized message instead of the generic fallback', async () => {
+    setCurrentLanguage('en');
+    mockFetch.mockResolvedValueOnce(
+      response(403, { error: { message: 'phones not supported', explanation: 'Esta plataforma no está disponible en celulares.' } })
+    );
+    const error = await createApiClient(makeUser()).send('/token').catch(e => e);
+    expect(error.message).toBe(completeErrorsEn['phones not supported']);
+    expect(error.message).not.toBe(completeErrorsEn.requestFailed);
+    setCurrentLanguage('es');
+  });
+
   it('falls back to the status text, then a generic code, when the body has no error', async () => {
     mockFetch.mockResolvedValueOnce(response(500, {}, { json: () => Promise.reject(new Error('not json')) }));
     await expect(createApiClient(makeUser()).send('/x')).rejects.toMatchObject({ status: 500, code: 'status 500', message: 'No se pudo completar la solicitud.' });

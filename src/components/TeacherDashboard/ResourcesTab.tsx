@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatNumber } from '../../i18n/format';
 import clsx from 'clsx';
 import { makeStyles, Theme } from '@material-ui/core/styles';
 import AddIcon from '@material-ui/icons/Add';
@@ -255,8 +256,8 @@ function isViewableKind(kind: ResourceRecord['kind']): boolean {
   return kind !== 'zip';
 }
 
-function formatSizeLabel(bytes: number): string {
-  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+function formatSizeLabel(bytes: number, language: string): string {
+  if (bytes >= 1024 * 1024) return `${formatNumber(+(bytes / (1024 * 1024)).toFixed(1), { minimumFractionDigits: 1 }, language)} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${bytes} B`;
 }
@@ -455,7 +456,7 @@ export default function ResourcesTab({ classes: scheduledClasses, expiredClassId
                   {file.name}
                 </div>
                 <div className={classes.fileMeta}>
-                  {formatSizeLabel(file.sizeBytes)} · {formatDateLabel(file.createdAtMs, i18n.language)}
+                  {formatSizeLabel(file.sizeBytes, i18n.language)} · {formatDateLabel(file.createdAtMs, i18n.language)}
                 </div>
                 <div className={classes.fileActions}>
                   {isViewableKind(file.kind) && (

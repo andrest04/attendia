@@ -252,7 +252,7 @@ exports[`the messageList component should render correctly 1`] = `
             <p
               class="makeStyles-size-20"
             >
-              120.56 KB
+              120,56 KB
                - 
               Haz clic para abrir
             </p>

@@ -290,6 +290,7 @@ const entryFlow = {
       appVersion: 'App version',
       deployedTag: 'Deployed tag',
       deployedCommit: 'Deployed commit hash',
+      notAvailable: 'N/A',
       roomType: 'Room type',
     },
     phoneBlocked: {

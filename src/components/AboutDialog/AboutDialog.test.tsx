@@ -53,14 +53,14 @@ describe('the AboutDialog component', () => {
       process.env = {};
     });
 
-    it('should display N/A as the git tag', () => {
+    it('should display N/D as the git tag', () => {
       const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-      expect(getByText('Etiqueta desplegada: N/A')).toBeTruthy();
+      expect(getByText('Etiqueta desplegada: N/D')).toBeTruthy();
     });
 
     it('should disaply N/A as the commit hash', () => {
       const { getByText } = render(<AboutDialog open={true} onClose={() => {}} />);
-      expect(getByText('Hash del commit desplegado: N/A')).toBeTruthy();
+      expect(getByText('Hash del commit desplegado: N/D')).toBeTruthy();
     });
   });
 
