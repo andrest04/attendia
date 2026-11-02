@@ -8,6 +8,8 @@ import {
   findDuplicateScheduledClass,
   findExpiredClasses,
   MAX_FINISHED_SESSIONS,
+  MAX_PROBED_ROOMS,
+  selectProbedRooms,
 } from './classSessionsView';
 import { createI18n } from '../../i18n/createI18n';
 import { mockDashboardData } from './mockDashboardData';
@@ -374,6 +376,79 @@ describe('classSessionsView in English', () => {
 describe('started class sections', () => {
   const started = (overrides: Partial<ClassRecord>) => makeClass({ status: 'started', ...overrides });
   const idsOf = (sessions: { id: string }[]) => sessions.map(session => session.id);
+
+  describe('selectProbedRooms', () => {
+    const roomsDescending = (count: number) =>
+      Array.from({ length: count }, (_, index) =>
+        started({ id: `c-${index}`, roomName: `room-${index}`, scheduledAtMs: NOW_MS - index * 1000 })
+      );
+
+    it('allows 12 rooms, which stays under the rate limit at the probing cadence', () => {
+      expect(MAX_PROBED_ROOMS).toBe(12);
+    });
+
+    it('lists each room once, however many started records share it', () => {
+      const records = [
+        started({ id: 'a', roomName: 'shared', scheduledAtMs: NOW_MS - 2000 }),
+        started({ id: 'b', roomName: 'shared', scheduledAtMs: NOW_MS - 1000 }),
+        started({ id: 'c', roomName: 'other', scheduledAtMs: NOW_MS - 3000 }),
+      ];
+
+      expect(selectProbedRooms(records)).toEqual(['shared', 'other']);
+    });
+
+    it('ignores scheduled and completed classes', () => {
+      const records = [
+        makeClass({ id: 'a', roomName: 'scheduled', status: 'scheduled' }),
+        makeClass({ id: 'b', roomName: 'done', status: 'completed' }),
+      ];
+
+      expect(selectProbedRooms(records)).toEqual([]);
+    });
+
+    it('keeps the newest rooms when the list arrives oldest first', () => {
+      const rooms = selectProbedRooms(roomsDescending(14).reverse());
+
+      expect(rooms).toHaveLength(12);
+      expect(rooms[0]).toBe('room-0');
+      expect(rooms).not.toContain('room-12');
+      expect(rooms).not.toContain('room-13');
+    });
+
+    it('ranks a record without a schedule by its start time', () => {
+      const records = [
+        started({ id: 'a', roomName: 'scheduled', scheduledAtMs: NOW_MS - 5000 }),
+        started({ id: 'b', roomName: 'just-started', scheduledAtMs: null, startedAtMs: NOW_MS - 1000 }),
+        started({ id: 'c', roomName: 'long-ago', scheduledAtMs: null, startedAtMs: NOW_MS - 9000 }),
+      ];
+
+      expect(selectProbedRooms(records)).toEqual(['just-started', 'scheduled', 'long-ago']);
+    });
+
+    it('breaks ties by id, and ranks a record with no time at all last, whatever the input order', () => {
+      const records = [
+        started({ id: 'a', roomName: 'tie-low', scheduledAtMs: NOW_MS }),
+        started({ id: 'n', roomName: 'no-time', scheduledAtMs: null }),
+        started({ id: 'b', roomName: 'tie-high', scheduledAtMs: NOW_MS }),
+      ];
+      const expected = ['tie-high', 'tie-low', 'no-time'];
+
+      expect(selectProbedRooms(records)).toEqual(expected);
+      expect(selectProbedRooms([...records].reverse())).toEqual(expected);
+    });
+
+    it('leaves rooms outside the probed set out of both sections, whatever their last status', () => {
+      const records = roomsDescending(14);
+      const status = { 'room-12': true, 'room-13': false };
+
+      expect(idsOf(buildInProgressSessions(records, status, 'En curso'))).not.toContain('c-12');
+      expect(idsOf(buildFinishedSessions(records, status, 'Finalizada'))).not.toContain('c-13');
+    });
+
+    it('keeps a room inside the probed set in progress until its first answer', () => {
+      expect(idsOf(buildInProgressSessions(roomsDescending(12), {}, 'En curso'))).toContain('c-11');
+    });
+  });
 
   describe('buildInProgressSessions', () => {
     it('builds an in-progress card with the label the caller passes', () => {

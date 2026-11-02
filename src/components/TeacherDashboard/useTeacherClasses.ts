@@ -4,9 +4,9 @@ import { mockDashboardData } from './mockDashboardData';
 import { ClassRecord, CreateClassInput } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { StateContextType } from '../../state';
 import { toClassSessionDisplayName } from '../../classSession/classSessionTypes';
-import { checkRoomOpen } from '../../classSession/checkRoomOpen';
+import { checkRoomOpen, ROOM_PROBE_RATE_LIMITED } from '../../classSession/checkRoomOpen';
 import { shouldReprobe } from './roomProbeThrottle';
-import { buildMockClassesView, buildRealClassesView } from './classSessionsView';
+import { buildMockClassesView, buildRealClassesView, selectProbedRooms } from './classSessionsView';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
 
@@ -39,11 +39,12 @@ const NO_CLASS_COMMANDS: ClassCommands = {};
 export const ROOM_PROBE_INTERVAL_MS = 30000;
 
 /**
- * Latest `checkRoomOpen` result per room for the given rooms (the teacher's started classes):
+ * Latest `checkRoomOpen` result per room for the given rooms (selectProbedRooms' unique, bounded set):
  * probed once when the set of rooms appears and then every ROOM_PROBE_INTERVAL_MS while the tab
  * is visible. It also re-probes when the tab becomes visible / the window regains focus, but
  * never twice within REPROBE_MIN_GAP_MS. Keyed on the rooms' names, so a
- * class list reload does not restart the probing.
+ * class list reload does not restart the probing. A rate-limited probe says nothing about the room,
+ * so it keeps whatever is known; the next round asks again.
  */
 function useRoomOpenStatus(roomNames: string[]) {
   const [status, setStatus] = useState<Record<string, boolean | null>>({});
@@ -57,8 +58,9 @@ function useRoomOpenStatus(roomNames: string[]) {
     const probe = () => {
       lastProbeAtRef.current = Date.now();
       rooms.forEach(room =>
-        checkRoomOpen(room).then(open => {
-          if (!cancelled) setStatus(current => ({ ...current, [room]: open }));
+        checkRoomOpen(room, { reportRateLimit: true }).then(open => {
+          if (cancelled || open === ROOM_PROBE_RATE_LIMITED) return;
+          setStatus(current => ({ ...current, [room]: open }));
         })
       );
     };
@@ -139,9 +141,7 @@ export default function useTeacherClasses({
     ? buildRealClassesView(realClasses, Date.now(), { t, language })
     : buildMockClassesView(data);
   const expiredClassIds = new Set(expiredClasses.map(classRecord => classRecord.id));
-  const { status: startedRoomStatus } = useRoomOpenStatus(
-    hasRealClasses ? realClasses.filter(c => c.status === 'started').map(c => c.roomName) : []
-  );
+  const { status: startedRoomStatus } = useRoomOpenStatus(hasRealClasses ? selectProbedRooms(realClasses) : []);
 
   const cancelClass = (session: { id: string; title: string }) => {
     setCancellingClassId(session.id);

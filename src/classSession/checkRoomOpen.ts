@@ -12,10 +12,19 @@
  *   null  -> we could not determine it (network/server error). The caller should fall
  *            back to letting the student proceed; the POST /token room-access guard is
  *            the real gate and will still block a genuinely closed room.
+ *
+ * A caller that repeats the probe can ask for { reportRateLimit: true }: a 429 then resolves
+ * ROOM_PROBE_RATE_LIMITED, because it says nothing about the room and must not replace a known answer.
  */
 import { acceptLanguageHeader } from '../i18n/locale';
 
-export async function checkRoomOpen(roomName: string): Promise<boolean | null> {
+export const ROOM_PROBE_RATE_LIMITED = 'rate-limited';
+
+export type RoomProbeResult = boolean | null | typeof ROOM_PROBE_RATE_LIMITED;
+
+export function checkRoomOpen(roomName: string): Promise<boolean | null>;
+export function checkRoomOpen(roomName: string, options: { reportRateLimit: true }): Promise<RoomProbeResult>;
+export async function checkRoomOpen(roomName: string, options?: { reportRateLimit: true }): Promise<RoomProbeResult> {
   if (!roomName) return null;
 
   try {
@@ -23,6 +32,7 @@ export async function checkRoomOpen(roomName: string): Promise<boolean | null> {
       headers: { Accept: 'application/json', ...acceptLanguageHeader() },
     });
 
+    if (response.status === 429 && options?.reportRateLimit) return ROOM_PROBE_RATE_LIMITED;
     if (!response.ok) return null;
 
     const data = await response.json();

@@ -183,12 +183,18 @@ export function buildUpcomingSessions(
   );
 }
 
-/** The newest schedule wins; a record without a date is the oldest and a tie goes to the greatest id. */
+/**
+ * The newest schedule wins; a record without one ranks by when it started, a record with neither is
+ * the oldest and a tie goes to the greatest id. server/classReconcile.ts mirrors this order.
+ */
 function isMoreRecentlyScheduled(candidate: ClassRecord, current: ClassRecord): boolean {
-  const candidateMs = candidate.scheduledAtMs ?? -Infinity;
-  const currentMs = current.scheduledAtMs ?? -Infinity;
+  const candidateMs = candidate.scheduledAtMs ?? candidate.startedAtMs ?? -Infinity;
+  const currentMs = current.scheduledAtMs ?? current.startedAtMs ?? -Infinity;
   return candidateMs === currentMs ? candidate.id > current.id : candidateMs > currentMs;
 }
+
+/** 12 rooms, re-probed every 30 s, is 24 of the 30 requests a minute `/rooms/:name/open` allows per IP. */
+export const MAX_PROBED_ROOMS = 12;
 
 /** Latest `checkRoomOpen` result per room name; a room missing here has not been probed yet. */
 export type RoomOpenStatus = Record<string, boolean | null>;
@@ -212,6 +218,20 @@ function latestStartedRecordPerRoom(classes: ClassRecord[]): ClassRecord[] {
   return Array.from(recordByRoom.values());
 }
 
+/** The rooms the dashboard can vouch for: each started room once, the newest MAX_PROBED_ROOMS, newest first. */
+export function selectProbedRooms(classes: ClassRecord[]): string[] {
+  return latestStartedRecordPerRoom(classes)
+    .sort((a, b) => (isMoreRecentlyScheduled(a, b) ? -1 : 1))
+    .slice(0, MAX_PROBED_ROOMS)
+    .map(classRecord => classRecord.roomName);
+}
+
+/** A room outside the probed set never gets an answer, so it would sit on "checking" forever: it is not shown. */
+function probedStartedRecords(classes: ClassRecord[]): ClassRecord[] {
+  const probedRooms = new Set(selectProbedRooms(classes));
+  return latestStartedRecordPerRoom(classes).filter(classRecord => probedRooms.has(classRecord.roomName));
+}
+
 function isRoomClosed(classRecord: ClassRecord, roomStatus: RoomOpenStatus): boolean {
   return resolveClassAction(classRecord.status, roomStatus[classRecord.roomName]) === 'closed-restart';
 }
@@ -233,25 +253,25 @@ function toStartedSession(classRecord: ClassRecord, dayLabel: string): UpcomingS
 
 /**
  * Started classes whose room may still be running: open, not yet probed or inconclusive. One card
- * per room. A scheduled class sharing the room is a distinct session and hides nothing here.
+ * per probed room. A scheduled class sharing the room is a distinct session and hides nothing here.
  */
 export function buildInProgressSessions(
   classes: ClassRecord[],
   roomStatus: RoomOpenStatus,
   dayLabel: string
 ): UpcomingSession[] {
-  return latestStartedRecordPerRoom(classes)
+  return probedStartedRecords(classes)
     .filter(classRecord => !isRoomClosed(classRecord, roomStatus))
     .map(classRecord => toStartedSession(classRecord, dayLabel));
 }
 
-/** Started classes whose room is confirmed closed: one card per room, most recent first, capped. */
+/** Started classes whose room is confirmed closed: one card per probed room, most recent first, capped. */
 export function buildFinishedSessions(
   classes: ClassRecord[],
   roomStatus: RoomOpenStatus,
   dayLabel: string
 ): UpcomingSession[] {
-  return latestStartedRecordPerRoom(classes)
+  return probedStartedRecords(classes)
     .filter(classRecord => isRoomClosed(classRecord, roomStatus))
     .sort((a, b) => (isMoreRecentlyScheduled(a, b) ? -1 : 1))
     .slice(0, MAX_FINISHED_SESSIONS)

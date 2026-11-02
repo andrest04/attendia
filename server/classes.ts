@@ -2,6 +2,7 @@ import { RequestHandler } from 'express';
 import { ParseResult, parseFail, parseOk, sendBadRequest, sendError, sendParseError } from './http';
 import { canonicalNotificationId } from './notifications';
 import { readInbox, readInboxItems, retractInboxItems } from './notificationInbox';
+import { timestampMillis } from './firestoreTime';
 import { teacherHandler } from './teacherHandler';
 
 /*
@@ -172,7 +173,8 @@ export function createGetClassesHandler(db: ClassesDatabase): RequestHandler {
         const data = doc.data() || {};
         const scheduledAtMs =
           data.scheduledAt && typeof data.scheduledAt.toMillis === 'function' ? data.scheduledAt.toMillis() : null;
-        return toClassResponse(doc.id, data, scheduledAtMs);
+        const startedAtMs = timestampMillis(data.startedAt);
+        return { ...toClassResponse(doc.id, data, scheduledAtMs), ...(startedAtMs === null ? {} : { startedAtMs }) };
       });
 
       res.status(200).json(classes);

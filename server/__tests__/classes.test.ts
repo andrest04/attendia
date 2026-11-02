@@ -161,6 +161,25 @@ describe('createGetClassesHandler', () => {
     ]);
   });
 
+  it('exposes when a started class started, and nothing for a class that has not', async () => {
+    const { db, userGet, classesGet } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    const startedAt = { toMillis: () => 5000 };
+    classesGet.mockResolvedValue({
+      docs: [
+        { id: 'started', data: () => ({ title: 'A', roomName: 'a', status: 'started', startedAt }) },
+        { id: 'scheduled', data: () => ({ title: 'B', roomName: 'b', status: 'scheduled' }) },
+      ],
+    });
+    const res = makeRes();
+
+    await createGetClassesHandler(db)({} as any, res, jest.fn());
+
+    const [scheduled, started] = res.json.mock.calls[0][0];
+    expect(started.startedAtMs).toBe(5000);
+    expect(scheduled).not.toHaveProperty('startedAtMs');
+  });
+
   it('keeps the NEWEST 200 classes (started/completed docs stay), shown oldest to newest', async () => {
     const { db, userGet, orderBy, limit, classesGet } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });

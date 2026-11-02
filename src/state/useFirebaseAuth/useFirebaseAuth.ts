@@ -308,6 +308,8 @@ export interface ClassRecord {
   studentCount: number;
   durationMinutes: number;
   status?: 'scheduled' | 'started' | 'completed';
+  /** Only on a class that has been started. */
+  startedAtMs?: number;
 }
 
 export interface CreateClassInput {

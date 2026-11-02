@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import useTeacherClasses, { UseTeacherClassesParams } from './useTeacherClasses';
 import { mockDashboardData } from './mockDashboardData';
-import { checkRoomOpen } from '../../classSession/checkRoomOpen';
+import { checkRoomOpen, ROOM_PROBE_RATE_LIMITED } from '../../classSession/checkRoomOpen';
 import { ClassRecord } from '../../state/useFirebaseAuth/useFirebaseAuth';
 import { getLocale, setLocale, Locale } from '../../i18n/locale';
 
@@ -537,6 +537,72 @@ describe('useTeacherClasses', () => {
       expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
       expect(mockCheckRoomOpen).not.toHaveBeenCalledWith('algebra');
       expect(result.current.startedRoomStatus).toEqual({ abierta: true, otra: false });
+    });
+
+    it('probes a room once per round, however many started records share it', async () => {
+      setup({}, [started, { ...started, id: 'c-started-dup' }, started2]);
+      await flush();
+
+      expect(mockCheckRoomOpen.mock.calls.map(([room]) => room).sort()).toEqual(['abierta', 'otra']);
+    });
+
+    it('probes only the newest 12 rooms of a long list that arrives oldest first', async () => {
+      const records = Array.from({ length: 14 }, (_, index) => ({
+        ...started,
+        id: `c-${index}`,
+        roomName: `room-${index}`,
+        scheduledAtMs: NOW - (13 - index) * HOUR,
+      }));
+      setup({}, records);
+      await flush();
+
+      const probed = mockCheckRoomOpen.mock.calls.map(([room]) => room);
+      expect(probed).toHaveLength(12);
+      expect(probed).not.toContain('room-0');
+      expect(probed).not.toContain('room-1');
+      expect(probed).toContain('room-13');
+    });
+
+    it('keeps the last known status when a later probe is rate limited', async () => {
+      jest.useFakeTimers();
+      mockCheckRoomOpen.mockResolvedValueOnce(false).mockResolvedValueOnce(ROOM_PROBE_RATE_LIMITED);
+      const { result } = setup({}, [started]);
+      await flush();
+      expect(result.current.startedRoomStatus).toEqual({ abierta: false });
+
+      await act(async () => {
+        jest.advanceTimersByTime(30000);
+      });
+
+      expect(mockCheckRoomOpen).toHaveBeenCalledTimes(2);
+      expect(result.current.startedRoomStatus).toEqual({ abierta: false });
+    });
+
+    it('leaves a room unprobed when its first probe is rate limited, and fills it in on the next one', async () => {
+      jest.useFakeTimers();
+      mockCheckRoomOpen.mockResolvedValueOnce(ROOM_PROBE_RATE_LIMITED).mockResolvedValueOnce(true);
+      const { result } = setup({}, [started]);
+      await flush();
+      expect(result.current.startedRoomStatus).toEqual({});
+
+      await act(async () => {
+        jest.advanceTimersByTime(30000);
+      });
+
+      expect(result.current.startedRoomStatus).toEqual({ abierta: true });
+    });
+
+    it('still overwrites a known status with an inconclusive probe', async () => {
+      jest.useFakeTimers();
+      mockCheckRoomOpen.mockResolvedValueOnce(true).mockResolvedValueOnce(null);
+      const { result } = setup({}, [started]);
+      await flush();
+
+      await act(async () => {
+        jest.advanceTimersByTime(30000);
+      });
+
+      expect(result.current.startedRoomStatus).toEqual({ abierta: null });
     });
 
     it('does not probe anything when no class is started', async () => {

@@ -1,4 +1,4 @@
-import { checkRoomOpen } from './checkRoomOpen';
+import { checkRoomOpen, ROOM_PROBE_RATE_LIMITED } from './checkRoomOpen';
 
 describe('checkRoomOpen', () => {
   const originalFetch = global.fetch;
@@ -44,6 +44,36 @@ describe('checkRoomOpen', () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ nope: 1 }) }) as any;
 
     await expect(checkRoomOpen('p')).resolves.toBeNull();
+  });
+
+  it('keeps reporting a 429 as inconclusive by default', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 429, json: () => Promise.resolve({}) }) as any;
+
+    await expect(checkRoomOpen('p')).resolves.toBeNull();
+  });
+
+  describe('when asked to report rate limiting', () => {
+    const options = { reportRateLimit: true } as const;
+
+    it('tells a 429 apart from an inconclusive answer', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 429, json: () => Promise.resolve({}) }) as any;
+
+      await expect(checkRoomOpen('p', options)).resolves.toBe(ROOM_PROBE_RATE_LIMITED);
+    });
+
+    it('still reports any other failure as inconclusive', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503, json: () => Promise.resolve({}) }) as any;
+
+      await expect(checkRoomOpen('p', options)).resolves.toBeNull();
+    });
+
+    it('still reports a real answer', async () => {
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ open: false }) }) as any;
+
+      await expect(checkRoomOpen('p', options)).resolves.toBe(false);
+    });
   });
 
   it('returns null without calling fetch for an empty room name', async () => {
