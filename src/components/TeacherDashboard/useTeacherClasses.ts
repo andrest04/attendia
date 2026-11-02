@@ -8,6 +8,7 @@ import { checkRoomOpen, ROOM_PROBE_RATE_LIMITED } from '../../classSession/check
 import { shouldReprobe } from './roomProbeThrottle';
 import { buildMockClassesView, buildRealClassesView, selectProbedRooms } from './classSessionsView';
 import useConfirmDialog from '../../hooks/useConfirmDialog/useConfirmDialog';
+import useLatest from '../../hooks/useLatest/useLatest';
 import useReloadableResource from '../../hooks/useReloadableResource/useReloadableResource';
 
 export interface UseTeacherClassesParams {
@@ -15,6 +16,7 @@ export interface UseTeacherClassesParams {
   createClass?: StateContextType['createClass'];
   deleteClass?: StateContextType['deleteClass'];
   startClass?: StateContextType['startClass'];
+  reconcileClasses?: StateContextType['reconcileClasses'];
   professorName: string;
   onStartClass: (session: { roomName: string; name: string; classId?: string }) => void;
   /** Refreshes the notification bell after a class-cancel mutation — see notifications.refresh() below. */
@@ -97,6 +99,7 @@ export default function useTeacherClasses({
   createClass,
   deleteClass,
   startClass,
+  reconcileClasses,
   professorName,
   onStartClass,
   refreshNotifications,
@@ -136,6 +139,26 @@ export default function useTeacherClasses({
   const cancelExpiredDialog = useConfirmDialog();
 
   const hasRealClasses = Boolean(fetchClasses && createClass && deleteClass && startClass);
+
+  // Once per dashboard mount: housekeeping the teacher never asked for, so a failure stays silent.
+  const loadClassesRef = useLatest(loadClasses);
+  const hasReconciledRef = useRef(false);
+  const isUnmountedRef = useRef(false);
+  useEffect(() => {
+    if (!hasRealClasses || !reconcileClasses || hasReconciledRef.current) return;
+    hasReconciledRef.current = true;
+    reconcileClasses()
+      .then(({ completed }) => {
+        if (completed > 0 && !isUnmountedRef.current) loadClassesRef.current();
+      })
+      .catch(() => {});
+  }, [hasRealClasses, reconcileClasses, loadClassesRef]);
+  useEffect(
+    () => () => {
+      isUnmountedRef.current = true;
+    },
+    []
+  );
 
   const { sessions, expiredSessions, expiredClasses, dateLabel } = hasRealClasses
     ? buildRealClassesView(realClasses, Date.now(), { t, language })

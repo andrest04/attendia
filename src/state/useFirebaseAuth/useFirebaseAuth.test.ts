@@ -647,6 +647,22 @@ describe('the useFirebaseAuth hook', () => {
     expect(result.current.profile).toBe(null);
   });
 
+  it('posts the class reconcile with the idToken and returns how many classes it completed', async () => {
+    mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));
+    const { result } = renderHook(() => useFirebaseAuth());
+    await act(async () => {
+      await mockAuthStateCallback(mockUser);
+    });
+
+    mockFetch.mockResolvedValueOnce(profileResponse(200, { completed: 3 }));
+    await expect(result.current.reconcileClasses()).resolves.toEqual({ completed: 3 });
+
+    const [url, init] = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
+    expect(url).toBe('/classes/reconcile');
+    expect(init.method).toBe('POST');
+    expect(init.headers.Authorization).toBe('idToken');
+  });
+
   it('should include the users idToken in requests to the video token server and reject on non-OK', async () => {
     process.env.REACT_APP_TOKEN_ENDPOINT = 'http://test-endpoint.com/token';
     mockFetch.mockResolvedValueOnce(profileResponse(200, mockProfile));

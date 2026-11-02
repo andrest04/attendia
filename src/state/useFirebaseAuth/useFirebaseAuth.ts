@@ -335,6 +335,10 @@ const deleteClassRequest = (user: User, id: string): Promise<void> =>
 const startClassRequest = (user: User, id: string, roomName: string): Promise<void> =>
   createApiClient(user).send(`/classes/${encodeURIComponent(id)}/start`, { method: 'POST', json: { roomName } });
 
+// POST /classes/reconcile — completes the started classes that are really over.
+const reconcileClassesRequest = (user: User): Promise<{ completed: number }> =>
+  createApiClient(user).json('/classes/reconcile', { method: 'POST' });
+
 export default function useFirebaseAuth() {
   const { t, i18n } = useTranslation('errors');
   const i18nRef = useRef(i18n);
@@ -772,6 +776,11 @@ export default function useFirebaseAuth() {
     [user, withUser]
   );
 
+  const reconcileClasses = useMemo(
+    () => withUser(user, 'Cannot reconcile classes without an authenticated user', reconcileClassesRequest),
+    [user, withUser]
+  );
+
   const signOut = useCallback(() => {
     return getAuth()
       .signOut()
@@ -819,5 +828,6 @@ export default function useFirebaseAuth() {
     createClass,
     deleteClass,
     startClass,
+    reconcileClasses,
   };
 }

@@ -704,6 +704,38 @@ describe('createStartClassHandler', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
+  it('refreshes startedAt when a started class is started again, so it counts as recent', async () => {
+    const { db, userGet, docGet, update } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ roomName: 'algebra-lineal', status: 'started' }) });
+    const res = makeRes();
+
+    await createStartClassHandler(db, serverTimestamp)(
+      { params: { id: 'class-1' }, body: { roomName: 'algebra-lineal' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(update).toHaveBeenCalledWith({ startedAt: 'server-timestamp' });
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('leaves a completed class untouched', async () => {
+    const { db, userGet, docGet, update } = makeDb();
+    userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });
+    docGet.mockResolvedValue({ exists: true, data: () => ({ roomName: 'algebra-lineal', status: 'completed' }) });
+    const res = makeRes();
+
+    await createStartClassHandler(db, serverTimestamp)(
+      { params: { id: 'class-1' }, body: { roomName: 'algebra-lineal' } } as any,
+      res,
+      jest.fn()
+    );
+
+    expect(update).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
   it('rejects a roomName that does not match the scheduled class', async () => {
     const { db, userGet, docGet, update } = makeDb();
     userGet.mockResolvedValue({ exists: true, data: () => teacherProfile });

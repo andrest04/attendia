@@ -82,6 +82,7 @@ export interface StateContextType {
   }): Promise<ClassRecord>;
   deleteClass?(id: string): Promise<void>;
   startClass?(id: string, roomName: string): Promise<void>;
+  reconcileClasses?(): Promise<{ completed: number }>;
   isFetching: boolean;
   activeSinkId: string;
   setActiveSinkId(sinkId: string): void;

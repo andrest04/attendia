@@ -521,6 +521,78 @@ describe('useTeacherClasses', () => {
     });
   });
 
+  describe('reconciling started classes', () => {
+    it('asks once on mount and reloads the list only when something was completed', async () => {
+      const reconcileClasses = jest.fn(() => Promise.resolve({ completed: 2 }));
+      const { params, rerender } = setup({ reconcileClasses });
+      await flush();
+      rerender();
+      await flush();
+
+      expect(reconcileClasses).toHaveBeenCalledTimes(1);
+      expect(params.fetchClasses).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not reload when nothing was completed', async () => {
+      const { params } = setup({ reconcileClasses: jest.fn(() => Promise.resolve({ completed: 0 })) });
+      await flush();
+
+      expect(params.fetchClasses).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores a failure silently', async () => {
+      const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const { params, result } = setup({ reconcileClasses: jest.fn(() => Promise.reject(new Error('nope'))) });
+      await flush();
+
+      expect(params.fetchClasses).toHaveBeenCalledTimes(1);
+      expect(result.current.classesError).toBeNull();
+      expect(errorSpy).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it('does not ask again on the re-probe timer', async () => {
+      jest.useFakeTimers();
+      const reconcileClasses = jest.fn(() => Promise.resolve({ completed: 0 }));
+      setup({ reconcileClasses }, [started]);
+      await flush();
+
+      await act(async () => {
+        jest.advanceTimersByTime(120000);
+      });
+
+      expect(reconcileClasses).toHaveBeenCalledTimes(1);
+      jest.useRealTimers();
+    });
+
+    it('does not reload after the dashboard has unmounted', async () => {
+      let answer: (value: { completed: number }) => void = () => undefined;
+      const reconcileClasses = jest.fn(
+        () =>
+          new Promise<{ completed: number }>(resolve => {
+            answer = resolve;
+          })
+      );
+      const { params, unmount } = setup({ reconcileClasses });
+      await flush();
+      unmount();
+
+      await act(async () => {
+        answer({ completed: 1 });
+      });
+
+      expect(params.fetchClasses).toHaveBeenCalledTimes(1);
+    });
+
+    it('does nothing without the real classes API', async () => {
+      const reconcileClasses = jest.fn(() => Promise.resolve({ completed: 1 }));
+      setup({ reconcileClasses, startClass: undefined });
+      await flush();
+
+      expect(reconcileClasses).not.toHaveBeenCalled();
+    });
+  });
+
   describe('started room status', () => {
     const started2: ClassRecord = { ...started, id: 'c-started-2', title: 'Otra', roomName: 'otra' };
 

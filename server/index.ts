@@ -57,6 +57,7 @@ import {
   createDeleteClassHandler,
   createStartClassHandler,
 } from './classes';
+import { createReconcileClassesHandler } from './classReconcile';
 import multer from 'multer';
 import { createFirebaseAuthMiddleware } from './firebaseAuthMiddleware';
 import { createGetLiveReportHandler, createPutLiveReportHandler } from './liveReports';
@@ -230,6 +231,7 @@ app.delete('/resources/:id', authMiddleware, createDeleteResourceHandler(firesto
 // role checks and the server-side title-to-roomName slugify.
 app.get('/classes', authMiddleware, createGetClassesHandler(firestore));
 app.post('/classes', authMiddleware, createCreateClassHandler(firestore, serverTimestamp));
+app.post('/classes/reconcile', authMiddleware, createReconcileClassesHandler(firestore, roomExists, serverTimestamp));
 app.post('/classes/:id/start', authMiddleware, createStartClassHandler(firestore, serverTimestamp));
 app.delete('/classes/:id', authMiddleware, createDeleteClassHandler(firestore));
 

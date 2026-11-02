@@ -121,7 +121,7 @@ export interface ClassesDatabase {
   runTransaction<T>(updateFunction: (transaction: ClassTransaction) => Promise<T>): Promise<T>;
 }
 
-const TEACHER_ONLY_EXPLANATION = 'Las clases programadas solo están disponibles para profesores.';
+export const TEACHER_ONLY_EXPLANATION = 'Las clases programadas solo están disponibles para profesores.';
 
 function toClassResponse(id: string, data: { [key: string]: any }, scheduledAtMs: number | null) {
   return {
@@ -135,12 +135,29 @@ function toClassResponse(id: string, data: { [key: string]: any }, scheduledAtMs
   };
 }
 
-function getOwnedClass(db: ClassesDatabase, uid: string, id: string) {
+export function getOwnedClass(db: ClassesDatabase, uid: string, id: string) {
   return db
     .collection('users')
     .doc(uid)
     .collection('classes')
     .doc(id);
+}
+
+/**
+ * Single-field orderBy on a subcollection — no composite index required. Cancelling a class
+ * hard-deletes its doc (createDeleteClassHandler), but started and completed classes STAY, so
+ * the collection keeps growing with past sessions. Reading newest first keeps the most recent
+ * MAX_CLASSES_RETURNED (upcoming and recent classes) instead of the oldest ones.
+ */
+export async function readNewestClassDocs(db: ClassesDatabase, uid: string): Promise<ClassDocumentSnapshot[]> {
+  const snapshot = await db
+    .collection('users')
+    .doc(uid)
+    .collection('classes')
+    .orderBy('scheduledAt', 'desc')
+    .limit(MAX_CLASSES_RETURNED)
+    .get();
+  return snapshot.docs;
 }
 
 export function createGetClassesHandler(db: ClassesDatabase): RequestHandler {
@@ -156,20 +173,8 @@ export function createGetClassesHandler(db: ClassesDatabase): RequestHandler {
       },
     },
     async ({ uid, res }) => {
-      // Single-field orderBy on a subcollection — no composite index required. Cancelling
-      // a class hard-deletes its doc (createDeleteClassHandler), but started and completed
-      // classes STAY, so the collection keeps growing with past sessions. Reading newest
-      // first and reversing in memory keeps the most recent MAX_CLASSES_RETURNED (upcoming
-      // and recent classes) instead of the oldest ones, still in ascending display order.
-      const snapshot = await db
-        .collection('users')
-        .doc(uid)
-        .collection('classes')
-        .orderBy('scheduledAt', 'desc')
-        .limit(MAX_CLASSES_RETURNED)
-        .get();
-
-      const classes = [...snapshot.docs].reverse().map(doc => {
+      // Reversed in memory for the ascending display order.
+      const classes = [...(await readNewestClassDocs(db, uid))].reverse().map(doc => {
         const data = doc.data() || {};
         const scheduledAtMs =
           data.scheduledAt && typeof data.scheduledAt.toMillis === 'function' ? data.scheduledAt.toMillis() : null;
@@ -384,7 +389,10 @@ export function createDeleteClassHandler(
   );
 }
 
-/** Marks a verified teacher's scheduled class as started after its token was issued. */
+/**
+ * Marks a verified teacher's scheduled class as started after its token was issued. Starting a
+ * started class again ("Start again") refreshes startedAt, so reconcile counts it as recent.
+ */
 export function createStartClassHandler(db: ClassesDatabase, serverTimestamp: () => unknown): RequestHandler {
   return teacherHandler(
     db,
@@ -412,6 +420,8 @@ export function createStartClassHandler(db: ClassesDatabase, serverTimestamp: ()
       }
       if (data.status === 'scheduled') {
         await docRef.update({ status: 'started', startedAt: serverTimestamp() });
+      } else if (data.status === 'started') {
+        await docRef.update({ startedAt: serverTimestamp() });
       }
       res.status(200).json({ started: true });
     }

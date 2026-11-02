@@ -52,6 +52,14 @@ describe('server/index.ts security wiring', () => {
     expect(indexSource()).toMatch(/app\.get\('\/rooms\/:roomName\/ownership', authMiddleware, createRoomOwnerStatusHandler\(firestore\)\);/);
   });
 
+  it('mounts the class reconcile behind authMiddleware, ahead of the per-class routes', () => {
+    const source = indexSource();
+    expect(source).toMatch(
+      /app\.post\('\/classes\/reconcile', authMiddleware, createReconcileClassesHandler\(firestore, roomExists, serverTimestamp\)\);/
+    );
+    expect(source.indexOf("'/classes/reconcile'")).toBeLessThan(source.indexOf("'/classes/:id/start'"));
+  });
+
   it('checks room ownership on /completeRoom', () => {
     expect(indexSource()).toMatch(/app\.post\('\/completeRoom', authMiddleware, createCompleteRoomHandler\(twilioClient, firestore\)\);/);
   });
