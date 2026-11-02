@@ -64,7 +64,7 @@ Forecast: under 400 authored changed lines, delivery strategy `ask-on-risk`.
 
 ### T3
 
-- Commit: pending.
+- Commit: `2e595aa`.
 - RED: 17 failures in `npm test -- src/components/TeacherDashboard/classSessionsView.test.ts` ("Tests: 17 failed, 33 passed, 50 total").
 - GREEN: 82 tests passed on that file plus `ClassesTab.test.tsx`.
 - Checks: `npm test -- src/components/TeacherDashboard src/i18n` 428 passed; `npx tsc --noEmit -p .` clean; `CI=true npm run lint` clean.
