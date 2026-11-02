@@ -3,6 +3,9 @@ import spanishTranslator from '../../i18n/spanishTranslator';
 import completeErrorsEn from '../../i18n/locales/completeErrors.en';
 import completeErrorsEs from '../../i18n/locales/completeErrors.es';
 
+/** twilio-video ParticipantDuplicateIdentityError: a newer connection with this identity replaced this one. */
+export const DUPLICATE_IDENTITY_ERROR_CODE = 53205;
+
 // This function is used to provide error messages to the user that are
 // different than the error messages provided by the SDK.
 export default function enhanceMessage(
@@ -26,6 +29,8 @@ export default function enhanceMessage(
   switch (true) {
     case code === 20101: // Invalid token error
       return t('errors:enhanced.invalidToken');
+    case code === DUPLICATE_IDENTITY_ERROR_CODE:
+      return t('errors:enhanced.replacedByNewerConnection');
     case message === 'Permission denied by system':
       return t('errors:enhanced.screenShareSystemDenied');
     case permissionDenied:

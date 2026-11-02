@@ -1,5 +1,5 @@
-import React, { ReactNode, useCallback, useMemo, useState } from 'react';
-import { ConnectOptions, LocalVideoTrack } from 'twilio-video';
+import React, { ReactNode, useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { ConnectOptions, LocalVideoTrack, Room, TwilioError } from 'twilio-video';
 import { ErrorCallback } from '../../types';
 import { VideoContext } from './videoContext';
 import { SelectedParticipantProvider } from './useSelectedParticipant/useSelectedParticipant';
@@ -16,6 +16,7 @@ import { useAppState } from '../../state';
 import { isTeacherIdentity } from '../../classSession/classSessionTypes';
 import { clearRejoinSession } from '../../classSession/rejoinSession';
 import { selectCameraTrack } from '../../utils/trackSelectors';
+import { DUPLICATE_IDENTITY_ERROR_CODE } from '../ErrorDialog/enhanceMessage';
 
 /*
  *  The hooks used by the VideoProvider component are different than the hooks found in the 'hooks/' directory. The hooks
@@ -69,6 +70,20 @@ export function VideoProvider({ options, children, onError = () => {} }: VideoPr
     },
     [room, onError, setSessionEndedByProfessor]
   );
+
+  // The latest connection wins: once a newer one replaced this tab, reconnecting from here would
+  // kick it back out. A layout effect subscribes before every descendant's passive effect, so the
+  // session is gone before useRoomState's listener mounts the lobby and useAutoRejoin reads it.
+  useLayoutEffect(() => {
+    if (!room) return;
+    const clearSessionWhenReplaced = (_: Room, error?: TwilioError) => {
+      if (error?.code === DUPLICATE_IDENTITY_ERROR_CODE) clearRejoinSession();
+    };
+    room.on('disconnected', clearSessionWhenReplaced);
+    return () => {
+      room.off('disconnected', clearSessionWhenReplaced);
+    };
+  }, [room]);
 
   // Register callback functions to be called on room disconnect.
   useHandleRoomDisconnection(

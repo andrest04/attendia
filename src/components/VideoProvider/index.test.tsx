@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { renderHook } from '@testing-library/react-hooks';
 import { Room, TwilioError } from 'twilio-video';
 import { VideoProvider } from './index';
@@ -140,6 +140,78 @@ describe('the VideoProvider component', () => {
       disconnectionOnError('student-bob', onError)(other);
       expect(setEnded).not.toHaveBeenCalled();
       expect(onError).toHaveBeenCalledWith(other);
+    });
+  });
+
+  describe('when a newer connection replaces this one (TwilioError 53205)', () => {
+    const replaced = { code: 53205, message: 'Participant disconnected because of duplicate identity' } as TwilioError;
+    const setEnded = jest.fn();
+
+    function renderProvider(identity: string, onError: jest.Mock, children: React.ReactNode = null) {
+      (mockRoom as any).localParticipant = { identity };
+      mockUseAppState.mockImplementation(() => ({ isGalleryViewActive: false, setSessionEndedByProfessor: setEnded }));
+      const wrapper: React.FC = ({ children: hookChild }) => (
+        <VideoProvider onError={onError} options={{ dominantSpeaker: true }}>
+          {children}
+          {hookChild}
+        </VideoProvider>
+      );
+      const { unmount } = renderHook(useVideoContext, { wrapper });
+      const calls = (useHandleRoomDisconnection as jest.Mock).mock.calls;
+      return { unmount, onDisconnectError: calls[calls.length - 1][1] as (error: TwilioError) => void };
+    }
+
+    beforeEach(() => jest.clearAllMocks());
+    afterAll(() => mockUseAppState.mockImplementation(() => ({ isGalleryViewActive: false })));
+
+    it.each([
+      ['student', 'student-bob'],
+      ['teacher', 'Ana [Profesor]'],
+    ])('clears the rejoin session and reports the error to a %s', (_, identity) => {
+      const onError = jest.fn();
+      const { unmount, onDisconnectError } = renderProvider(identity, onError);
+
+      mockRoom.emit('disconnected', mockRoom, replaced);
+      onDisconnectError(replaced);
+
+      expect(clearRejoinSession).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledWith(replaced);
+      expect(setEnded).not.toHaveBeenCalled();
+      unmount();
+    });
+
+    // The lobby mounts from a descendant's 'disconnected' listener (useRoomState) and useAutoRejoin
+    // reads the session there, so clearing any later would let this tab reconnect and kick the newer one.
+    it('clears the session before any descendant hears the disconnection', () => {
+      let clearsSeenByDescendant = -1;
+      const Descendant = () => {
+        useEffect(() => {
+          const listener = () => {
+            clearsSeenByDescendant = (clearRejoinSession as jest.Mock).mock.calls.length;
+          };
+          mockRoom.on('disconnected', listener);
+          return () => {
+            mockRoom.off('disconnected', listener);
+          };
+        }, []);
+        return null;
+      };
+      const { unmount } = renderProvider('student-bob', jest.fn(), <Descendant />);
+
+      mockRoom.emit('disconnected', mockRoom, replaced);
+
+      expect(clearsSeenByDescendant).toBe(1);
+      unmount();
+    });
+
+    it('keeps the rejoin session on any other disconnection', () => {
+      const { unmount } = renderProvider('student-bob', jest.fn());
+
+      mockRoom.emit('disconnected', mockRoom, { code: 53000, message: 'Signaling connection error' });
+      mockRoom.emit('disconnected', mockRoom);
+
+      expect(clearRejoinSession).not.toHaveBeenCalled();
+      unmount();
     });
   });
 });

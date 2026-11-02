@@ -257,6 +257,7 @@ const entryFlow = {
         'The browser blocked access to the camera or microphone. Click the camera icon (to the left of the address bar), allow access and try again.',
       deviceInUse: 'The camera could not be started. Close other apps or tabs that are using it and try again.',
       deviceNotFound: 'No camera or microphone was found. Connect a device and try again.',
+      replacedByNewerConnection: 'You joined this class from another tab or device, so this connection was closed.',
     },
     roomOwnerLookupFailed: 'We could not verify your role in the room.',
     auth: {

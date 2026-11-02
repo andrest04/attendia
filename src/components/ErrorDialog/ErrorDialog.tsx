@@ -5,7 +5,7 @@ import DialogContent from '@material-ui/core/DialogContent';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContentText from '@material-ui/core/DialogContentText';
-import enhanceMessage from './enhanceMessage';
+import enhanceMessage, { DUPLICATE_IDENTITY_ERROR_CODE } from './enhanceMessage';
 import { TwilioError } from 'twilio-video';
 import { useTranslation } from 'react-i18next';
 import { ClientApiError } from '../../state/useFirebaseAuth/apiClient';
@@ -26,7 +26,8 @@ function ErrorDialog({ dismissError, error }: PropsWithChildren<ErrorDialogProps
       <DialogTitle>{t('dialog.title')}</DialogTitle>
       <DialogContent>
         <DialogContentText>{enhancedMessage}</DialogContentText>
-        {Boolean(code) && (
+        {/* A replaced connection is an expected outcome, fully explained by the message. */}
+        {Boolean(code) && code !== DUPLICATE_IDENTITY_ERROR_CODE && (
           <pre>
             <code>{t('dialog.errorCode', { code })}</code>
           </pre>

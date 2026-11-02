@@ -264,6 +264,8 @@ const entryFlow = {
       deviceInUse:
         'No se pudo iniciar la cámara. Cierra otras aplicaciones o pestañas que la estén usando y vuelve a intentar.',
       deviceNotFound: 'No se encontró una cámara o un micrófono. Conecta un dispositivo y vuelve a intentar.',
+      replacedByNewerConnection:
+        'Entraste a esta clase desde otra pestaña o dispositivo, así que esta conexión se cerró.',
     },
     roomOwnerLookupFailed: 'No pudimos verificar tu rol en la sala.',
     auth: {

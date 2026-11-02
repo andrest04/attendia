@@ -110,6 +110,15 @@ describe('the ErrorDialog component', () => {
     );
   });
 
+  it('names the other tab or device and hides the raw code when a newer connection replaced this one', () => {
+    const error = { message: 'Participant disconnected because of duplicate identity', code: 53205 } as TwilioError;
+    const wrapper = shallow(<ErrorDialog dismissError={() => {}} error={error} />);
+    expect(wrapper.find(DialogContentText).text()).toBe(
+      'Entraste a esta clase desde otra pestaña o dispositivo, así que esta conexión se cerró.'
+    );
+    expect(wrapper.find('code').exists()).toBe(false);
+  });
+
   it('should invoke dismissError prop when the user clicks on OK button', () => {
     const error = { message, code } as TwilioError;
     const dismissError = jest.fn();
